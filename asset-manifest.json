@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.a36e894b.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.341886e2.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.f15f22fb.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.a8c40c00.js",
     "static/js/239.f3ecdb92.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js",
     "static/js/977.33ed990a.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/977.33ed990a.chunk.js",
     "static/js/455.fc48c724.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js",
@@ -11,15 +11,17 @@
     "static/media/CentraNo2-Bold.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Bold.2faff7f7d3fc92a2fcd9.ttf",
     "static/media/CentraNo2-Medium.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Medium.f94be5b326d78bb32b95.ttf",
     "static/media/CentraNo2-Book.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Book.2b143fa4b734a3584043.ttf",
+    "static/media/pdf_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/pdf_icon.a3f61bfb39aceb4b1707.jpg",
+    "static/media/excel_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/excel_icon.7c21dc19d46aab33d358.jpg",
     "static/media/logo.jpg": "/OopsOutSepticTankYServicesAruba/static/media/logo.ae351a2518773c8668e4.jpg",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.a36e894b.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.a36e894b.css.map",
-    "main.341886e2.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.341886e2.js.map",
+    "main.f15f22fb.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.f15f22fb.css.map",
+    "main.a8c40c00.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.a8c40c00.js.map",
     "239.f3ecdb92.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js.map",
     "455.fc48c724.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.a36e894b.css",
-    "static/js/main.341886e2.js"
+    "static/css/main.f15f22fb.css",
+    "static/js/main.a8c40c00.js"
   ]
 }
