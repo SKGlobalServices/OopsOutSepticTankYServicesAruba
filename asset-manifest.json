@@ -1,27 +1,36 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.c26c8fc5.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.7abc30e4.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.7020d1a9.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.dd56676f.js",
     "static/js/239.f3ecdb92.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js",
     "static/js/977.33ed990a.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/977.33ed990a.chunk.js",
     "static/js/455.fc48c724.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js",
-    "static/media/filters_icon.png": "/OopsOutSepticTankYServicesAruba/static/media/filters_icon.ec2f512bc54a5bb062bb.png",
     "static/media/background.png": "/OopsOutSepticTankYServicesAruba/static/media/background.b31169fcdb9d322af833.png",
+    "static/media/servicioPasadoMananaIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioPasadoMananaIcon.4d8ca6de20bbe07e18a8.jpg",
+    "static/media/informeEfectivoIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/informeEfectivoIcon.a3dc6973676e6c3b280c.jpg",
     "static/media/iconeye.jpg": "/OopsOutSepticTankYServicesAruba/static/media/iconeye.ad44a731dd56d3309e79.jpg",
-    "static/media/excel_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/excel_icon.e7aac33700483ad7adbd.jpg",
+    "static/media/clientesIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/clientesIcon.7ce5eeba72e22e69c602.jpg",
     "static/media/CentraNo2-Bold.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Bold.2faff7f7d3fc92a2fcd9.ttf",
+    "static/media/servicioMananaIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioMananaIcon.77531f0406960b54e3c3.jpg",
     "static/media/CentraNo2-Medium.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Medium.f94be5b326d78bb32b95.ttf",
+    "static/media/excel_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/excel_icon.c957a6681a4fe4d97e9f.jpg",
+    "static/media/reprogramacionIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/reprogramacionIcon.8703921e938e1874377e.jpg",
     "static/media/CentraNo2-Book.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Book.2b143fa4b734a3584043.ttf",
-    "static/media/pdf_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/pdf_icon.893edfefdbddc31dfc1f.jpg",
+    "static/media/pdf_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/pdf_icon.561433d01fc95dd77c93.jpg",
+    "static/media/servicioHoyIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioHoyIcon.932576aaaac8428d4c42.jpg",
+    "static/media/configuracionUsuariosIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/configuracionUsuariosIcon.dec80c144a0ed6789814.jpg",
+    "static/media/agendaDinamicaIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/agendaDinamicaIcon.4ae4e9c4f4944f05aae2.jpg",
+    "static/media/logoutIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/logoutIcon.4cd0d3461523c94ab90d.jpg",
+    "static/media/filters_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/filters_icon.5e8b4eddfcc47788601e.jpg",
     "static/media/logo.jpg": "/OopsOutSepticTankYServicesAruba/static/media/logo.ae351a2518773c8668e4.jpg",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.c26c8fc5.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.c26c8fc5.css.map",
-    "main.7abc30e4.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.7abc30e4.js.map",
+    "main.7020d1a9.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.7020d1a9.css.map",
+    "main.dd56676f.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.dd56676f.js.map",
     "239.f3ecdb92.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js.map",
     "455.fc48c724.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.c26c8fc5.css",
-    "static/js/main.7abc30e4.js"
+    "static/css/main.7020d1a9.css",
+    "static/js/main.dd56676f.js"
   ]
 }
