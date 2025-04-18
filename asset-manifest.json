@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.32fd8e3c.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.8f3ccdd8.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.71bedb26.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.62848937.js",
     "static/js/239.f3ecdb92.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js",
     "static/js/977.33ed990a.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/977.33ed990a.chunk.js",
     "static/js/455.fc48c724.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js",
@@ -35,13 +35,13 @@
     "static/media/filters_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/filters_icon.5e8b4eddfcc47788601e.jpg",
     "static/media/logo.jpg": "/OopsOutSepticTankYServicesAruba/static/media/logo.ae351a2518773c8668e4.jpg",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.32fd8e3c.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.32fd8e3c.css.map",
-    "main.8f3ccdd8.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.8f3ccdd8.js.map",
+    "main.71bedb26.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.71bedb26.css.map",
+    "main.62848937.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.62848937.js.map",
     "239.f3ecdb92.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/239.f3ecdb92.chunk.js.map",
     "455.fc48c724.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/455.fc48c724.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.32fd8e3c.css",
-    "static/js/main.8f3ccdd8.js"
+    "static/css/main.71bedb26.css",
+    "static/js/main.62848937.js"
   ]
 }
