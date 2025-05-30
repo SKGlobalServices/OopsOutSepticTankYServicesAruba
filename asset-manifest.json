@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.4898ae9f.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.95bfb158.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.341bd4eb.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.e10dc944.js",
     "static/js/361.be0d1f04.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js",
     "static/js/673.74e5dd47.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/673.74e5dd47.chunk.js",
     "static/js/767.31191c6d.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/767.31191c6d.chunk.js",
@@ -19,6 +19,7 @@
     "static/media/excel_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/excel_icon.c957a6681a4fe4d97e9f.jpg",
     "static/media/CentraNo2-Book.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Book.2b143fa4b734a3584043.ttf",
     "static/media/pdf_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/pdf_icon.561433d01fc95dd77c93.jpg",
+    "static/media/guardarfactura_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/guardarfactura_icon.44575958d62580119a8f.jpg",
     "static/media/servicioMananaIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioMananaIcon.b08bcd4adc6dd09e84ab.jpg",
     "static/media/servicioHoyIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioHoyIcon.21758e3cb563e009107b.jpg",
     "static/media/informeEfectivoIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/informeEfectivoIcon2.08461b0fca0dc57bb3b9.png",
@@ -39,14 +40,15 @@
     "static/media/logoutIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/logoutIcon2.db0be23948997b4942da.png",
     "static/media/agendaDinamicaIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/agendaDinamicaIcon2.eeb9485ebf484bbf5210.png",
     "static/media/lock_on.png": "/OopsOutSepticTankYServicesAruba/static/media/lock_on.7dfc5090dae103303504.png",
+    "static/media/agendamientosfuturos_icon.png": "/OopsOutSepticTankYServicesAruba/static/media/agendamientosfuturos_icon.04267b5cf4b647977e98.png",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.4898ae9f.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.4898ae9f.css.map",
-    "main.95bfb158.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.95bfb158.js.map",
+    "main.341bd4eb.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.341bd4eb.css.map",
+    "main.e10dc944.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.e10dc944.js.map",
     "361.be0d1f04.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js.map",
     "767.31191c6d.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/767.31191c6d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.4898ae9f.css",
-    "static/js/main.95bfb158.js"
+    "static/css/main.341bd4eb.css",
+    "static/js/main.e10dc944.js"
   ]
 }
