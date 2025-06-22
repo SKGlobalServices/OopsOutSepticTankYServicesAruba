@@ -1,12 +1,12 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.7c5350d2.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.af2bccc2.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.57f5301d.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.0dfea2e5.js",
     "static/js/361.be0d1f04.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js",
     "static/js/673.74e5dd47.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/673.74e5dd47.chunk.js",
     "static/js/767.31191c6d.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/767.31191c6d.chunk.js",
     "static/media/background.png": "/OopsOutSepticTankYServicesAruba/static/media/background.eb73f45ee6cecd0aa928.png",
-    "static/media/logo.png": "/OopsOutSepticTankYServicesAruba/static/media/logo.56231c14a0e1ed0edc0c.png",
+    "static/media/logo.png": "/OopsOutSepticTankYServicesAruba/static/media/logo.1e56a67ef92f97782d15.png",
     "static/media/informeEfectivoIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/informeEfectivoIcon.69b1ca1120e3e2bc1dc1.jpg",
     "static/media/agendarIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/agendarIcon.d40f9ce673352fae3c9d.jpg",
     "static/media/reprogramacionIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/reprogramacionIcon.26e6e1e1871880fb741f.jpg",
@@ -42,13 +42,13 @@
     "static/media/lock_on.png": "/OopsOutSepticTankYServicesAruba/static/media/lock_on.7dfc5090dae103303504.png",
     "static/media/agendamientosfuturos_icon.png": "/OopsOutSepticTankYServicesAruba/static/media/agendamientosfuturos_icon.04267b5cf4b647977e98.png",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.7c5350d2.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.7c5350d2.css.map",
-    "main.af2bccc2.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.af2bccc2.js.map",
+    "main.57f5301d.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.57f5301d.css.map",
+    "main.0dfea2e5.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.0dfea2e5.js.map",
     "361.be0d1f04.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js.map",
     "767.31191c6d.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/767.31191c6d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.7c5350d2.css",
-    "static/js/main.af2bccc2.js"
+    "static/css/main.57f5301d.css",
+    "static/js/main.0dfea2e5.js"
   ]
 }
