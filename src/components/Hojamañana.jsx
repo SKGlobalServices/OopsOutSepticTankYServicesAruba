@@ -1,68 +1,76 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { database } from "./firebaseConfig";
+import { database } from "../Database/firebaseConfig";
 import { ref, set, push, remove, update, onValue } from "firebase/database";
-import TransferData2 from "./Transferdata2";
-import logo from "../assets/img/logo.jpg";
+import Swal from "sweetalert2";
+import ExcelJS from "exceljs";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // Importamos autoTable
+import filtericon from "../assets/img/filters_icon.jpg";
+import excel_icon from "../assets/img/excel_icon.jpg";
+import pdf_icon from "../assets/img/pdf_icon.jpg";
+import Slidebar from "./Slidebar";
+import Select from "react-select";
 
 const Hojamañana = () => {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user"));
-  const [data, setHojamañana] = useState([]);
+  const [data, setData] = useState([]);
+  const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
-  const [showSidebar, setShowSidebar] = useState(false);
-  const sidebarRef = useRef(null);
-
-  const [currentDateTime, setCurrentDateTime] = useState({
-    date: new Date().toLocaleDateString(),
-    time: new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }),
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const slidebarRef = useRef(null);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const filterSlidebarRef = useRef(null);
+  const [filters, setFilters] = useState({
+    realizadopor: [],
+    anombrede: [],
+    direccion: [],
+    servicio: [],
+    cubicos: [],
+    valor: [],
+    pago: [],
+    formadepago: [],
+    metododepago: [],
+    efectivo: [],
+    factura: "",
   });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentDateTime({
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        }),
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/");
-  };
-
-  useEffect(() => {
-    if (!user || user.role !== "admin") {
-      navigate("/homepageuser");
-    }
-  }, [user, navigate]);
-
+  // Cargar la rama "hojamañana"
   useEffect(() => {
     const dbRef = ref(database, "hojamañana");
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
-        const fetchedHojamañana = Object.entries(snapshot.val());
-        setHojamañana(fetchedHojamañana);
+        const fetchedData = Object.entries(snapshot.val());
+        fetchedData.sort(([idA, itemA], [idB, itemB]) => {
+          if (!itemA.realizadopor) return -1;
+          if (!itemB.realizadopor) return 1;
+          return itemA.realizadopor.localeCompare(itemB.realizadopor);
+        });
+        setData(fetchedData);
       } else {
-        setHojamañana([]);
+        setData([]);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
+  // Cargar "users" (excluyendo administradores y contadores)
+  useEffect(() => {
+    const dbRef = ref(database, "users");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetchedUsers = Object.entries(snapshot.val())
+          .filter(([_, user]) => user.role !== "admin")
+          .filter(([_, user]) => user.role !== "contador")
+          .map(([id, user]) => ({ id, name: user.name }));
+        fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
+        setUsers(fetchedUsers);
+      } else {
+        setUsers([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Cargar "clientes"
   useEffect(() => {
     const dbRef = ref(database, "clientes");
     const unsubscribe = onValue(dbRef, (snapshot) => {
@@ -72,6 +80,8 @@ const Hojamañana = () => {
             id,
             direccion: client.direccion,
             cubicos: client.cubicos,
+            valor: client.valor,
+            anombrede: client.anombrede,
           })
         );
         setClients(fetchedClients);
@@ -79,17 +89,105 @@ const Hojamañana = () => {
         setClients([]);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
+  // Sincronizar registros: si el campo "realizadopor" contiene un nombre en vez de un id,
+  // se busca el usuario correspondiente y se actualiza el registro.
+  useEffect(() => {
+    if (users.length === 0) return;
+    data.forEach(([id, item]) => {
+      if (item.realizadopor && !users.some((u) => u.id === item.realizadopor)) {
+        const matchedUser = users.find(
+          (u) =>
+            u.name.toLowerCase() === item.realizadopor.toString().toLowerCase()
+        );
+        if (matchedUser) {
+          handleFieldChange(id, "realizadopor", matchedUser.id);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, data]);
+
+  // Opciones para los filtros
+  const realizadoporOptions = users.map((u) => ({
+    value: u.id,
+    label: u.name,
+  }));
+
+  const anombredeOptions = Array.from(
+    new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const direccionOptions = Array.from(
+    new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const servicioOptions = Array.from(
+    new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const cubicosOptions = Array.from(
+    new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  const valorOptions = Array.from(
+    new Set(data.map(([_, item]) => item.valor).filter(Boolean))
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  const pagoOptions = Array.from(
+    new Set(data.map(([_, item]) => item.pago).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const formadePagoOptions = Array.from(
+    new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const metodoPagoOptions = Array.from(
+    new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const efectivoOptions = Array.from(
+    new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
+  const reorderData = (sinRealizadopor, conRealizadopor) => [
+    ...sinRealizadopor,
+    ...conRealizadopor.sort(([, a], [, b]) =>
+      a.realizadopor.localeCompare(b.realizadopor)
+    ),
+  ];
+
+  // Función para agregar un nuevo servicio
   const addData = async (
+    realizadopor,
     anombrede,
     direccion,
     servicio,
     cubicos,
     valor,
     pago,
+    formadepago,
     notas,
     metododepago,
     efectivo,
@@ -97,218 +195,632 @@ const Hojamañana = () => {
   ) => {
     const dbRef = ref(database, "hojamañana");
     const newDataRef = push(dbRef);
-
-    await set(newDataRef, {
+    const newData = {
+      realizadopor,
       anombrede,
       direccion,
       servicio,
       cubicos,
       valor,
       pago,
+      formadepago,
       notas,
       metododepago,
       efectivo,
       factura,
-    }).catch((error) => {
-      console.error("Error adding data: ", error);
-    });
+    };
+    // Guarda en Firebase
+    await set(newDataRef, newData).catch(console.error);
 
-    // Sincronizar con "clientes"
-    syncWithClients(direccion, cubicos);
+    // 1) Separa tu estado actual en vacíos y con valor
+    const sin = data.filter(([, it]) => !it.realizadopor);
+    const con = data.filter(([, it]) => !!it.realizadopor);
+
+    // 2) Inserta el nuevo al inicio de los vacíos
+    const sinActualizado = [[newDataRef.key, newData], ...sin];
+
+    // 3) Reordena y actualiza estado
+    setData(reorderData(sinActualizado, con));
   };
 
+  // Función para actualizar campos en Firebase
+  // Se modificó para aceptar un objeto de campos cuando se requiera actualizar más de uno a la vez.
+  // Dentro de tu componente...
+
+  // 1) handleFieldChange: ajustado para el flujo deseado
   const handleFieldChange = (id, field, value) => {
-    const dbRef = ref(database, `hojamañana/${id}`);
-    update(dbRef, { [field]: value }).catch((error) => {
-      console.error("Error updating data: ", error);
-    });
+    // actualizamos el campo en hojamañana
+    const safeValue = value == null ? "" : value;
+    const dbRefItem = ref(database, `hojamañana/${id}`);
+    update(dbRefItem, { [field]: safeValue }).catch(console.error);
 
-    // Actualizar cúbicos automáticamente cuando cambia la dirección
-    if (field === "direccion") {
-      const matchingClient = clients.find(
-        (client) => client.direccion === value
+    // actualizamos estado local y reordenamos
+    setData((d) => {
+      // 1) Reemplazamos el elemento modificado
+      const updated = d.map(([iid, it]) =>
+        iid === id ? [iid, { ...it, [field]: safeValue }] : [iid, it]
       );
-      if (matchingClient) {
-        handleFieldChange(id, "cubicos", matchingClient.cubicos);
+
+      // 2) Separamos:
+      const sinRealizadopor = updated.filter(([, it]) => !it.realizadopor);
+      const conRealizadopor = updated
+        .filter(([, it]) => !!it.realizadopor)
+        .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
+
+      // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
+      return [...sinRealizadopor, ...conRealizadopor];
+    });
+
+    // --- Lógica específica para servicio ---
+    if (field === "servicio") {
+      // solo si se asignó un servicio no vacío
+      if (safeValue) {
+        const item = data.find(([iid]) => iid === id)[1];
+        const direccion = item.direccion;
+        if (direccion) {
+          const existing = clients.find((c) => c.direccion === direccion);
+          if (!existing) {
+            // insertar nuevo cliente
+            const newClientRef = push(ref(database, "clientes"));
+            set(newClientRef, {
+              direccion,
+              cubicos:
+                item.cubicos != null && item.cubicos !== ""
+                  ? item.cubicos
+                  : null,
+            }).catch(console.error);
+          }
+          // luego, cargar cubicos desde clientes (si existe)
+          loadClientFields(direccion, id);
+        }
+      } else {
+        // si quitan el servicio, limpiamos cubicos en hojamañana
+        handleFieldChange(id, "cubicos", "");
       }
     }
 
-    // Sincronizar cambios en cúbicos hacia "clientes"
-    if (field === "cubicos") {
-      const dataItem = data.find(([itemId]) => itemId === id);
-      if (dataItem) {
-        const [, item] = dataItem;
-        syncWithClients(item.direccion, value);
-      }
+    // --- Lógica específica para direccion ---
+    if (field === "direccion") {
+      // al cambiar dirección, siempre recargamos cubicos desde clientes
+      loadClientFields(safeValue, id);
     }
   };
 
-  const syncWithClients = (direccion, cubicos) => {
-    // Verificar si el cliente ya existe en "clientes"
-    const existingClient = clients.find(
-      (client) => client.direccion === direccion
-    );
-
-    if (existingClient) {
-      // Actualizar los cúbicos si es necesario
-      if (existingClient.cubicos !== cubicos) {
-        const clientRef = ref(database, `clientes/${existingClient.id}`);
-        update(clientRef, { cubicos }).catch((error) => {
-          console.error("Error updating client: ", error);
-        });
-      }
+  // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
+  const loadClientFields = (direccion, dataId) => {
+    const cli = clients.find((c) => c.direccion === direccion);
+    const dbRefItem = ref(database, `data/${dataId}`);
+    if (cli) {
+      // si existe el cliente, actualiza cubicos, valor y anombrede
+      update(dbRefItem, {
+        cubicos: cli.cubicos ?? 0,
+        valor: cli.valor ?? 0,
+        anombrede: cli.anombrede ?? "",
+      }).catch(console.error);
+      setData((d) =>
+        d.map(([iid, it]) =>
+          iid === dataId
+            ? [
+                iid,
+                {
+                  ...it,
+                  cubicos: cli.cubicos,
+                  valor: cli.valor,
+                  anombrede: cli.anombrede,
+                },
+              ]
+            : [iid, it]
+        )
+      );
     } else {
-      // Agregar un nuevo cliente si no existe
-      addClient(direccion, cubicos);
+      // si no existe, limpia los tres campos
+      update(dbRefItem, { cubicos: "", valor: "", anombrede: "" }).catch(
+        console.error
+      );
+      setData((d) =>
+        d.map(([iid, it]) =>
+          iid === dataId
+            ? [iid, { ...it, cubicos: "", valor: "", anombrede: "" }]
+            : [iid, it]
+        )
+      );
     }
   };
 
-  const addClient = (direccion, cubicos) => {
-    const dbRef = ref(database, "clientes");
-    const newClientRef = push(dbRef);
-
-    set(newClientRef, { direccion, cubicos }).catch((error) => {
-      console.error("Error adding client: ", error);
-    });
-  };
-
+  // Función para borrar un servicio
   const deleteData = (id) => {
-    const dbRef = ref(database, `hojamañana/${id}`);
-    remove(dbRef).catch((error) => {
-      console.error("Error deleting data: ", error);
-    });
+    const dbRefItem = ref(database, `hojamañana/${id}`);
+    remove(dbRefItem).catch(console.error);
+
+    // 1) Filtra el estado actual para eliminar el id
+    const remaining = data.filter(([itemId]) => itemId !== id);
+
+    // 2) Separa vacíos y con valor
+    const sin = remaining.filter(([, it]) => !it.realizadopor);
+    const con = remaining.filter(([, it]) => !!it.realizadopor);
+
+    // 3) Reordena y actualiza estado
+    setData(reorderData(sin, con));
   };
 
-  const toggleSidebar = () => setShowSidebar(!showSidebar);
+  const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
+  const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
 
   const handleClickOutside = (e) => {
     if (
-      sidebarRef.current &&
-      !sidebarRef.current.contains(e.target) &&
-      !e.target.closest(".show-sidebar-button")
+      slidebarRef.current &&
+      !slidebarRef.current.contains(e.target) &&
+      !e.target.closest(".show-slidebar-button")
     ) {
-      setShowSidebar(false);
+      setShowSlidebar(false);
     }
   };
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const capitalizeWords = (str) => {
-    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
-  };
+  useEffect(() => {
+    const handleClickOutsideFilter = (e) => {
+      if (
+        filterSlidebarRef.current &&
+        !filterSlidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-filter-slidebar-button")
+      ) {
+        setShowFilterSlidebar(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutsideFilter);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideFilter);
+  }, []);
 
   const getRowClass = (metodoPago) => {
-    if (metodoPago === "efectivo") {
-      return "efectivo";
-    } else if (metodoPago === "cancelado") {
-      return "cancelado";
-    } else if (metodoPago === "credito") {
-      return "credito";
-    }
+    if (metodoPago === "efectivo") return "efectivo";
+    else if (metodoPago === "cancelado") return "cancelado";
+    else if (metodoPago === "credito") return "credito";
     return "";
   };
 
-  const isEfectivoDisabled = (metodoPago) => {
-    return metodoPago === "cancelado" || metodoPago === "credito";
+  // Función que dado un id de usuario retorna su nombre
+  const getUserName = (userId) => {
+    const found = users.find((u) => u.id === userId);
+    return found ? found.name : "";
   };
+
+  // Para exportar XLSX, se mapea el id de "realizadopor" al nombre correspondiente
+  const generateXLSX = async () => {
+    const exportData = filteredData.map(([id, item]) => ({
+      "Realizado Por": getUserName(item.realizadopor) || "",
+      "A Nombre De": item.anombrede || "",
+      Dirección: item.direccion || "",
+      Servicio: item.servicio || "",
+      Cúbicos: item.cubicos || "",
+      Valor: item.valor || "",
+      Pago: item.pago || "",
+      "Forma De Pago": item.formadepago || "",
+      Notas: item.notas || "",
+      "Método de Pago": item.metododepago || "",
+      Efectivo: item.efectivo || "",
+      Factura: item.factura ? "Sí" : "No",
+    }));
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Data");
+
+    const headers = [
+      "Realizado Por",
+      "A Nombre De",
+      "Dirección",
+      "Servicio",
+      "Cúbicos",
+      "Valor",
+      "Pago",
+      "Forma De Pago",
+      "Notas",
+      "Método de Pago",
+      "Efectivo",
+      "Factura",
+    ];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4F81BD" },
+      };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    worksheet.columns = [
+      { width: 20 },
+      { width: 20 },
+      { width: 30 },
+      { width: 18 },
+      { width: 12 },
+      { width: 12 },
+      { width: 16 },
+      { width: 18 },
+      { width: 15 },
+      { width: 18 },
+      { width: 12 },
+      { width: 12 },
+    ];
+
+    exportData.forEach((rowData) => {
+      const row = worksheet.addRow(Object.values(rowData));
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Servicios De Mañana.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Función para generar PDF usando jsPDF y autoTable
+  const generatePDF = () => {
+    const doc = new jsPDF("p", "mm", "a4");
+    doc.setFontSize(16);
+    doc.text("Servicios De Mañana", 105, 20, { align: "center" });
+    doc.setFontSize(10);
+    const headers = [
+      [
+        "Realizado Por",
+        "A Nombre De",
+        "Dirección",
+        "Servicio",
+        "Cúbicos",
+        "Valor",
+        "Pago",
+        "Forma de pago",
+        "Notas",
+        "Método de Pago",
+        "Efectivo",
+        "Factura",
+      ],
+    ];
+    const dataRows = filteredData.map(([id, item]) => [
+      getUserName(item.realizadopor) || "",
+      item.anombrede || "",
+      item.direccion || "",
+      item.servicio || "",
+      item.cubicos || "",
+      item.valor || "",
+      item.pago || "",
+      item.formadepago || "",
+      item.notas || "",
+      item.metododepago || "",
+      item.efectivo || "",
+      item.factura ? "Sí" : "No",
+    ]);
+
+    autoTable(doc, {
+      head: headers,
+      body: dataRows,
+      startY: 30,
+      theme: "grid",
+      headStyles: { fillColor: [79, 129, 189], textColor: [255, 255, 255] },
+      styles: { fontSize: 8 },
+      margin: { top: 30, left: 10, right: 10 },
+    });
+    doc.save("Servicios De Mañana.pdf");
+  };
+
+  // Filtrado de la data según los filtros establecidos
+  const filteredData = data.filter(([_, item]) => {
+    const matchMulti = (filterArr, field) =>
+      filterArr.length === 0 ||
+      filterArr.some((f) => {
+        // para numéricos, comparamos string con item[field]
+        return (
+          item[field]?.toString().toLowerCase() ===
+          f.value.toString().toLowerCase()
+        );
+      });
+
+    if (!matchMulti(filters.realizadopor, "realizadopor")) return false;
+    if (!matchMulti(filters.anombrede, "anombrede")) return false;
+    if (!matchMulti(filters.direccion, "direccion")) return false;
+    if (!matchMulti(filters.servicio, "servicio")) return false;
+    if (!matchMulti(filters.cubicos, "cubicos")) return false;
+    if (!matchMulti(filters.valor, "valor")) return false;
+    if (!matchMulti(filters.pago, "pago")) return false;
+    if (!matchMulti(filters.formadepago, "formadepago")) return false;
+    if (!matchMulti(filters.metododepago, "metododepago")) return false;
+    if (!matchMulti(filters.efectivo, "efectivo")) return false;
+
+    // Factura (single)
+    if (
+      filters.factura !== "" &&
+      Boolean(item.factura) !== (filters.factura === "true")
+    )
+      return false;
+
+    return true;
+  });
 
   return (
     <div className="homepage-container">
-      <TransferData2 />
-      <button className="show-sidebar-button" onClick={toggleSidebar}>
-        ☰
-      </button>
-      <div ref={sidebarRef} className={`sidebar ${showSidebar ? "show" : ""}`}>
-        <div>
-          <h1>
-            <img
-              src={logo}
-              alt="Logo"
-              id="logologin"
-              className="logo-slidebar"
-            />
+      <Slidebar />
+
+      <div onClick={toggleFilterSlidebar}>
+        <img
+          src={filtericon}
+          className="show-filter-slidebar-button"
+          alt="Filtros"
+        />
+      </div>
+      <div
+        ref={filterSlidebarRef}
+        className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
+      >
+        <h2>Filtros</h2>
+
+        {/** Realizado Por **/}
+        <label>Realizado Por</label>
+        <Select
+          isClearable
+          isMulti
+          options={realizadoporOptions}
+          value={filters.realizadopor}
+          onChange={(opts) =>
+            setFilters({ ...filters, realizadopor: opts || [] })
+          }
+          placeholder="Selecciona usuario(s)..."
+        />
+
+        {/** A Nombre De **/}
+        <label>A Nombre De</label>
+        <Select
+          isClearable
+          isMulti
+          options={anombredeOptions}
+          value={filters.anombrede}
+          onChange={(opts) => setFilters({ ...filters, anombrede: opts || [] })}
+          placeholder="Selecciona nombre(s)..."
+        />
+
+        {/** Dirección **/}
+        <label>Dirección</label>
+        <Select
+          isClearable
+          isMulti
+          options={direccionOptions}
+          value={filters.direccion}
+          onChange={(opts) => setFilters({ ...filters, direccion: opts || [] })}
+          placeholder="Selecciona dirección(es)..."
+        />
+
+        {/** Servicio **/}
+        <label>Servicio</label>
+        <Select
+          isClearable
+          isMulti
+          options={servicioOptions}
+          value={filters.servicio}
+          onChange={(opts) => setFilters({ ...filters, servicio: opts || [] })}
+          placeholder="Selecciona servicio(s)..."
+        />
+
+        {/** Cúbicos **/}
+        <label>Cúbicos</label>
+        <Select
+          isClearable
+          isMulti
+          options={cubicosOptions}
+          value={filters.cubicos}
+          onChange={(opts) => setFilters({ ...filters, cubicos: opts || [] })}
+          placeholder="Selecciona valor(es)..."
+        />
+
+        {/** Valor **/}
+        <label>Valor</label>
+        <Select
+          isClearable
+          isMulti
+          options={valorOptions}
+          value={filters.valor}
+          onChange={(opts) => setFilters({ ...filters, valor: opts || [] })}
+          placeholder="Selecciona valor(es)..."
+        />
+
+        {/** Pago **/}
+        <label>Pago</label>
+        <Select
+          isClearable
+          isMulti
+          options={pagoOptions}
+          value={filters.pago}
+          onChange={(opts) => setFilters({ ...filters, pago: opts || [] })}
+          placeholder="Selecciona estado(s)..."
+        />
+
+        {/** Forma De Pago **/}
+        <label>Forma de Pago</label>
+        <Select
+          isClearable
+          isMulti
+          options={formadePagoOptions}
+          value={filters.formadepago}
+          onChange={(opts) =>
+            setFilters({ ...filters, formadepago: opts || [] })
+          }
+          placeholder="Selecciona forma(s)..."
+        />
+
+        {/** Método de Pago **/}
+        <label>Método de Pago</label>
+        <Select
+          isClearable
+          isMulti
+          options={metodoPagoOptions}
+          value={filters.metododepago}
+          onChange={(opts) =>
+            setFilters({ ...filters, metododepago: opts || [] })
+          }
+          placeholder="Selecciona método(s)..."
+        />
+
+        {/** Efectivo **/}
+        <label>Efectivo</label>
+        <Select
+          isClearable
+          isMulti
+          options={efectivoOptions}
+          value={filters.efectivo}
+          onChange={(opts) => setFilters({ ...filters, efectivo: opts || [] })}
+          placeholder="Selecciona monto(s)..."
+        />
+
+        {/** Factura (single) **/}
+        <label>Factura</label>
+        <select
+          value={filters.factura}
+          onChange={(e) => setFilters({ ...filters, factura: e.target.value })}
+        >
+          <option value="">Todos</option>
+          <option value="true">Sí</option>
+          <option value="false">No</option>
+        </select>
+
+        <button
+          className="discard-filter-button"
+          onClick={() =>
+            setFilters({
+              realizadopor: [],
+              anombrede: [],
+              direccion: [],
+              servicio: [],
+              cubicos: [],
+              valor: [],
+              pago: [],
+              formadepago: [],
+              metododepago: [],
+              efectivo: [],
+              factura: "",
+            })
+          }
+        >
+          Descartar Filtros
+        </button>
+      </div>
+
+      <div className="homepage-title">
+        <div className="homepage-card" style={{ padding: "10px" }}>
+          <h1 className="title-page" style={{ marginBottom: "-18px" }}>
+            Servicios De Mañana
           </h1>
-        </div>
-        <div>
-          {user && user.name ? <p>Hola!, {user.name}</p> : <p>No user</p>}
-        </div>
-        <button className="menu-item" onClick={() => navigate("/homepage")}>
-          Servicios De Hoy
-        </button>
-        <button className="menu-item" onClick={() => navigate("/hojamañana")}>
-          Servicios De Mañana
-        </button>
-        <button className="menu-item" onClick={() => navigate("/hojadefechas")}>
-          Agenda Dinamica
-        </button>
-        <button className="menu-item" onClick={() => navigate("/clientes")}>
-          Clientes "Desarrollo"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Reprogramación Automatica "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Generar Informes "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Configuración "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={handleLogout}>
-          Logout
-        </button>
-        <div>
-          <p>© 2025 S&K Global Services</p>
+          <div className="current-date">
+            {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString()}
+          </div>
         </div>
       </div>
 
       <div className="homepage-card">
-        <h1 className="title-page">Servicios De Mañana</h1>
-        <div className="current-date">
-          <div>{currentDateTime.date}</div>
-          <div>{currentDateTime.time}</div>
-        </div>
-        <button
-          className="create-table-button"
-          onClick={() => addData("", "", "", "", "", "", "", "", "", "")}
-        >
-          Add New Data
-        </button>
         <div className="table-container">
           <table className="service-table">
             <thead>
               <tr>
+                <th>Realizado Por</th>
                 <th>A Nombre De</th>
-                <th>Dirección-C1</th>
+                <th>Dirección</th>
                 <th>Sevicio</th>
-                <th>CúbicosC3</th>
+                <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Pago</th>
+                <th>Forma de Pago</th>
                 <th>Acciones</th>
-                <th>Notas-A.C2</th>
-                <th>Metodo De Pago-C5</th>
-                <th>Efectivo-C6</th>
-                <th>Factura-C7</th>
+                <th
+                  style={{
+                    backgroundColor: "#6200ffb4",
+                  }}
+                >
+                  Notas
+                </th>
+                <th
+                  style={{
+                    backgroundColor: "#6200ffb4",
+                  }}
+                >
+                  Método De Pago
+                </th>
+                <th
+                  style={{
+                    backgroundColor: "#6200ffb4",
+                  }}
+                >
+                  Efectivo
+                </th>
+                <th
+                  style={{
+                    backgroundColor: "#6200ffb4",
+                  }}
+                >
+                  Factura
+                </th>
               </tr>
             </thead>
             <tbody>
-              {data && data.length > 0 ? (
-                data.map(([id, item]) => {
+              {filteredData && filteredData.length > 0 ? (
+                filteredData.map(([id, item]) => {
                   const rowClass = getRowClass(item.metododepago);
-
                   return (
                     <tr key={id} className={rowClass}>
+                      {/* Select para "Realizado Por" */}
+                      <td style={{ minWidth: "26ch" }}>
+                        <select
+                          style={{ width: "24ch" }}
+                          value={item.realizadopor || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              id,
+                              "realizadopor",
+                              e.target.value
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td>
                         <input
                           type="text"
                           style={{
                             width: `${Math.max(
                               item.anombrede?.length || 1,
-                              15
+                              20
                             )}ch`,
                           }}
                           value={item.anombrede}
@@ -329,11 +841,7 @@ const Hojamañana = () => {
                             }}
                             value={item.direccion || ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                id,
-                                "direccion",
-                                capitalizeWords(e.target.value)
-                              )
+                              handleFieldChange(id, "direccion", e.target.value)
                             }
                             onFocus={(e) =>
                               e.target.setAttribute(
@@ -349,45 +857,54 @@ const Hojamañana = () => {
                             }
                             className="custom-select-input"
                           />
-                          <datalist id={`direccion-options-${id}`}>
+                          <datalist
+                            id={`direccion-options-${id}`}
+                            style={{
+                              height: "20px",
+                              maxHeight: "20px",
+                              overflowY: "auto",
+                            }}
+                          >
                             {Array.from(
                               new Set(
-                                clients // Cambiado para que use los datos de "clients" en lugar de "data"
-                                  .map((client) => client.direccion) // Obtener solo las direcciones de los clientes
-                                  .filter((direccion) => direccion) // Filtrar direcciones válidas
+                                clients
+                                  .map((client) => client.direccion)
+                                  .filter(Boolean)
                               )
-                            ).map((direccion, index) => (
-                              <option
-                                key={index}
-                                value={capitalizeWords(direccion)}
-                              >
-                                {capitalizeWords(direccion)}
-                              </option>
-                            ))}
+                            )
+                              .sort((a, b) => a.localeCompare(b))
+                              .map((direccion, index) => (
+                                <option key={index} value={direccion} />
+                              ))}
                           </datalist>
                         </div>
                       </td>
-
-                      <td>
+                      <td style={{ minWidth: "22ch" }}>
                         <select
                           value={item.servicio}
-                          style={{ width: "15ch" }}
+                          style={{ width: "22ch" }}
                           onChange={(e) =>
                             handleFieldChange(id, "servicio", e.target.value)
                           }
                         >
                           <option value=""></option>
-                          <option value="Servicio 1">Servicio 1</option>
-                          <option value="Servicio 2">Servicio 2</option>
-                          <option value="Servicio 3">Servicio 3</option>
-                          <option value="Servicio 4">Servicio 4</option>
-                          <option value="Servicio 5">Servicio 5</option>
+                          <option value="Poso">Poso</option>
+                          <option value="Tuberia">Tuberia</option>
+                          <option value="Poso + Tuberia">Poso + Tuberia</option>
+                          <option value="Poso + Grease Trap">
+                            Poso + Grease Trap
+                          </option>
+                          <option value="Tuberia + Grease Trap">
+                            Tuberia + Grease Trap
+                          </option>
+                          <option value="Grease Trap">Grease Trap</option>
+                          <option value="Water">Water</option>
                         </select>
                       </td>
                       <td>
                         <input
                           type="number"
-                          style={{ width: "12ch" }}
+                          style={{ width: "10ch", textAlign: "center" }}
                           value={item.cubicos}
                           onChange={(e) =>
                             handleFieldChange(id, "cubicos", e.target.value)
@@ -397,16 +914,21 @@ const Hojamañana = () => {
                       <td>
                         <input
                           type="number"
+                          style={{ width: "10ch", textAlign: "center" }}
                           value={item.valor}
-                          onChange={(e) =>
-                            handleFieldChange(id, "valor", e.target.value)
-                          }
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            handleFieldChange(id, "valor", newValue);
+                            if (item.metododepago === "efectivo") {
+                              handleFieldChange(id, "efectivo", newValue);
+                            }
+                          }}
                         />
                       </td>
                       <td>
                         <select
                           value={item.pago}
-                          style={{ width: "22ch" }}
+                          style={{ width: "12ch" }}
                           onChange={(e) =>
                             handleFieldChange(id, "pago", e.target.value)
                           }
@@ -415,17 +937,61 @@ const Hojamañana = () => {
                           <option value="Debe">Debe</option>
                           <option value="Pago">Pago</option>
                           <option value="Pendiente">Pendiente</option>
-                          <option value="Pendiente Fin De Mes">
-                            Pendiente Fin De Mes
-                          </option>
+                          <option value="Pendiente Fin De Mes">-</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={item.formadepago || ""}
+                          style={{ width: "15ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(id, "formadepago", e.target.value)
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Transferencia">Transferencia</option>
+                          <option value="Intercambio">Intercambio</option>
+                          <option value="Garantia">Garantia</option>
+                          <option value="Perdido">Perdido</option>
                         </select>
                       </td>
                       <td>
                         <button
                           className="delete-button"
-                          onClick={() => deleteData(id)}
+                          onClick={() => {
+                            Swal.fire({
+                              title: "¿Estás seguro de borrar este servicio?",
+                              text: "Esta acción no se puede deshacer",
+                              icon: "warning",
+                              showCancelButton: true,
+                              confirmButtonColor: "#d33",
+                              cancelButtonColor: "#3085d6",
+                              confirmButtonText: "Sí, borrar",
+                              cancelButtonText: "Cancelar",
+                              position: "center",
+                              backdrop: "rgba(0,0,0,0.4)",
+                              allowOutsideClick: false,
+                              allowEscapeKey: false,
+                              stopKeydownPropagation: false,
+                              heightAuto: false,
+                            }).then((result) => {
+                              if (result.isConfirmed) {
+                                deleteData(id);
+                                Swal.fire({
+                                  title: "¡Borrado!",
+                                  text: "El servicio ha sido eliminado.",
+                                  icon: "success",
+                                  position: "center",
+                                  backdrop: "rgba(0,0,0,0.4)",
+                                  timer: 2000,
+                                  showConfirmButton: false,
+                                });
+                              }
+                            });
+                          }}
                         >
-                          Delete
+                          Borrar
                         </button>
                       </td>
                       <td>
@@ -442,14 +1008,19 @@ const Hojamañana = () => {
                       </td>
                       <td>
                         <select
-                          value={item.metododepago}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              id,
-                              "metododepago",
-                              e.target.value
-                            )
-                          }
+                          value={item.metododepago || ""}
+                          onChange={(e) => {
+                            const metodoDePago = e.target.value;
+                            handleFieldChange(id, "metododepago", metodoDePago);
+                            // si quieres además sincronizar efectivo:
+                            if (metodoDePago === "efectivo") {
+                              handleFieldChange(
+                                id,
+                                "efectivo",
+                                item.valor || ""
+                              );
+                            }
+                          }}
                         >
                           <option value=""></option>
                           <option value="credito">Crédito</option>
@@ -460,18 +1031,24 @@ const Hojamañana = () => {
                       <td>
                         <input
                           type="number"
-                          style={{ width: "10ch" }}
+                          style={{ width: "12ch", textAlign: "center" }}
                           value={item.efectivo}
                           onChange={(e) =>
                             handleFieldChange(id, "efectivo", e.target.value)
                           }
-                          disabled={isEfectivoDisabled(item.metododepago)}
+                          disabled={item.metododepago !== "efectivo"}
                         />
                       </td>
-                      <td>
+                      <td style={{ cursor: "no-drop" }}>
                         <input
                           type="checkbox"
-                          style={{ width: "10ch" }}
+                          readOnly
+                          style={{
+                            width: "3ch",
+                            height: "3ch",
+                            marginLeft: "35%",
+                            pointerEvents: "none",
+                          }}
                           checked={item.factura === true}
                           onChange={(e) =>
                             handleFieldChange(id, "factura", e.target.checked)
@@ -483,13 +1060,25 @@ const Hojamañana = () => {
                 })
               ) : (
                 <tr className="no-data">
-                  <td colSpan="8">No data available</td>
+                  <td colSpan="12">No hay datos disponibles.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+      <button className="generate-button1" onClick={generateXLSX}>
+        <img className="generate-button-imagen1" src={excel_icon} />
+      </button>
+      <button className="generate-button2" onClick={generatePDF}>
+        <img className="generate-button-imagen2" src={pdf_icon} />
+      </button>
+      <button
+        className="create-table-button"
+        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "")}
+      >
+        +
+      </button>
     </div>
   );
 };

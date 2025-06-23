@@ -1,197 +1,468 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { ref, onValue } from "firebase/database";
-import { database } from "./firebaseConfig";
-import logo from "../assets/img/logo.jpg";
+import { database } from "../Database/firebaseConfig";
+import { ref, onValue, update, push, remove } from "firebase/database";
+import "react-datepicker/dist/react-datepicker.css";
+import Swal from "sweetalert2";
+import Select from "react-select";
+import Slidebar from "./Slidebar";
+import filtericon from "../assets/img/filters_icon.jpg";
+import Clock from "./Clock";
 
 const Clientes = () => {
-  const navigate = useNavigate();
-  const [data, setData] = useState([]); // Datos de clientes
-  const [filter, setFilter] = useState({ direccion: "" });
-  const [directions, setDirections] = useState([]); // Direcciones únicas para el filtro
-  const [showSidebar, setShowSidebar] = useState(false);
-  const sidebarRef = useRef(null);
+  const [data, setData] = useState([]);
+  const [directions, setDirections] = useState([]);
+  const [names, setNames] = useState([]);
+  const [selectedClientes, setSelectedClientes] = useState([]);
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const slidebarRef = useRef(null);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const filterSlidebarRef = useRef(null);
+  // Ahora filter incluye anombrede
+  const [filter, setFilter] = useState({
+    direccion: [],
+    anombrede: [],
+    cubicosMin: "",
+    cubicosMax: "",
+    valorMin: "",
+    valorMax: "",
+  });
 
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  useEffect(() => {
-    if (!user || user.role !== "admin") {
-      navigate("/"); // Redirigir al login si no es admin
-    }
-  }, [user, navigate]);
-
-  // Cargar datos de la tabla "clientes"
+  // Carga datos de Firebase, incluyendo anombrede
   useEffect(() => {
     const dbRef = ref(database, "clientes");
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
-        const allData = snapshot.val();
-        const formattedData = [];
+        const fetchedData = [];
         const uniqueDirections = new Set();
+        const uniqueNames = new Set();
 
-        Object.entries(allData).forEach(([_, cliente]) => {
-          if (cliente.direccion && cliente.direccion.trim() !== "") {
-            formattedData.push({
-              direccion: cliente.direccion || "Desconocida",
-              cubicos: cliente.cubicos || "N/A",
-            });
-
-            uniqueDirections.add(cliente.direccion);
-          }
+        Object.entries(snapshot.val()).forEach(([id, cliente]) => {
+          const direccion = cliente.direccion || "";
+          const anombrede = cliente.anombrede || "";
+          fetchedData.push({
+            id,
+            direccion,
+            anombrede,
+            cubicos: cliente.cubicos || 0,
+          });
+          if (direccion) uniqueDirections.add(direccion);
+          if (anombrede) uniqueNames.add(anombrede);
         });
 
-        setData(formattedData); // Establecer los datos de clientes
-        setDirections(Array.from(uniqueDirections)); // Establecer las direcciones únicas
+        // Ordenamiento por “Nuevo Cliente” y luego alfabético
+        fetchedData.sort((a, b) => {
+          const aIsNew = a.direccion.startsWith("Nuevo Cliente");
+          const bIsNew = b.direccion.startsWith("Nuevo Cliente");
+          if (aIsNew && !bIsNew) return -1;
+          if (!aIsNew && bIsNew) return 1;
+          return a.direccion.localeCompare(b.direccion, undefined, {
+            sensitivity: "base",
+          });
+        });
+
+        setData(fetchedData);
+        setDirections(Array.from(uniqueDirections));
+        setNames(Array.from(uniqueNames));
       } else {
-        setData([]); // Si no hay datos
+        setData([]);
         setDirections([]);
+        setNames([]);
       }
     });
-
-    return () => unsubscribe(); // Limpiar el listener al desmontar
+    return () => unsubscribe();
   }, []);
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilter((prevState) => ({
-      ...prevState,
-      [name]: value,
+  const handleDireccionFilterChange = (selectedOptions) => {
+    setFilter((prev) => ({
+      ...prev,
+      direccion: selectedOptions ? selectedOptions.map((opt) => opt.value) : [],
     }));
   };
 
-  const clearFilters = () => {
-    setFilter({ direccion: "" });
+  const handleNameFilterChange = (selectedOptions) => {
+    setFilter((prev) => ({
+      ...prev,
+      anombrede: selectedOptions ? selectedOptions.map((opt) => opt.value) : [],
+    }));
   };
 
-  const toggleSidebar = () => setShowSidebar(!showSidebar);
+  const resetFilters = () =>
+    setFilter({
+      direccion: [],
+      anombrede: [],
+      cubicosMin: "",
+      cubicosMax: "",
+      valorMin: "",
+      valorMax: "",
+    });
+  const toggleSlidebar = () => setShowSlidebar((v) => !v);
+  const toggleFilterSlidebar = () => setShowFilterSlidebar((v) => !v);
 
-  const handleClickOutside = (e) => {
-    if (
-      sidebarRef.current &&
-      !sidebarRef.current.contains(e.target) &&
-      !e.target.closest(".show-sidebar-button")
-    ) {
-      setShowSidebar(false);
-    }
-  };
-
+  // Cierra slidebars al clicar fuera
   useEffect(() => {
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+    const handleClickOutside = (e) => {
+      if (
+        slidebarRef.current &&
+        !slidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-slidebar-button")
+      ) {
+        setShowSlidebar(false);
+      }
     };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/");
+  useEffect(() => {
+    const handleClickOutsideFilter = (e) => {
+      if (
+        filterSlidebarRef.current &&
+        !filterSlidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-filter-slidebar-button")
+      ) {
+        setShowFilterSlidebar(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutsideFilter);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideFilter);
+  }, []);
+
+  // Actualiza campos en Firebase y en estado local
+  const handleFieldChange = (id, field, value) => {
+    if (field === "direccion") {
+      const exists = data.some(
+        (c) => c.direccion.toLowerCase() === value.toLowerCase() && c.id !== id
+      );
+      if (exists) {
+        alert(`La dirección "${value}" ya existe para otro cliente.`);
+        return;
+      }
+    }
+    const dbRefItem = ref(database, `clientes/${id}`);
+    update(dbRefItem, { [field]: value }).catch((err) =>
+      console.error("Error updating data: ", err)
+    );
+    setData((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+    );
   };
 
-  // Filtrar datos: solo muestra filas con direcciones no vacías
+  // Agregar cliente con A Nombre De
+  const handleAddCliente = () => {
+    const dbRefClientes = ref(database, "clientes");
+
+    Swal.fire({
+      title: "Agregar Cliente",
+      html:
+        `<input id="swal-direccion" class="swal2-input" placeholder="Dirección">` +
+        `<input id="swal-anombrede" class="swal2-input" placeholder="A nombre de (opcional)">` +
+        `<input id="swal-cubicos" type="number" min="0" class="swal2-input" placeholder="Cúbicos (opcional)">` +
+        `<input id="swal-valor" type="number" min="0" class="swal2-input" placeholder="Valor (opcional)">`,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Agregar",
+      showLoaderOnConfirm: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      preConfirm: () => {
+        const direccion = document
+          .getElementById("swal-direccion")
+          .value.trim();
+        const anombrede = document
+          .getElementById("swal-anombrede")
+          .value.trim();
+        const cubicosVal = document.getElementById("swal-cubicos").value;
+        const valorVal = document.getElementById("swal-valor").value;
+
+        // Validación: dirección obligatoria
+        if (!direccion) {
+          Swal.showValidationMessage("La dirección es obligatoria");
+          return false;
+        }
+
+        const nuevoCliente = {
+          direccion,
+          anombrede: anombrede || null,
+          cubicos: cubicosVal ? Number(cubicosVal) : 0,
+          valor: valorVal ? Number(valorVal) : 0,
+        };
+
+        // Push dentro de preConfirm para integrar la operación en el flujo
+        return push(dbRefClientes, nuevoCliente)
+          .then(() => nuevoCliente)
+          .catch((err) => {
+            Swal.showValidationMessage(`Error al guardar: ${err.message}`);
+          });
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({
+          icon: "success",
+          title: "Cliente agregado",
+          text: `"${result.value.direccion}" se agregó correctamente.`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    });
+  };
+
+  const handleDeleteClientes = () => {
+    selectedClientes.forEach((id) => {
+      remove(ref(database, `clientes/${id}`)).catch((err) =>
+        console.error("Error deleting client: ", err)
+      );
+    });
+    setSelectedClientes([]);
+  };
+
+  const handleSelectCliente = (id) =>
+    setSelectedClientes((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  // Aplica ambos filtros antes de ordenar
   const filteredData = data
-    .filter((cliente) => cliente.direccion && cliente.direccion.trim() !== "") // Filtrar si la dirección está vacía
-    .filter((cliente) => {
-      const matchesDireccion = filter.direccion
-        ? cliente.direccion.toLowerCase().includes(filter.direccion.toLowerCase())
-        : true;
-      return matchesDireccion;
+    .filter((c) =>
+      filter.direccion.length ? filter.direccion.includes(c.direccion) : true
+    )
+    .filter((c) =>
+      filter.anombrede.length ? filter.anombrede.includes(c.anombrede) : true
+    )
+    .filter((c) => {
+      const cubicos = Number(c.cubicos);
+      const cubicosMin = filter.cubicosMin ? Number(filter.cubicosMin) : null;
+      const cubicosMax = filter.cubicosMax ? Number(filter.cubicosMax) : null;
+      return (
+        (!cubicosMin || cubicos >= cubicosMin) &&
+        (!cubicosMax || cubicos <= cubicosMax)
+      );
+    })
+    .filter((c) => {
+      const valor = Number(c.valor);
+      const valorMin = filter.valorMin ? Number(filter.valorMin) : null;
+      const valorMax = filter.valorMax ? Number(filter.valorMax) : null;
+      return (
+        (!valorMin || valor >= valorMin) && (!valorMax || valor <= valorMax)
+      );
+    })
+    .sort((a, b) => {
+      const aIsNew = a.direccion.startsWith("Nuevo Cliente");
+      const bIsNew = b.direccion.startsWith("Nuevo Cliente");
+      if (aIsNew && !bIsNew) return -1;
+      if (!aIsNew && bIsNew) return 1;
+      return a.direccion.localeCompare(b.direccion, undefined, {
+        sensitivity: "base",
+      });
     });
 
   return (
     <div className="homepage-container">
-      <button className="show-sidebar-button" onClick={toggleSidebar}>
-        ☰
-      </button>
-      <div ref={sidebarRef} className={`sidebar ${showSidebar ? "show" : ""}`}>
-        <div>
-          <h1>
-            <img
-              src={logo}
-              alt="Logo"
-              id="logologin"
-              className="logo-slidebar"
-            />
-          </h1>
+      <Slidebar />
+      <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
+
+      {/* Filtro */}
+      <div onClick={toggleFilterSlidebar}>
+        <img
+          src={filtericon}
+          className="show-filter-slidebar-button"
+          alt="Filtros"
+        />
+      </div>
+      <div
+        ref={filterSlidebarRef}
+        className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
+      >
+        <h2>Filtros</h2>
+        <label>Dirección</label>
+        <Select
+          isClearable
+          isMulti
+          options={directions.map((dir) => ({ value: dir, label: dir }))}
+          placeholder="Selecciona dirección(es)..."
+          onChange={handleDireccionFilterChange}
+          value={filter.direccion.map((dir) => ({ value: dir, label: dir }))}
+        />
+        <label>A Nombre De</label>
+        <Select
+          isClearable
+          isMulti
+          options={names.map((name) => ({ value: name, label: name }))}
+          placeholder="Selecciona nombre(s)..."
+          onChange={handleNameFilterChange}
+          value={filter.anombrede.map((name) => ({ value: name, label: name }))}
+        />
+        <label>Cúbicos (rango)</label>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="number"
+            placeholder="Min"
+            value={filter.cubicosMin}
+            onChange={(e) =>
+              setFilter((prev) => ({ ...prev, cubicosMin: e.target.value }))
+            }
+            style={{ width: "10ch" }}
+          />
+          <input
+            type="number"
+            placeholder="Max"
+            value={filter.cubicosMax}
+            onChange={(e) =>
+              setFilter((prev) => ({ ...prev, cubicosMax: e.target.value }))
+            }
+            style={{ width: "10ch" }}
+          />
         </div>
-        <div>
-          {user && user.name ? <p>Hola!, {user.name}</p> : <p>No user</p>}
+        <label>Valor (rango)</label>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="number"
+            placeholder="Min"
+            value={filter.valorMin}
+            onChange={(e) =>
+              setFilter((prev) => ({ ...prev, valorMin: e.target.value }))
+            }
+            style={{ width: "10ch" }}
+          />
+          <input
+            type="number"
+            placeholder="Max"
+            value={filter.valorMax}
+            onChange={(e) =>
+              setFilter((prev) => ({ ...prev, valorMax: e.target.value }))
+            }
+            style={{ width: "10ch" }}
+          />
         </div>
-        <button className="menu-item" onClick={() => navigate("/homepage")}>
-          Servicios De Hoy
+        <button className="discard-filter-button" onClick={resetFilters}>
+          Descartar Filtros
         </button>
-        <button className="menu-item" onClick={() => navigate("/hojamañana")}>
-          Servicios De Mañana
-        </button>
-        <button className="menu-item" onClick={() => navigate("/hojadefechas")}>
-          Agenda Dinamica
-        </button>
-        <button className="menu-item" onClick={() => navigate("/clientes")}>
-          Clientes "Desarrollo"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Reprogramación Automatica "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Generar Informes "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={() => navigate("/")}>
-          Configuración "PENDIETE"
-        </button>
-        <button className="menu-item" onClick={handleLogout}>
-          Logout
-        </button>
-        <div>
-          <p>© 2025 S&K Global Services</p>
+      </div>
+
+      {/* Título y Fecha/Hora */}
+      <div className="homepage-title">
+        <div className="homepage-card">
+          <h1 className="title-page">Clientes</h1>
+          <div className="current-date">
+            <div>{new Date().toLocaleDateString()}</div>
+            <Clock />
+          </div>
         </div>
       </div>
 
+      {/* Tabla */}
       <div className="homepage-card">
-        <h1 className="title-page">Historial de Clientes</h1>
-        <div className="filters">
-          <input
-            type="text"
-            name="direccion"
-            placeholder="Filtrar por dirección"
-            value={filter.direccion}
-            onChange={handleFilterChange}
-            className="filter-input"
-            list="direccion-options"
-          />
-          <datalist id="direccion-options">
-            {directions.map((direccion, index) => (
-              <option key={index} value={direccion} />
-            ))}
-          </datalist>
-          <button className="clear-filters-button" onClick={clearFilters}>
-            Borrar Filtros
-          </button>
-        </div>
-
         <div className="table-container">
           <table className="service-table">
             <thead>
               <tr>
+                <th>Seleccionar</th>
                 <th>Dirección</th>
+                <th>A Nombre De</th>
                 <th>Cúbicos</th>
+                <th>Valor</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.length > 0 ? (
-                filteredData.map((cliente, index) => (
-                  <tr key={index}>
-                    <td>{cliente.direccion}</td>
-                    <td>{cliente.cubicos}</td>
+              {filteredData.length ? (
+                filteredData.map((cliente) => (
+                  <tr key={cliente.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        style={{
+                          width: "3ch",
+                          height: "3ch",
+                          marginLeft: "40%",
+                        }}
+                        checked={selectedClientes.includes(cliente.id)}
+                        onChange={() => handleSelectCliente(cliente.id)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        style={{ textAlign: "center", width: "25ch" }}
+                        value={cliente.direccion}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            cliente.id,
+                            "direccion",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        style={{ textAlign: "center", width: "20ch" }}
+                        value={cliente.anombrede}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            cliente.id,
+                            "anombrede",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        style={{ textAlign: "center", width: "13ch" }}
+                        value={cliente.cubicos}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            cliente.id,
+                            "cubicos",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        style={{ textAlign: "center", width: "13ch" }}
+                        value={cliente.valor}
+                        onChange={(e) =>
+                          handleFieldChange(cliente.id, "valor", e.target.value)
+                        }
+                      />
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="2">No se encontraron registros</td>
+                  <td colSpan="4">No se encontraron clientes</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        <div
+          className="button-container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <button
+            style={{ backgroundColor: "red" }}
+            onClick={handleDeleteClientes}
+            className="filter-button"
+            disabled={!selectedClientes.length}
+          >
+            Eliminar Clientes Seleccionados
+          </button>
+        </div>
       </div>
+      <button onClick={handleAddCliente} className="create-table-button">
+        +
+      </button>
     </div>
   );
 };

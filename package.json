@@ -4,23 +4,44 @@
   "private": true,
   "homepage": "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba",
   "dependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@google-cloud/recaptcha-enterprise": "^5.13.0",
     "bootstrap": "^5.3.3",
-    "firebase": "^11.1.0",
+    "cors": "^2.8.5",
+    "country-state-city": "^3.2.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^13.2.0",
     "gh-pages": "^6.2.0",
+    "javascript-obfuscator": "^4.1.1",
+    "jspdf": "^3.0.0",
+    "jspdf-autotable": "^5.0.2",
+    "node-fetch": "^3.3.2",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.5",
     "react-datepicker": "^7.6.0",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.1",
+    "react-google-recaptcha": "^3.1.0",
+    "react-router": "^7.5.3",
+    "react-router-dom": "^6.30.0",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "react-select": "^5.10.1",
+    "react-table": "^7.8.0",
+    "react-window": "^1.8.11",
+    "source-map-loader": "^5.0.0",
+    "sweetalert2": "^11.15.10",
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "deploy": "gh-pages -d build"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
+    "obfuscate": "javascript-obfuscator dist --output dist --compact true --self-defending true"
   },
   "eslintConfig": {
     "extends": [

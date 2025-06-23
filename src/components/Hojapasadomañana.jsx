@@ -4,22 +4,22 @@ import { ref, set, push, remove, update, onValue } from "firebase/database";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import Select from "react-select";
+import autoTable from "jspdf-autotable"; // Importamos autoTable
 import Slidebar from "./Slidebar";
-import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
+import Select from "react-select";
 
-const Homepage = () => {
-  const [data, setData] = useState([]); // Cada elemento es: [id, item]
+const Hojapasadomañana = () => {
+  const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
+  // Se espera que "realizadopor" contenga el id del usuario
   const [filters, setFilters] = useState({
     realizadopor: [],
     anombrede: [],
@@ -29,15 +29,14 @@ const Homepage = () => {
     valor: [],
     pago: [],
     formadepago: [],
-    banco: [],
     metododepago: [],
     efectivo: [],
     factura: "",
   });
 
-  // Cargar la rama "data"
+  // Cargar la rama "hojapasadomañana"
   useEffect(() => {
-    const dbRef = ref(database, "data");
+    const dbRef = ref(database, "hojapasadomañana");
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
@@ -94,7 +93,8 @@ const Homepage = () => {
     return () => unsubscribe();
   }, []);
 
-  // Sincronizar registros de "data" si el campo "realizadopor" contiene un nombre en lugar de un id
+  // Sincronizar registros: si "realizadopor" contiene un nombre en vez de un id,
+  // se busca el usuario correspondiente y se actualiza el registro.
   useEffect(() => {
     if (users.length === 0) return;
     data.forEach(([id, item]) => {
@@ -108,10 +108,9 @@ const Homepage = () => {
         }
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users, data]);
 
-  // Opciones para filtros:
+  // Opciones para los filtros
   const realizadoporOptions = users.map((u) => ({
     value: u.id,
     label: u.name,
@@ -159,12 +158,6 @@ const Homepage = () => {
     .sort()
     .map((v) => ({ value: v, label: v }));
 
-  const BancoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.banco).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
   const metodoPagoOptions = Array.from(
     new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
   )
@@ -195,13 +188,12 @@ const Homepage = () => {
     valor,
     pago,
     formadepago,
-    banco,
     notas,
     metododepago,
     efectivo,
     factura
   ) => {
-    const dbRef = ref(database, "data");
+    const dbRef = ref(database, "hojapasadomañana");
     const newDataRef = push(dbRef);
     const newData = {
       realizadopor,
@@ -212,7 +204,6 @@ const Homepage = () => {
       valor,
       pago,
       formadepago,
-      banco,
       notas,
       metododepago,
       efectivo,
@@ -238,9 +229,9 @@ const Homepage = () => {
 
   // 1) handleFieldChange: ajustado para el flujo deseado
   const handleFieldChange = (id, field, value) => {
-    // actualizamos el campo en data
+    // actualizamos el campo en hojapasadomañana
     const safeValue = value == null ? "" : value;
-    const dbRefItem = ref(database, `data/${id}`);
+    const dbRefItem = ref(database, `hojapasadomañana/${id}`);
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
 
     // actualizamos estado local y reordenamos
@@ -283,6 +274,7 @@ const Homepage = () => {
           loadClientFields(direccion, id);
         }
       } else {
+        // si quitan el servicio, limpiamos cubicos en hojamañana
         handleFieldChange(id, "cubicos", "");
       }
     }
@@ -337,7 +329,7 @@ const Homepage = () => {
 
   // Función para borrar un servicio
   const deleteData = (id) => {
-    const dbRefItem = ref(database, `data/${id}`);
+    const dbRefItem = ref(database, `hojapasadomañana/${id}`);
     remove(dbRefItem).catch(console.error);
 
     // 1) Filtra el estado actual para eliminar el id
@@ -391,13 +383,13 @@ const Homepage = () => {
     return "";
   };
 
-  // Para exportar XLSX y PDF, mapeamos el id de "realizadopor" al nombre correspondiente
+  // Función que dado un id de usuario retorna su nombre
   const getUserName = (userId) => {
     const found = users.find((u) => u.id === userId);
     return found ? found.name : "";
   };
 
-  // Función para generar XLSX con ExcelJS
+  // Función para exportar XLSX, mapeando el id de "realizadopor" al nombre correspondiente
   const generateXLSX = async () => {
     const exportData = filteredData.map(([id, item]) => ({
       "Realizado Por": getUserName(item.realizadopor) || "",
@@ -408,7 +400,6 @@ const Homepage = () => {
       Valor: item.valor || "",
       Pago: item.pago || "",
       "Forma De Pago": item.formadepago || "",
-      Banco: item.banco || "",
       Notas: item.notas || "",
       "Método de Pago": item.metododepago || "",
       Efectivo: item.efectivo || "",
@@ -427,7 +418,6 @@ const Homepage = () => {
       "Valor",
       "Pago",
       "Forma De Pago",
-      "Banco",
       "Notas",
       "Método de Pago",
       "Efectivo",
@@ -464,7 +454,6 @@ const Homepage = () => {
       { width: 12 },
       { width: 16 },
       { width: 18 },
-      { width: 18 },
       { width: 15 },
       { width: 18 },
       { width: 12 },
@@ -490,7 +479,7 @@ const Homepage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Servicios De Hoy.xlsx";
+    a.download = "Servicios De Pasado Mañana.xlsx";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -499,7 +488,7 @@ const Homepage = () => {
   const generatePDF = () => {
     const doc = new jsPDF("p", "mm", "a4");
     doc.setFontSize(16);
-    doc.text("Servicios De Hoy", 105, 20, { align: "center" });
+    doc.text("Servicios De Pasado Mañana", 105, 20, { align: "center" });
     doc.setFontSize(10);
     const headers = [
       [
@@ -511,7 +500,6 @@ const Homepage = () => {
         "Valor",
         "Pago",
         "Forma de pago",
-        "Banco",
         "Notas",
         "Método de Pago",
         "Efectivo",
@@ -527,7 +515,6 @@ const Homepage = () => {
       item.valor || "",
       item.pago || "",
       item.formadepago || "",
-      item.banco || "",
       item.notas || "",
       item.metododepago || "",
       item.efectivo || "",
@@ -543,10 +530,10 @@ const Homepage = () => {
       styles: { fontSize: 8 },
       margin: { top: 30, left: 10, right: 10 },
     });
-    doc.save("Servicios De Hoy.pdf");
+    doc.save("Servicios De Pasado Mañana.pdf");
   };
 
-  // Filtrado de la data según los filtros establecidos.
+  // Filtrado de la data según los filtros establecidos
   const filteredData = data.filter(([_, item]) => {
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
@@ -566,7 +553,6 @@ const Homepage = () => {
     if (!matchMulti(filters.valor, "valor")) return false;
     if (!matchMulti(filters.pago, "pago")) return false;
     if (!matchMulti(filters.formadepago, "formadepago")) return false;
-    if (!matchMulti(filters.banco, "banco")) return false;
     if (!matchMulti(filters.metododepago, "metododepago")) return false;
     if (!matchMulti(filters.efectivo, "efectivo")) return false;
 
@@ -583,8 +569,7 @@ const Homepage = () => {
   return (
     <div className="homepage-container">
       <Slidebar />
-
-      {/* Boton De Filtros */}
+      {/* Filtros */}
       <div onClick={toggleFilterSlidebar}>
         <img
           src={filtericon}
@@ -690,17 +675,6 @@ const Homepage = () => {
           placeholder="Selecciona formas(s)..."
         />
 
-        {/** Banco **/}
-        <label>Banco</label>
-        <Select
-          isClearable
-          isMulti
-          options={BancoOptions}
-          value={filters.banco}
-          onChange={(opts) => setFilters({ ...filters, banco: opts || [] })}
-          placeholder="Selecciona formas(s)..."
-        />
-
         {/** Método de Pago **/}
         <label>Método de Pago</label>
         <Select
@@ -748,7 +722,6 @@ const Homepage = () => {
               valor: [],
               pago: [],
               formadepago: [],
-              banco: [],
               metododepago: [],
               efectivo: [],
               factura: "",
@@ -760,11 +733,12 @@ const Homepage = () => {
       </div>
 
       <div className="homepage-title">
-        <div className="homepage-card">
-          <h1 className="title-page">Servicios De Hoy</h1>
+        <div className="homepage-card" style={{ padding: "10px" }}>
+          <h1 className="title-page" style={{ marginBottom: "-18px" }}>
+            Servicios De Pasado Mañana
+          </h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
-            <Clock />
+            {new Date(Date.now() + 48 * 60 * 60 * 1000).toLocaleDateString()}
           </div>
         </div>
       </div>
@@ -777,13 +751,12 @@ const Homepage = () => {
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
                 <th>Dirección</th>
-                <th>Servicio</th>
+                <th>Sevicio</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Pago</th>
-                <th>Forma De Pago</th>
+                <th>Forma de Pago</th>
                 <th>Acciones</th>
-                <th>Banco</th>
                 <th
                   style={{
                     backgroundColor: "#6200ffb4",
@@ -967,7 +940,6 @@ const Homepage = () => {
                           <option value="Pendiente Fin De Mes">-</option>
                         </select>
                       </td>
-
                       <td>
                         <select
                           value={item.formadepago}
@@ -1021,26 +993,6 @@ const Homepage = () => {
                         >
                           Borrar
                         </button>
-                      </td>
-                      <td>
-                        <select
-                          value={item.banco}
-                          style={{ width: "15ch" }}
-                          onChange={(e) =>
-                            handleFieldChange(id, "banco", e.target.value)
-                          }
-                        >
-                          <option value=""></option>
-                          <option value="Aruba Bank N.V.">
-                            Aruba Bank N.V.
-                          </option>
-                          <option value="Caribbean Mercantile Bank N.V.">
-                            Caribbean Mercantile Bank N.V.
-                          </option>
-                          <option value="RBC Royal Bank N.V.">
-                            RBC Royal Bank N.V.
-                          </option>
-                        </select>
                       </td>
                       <td>
                         <input
@@ -1115,7 +1067,6 @@ const Homepage = () => {
           </table>
         </div>
       </div>
-
       <button className="generate-button1" onClick={generateXLSX}>
         <img className="generate-button-imagen1" src={excel_icon} />
       </button>
@@ -1124,9 +1075,7 @@ const Homepage = () => {
       </button>
       <button
         className="create-table-button"
-        onClick={() =>
-          addData("", "", "", "", "", "", "", "", "", "", "", "", "")
-        }
+        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "")}
       >
         +
       </button>
@@ -1134,4 +1083,4 @@ const Homepage = () => {
   );
 };
 
-export default Homepage;
+export default Hojapasadomañana;

@@ -1,18 +1,39 @@
+@font-face {
+  font-family: "CentraNo2";
+  src: url("./assets/font/CentraNo2-Book.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "CentraNo2";
+  src: url("./assets/font/CentraNo2-Bold.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "CentraNo2";
+  src: url("./assets/font/CentraNo2-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+}
+
 body {
-  font-family: "Roboto", sans-serif;
+  font-family: "CentraNo2", sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f4f4f9;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
   background-image: url("./assets/img/background.png");
+  /* background: linear-gradient(135deg, #0400ff69 0%, #00000000 50%, #fffb0046 100%); */
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
   overflow: hidden;
-  color: white;
+  color: #4a148c;
   box-sizing: border-box;
 }
 
@@ -32,192 +53,430 @@ body {
   }
 }
 
-/* Contenedores principales */
-.form-container {
+/*INICIO CSS LOGIN*/
+
+/* ----------------------------------------- */
+/* ESTILO GENERAL BASE + FONDO CORPORATIVO */
+/* ----------------------------------------- */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: "Segoe UI", "Poppins", sans-serif;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  padding: 35px;
-  padding-bottom: 15px;
-  max-width: 480px;
-  width: 100%;
-  position: relative;
+}
+
+/* SPINER */
+.loader-container {
+  position: fixed;
   top: 0;
-  border-radius: 20px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0);
+  z-index: 9999;
+}
+.loader {
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid #3498db;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ----------------------------------------- */
+/* CONTENEDOR PRINCIPAL CON EFECTO GLASS */
+/* ----------------------------------------- */
+.form-container {
+  width: 92vw;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border-radius: 18px;
+  padding: 2.5rem 2rem;
   animation: fadeIn 0.6s ease-out;
-  transition: top 0.2s ease, transform 0.3s ease;
+  text-align: center;
+  position: relative;
+  border: 1px solid rgb(179, 179, 179);
 }
 
-.form-container:hover {
-  top: 8px;
-}
-
-/* Logo */
+/* ----------------------------------------- */
+/* LOGO EMPRESARIAL */
+/* ----------------------------------------- */
 #logologin {
-  max-width: 250px;
-  margin-bottom: 8x;
+  max-width: 300px;
+  margin-bottom: 1.5rem;
+  border-radius: 10px;
   transition: transform 0.3s ease, filter 0.3s ease;
-  border-radius: 15px;
-  filter: brightness(1);
 }
 
 #logologin:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
   filter: brightness(1.2);
 }
 
-/* Estilos del formulario */
+/* ----------------------------------------- */
+/* FORMULARIO */
+/* ----------------------------------------- */
 .form-login {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 1.5rem;
+  width: 100%;
 }
 
-/* Campos de entrada */
+/* ----------------------------------------- */
+/* INPUTS */
+/* ----------------------------------------- */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  text-align: center;
+}
+
 .input-group label {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 8px;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: black;
+  margin-bottom: 6px;
   text-transform: uppercase;
 }
 
 .input-group input {
-  width: 95%;
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  padding-right: 0px;
+  border-radius: 10px;
+  border: 0px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  color: black(255, 255, 255);
+  border: 1px solid white;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+  margin-left: 0;
+  text-align: left;
+}
+
+.input-group input::placeholder {
+  color: rgb(114, 114, 114);
+  text-align: left;
+}
+.input-group input:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 5px rgb(82, 82, 82);
 }
 
 .input-group input:focus {
-  border-color: #007bff;
+  box-shadow: 0 0 3px rgb(82, 82, 82);
   outline: none;
-  box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+  transition: 1s;
+  text-align: left;
 }
 
-/* Botón de inicio de sesión */
-#passwordbutton {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 50px;
-  width: auto;
-  max-width: 220px;
-  border-radius: 8px;
+/* ----------------------------------------- */
+/* ICONO VER CONTRASEÑA */
+/* ----------------------------------------- */
+#toggle-password {
+  position: absolute;
+  top: 3px;
+  right: 10px;
+  background: none;
   border: none;
-  font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s ease-in-out;
-  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+  padding: 4px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+#toggle-password:hover {
+  background-color: #ffffff22;
+}
+
+#iconeye {
+  width: 28px;
+  height: 28px;
+  background-color: transparent;
+  border-radius: 5px;
+  padding: 2px;
+  object-fit: contain;
+}
+
+/* ----------------------------------------- */
+/* BOTÓN DE LOGIN */
+/* ----------------------------------------- */
+#passwordbutton {
+  background: linear-gradient(90deg, #00c6ff, #0072ff);
+  color: white;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
   text-transform: uppercase;
-  display: block;
-  margin: 0 auto;
+  width: 100%;
 }
 
 #passwordbutton:hover {
-  background-color: #0056b3;
-  transform: scale(1.05);
+  transform: scale(1.03);
+  box-shadow: 0 6px 20px rgba(0, 114, 255, 0.5);
 }
 
 #passwordbutton:active {
-  transform: scale(1);
+  transform: scale(0.97);
 }
 
-/* Botón de inicio de Google */
+/* ----------------------------------------- */
+/* BOTÓN DE GOOGLE */
+/* ----------------------------------------- */
 #google-login-button {
-  background-color: #4285f4;
-  color: white;
-  padding: 10px 18px;
-  border-radius: 8px;
-  border: none;
-  margin-top: 15px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s ease-in-out;
-  box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
-  text-transform: uppercase;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  background-color: white;
+  border: none;
+  color: #333333;
+  font-weight: bold;
+  font-size: 0.95rem;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  gap: 10px;
+  width: 100%;
+  box-shadow: 0 4px 10px rgba(66, 133, 244, 0.2);
+  text-transform: uppercase;
 }
 
 #google-login-button:hover {
-  background-color: #3367d6;
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
 #google-login-button:active {
-  transform: scale(1);
+  transform: scale(0.97);
 }
 
-#google-login-button svg {
-  margin-right: 8px;
+#logo-google-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
 }
 
-/* Mensaje de error */
+/* ----------------------------------------- */
+/* MENSAJE DE ERROR */
+/* ----------------------------------------- */
 .danger {
-  color: red;
-  font-size: 14px;
-  text-align: center;
-  margin-top: 20px;
+  margin-top: 1.5rem;
+  color: #ff4444;
   font-weight: bold;
-  animation: slideUp 0.4s ease-out;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* ----------------------------------------- */
+/* ANIMACIÓN */
+/* ----------------------------------------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ----------------------------------------- */
+/* MEDIA QUERY ≤ 480px (vertical móvil) */
+/* ----------------------------------------- */
+@media screen and (max-width: 480px) {
+  .form-container {
+    padding: 1.8rem 1.4rem;
+    border-radius: 12px;
+    width: 90vw;
+  }
+
+  #logologin {
+    max-width: 160px;
+  }
+
+  #passwordbutton,
+  #google-login-button {
+    font-size: 0.85rem;
+    padding: 10px;
+  }
+
+  .input-group label {
+    font-size: 0.75rem;
+  }
+
+  .danger {
+    font-size: 0.8rem;
+  }
+}
+
+/* ----------------------------------------- */
+/* MEDIA QUERY ≤ 1000px (tablets y horizontales pequeños) */
+/* ----------------------------------------- */
+@media screen and (min-width: 481px) and (max-width: 1000px) {
+  .form-container {
+    max-width: 440px;
+    padding: 2rem;
+  }
+
+  #logologin {
+    max-width: 180px;
+  }
+
+  #passwordbutton,
+  #google-login-button {
+    font-size: 0.9rem;
+  }
+}
+
+/* ----------------------------------------- */
+/* MEDIA QUERY ≥ 1001px (PCs grandes) */
+/* ----------------------------------------- */
+@media screen and (min-width: 1001px) {
+  .form-container {
+    max-width: 460px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 20px 50px rgba(0, 255, 255, 0.1);
+  }
+
+  #logologin {
+    max-width: 200px;
+  }
+
+  #passwordbutton,
+  #google-login-button {
+    font-size: 1rem;
+  }
+}
+
+/*final login css*/
+
+.swal2-cancel {
+  background-color: red;
 }
 
 /* Barra lateral */
-.sidebar {
+.slidebar {
+  height: calc(100vh - 25px);
   position: fixed;
   top: 0;
   left: -300px;
-  height: 100%;
   width: 300px;
-  background-color: #ececec;
-  color: #333;
+  background-color: #ffffff;
   transition: left 0.3s ease-in-out;
-  padding-top: 60px;
+  padding-top: 10px;
   z-index: 1000;
-  box-shadow: 10px 0 8px rgba(0, 0, 0, 0.2);
   overflow-y: auto;
-  padding-bottom: 50px;
+  padding-bottom: 100px;
+  opacity: 95%;
 }
 
-.sidebar.show {
+.icon-button-agendar,
+.icon-button-mis-servicios,
+.icon-button-servicioHoy,
+.icon-button-servicioManana,
+.icon-button-servicioPasadoManana,
+.icon-button-agendaDinamica,
+.icon-button-facturasEmitidas,
+.icon-button-clientes,
+.icon-button-reprogramacionAutomatica,
+.icon-button-informeEfectivo,
+.icon-button-configuracionUsuarios,
+.icon-button-logout {
+  display: none !important; /* oculta completamente */
+}
+
+.slidebar.show {
   left: 0;
 }
 
-.sidebar .menu-item {
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0px 0px;
+  margin-bottom: 0px;
+  border: 1px solid #5271ff;
+  border-radius: 50px;
+  background-color: #5271ff;
+  cursor: pointer;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 14px;
   color: #333;
-  background-color: #fff;
-  padding: 18px 22px;
-  margin-top: 20px;
-  margin-left: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  max-width: 100%;
+  width: 120px;
+  height: 60px;
+}
+
+.menu-item:hover {
+  background-color: #5271ff;
+  transform: translateY(-2px);
+}
+
+.menu-item span {
+  white-space: nowrap;
+}
+
+.slidebar .menu-item {
+  color: #000000;
+  background-color: #5271ff;
+  padding: 0px 130px 0px 5px;
+  margin-top: 10px;
+  margin-left: 25px;
   text-align: left;
   width: 80%;
   font-size: 14px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 5px;
   transition: background-color 0.3s, color 0.3s, transform 0.3s ease;
 }
 
-.sidebar .menu-item:hover {
-  background-color: #4b4b4b;
-  color: white;
+.slidebar .menu-item:hover {
+  background-color: #5271ff;
+  color: #5271ff;
   transform: translateX(5px);
 }
 
 /* Icono de la barra lateral */
-.show-sidebar-button {
+.show-slidebar-button {
   position: absolute;
   top: 20px;
-  left: 15px;
+  left: 10px;
   font-size: 28px;
-  background-color: #fff;
+  background-color: #5271ff;
   border-radius: 5px;
   border: none;
   cursor: pointer;
@@ -225,66 +484,389 @@ body {
   transition: color 0.3s ease, transform 0.2s ease;
 }
 
-.show-sidebar-button:hover {
-  color: #00b7ff;
+.show-slidebar-button:hover {
+  color: #5271ff;
   transform: rotate(180deg);
-  background-color: #ececec;
+  background-color: #5271ff;
 }
 
 .logo-slidebar {
+  margin-top: 20px;
   margin-left: 18%;
   width: 180px;
 }
 
-/* Nombre del usuario */
-.sidebar p {
+/* Textos Slidebar */
+.slidebar p {
   text-align: center;
   font-size: 15px;
-  margin-top: 10px;
+  margin-top: 20px;
+  margin-bottom: -10px;
   font-weight: bold;
+  color: #000000;
+}
+
+/* Textos Slidebar */
+.slidebar-user {
+  position: relative;
+  text-align: center;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+/* ================================
+   Slidebar Derecho para Filtros
+   ================================ */
+
+.filter-slidebar {
+  height: calc(100vh - 58px);
+  position: fixed;
+  top: 0;
+  right: -340px;
+  width: 300px;
+  background-color: #1a1c23;
+  transition: right 0.3s ease-in-out;
+  padding-top: 10px;
+  z-index: 1000;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  padding-bottom: 100px;
+  padding-left: 10px;
+  padding-right: 0px;
+  opacity: 95%;
+}
+
+/* Cuando se active el toggle en móviles */
+.filter-slidebar.show {
+  right: 0;
+}
+
+.filter-slidebar h2 {
+  font-size: 20px;
+  margin-bottom: 15px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.filter-slidebar label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #aaa;
+  margin-top: 10px;
+  margin-left: 2px;
+}
+
+/* ================================ */
+/* TIPOGRAFÍA UNIFORME              */
+/* ================================ */
+.filter-slidebar {
+  font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+/* Encabezado “Filtros” */
+.filter-slidebar h2 {
+  font-family: inherit; /* hereda la fuente del contenedor */
+  font-size: 20px;
+  margin-bottom: 15px;
+  text-align: center;
+  color: #ffffff;
+}
+
+/* Etiquetas de campo */
+.filter-slidebar label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #aaa;
+  margin-top: 10px;
+  margin-left: 2px;
+  font-family: inherit; /* hereda la fuente del contenedor */
+}
+
+/* Fondo oscuro en el control principal */
+.css-13cymwt-control {
+  background-color: #2a2d38 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+/* Al hacer hover o focus resalta con un tono más claro */
+.css-13cymwt-control:hover,
+.css-13cymwt-control--is-focused {
+  background-color: #323544 !important;
+  border-color: #5271ff !important;
+}
+
+/* Placeholder y valor seleccionado en texto claro */
+.css-13cymwt-placeholder,
+.css-13cymwt-singleValue {
+  color: #e0e0e0 !important;
+}
+
+/* El menú desplegable también oscuro */
+.css-13cymwt-menu {
+  background-color: #1a1c23 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Cada opción en el menú */
+.css-13cymwt-option {
+  background-color: transparent !important;
+  color: #e0e0e0 !important;
+}
+
+/* Opción al hacer hover o estar seleccionada */
+.css-13cymwt-option--is-focused,
+.css-13cymwt-option--is-selected {
+  background-color: #5271ff !important;
+  color: #fff !important;
+}
+/* ========================================= */
+/* 1) Campos nativos (<input>, <select>)     */
+/* ========================================= */
+.filter-slidebar input,
+.filter-slidebar select {
+  background: #2a2d38 !important;
+  color: #e0e0e0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Opciones de <select> */
+.filter-slidebar select option {
+  background: #1a1c23;
+  color: #e0e0e0;
+}
+
+/* ========================================= */
+/* 2) React-Select (variantes de “control” y “menu”) */
+/* ========================================= */
+[class*="css-"][class*="-control"] {
+  background-color: #2a2d38 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+[class*="css-"][class*="-control"]:hover,
+[class*="css-"][class*="-control"].css-13cymwt-control--is-focused {
+  background-color: #323544 !important;
+  border-color: #5271ff !important;
+}
+
+/* Placeholder y valor */
+[class*="css-"][class*="-placeholder"],
+[class*="css-"][class*="-singleValue"] {
+  color: #e0e0e0 !important;
+}
+
+/* El menú desplegable */
+[class*="css-"][class*="-menu"] {
+  background-color: #1a1c23 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Opciones dentro del menú */
+[class*="css-"][class*="-option"] {
+  background: transparent !important;
+  color: #e0e0e0 !important;
+}
+[class*="css-"][class*="-option--is-focused"],
+[class*="css-"][class*="-option--is-selected"] {
+  background-color: #5271ff !important;
+  color: #fff !important;
+}
+
+/* ========================================= */
+/* 3) Ajustes de espaciado final            */
+/* ========================================= */
+.filter-slidebar .filter-content {
+  gap: 1.5rem; /* un poco más de separación entre grupos */
+}
+/* ========================================= */
+/*  TIPOGRAFÍA Y TAMAÑOS UNIFORMES           */
+/* ========================================= */
+
+/* 1) Asegura que el contenedor use la fuente base */
+.filter-slidebar {
+  font-family: "Segoe UI", Roboto, sans-serif;
+  font-size: 0.95rem; /* mismo tamaño que tus botones */
+}
+
+/* 2) Inputs y selects nativos */
+.filter-slidebar input,
+.filter-slidebar select {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: 1.4 !important;
+}
+
+/* 3) React-Select: control, placeholder, valor */
+.filter-slidebar [class*="css-"][class*="-control"],
+.filter-slidebar [class*="css-"][class*="-placeholder"],
+.filter-slidebar [class*="css-"][class*="-singleValue"] {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: 1.4 !important;
+}
+
+/* 4) React-Select: opciones del menú */
+.filter-slidebar [class*="css-"][class*="-menu"] {
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
+.filter-slidebar [class*="css-"][class*="-option"] {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: 1.4 !important;
+}
+
+/* 5) Labels y encabezados ya heredan .filter-slidebar, */
+/*    pero si necesitas refinar: */
+.filter-slidebar label,
+.filter-slidebar h2,
+.filter-slidebar .filter-header {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.4;
+}
+
+/* ========================================= */
+/* Sobrescribe todos los inputs del panel    */
+/* ========================================= */
+.filter-slidebar input,
+.filter-slidebar input[type="text"],
+.filter-slidebar input[type="number"],
+.filter-slidebar input[type="search"],
+.filter-slidebar textarea {
+  background-color: #2a2d38 !important;
+  color: #e0e0e0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+  box-sizing: border-box;
+}
+
+/* Ajusta placeholder de inputs */
+.filter-slidebar input::placeholder,
+.filter-slidebar textarea::placeholder {
+  color: rgba(224, 224, 224, 0.6) !important;
+}
+
+/* Si usas rangos min/max en un mismo grupo */
+.filter-slidebar .filter-group > div input {
+  width: auto !important;
+  flex: 1;
+}
+
+/* Si algunos controles siguen con clases genéricas de React-Select */
+.filter-slidebar [class*="css-"][class*="-control"] {
+  background-color: #2a2d38 !important;
+}
+
+.filter-slidebar select {
+  width: 95%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.filter-slidebar input {
+  width: 89%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+/* ================================
+     Botón para mostrar el Slidebar de Filtros
+     ================================ */
+
+.show-filter-slidebar-button {
+  height: 40px;
+  width: 40px;
+  position: absolute;
+  top: 20px;
+  right: 25px;
+  color: black;
+  border: none;
+  padding: 1px 1px;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 2000;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.show-filter-slidebar-button:hover {
+  color: #5271ff;
+  transform: rotate(360deg);
+}
+/* Aseguramos que el body no tenga márgenes ni paddings */
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
 /* Tarjeta principal */
 .homepage-card {
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 5px 5px 15px rgb(0, 0, 0);
-  padding: 15px;
-  margin-left: 100px;
-  width: calc(100% - 200px);
-  transition: margin-left 0.3s ease-in-out, box-shadow 0.3s ease;
-  animation: fadeIn 1s ease-out;
-}
-
-.homepage-card:hover {
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box; /* Incluye padding y border en el ancho total */
+  background: #ffffff;
+  border-radius: 5px;
+  padding: 10px;
+  height: 100%;
+  max-height: calc(
+    100vw - 2.3cm
+  ); /* 100vw menos 1cm total (0.5cm a cada lado) */
+  max-width: calc(100vw - 5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+  width: 100%;
+  margin: -9px auto 0; /* Se centra horizontalmente, con margen superior negativo */
+  overflow: visible;
+  border: 1px solid #d4d4d4c5; /* línea de 1px, sólida, color gris claro */
 }
 
 /* Fecha */
 .current-date {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: bold;
   color: black;
   text-align: left;
   margin-left: 16px;
+  margin: 10px 0px -9px 0px;
 }
 
 .current-date:hover {
   transition: transform 0.2s ease, color 0.3s ease;
-  color: #1b89ff;
+  color: #5271ff;
 }
 
 /* Botón para crear tabla */
+.button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-right: 20px;
+  padding: 2px;
+}
+
 .create-table-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
   background-color: #28a745;
   color: white;
   border: none;
   padding: 10px 20px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 24px;
   transition: background-color 0.3s, transform 0.2s ease-in-out;
-  font-weight: bold;
-  margin-left: 16px;
+  font-weight: 900;
+  border-radius: 5px;
+  z-index: 1000;
 }
 
 .create-table-button:hover {
@@ -296,71 +878,170 @@ body {
   transform: scale(1);
 }
 
-.title-page{
+.lock-on-button {
+  border: none;
+  padding-top: 3px;
+  padding-bottom: 2px;
+  background-color: #00a531;
+  border-radius: 30%;
+  cursor: pointer;
+}
+
+.lock-on-button:hover {
+  transform: scale(1.08);
+  transition: 0.2s;
+  background-color: #008a29;
+}
+
+.lock-off-button {
+  border: none;
+  padding-top: 3px;
+  padding-bottom: 2px;
+  background-color: #f00000;
+  border-radius: 30%;
+  cursor: pointer;
+}
+
+.lock-off-button:hover {
+  transform: scale(1.08);
+  transition: 0.2s;
+  background-color: #c70000;
+}
+
+.direccion-fixed-th {
+  position: sticky;
+  top: -11%;
+  left: -16px;
+  z-index: 900;
+  white-space: nowrap;
+}
+
+.direccion-fixed-td {
+  position: sticky;
+  top: 0; /* Ajusta a 0 o un valor positivo */
+  left: -16px; /* Ajusta a 0 o un valor positivo */
+  z-index: 800;
+  white-space: nowrap;
+}
+
+.title-page {
   color: #000000;
   text-align: center;
   margin-bottom: -50px;
+  margin-left: 0px;
+  margin-top: -0px;
+  font-size: 25px;
+  padding: 0%;
+}
+
+.homepage-title {
+  margin-bottom: 20px;
+  margin-top: -10px;
+  margin-left: 5px;
+  max-width: 1700px;
+  left: 0;
+  box-sizing: border-box; /* Incluye padding y border en el cálculo del ancho */
+  width: calc(100vw - 2.3cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+  margin: 0 auto; /* Centrado horizontalmente */
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  top: 0px;
+}
+/* Contenedor que garantiza el espacio en laterales y abajo */
+.card-wrapper {
+  box-sizing: border-box;
+  padding: 0 0.5cm 10px; /* 0 en la parte superior, 0.5cm a los lados, 10px abajo */
+  width: 100%;
+  margin: 0 auto;
 }
 
 /* Tabla */
 .table-container {
-  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 15px;
-  background-color: #f9f9f9;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-  border-top: 3px solid #000000;
+  background-color: #fff;
+  box-shadow: 0 6px 18px rgba(255, 255, 255, 0.1);
+  border-top: 3px solid #5271ff;
   animation: fadeIn 1s ease-out;
   display: block;
-  margin: 0;
   margin-top: 15px;
+  border-collapse: separate; /* obligatorio para que los borders no colapsen */
+  border-spacing: 0;
+  table-layout: fixed;
+  overflow-x: auto;
   overflow-y: auto;
-  max-height: 700px;
+  touch-action: manipulation;
+  max-height: 150%;
+  width: calc(100vw - 5.5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+  max-width: none;
+  margin: 0 10px;
+  padding: 0px;
+  height: calc(10vw - 1.5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+  margin: 5px 0;
+  padding-bottom: 20px;
+  box-sizing: border-box;
+  min-height: calc(93vh - 149px);
 }
 
 .table-container table {
-  min-width: 700px;
-  width: auto;
-  border-collapse: collapse;
-  font-size: 38px; /* Aumenté el tamaño de la fuente aún más */
-  border-radius: 8px;
+  border-collapse: separate; /* obligatorio para que los borders no colapsen */
+  border-spacing: 0;
+  font-size: 20px;
   table-layout: fixed;
+}
+
+thead tr {
+  position: sticky;
+  top: 0%;
+  left: -4%;
+  background-color: #fff;
+  z-index: 890;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+tr {
+  white-space: nowrap;
 }
 
 th,
 td {
-  padding: 8px 6px;
+  padding: 8px 0px;
   font-weight: 400;
   word-wrap: break-word;
 }
 
+/*controla la celda of */
 th {
-  background-color: #007bff;
+  background-color: #5271ff;
   color: white;
-  padding: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
   margin-left: 5px;
   margin-right: 5px;
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
   text-align: center;
   font-weight: bold;
 }
 
 td {
-  padding: 6px;
   text-align: left;
-  background-color: #f9f9f9;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.05);
+  background-color: #ffffff;
   color: #000000;
-  font-size: 15px;
+  font-size: 12px;
+  border: none;
+  border-bottom: 1px solid #2e2e2e;
+  background-color: #fff;
 }
 
 td input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #f9f9f9;
+  border: 1px solid #812f2f00;
   font-size: 12px;
-  background-color: #f9f9f9;
+  background-color: #ffffff;
   box-sizing: border-box;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
@@ -378,8 +1059,8 @@ td input:invalid {
 select {
   width: 100%;
   padding: 9px;
-  border: 1px solid #f9f9f9;
-  background-color: #f9f9f9;
+  border: 1px solid #fff;
+  background-color: #fff;
   font-size: 12px;
   box-sizing: border-box;
   transition: border-color 0.3s, box-shadow 0.3s;
@@ -394,8 +1075,8 @@ select:focus {
 option {
   width: 100%;
   padding: 14px;
-  border: 2px solid #007bff;
-  border-radius: 6px;
+  border: 2px solid #5271ff;
+  border-radius: 5px;
   background-color: #fff;
   font-size: 12px;
   box-sizing: border-box;
@@ -403,7 +1084,7 @@ option {
 }
 
 tr.efectivo td {
-  background-color: #8e44ad;
+  background-color: rgba(0, 142, 164);
 }
 
 tr.cancelado td {
@@ -414,27 +1095,31 @@ tr.credito td {
   background-color: #2ecc71;
 }
 
-/* Estilos para las celdas de "Pago" */
-.pago-cell {
-  background-color: #2ecc71; /* Verde para "Pago" */
-}
-
-.debe-cell {
-  background-color: #e74c3c; /* Rojo para "Debe" */
-}
-
-.pendiente-fin-de-mes-cell {
-  background-color: #f1c40f; /* Amarillo para "Pendiente Fin De Mes" */
-}
-
-.pendiente-cell {
-  background-color: #f1c40f; /* Amarillo para "Pendiente" */
-}
-
 /* Estilos adicionales si es necesario */
 table.service-table td {
-  padding: 10px;
-  border: 1px solid #ccc;
+  padding: 1px 0px;
+  border: 1px solid rgba(224, 224, 224, 0.26)
+}
+
+table.service-table {
+  border-collapse: collapse; /* opcional, para un único trazo si hay celdas contiguas */
+}
+
+table.service-table td {
+  padding: 1px 0;
+  border-bottom: 1px solid #b9b9b9; /* sólo borde inferior */
+}
+
+table.service-table {
+  border-collapse: collapse; /* ya lo tienes si usaste antes */
+}
+
+table.service-table tr {
+  transition: background-color 0.2s ease-in-out; /* transición suave */
+}
+
+table.service-table tr:hover {
+  background-color: #f5f5f5; /* color sutil al pasar el ratón */ /* opcional, para indicar interactividad */
 }
 
 table.service-table input,
@@ -444,9 +1129,501 @@ table.service-table select {
   box-sizing: border-box;
 }
 
+select,
+input,
+table.service-table input,
+table.service-table select,
+text,
+.custom-select-container {
+  width: 86%;
+  margin: 0px 6px;
+  padding: 0px 0px;
+  opacity: 90%;
+  border-radius: 3px;
+}
 
+.swal2-select{
+  padding: 0px;
+  margin: 0px;
+}
 
-/* Styles for the filters container */
+/* === Botones base (todos) =FLOTANTES FIJOS== */
+.agendamientosfuturos_icon,
+.generate-button1,
+.generate-button2,
+.generate-button3,
+.generate-button4,
+.icon-button-agendar,
+.icon-button-mis-servicios,
+.icon-button-servicioHoy,
+.icon-button-servicioManana,
+.icon-button-servicioPasadoManana,
+.icon-button-agendaDinamica,
+.icon-button-facturasEmitidas,
+.icon-button-clientes,
+.icon-button-reprogramacionAutomatica,
+.icon-button-informeEfectivo,
+.icon-button-configuracionUsuarios,
+.icon-button-logout {
+  position: fixed;
+  width: 3.2vw;
+  height: 3.2vw;
+  max-width: 50px;
+  max-height: 50px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background-color: #5271ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: none;
+  transition: all 0.3s ease-in-out;
+  z-index: 1000;
+}
+
+/* === Posiciones específicas botones generate === */
+.generate-button1 {
+  right: 1.5vw;
+  bottom: 20vh;
+}
+.generate-button2 {
+  right: 1.5vw;
+  bottom: 11vh;
+}
+.generate-button3 {
+  cursor: pointer;
+  right: 1vw;
+  bottom: 80vh;
+}
+.generate-button4 {
+  right: 1vw;
+  bottom: 75vh;
+}
+
+/* === Botones alineados con separación uniforme === */
+.icon-button-agendar {
+  left: 1.2vw;
+  top: 3vh;
+}
+.icon-button-mis-servicios {
+  left: 1.2vw;
+  top: 3vh;
+}
+.icon-button-servicioHoy {
+  left: 1.2vw;
+  top: 11vh;
+}
+.icon-button-servicioManana {
+  left: 1.2vw;
+  top: 19vh;
+}
+.icon-button-servicioPasadoManana {
+  left: 1.2vw;
+  top: 27vh;
+}
+.icon-button-agendaDinamica {
+  left: 1.2vw;
+  top: 35vh;
+}
+.icon-button-facturasEmitidas {
+  left: 1.2vw;
+  top: 43vh;
+}
+.icon-button-clientes {
+  left: 1.2vw;
+  top: 51vh;
+}
+.icon-button-reprogramacionAutomatica {
+  left: 1.2vw;
+  top: 59vh;
+}
+.icon-button-informeEfectivo {
+  left: 1.2vw;
+  top: 67vh;
+}
+.icon-button-configuracionUsuarios {
+  left: 1.2vw;
+  top: 75vh;
+}
+.icon-button-logout {
+  left: 1.2vw;
+  bottom: 3vh;
+}
+
+/* === Imágenes generales === */
+.generate-button-imagen1,
+.generate-button-imagen2,
+.generate-button-imagen3,
+.generate-button-imagen4,
+.icon-image-agendar,
+.icon-image-servicioHoy,
+.icon-image-servicioManana,
+.icon-image-servicioPasadoManana,
+.icon-image-agendaDinamica,
+.icon-image-facturasEmitidas,
+.icon-image-clientes,
+.icon-image-reprogramacionAutomatica,
+.icon-image-informeEfectivo,
+.icon-image-configuracionUsuarios,
+.icon-image-logout {
+  width: 70%;
+  height: 70%;
+  padding: 0;
+  border-radius: 5px;
+  object-fit: contain;
+  cursor: pointer;
+  transition: transform 150ms ease-in-out;
+}
+
+/* === Hover efecto (ampliación) === */
+.generate-button-imagen1:hover,
+.generate-button-imagen2:hover,
+.generate-button-imagen3:hover,
+.generate-button-imagen4:hover,
+.icon-image-agendar:hover,
+.icon-image-servicioHoy:hover,
+.icon-image-servicioManana:hover,
+.icon-image-servicioPasadoManana:hover,
+.icon-image-agendaDinamica:hover,
+.icon-image-facturasEmitidas:hover,
+.icon-image-clientes:hover,
+.icon-image-reprogramacionAutomatica:hover,
+.icon-image-informeEfectivo:hover,
+.icon-image-configuracionUsuarios:hover,
+.icon-image-logout:hover {
+  transform: scale(1.1);
+}
+
+/* === Tooltip: nombre del botón (contenido dinámico) === */
+.icon-button-mis-servicios::after {
+  content: "Mis Servicios";
+}
+.icon-button-agendar::after {
+  content: "Agenda Express";
+}
+.icon-button-servicioHoy::after {
+  content: "Servicios De Hoy";
+}
+.icon-button-servicioManana::after {
+  content: "Servicios De Mañana";
+}
+.icon-button-servicioPasadoManana::after {
+  content: "Servicios De Pasado Mañana";
+}
+.icon-button-agendaDinamica::after {
+  content: "Agenda Dinámica";
+}
+.icon-button-facturasEmitidas::after {
+  content: "Facturas Emitidas";
+}
+.icon-button-clientes::after {
+  content: "Clientes";
+}
+.icon-button-reprogramacionAutomatica::after {
+  content: "Reprogramación Automática";
+}
+.icon-button-informeEfectivo::after {
+  content: "Informe De Efectivo";
+}
+.icon-button-configuracionUsuarios::after {
+  content: "Configuración De Usuarios";
+}
+.icon-button-logout::after {
+  content: "Cerrar Sesión";
+}
+
+/* Estilo visual con deslizamiento hacia la derecha */
+.icon-button-agendar::after,
+.icon-button-mis-servicios::after,
+.icon-button-servicioHoy::after,
+.icon-button-servicioManana::after,
+.icon-button-servicioPasadoManana::after,
+.icon-button-agendaDinamica::after,
+.icon-button-facturasEmitidas::after,
+.icon-button-clientes::after,
+.icon-button-reprogramacionAutomatica::after,
+.icon-button-informeEfectivo::after,
+.icon-button-configuracionUsuarios::after,
+.icon-button-logout::after {
+  position: absolute;
+  top: 50%;
+  left: 80%;
+  transform: translateY(-50%) translateX(10px);
+  padding: 6px 16px;
+  background: linear-gradient(135deg, #5271ff, rgb(89, 0, 255));
+  color: white;
+  font-size: 14px;
+  font-family: "Segoe UI", sans-serif;
+  border-radius: 50px;
+  white-space: nowrap;
+  box-shadow: 0 0 8px rgba(91, 0, 255, 0.5), 0 0 4px rgba(0, 240, 255, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 999;
+  font-weight: bold;
+}
+
+/* Mostrar tooltip: desliza hacia la derecha */
+.icon-button-agendar:hover::after,
+.icon-button-mis-servicios:hover::after,
+.icon-button-servicioHoy:hover::after,
+.icon-button-servicioManana:hover::after,
+.icon-button-servicioPasadoManana:hover::after,
+.icon-button-agendaDinamica:hover::after,
+.icon-button-facturasEmitidas:hover::after,
+.icon-button-clientes:hover::after,
+.icon-button-reprogramacionAutomatica:hover::after,
+.icon-button-informeEfectivo:hover::after,
+.icon-button-configuracionUsuarios:hover::after,
+.icon-button-logout:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(20px);
+}
+
+/* /////////////////////////// */
+/* ============================= */
+/* 1) BOTONES (tu CSS existente) */
+/* ============================= */
+.btn-agendar2,
+.btn-servHoy2,
+.btn-servMan2,
+.btn-servPas2,
+.btn-agDin2,
+.btn-facturasEmitidas2,
+.btn-clientes2,
+.btn-reprog2,
+.btn-infEfec2,
+.btn-configUsr2,
+.btn-logout2,
+.btn-nomina2,
+.btn-gastos2,
+.btn-ingresos2,
+.btn-edoResul2,
+.btn-infTrans2,
+.btn-infCob2 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  width: 219px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #5271ff, rgb(89, 0, 255));
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin: 0 0 15px 10px;
+  text-align: left;
+  white-space: normal;
+}
+.btn-agendar2:hover,
+.btn-servHoy2:hover,
+.btn-servMan2:hover,
+.btn-servPas2:hover,
+.btn-agDin2:hover,
+.btn-facturasEmitidas2:hover,
+.btn-clientes2:hover,
+.btn-reprog2:hover,
+.btn-infEfec2:hover,
+.btn-configUsr2:hover,
+.btn-logout2:hover,
+.btn-nomina2:hover,
+.btn-gastos2:hover,
+.btn-ingresos2:hover,
+.btn-edoResul2:hover,
+.btn-infTrans2:hover,
+.btn-infCob2:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================= */
+/* 2) CONTENEDOR SIDEBAR         */
+/* ============================= */
+.slidebar {
+  width: 240px;
+  background: #1a1c23;
+  color: #e0e0e0;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  padding: 1rem 0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+}
+
+/* ============================= */
+/* 3) MÓDULOS (detalles/summary) */
+/* ============================= */
+.slidebar details {
+  margin: 0 0 1.5rem 0;
+}
+
+/* elimina marcador nativo */
+.slidebar summary {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem 1rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #aaa;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+.slidebar summary:hover {
+  color: #fff;
+}
+.slidebar summary::-webkit-details-marker {
+  display: none;
+}
+
+/* flecha toggle */
+.slidebar summary::after {
+  content: "▸";
+  position: absolute;
+  right: 1rem;
+  transition: transform 0.2s ease;
+}
+details[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+/* ============================= */
+/* 4) CONTENIDO DE MÓDULOS       */
+/* ============================= */
+.module-content {
+  display: none;
+  flex-direction: column;
+  margin: 0 0 0 1.5rem;
+  gap: 0.5rem;
+}
+details[open] .module-content {
+  display: flex;
+}
+
+/* botones dentro de módulo */
+.module-content .btn-agendar2,
+.module-content .btn-servHoy2,
+.module-content .btn-servMan2,
+.module-content .btn-servPas2,
+.module-content .btn-reprog2,
+.module-content .btn-agDin2,
+.module-content .btn-facturasEmitidas2,
+.module-content .btn-infEfec2,
+.module-content .btn-configUsr2,
+.module-content .btn-clientes2,
+.module-content .btn-logout2,
+.module-content .btn-nomina2,
+.module-content .btn-gastos2,
+.module-content .btn-ingresos2,
+.module-content .btn-edoResul2,
+.module-content .btn-infTrans2,
+.module-content .btn-infCob2 {
+  width: calc(100% - 1.5rem);
+  margin: 0;
+}
+
+/* ============================= */
+/* 5) SEPARADORES (opcional)     */
+/* ============================= */
+.slidebar hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1.5rem 0;
+}
+
+/* ---- Asegúrate de incluirlo tras tu CSS de .btn-…2 ---- */
+
+/* Contenedor principal en columna */
+.slidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header de usuario */
+.sidebar-user {
+  text-align: center;
+  padding: 1rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 2rem;
+}
+.user-greeting {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+.user-photo {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #5271ff;
+}
+
+/* Asegura que el contenido del menú ocupe el espacio central y haga scroll si es necesario */
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+
+/* Footer */
+.sidebar-footer {
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: auto;
+}
+
+/* /////////////////////////// */
+
+/* Icon sizing */
+.icon-agendar2,
+.icon-servHoy2,
+.icon-servMan2,
+.icon-servPas2,
+.icon-agDin2,
+.icon-facturasEmitidas2,
+.icon-clientes2,
+.icon-reprog2,
+.icon-infEfec2,
+.icon-configUsr2,
+.icon-logout2 {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Keyframes */
+@keyframes scanLines {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 20px 20px;
+  }
+}
+
+@keyframes borderPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .filters {
   display: flex;
   align-items: center;
@@ -455,28 +1632,63 @@ table.service-table select {
   padding: 1rem;
   background-color: #f8f9fa;
   border: 1px solid #dee2e6;
-  border-radius: 8px;
+  border-radius: 5px;
 }
 
 /* Styles for the filter button */
 .filter-button {
-  background-color: #007bff;
-  color: #fff;
+  background-color: #5271ff;
+  color: #ffffff;
   border: none;
-  border-radius: 5px;
   padding: 0.5rem 1rem;
   cursor: pointer;
+  font-weight: bold;
   transition: background-color 0.3s, transform 0.2s;
+  margin-right: 10px;
+  border-radius: 5px;
+  font-size: 13px;
 }
 
 .filter-button:hover {
-  background-color: #0056b3;
+  background-color: #5271ff;
   transform: scale(1.05);
+}
+
+.filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  max-width: 100%;
+  overflow: visible;
+  position: relative;
+}
+
+.filters-container .datepicker-container {
+  position: relative;
+  z-index: 900;
 }
 
 /* Styles for the datepicker container */
 .datepicker-container {
   position: relative;
+  display: inline-block;
+}
+
+.react-datepicker {
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  font-size: 14px;
+  margin-top: 20px;
 }
 
 .calendar-input {
@@ -487,6 +1699,40 @@ table.service-table select {
   background-color: #fff;
   width: 150px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.discard-filter-button {
+  background-color: #dc3545;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  font-weight: bold;
+  margin-top: 20px;
+  border-radius: 5px;
+}
+
+/* ================================= */
+/* Oculta el scrollbar en todo el panel de filtros */
+/* ================================= */
+/* Firefox */
+.filter-slidebar {
+  scrollbar-width: none;
+}
+/* IE 10+ */
+.filter-slidebar {
+  -ms-overflow-style: none;
+}
+/* Chrome, Safari y Opera */
+.filter-slidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.discard-filter-button:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
 }
 
 /* Styles for the dropdown */
@@ -505,7 +1751,6 @@ table.service-table select {
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* Option styles */
 .dropdown option {
   color: #495057;
   background-color: #fff;
@@ -520,198 +1765,689 @@ table.service-table select {
 button.delete-button {
   background-color: #ff6347;
   color: #fff;
-  padding: 6px 12px;
+  padding: 2px 5px;
   cursor: pointer;
-  border-radius: 5px;
-  font-size: 18px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
   transition: background-color 0.3s ease;
+  margin-left: 15px;
 }
 
 button.delete-button:hover {
   background-color: #ff3300;
+  transform: scale(1.05);
+  transition: 0.2s;
 }
 
-/* Estilos móviles */
-@media screen and (max-width: 768px) and (orientation: portrait) {
-  .form-container {
+#delete-button-fechas {
+  margin-left: 6%;
+}
+
+.delete-button:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.delete-button:active {
+  background-color: #bd2130;
+  transform: scale(1);
+}
+
+/* Estilos generales para el botón de edición */
+.edit-button {
+  margin-left: 12%;
+  padding: 8px 16px;
+  font-size: 10px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+/* Estado cuando el botón está en modo edición (editable) */
+.edit-button.editable {
+  background-color: rgb(0, 151, 0);
+  color: white;
+}
+
+/* Estado cuando el botón no está en modo edición */
+.edit-button.not-editable {
+  background-color: rgb(255, 115, 0);
+  color: white;
+}
+
+/* Efecto hover */
+.edit-button:hover {
+  opacity: 0.9;
+}
+
+/* Efecto al hacer clic */
+.edit-button:active {
+  transform: scale(0.95);
+}
+
+/* Estilos para móviles y pantallas pequeñas */
+
+/* 📱 Estilos para móviles en modo vertical */
+@media (max-width: 480px) {
+  body {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(255, 255, 255, 0.85);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-    padding: 30px;
-    padding-bottom: 25px;
-    max-width: 100%;
-    width: 90%;
-    position: relative;
-    top: 10%;
-    border-radius: 20px;
-    animation: fadeIn 0.6s ease-out;
-    transition: top 0.2s ease, transform 0.3s ease;
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    width: 100vw;
+    height: auto;
   }
 
-  .form-container input,
-  .form-container button {
-    width: 90%;
-    padding: 12px;
-    margin-bottom: 10px;
-    font-size: 16px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
+  th {
+    font-size: 5px;
+    padding: 4px;
   }
 
-  .form-container button {
-    background-color: #007bff;
-    color: white;
+  td,
+  table.service-table td {
+    font-size: 5px;
+    padding: 0px;
+  }
+
+  /* Estilo para los botones */
+  button.delete-button {
+    background-color: #ff6347;
+    color: #fff;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 5px;
     border: none;
-    cursor: pointer;
-    font-size: 18px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    margin-left: 5px;
+    margin-right: 5px;
+    border-radius: 5px;
   }
 
-  .form-container button:hover {
-    background-color: #0056b3;
-  }
-
-  /* Animación de aparición */
-  @keyframes fadeIn {
-    0% {
-      opacity: 0;
-      transform: translateY(-50px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Barra lateral */
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: -4000px; /* Aumentado por 10 */
-    height: 100%;
-    background-color: #fff;
-    color: #333;
-    transition: left 0.3s ease-in-out;
-    padding-top: 600px; /* Aumentado por 10 */
-    z-index: 1000;
-    box-shadow: 3px 0 150px rgba(0, 0, 0, 0.2); /* Aumentado por 10 */
-    overflow-y: auto;
-    padding-bottom: 500px; /* Aumentado por 10 */
-    width: 80%; /* Barra lateral más ancha */
-  }
-
-  .sidebar.show {
-    left: 0;
-  }
-
-  .sidebar .menu-item {
-    color: #333;
-    background-color: #f4f4f9;
-    padding: 60px 80px; /* Más Reducido */
-    margin-top: 50px; /* Más Reducido */
-    margin-left: 50px; /* Más Reducido */
-    margin-right: 150px;
-    text-align: left;
-    font-size: 45px; /* Más Reducido */
-    cursor: pointer;
-    border-radius: 30px; /* Más Reducido */
-    transition: background-color 0.3s, color 0.3s, transform 0.3s ease;
-  }
-
-  .sidebar .menu-item:hover {
-    background-color: #4b4b4b;
-    color: white;
-    transform: translateX(5px);
-  }
-
-  /* Icono de la barra lateral */
-  .show-sidebar-button {
-    position: absolute;
-    top: 20px;
-    left: 15px;
-    font-size: 100px;
-    background-color: #fff;
-    border-radius: 25px;
-    border: none;
-    cursor: pointer;
-    z-index: 2000;
-    transition: color 0.3s ease, transform 0.2s ease;
-  }
-
-  .show-sidebar-button:hover {
-    color: #00b7ff;
-    transform: rotate(180deg);
-    background-color: #f0f0f0;
-  }
-
-  /*Card principal*/
-  .homepage-card {
-    margin-left: 38%;
+  /* Contenedor que garantiza el espacio en laterales y abajo */
+  .card-wrapper {
+    box-sizing: border-box;
+    padding: 0 0.5cm 10px; /* 0 en la parte superior, 0.5cm a los lados, 10px abajo */
     width: 100%;
-    margin-top: 160%;
+    margin: 0 auto;
   }
 
-  .current-date {
-    font-size: 42px;
-    text-align: center;
+  /* Tarjeta que se adapta al contenedor */
+  .homepage-card {
+    box-sizing: border-box; /* Incluye padding y border en el ancho total */
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 5px 5px 15px rgb(0, 0, 0);
+    padding: 10px;
+    height: 95%;
+    max-height: 1000px;
+    max-width: 900px;
+    width: 100%;
+    margin: -8px auto 0; /* Se centra horizontalmente, con margen superior negativo */
+    transition: margin-top 0.3s ease-in-out, box-shadow 0.3s ease;
+    animation: fadeIn 1s ease-out;
+    overflow: visible;
+  }
+
+  /* Aseguramos que el body no tenga márgenes ni paddings */
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Definición del elemento */
+  .homepage-title {
+    box-sizing: border-box; /* Incluye padding y border en el cálculo del ancho */
+    width: calc(100vw - 2.3cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    margin: 0 auto; /* Centrado horizontalmente */
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    opacity: 0.95;
   }
 
   .table-container {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 15px;
-    background-color: #f9f9f9;
-    border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-    border-top: 3px solid #000000;
-    animation: fadeIn 1s ease-out;
-    display: block;
-    margin: 0;
-    margin-top: 15px;
     overflow-y: auto;
-    max-height: 2500px;
+    touch-action: manipulation;
+    height: 10%;
+    max-height: 150%;
+    width: calc(100vw - 1.2cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    max-width: none;
+    margin: 0 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    height: calc(10vw - 1.5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    margin: 5px 0;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+    min-height: calc(100vh - 149px);
   }
 
-  .table-container table {
-    min-width: 750px;
-    width: auto;
-    border-collapse: collapse;
-    font-size: 38px;
-    table-layout: fixed;
-  }
-
-  th,
-  td {
-    padding: 8px 6px;
+  .current-date {
+    font-size: 12px;
+    font-weight: bold;
+    color: rgb(0, 0, 0);
     text-align: left;
-    font-weight: 400;
-    word-wrap: break-word;
+    margin-left: 0px;
+    margin-top: 10px;
+    margin-bottom: -3px;
+  }
+
+  .current-date:hover {
+    transition: transform 0.2s ease, color 0.3s ease;
+    color: #5271ff;
+  }
+
+  .title-page {
+    color: #000000;
+    text-align: center;
+    margin-bottom: -40px;
+    margin-left: 84px;
+    margin-top: -0px;
+    font-size: 15px;
+    padding: 1%;
+  }
+
+  .create-table-button {
+    background-color: #12d13f;
+    color: white;
+    border: none;
+    margin-top: 5px;
+    padding: 0px 13px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s ease-in-out;
+    font-weight: bold;
+    right: 25px;
+    font-size: 40.4px; /* Tamaño de fuente reducido */
+    bottom: 1vh;
+  }
+
+  /* Aplica sólo a los <select> dentro de tu tabla */
+  table.service-table select {
+    /* 1) Quitar la flecha nativa */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    /* 2) Espacio para la flecha personalizada */
+    padding: 0.5rem 1.5rem 0.5rem 0.5rem;
+    background-color: #fff;
+
+    /* 3) Flecha SVG como fondo */
+    background-image: url("data:image/svg+xml;charset=UTF-8,\<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'>\<path fill='%230a0505' d='M0 0l5 6 5-6z'/>\</svg>");
+    background-repeat: no-repeat;
+    background-position: right;
+    background-size: 0.375rem 0.225rem; /* ← aquí ajustas ancho x alto */
+  }
+
+  thead tr {
+    top: -1.6%;
+  }
+
+  .show-slidebar-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 7px 5px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    z-index: 2000;
+    padding: 1px 8px;
+    transition: color 0.3s ease, transform 0.2s ease;
+  }
+
+  .show-filter-slidebar-button {
+    height: 40px;
+    width: 40px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: black;
+    border: none;
+    padding: 0px 0px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 2000;
+    transition: background-color 0.3s, transform 0.2s;
+  }
+
+  /* Contenedor para el selector de fecha */
+  .datepicker-container {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .filters-container,
+  .filters {
+    top: 0px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    overflow-x: auto;
+  }
+
+  select,
+  input,
+  table.service-table input,
+  table.service-table select,
+  text,
+  .custom-select-container {
+    width: 86%;
+    margin: 2px 6px;
+    padding: 0px 0px;
+    font-size: 5px;
+    opacity: 90%;
+  }
+  .tu-elemento {
+    display: inline-block; /* Hace que el elemento se ajuste al contenido */
+    width: auto; /* El ancho se define automáticamente según el contenido */
+    max-width: 100%; /* Opcional: evita que se desborde el contenedor padre */
+    padding: 5px; /* Espaciado interno, ajustable según tus necesidades */
+  }
+
+  .discard-filter-button,
+  .create-facture-button,
+  .filter-button.reset-button {
+    flex: 0 0 auto;
+    padding: 6px;
+    font-size: 5px;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s, transform 0.2s ease-in-out;
+    min-width: 80px;
+  }
+
+  .delete-button {
+    font-size: 5px;
+  }
+
+  .filter-button.active {
+    background-color: #5271ff;
+    color: white;
+  }
+
+  .discard-filter-button {
+    background-color: #f44336;
+    color: white;
+  }
+
+  .create-facture-button {
+    background-color: #5271ff;
+    color: white;
+    font-weight: bold;
+  }
+
+  .delete-button {
+    background-color: #dc3545;
+    color: white;
+    font-weight: bold;
+  }
+
+  .filter-button.reset-button {
+    background-color: #6c757d;
+    color: white;
+  }
+  .icon-button-agendar,
+  .icon-button-mis-servicios,
+  .icon-button-servicioHoy,
+  .icon-button-servicioManana,
+  .icon-button-servicioPasadoManana,
+  .icon-button-agendaDinamica,
+  .icon-button-facturasEmitidas,
+  .icon-button-clientes,
+  .icon-button-reprogramacionAutomatica,
+  .icon-button-informeEfectivo,
+  .icon-button-configuracionUsuarios,
+  .icon-button-logout {
+    display: none !important;
+  }
+
+  .generate-button1 {
+    right: 32vw;
+    bottom: 1vh;
+    min-height: 11vw;
+    min-width: 11vw;
+  }
+  .generate-button2 {
+    right: 20vw;
+    bottom: 1vh;
+    min-height: 11vw;
+    min-width: 11vw;
+  }
+}
+
+.direccion-fixed-th {
+  position: sticky;
+  top: -11%; /* Ajusta el offset vertical */
+  left: -11px; /* Fija el elemento en el lado izquierdo */
+  z-index: 900;
+  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+}
+
+.direccion-fixed-td {
+  position: sticky;
+  top: -4%; /* Ajusta el offset vertical */
+  left: -11px; /* Fija el elemento en el lado izquierdo */
+  z-index: 800;
+  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+}
+
+/* 📱 Estilos para móviles en modo horizontal (landscape) */
+@media (max-width: 1000px) and (orientation: landscape) {
+  .filter-button,
+  .discard-filter-button,
+  .create-facture-button,
+  .create-table-button,
+  .delete-button,
+  .filter-button.reset-button,
+  .swal2-input,
+  .swal2-input9,
+  .swal2-popup #swal-input9,
+  .filters {
+    padding: 12px 18px;
+    font-size: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+  }
+  .filters {
+    overflow-x: auto;
+  }
+
+  .generate-button3 {
+    right: 1vw;
+    bottom: 70vh;
+    cursor: pointer;
+  }
+
+  .generate-button1 {
+    right: 14vw;
+    bottom: 1vh;
+    min-height: 5vw;
+    min-width: 5vw;
+  }
+  .generate-button2 {
+    right: 8vw;
+    bottom: 1vh;
+    min-height: 5vw;
+    min-width: 5vw;
   }
 
   th {
-    background-color: #007bff;
-    color: white;
+    padding: 0px;
+  }
+
+  td,
+  table.service-table td {
+    font-size: 11px;
+    padding: 0px;
+  }
+
+  .swal2-popup .swal2-input {
+    width: 250px !important;
+  }
+
+  .swal2-popup #swal-input9 {
+    width: 250px !important;
+    height: 40px !important;
+    border-radius: 5px;
+  }
+
+  .current-date {
+    font-size: 10px;
+  }
+
+  /* Estilo para los botones */
+  button.delete-button {
+    background-color: #ff6347;
+    color: #fff;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 15px;
+    border: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    margin: 2px 0px 2px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+  }
+  .create-facture-button,
+  .create-table-button,
+  .discard-filter-button {
+    margin-right: -15px;
+  }
+
+  .swal2-input {
+    border-color: #cacaca;
+  }
+
+  .react-datepicker {
+    margin-top: -86px;
+  }
+
+  .filters-container {
+    padding-right: 30px;
+    padding-left: 0px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .datepicker-container {
+    padding: 10px 18px;
+    font-size: 10px;
+    margin-top: -15px;
+    margin-bottom: -15px;
+    margin-right: -18px;
+    white-space: nowrap;
+  }
+
+  .react-datepicker {
+    position: fixed !important;
+    top: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999 !important;
+    overflow: visible;
+  }
+
+  thead tr {
+    top: -1%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding: 10px;
-    margin-left: 5px;
-    margin-right: 5px;
-    font-size: 36px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    height: 100vh;
+  }
+
+  /* Aseguramos que el body no tenga márgenes ni paddings */
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Tarjeta que se adapta al contenedor */
+  .homepage-card {
+    box-sizing: border-box; /* Incluye padding y border en el ancho total */
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 5px 5px 15px rgb(0, 0, 0);
+    padding: 10px;
+    height: 95%;
+    max-height: 1000px;
+    max-width: 900px;
+    width: 100%;
+    margin: -9px auto 0; /* Se centra horizontalmente, con margen superior negativo */
+    transition: margin-top 0.3s ease-in-out, box-shadow 0.3s ease;
+    animation: fadeIn 1s ease-out;
+    overflow: visible;
+  }
+
+  /* Definición del elemento */
+  .homepage-title {
+    box-sizing: border-box; /* Incluye padding y border en el cálculo del ancho */
+    width: calc(100vw - 2.3cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    margin: 0 auto; /* Centrado horizontalmente */
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    opacity: 0.95;
+  }
+
+  .tu-elemento {
+    display: inline-block; /* Hace que el elemento se ajuste al contenido */
+    width: auto; /* El ancho se define automáticamente según el contenido */
+    max-width: 100%; /* Opcional: evita que se desborde el contenedor padre */
+    padding: 5px; /* Espaciado interno, ajustable según tus necesidades */
+  }
+
+  .filter-button,
+  .discard-filter-button,
+  .create-facture-button,
+  .filter-button.reset-button {
+    flex: 0 0 auto;
+    padding: 7px;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s, transform 0.2s ease-in-out;
+    min-width: 80px;
+  }
+
+  /* Contenedor para el selector de fecha */
+  .datepicker-container {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .filters-container,
+  .filters {
+    top: 0px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    overflow-x: auto;
+  }
+
+  select,
+  input,
+  table.service-table input,
+  table.service-table select,
+  text,
+  .custom-select-container {
+    width: 88%;
+    margin: 0px 5px;
+    padding: 0px 0px;
+    font-size: 10px;
+    opacity: 90%;
+  }
+
+  /* Contenedor que garantiza el espacio en laterales y abajo */
+  .card-wrapper {
+    box-sizing: border-box;
+    padding: 0 0.5cm 10px; /* 0 en la parte superior, 0.5cm a los lados, 10px abajo */
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    touch-action: manipulation;
+    height: 10%;
+    max-height: 150%;
+    width: calc(100vw - 1.2cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    max-width: none;
+    margin: 0 10px;
+    padding: 0px;
+    box-sizing: border-box;
+    height: calc(10vw - 1.5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    margin: 5px 0;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+    min-height: calc(100vh - 149px);
+  }
+
+  .current-date {
+    font-size: 12px;
+    font-weight: bold;
+    color: black;
+    text-align: left;
+    margin-left: 16px;
+    margin-top: 14px;
+    margin-bottom: -8px;
+  }
+
+  .current-date:hover {
+    transition: transform 0.2s ease, color 0.3s ease;
+    color: #5271ff;
+  }
+
+  .title-page {
+    color: #000000;
+    text-align: center;
+    margin-bottom: -40px;
+    margin-left: 0px;
+    margin-top: -0px;
+    font-size: 18px;
+    padding: 0%;
+  }
+
+  .table-container table {
+    border-collapse: separate; /* obligatorio para que los borders no colapsen */
+    border-spacing: 0;
+    border-radius: 5px;
+    table-layout: fixed;
+  }
+
+  th {
+    background-color: #5271ff;
+    color: white;
+    padding: 8px;
+    font-size: 10px;
     text-transform: uppercase;
+    text-align: left;
+    font-weight: bold;
+    white-space: nowrap;
   }
 
   td {
-    padding: 12px;
+    padding: 0px;
     text-align: left;
-    background-color: #f9f9f9;
+    background-color: #fff;
     box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.05);
+    color: black;
   }
 
   td input {
     width: 100%;
     padding: 10px;
-    border: 1px solid #007bff;
-    font-size: 24px;
+    border: 1px solid #fff;
+    font-size: 10px;
     background-color: #fff;
     box-sizing: border-box;
     transition: border-color 0.3s, box-shadow 0.3s;
@@ -729,10 +2465,10 @@ button.delete-button:hover {
 
   select {
     width: 100%;
-    padding: 14px;
-    border: 1px solid #007bff;
+    padding: 9px;
+    border: 1px solid #fff;
     background-color: #fff;
-    font-size: 24px;
+    font-size: 12px;
     box-sizing: border-box;
     transition: border-color 0.3s, box-shadow 0.3s;
   }
@@ -746,59 +2482,967 @@ button.delete-button:hover {
   option {
     width: 100%;
     padding: 14px;
-    border: 2px solid #007bff;
+    border: 2px solid #5271ff;
+    border-radius: 5px;
     background-color: #fff;
-    font-size: 14px;
+    font-size: 10px;
     box-sizing: border-box;
     transition: border-color 0.3s, box-shadow 0.3s;
   }
 
-  tr:hover td {
-    background-color: #f1f1f1;
+  tr.efectivo td {
+    background-color: rgba(0, 142, 164);
+  }
+
+  tr.cancelado td {
+    background-color: #e74c3c;
+  }
+
+  tr.credito td {
+    background-color: #2ecc71;
   }
 
   .create-table-button {
-    background-color: #28a745;
+    background-color: #12d13f;
     color: white;
     border: none;
-    padding: 22px 44px;
+    margin-top: 5px;
+    padding: 0px 13px;
     cursor: pointer;
-    font-size: 42px;
     transition: background-color 0.3s, transform 0.2s ease-in-out;
+    font-weight: bold;
+    right: 25px;
+    font-size: 42px; /* Tamaño de fuente reducido */
+    bottom: 2px;
   }
 
-  .create-table-button:hover {
-    background-color: #218838;
-    transform: scale(1.05);
+  .show-slidebar-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 28px 20px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    z-index: 2000;
+    padding: 1px 8px;
+    transition: color 0.3s ease, transform 0.2s ease;
   }
 
-  .create-table-button:active {
-    transform: scale(1);
+  .show-filter-slidebar-button {
+    height: 40px;
+    width: 40px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: white;
+    color: black;
+    border: none;
+    padding: 0px 0px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 2000;
+    transition: background-color 0.3s, transform 0.2s;
+  }
+  .icon-button-agendar,
+  .icon-button-mis-servicios,
+  .icon-button-servicioHoy,
+  .icon-button-servicioManana,
+  .icon-button-servicioPasadoManana,
+  .icon-button-agendaDinamica,
+  .icon-button-facturasEmitidas,
+  .icon-button-clientes,
+  .icon-button-reprogramacionAutomatica,
+  .icon-button-informeEfectivo,
+  .icon-button-configuracionUsuarios,
+  .icon-button-logout {
+    display: none !important;
+  }
+
+  #logologin {
+    max-width: 200px;
+    margin-bottom: -1rem;
+    border-radius: 10px;
+    transition: transform 0.3s ease, filter 0.3s ease;
   }
 }
 
-.delete-button {
-  background-color: #dc3545;
-  color: white;
+/* 1000 ariba */
+
+.direccion-fixed-th {
+  position: sticky;
+  top: -11%; /* Ajusta el offset vertical */
+  left: -6px; /* Fija el elemento en el lado izquierdo */
+  z-index: 900;
+  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+}
+
+.direccion-fixed-td {
+  position: sticky;
+  top: -4%; /* Ajusta el offset vertical */
+  left: -6px; /* Fija el elemento en el lado izquierdo */
+  z-index: 800;
+  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+}
+
+.custom-filter-input {
+  margin-right: 100px !important;
+}
+
+/* =========  AGENDA‑EXPRESS — Ultra‑Holo Skin  ========= */
+:root {
+  --c1: #00eaff;
+  --c2: #6d00ff;
+  --c3: #ff007c;
+  --glass: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.28);
+  --txt: #e9fbff;
+  --radius: 34px;
+  font-family: "Segoe UI", sans-serif;
+}
+
+/*  ─────────────────────  Fondo estilo “Matrix” azul  ──────────────────────
+    Usa tus variables neon (definidas en :root) para mantener la paleta.     */
+
+:root {
+  /* velocidad de la lluvia; baja el número para hacerlo más rápido */
+  --matrix-speed: 26s;
+}
+
+/*  1️⃣  Contenedor principal: color base y perspectiva ligera                */
+.agendaEX {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background: #03060c; /* negro azulado profundo  */
+  perspective: 1000px; /* sutil sensación “3‑D”   */
+}
+
+/*  2️⃣  Halo/Glow estático (sólo un ligero brillo cian)                      */
+.agendaEX::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgba(0, 234, 255, 0.1) 0 0,
+    rgba(0, 234, 255, 0.03) 45%,
+    transparent 70%
+  );
+  z-index: -1;
+}
+
+/*  3️⃣  Lluvia de caracteres “Matrix” — sólo CSS + SVG embebido             */
+.agendaEX::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* ――  Patrón de letras en base64‑SVG ―― */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='600'%3E%3Cstyle%3Etext{fill:%2300eaff55;font:700 14px monospace}%3C/style%3E%3Ctext x='0' y='20' opacity='.9' >1010011100101011100</text>%3Ctext x='0' y='40' opacity='.85'>0110100011110001110</text>%3Ctext x='0' y='60' opacity='.75'>1101001010101111001</text>%3Ctext x='0' y='80' opacity='.6' >0011110100110100011</text>%3Ctext x='0' y='100' opacity='.45'>1001101110001010110</text>%3Ctext x='0' y='120' opacity='.35'>1110001001110010101</text>%3C/svg%3E");
+  background-size: 200px 600px;
+  background-repeat: repeat;
+  mix-blend-mode: screen; /* fusiona con brillo UI   */
+  opacity: 0.45;
+
+  /* ――  Animación de caída ―― */
+  animation: matrixScroll var(--matrix-speed) linear infinite;
+  z-index: -2; /* por detrás de todo     */
+}
+
+@keyframes matrixScroll {
+  from {
+    background-position: 0 -600px;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* ---------- tarjetas día ---------- */
+@keyframes tiltIn {
+  0% {
+    transform: perspective(900px) rotateX(15deg) translateY(60px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.tarjetas-dia {
+  display: flex;
+  gap: clamp(1rem, 3vw, 2.4rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tarjeta {
+  width: clamp(140px, 32vw, 190px);
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, var(--c1), var(--c2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 600 clamp(0.85rem, 2.2vw, 1.15rem) var(--font);
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
   cursor: pointer;
-  font-size: 28px;
-  transition: background-color 0.3s, transform 0.2s ease-in-out;
+  position: relative;
+  overflow: hidden;
+  animation: tiltIn 0.9s cubic-bezier(0.22, 1.2, 0.46, 1.01) forwards;
+}
+.tarjeta .shine,
+.tarjeta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.tarjeta::after {
+  background: conic-gradient(from 90deg, var(--c1), var(--c2), var(--c1));
+  mix-blend-mode: overlay;
+  filter: blur(24px);
+  opacity: 0.35;
+}
+.tarjeta .shine {
+  background: radial-gradient(circle at 0% 0%, #ffffff55 0%, transparent 46%);
+  transform: translate(-60%, -60%);
+  width: 140%;
+  height: 140%;
+  transition: transform 0.8s cubic-bezier(0.22, 1.2, 0.46, 1.01);
+}
+.tarjeta:hover .shine {
+  transform: translate(-30%, -30%);
+}
+.tarjeta:hover {
+  transform: translateY(-16px) scale(1.07);
+  box-shadow: 0 0 28px 6px var(--c1);
+}
+.icono-dia {
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  filter: drop-shadow(0 0 6px #000);
+}
+.titulo-dia {
+  letter-spacing: 0.6px;
+  margin-top: 0.2rem;
 }
 
-#delete-button-fechas {
-  margin-left: 6%;
+/* ---------- wizard card (centrada) ---------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Siempre centrada en pantalla */
+.turboCard {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 480px);
+  max-width: none;
+  box-sizing: border-box;
+  padding: 2rem 2.4rem 1.4rem;
+  display: grid;
+  gap: 1.4rem;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(24px) saturate(1.35);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
 }
 
-.delete-button:hover {
-  background-color: #c82333;
-  transform: scale(1.05);
+/* Solo para pantallas grandes: fija un top en vez de centrar verticalmente */
+@media screen and (min-width: 1001px) {
+  .turboCard {
+    top: 250px; /* o el espacio que desees */
+    transform: translateX(-50%);
+  }
 }
 
-.delete-button:active {
-  background-color: #bd2130;
-  transform: scale(1);
+/* indicadores, campos y botones */
+.chips {
+  display: flex;
+  gap: 0.55rem;
+  justify-content: center;
 }
- 
+.chips span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #444a;
+  box-shadow: 0 0 6px #0008;
+  transition: all 0.35s;
+}
+.chips span.on {
+  background: var(--accent, var(--c1));
+  box-shadow: 0 0 10px var(--accent, var(--c1));
+}
+.chips span.done {
+  background: var(--c2);
+}
+
+.autoField input,
+.autoField textarea {
+  width: 88%;
+  padding: 0.85rem 1.15rem;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  color: var(--txt);
+  font-size: clamp(0.9rem, 2.4vw, 1rem);
+  backdrop-filter: blur(4px);
+  transition: border 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+.autoField input:focus,
+.autoField textarea:focus {
+  outline: none;
+  border-color: var(--accent, var(--c1));
+  box-shadow: 0 0 10px var(--accent, var(--c1));
+  transform: scale(1.02);
+}
+.autoField small {
+  font-size: 0.72rem;
+  color: #8288a6;
+  margin-top: 0.4rem;
+  display: block;
+}
+
+.turboBtns {
+  display: flex;
+  gap: 1.15rem;
+  justify-content: center;
+  margin-top: 0.8rem;
+}
+.turboBtns button {
+  flex: 1;
+  padding: 0.9rem 0;
+  border: none;
+  border-radius: 100vmax;
+  font: 600 1rem var(--font);
+  cursor: pointer;
+  color: #fff;
+  background: #0003;
+  border: 1px solid var(--border);
+  transition: transform 0.25s, filter 0.25s, background 0.25s;
+}
+.turboBtns button:hover {
+  filter: brightness(1.15);
+  transform: translateY(-3px);
+}
+.turboBtns button:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px var(--accent, var(--c1));
+  }
+  50% {
+    box-shadow: 0 0 18px var(--c2);
+  }
+}
+.turboBtns .ok {
+  background: linear-gradient(135deg, var(--accent, var(--c1)), var(--c2));
+  box-shadow: 0 0 10px var(--accent, var(--c1));
+  animation: pulse 3s infinite;
+}
+
+.cancel {
+  margin: 1.15rem auto 0;
+  display: block;
+  padding: 0.6rem 2.6rem;
+  border-radius: 3rem;
+  background: transparent;
+  border: 1px solid var(--c3);
+  color: var(--c3);
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.25s;
+}
+.cancel:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, var(--c1));
+  color: var(--accent, var(--c1));
+}
+
+/* ==========  “Pocket mode”  ≤ 480 px  ========= */
+@keyframes scrollBG_mob {
+  to {
+    background-position: 300% 300%;
+  }
+}
+@media (max-width: 480px) {
+  .agendaEX {
+    animation: scrollBG_mob 65s linear infinite;
+    background-size: 220px 220px, cover;
+    padding: clamp(0.6rem, 3vw, 1.2rem);
+  }
+  .tarjetas-dia {
+    gap: 1rem;
+  }
+  .tarjeta {
+    width: 44vw;
+    min-width: 145px;
+    border-radius: 28px;
+    font-size: 0.95rem;
+  }
+  .icono-dia {
+    font-size: 2.2rem;
+  }
+  .tarjeta:hover {
+    transform: translateY(-10px) scale(1.05);
+  }
+
+  .chips span {
+    width: 14px;
+    height: 14px;
+  }
+  .autoField input,
+  .autoField textarea {
+    font-size: 0.9rem;
+    padding: 0.74rem 0.9rem;
+    border-radius: 18px;
+  }
+
+  .turboBtns {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .turboBtns button {
+    padding: 0.8rem 0;
+  }
+
+  .cancel {
+    margin: 1rem auto 0.2rem;
+  }
+
+  .logout-fab {
+    width: 56px;
+    height: 56px;
+    right: 14px;
+    bottom: 14px;
+    box-shadow: 0 0 16px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/*  ajuste para pantallas altas */
+.tarjetas-dia {
+  margin-top: 35vh;
+}
+
+/* Safari, Chrome, Edge y Opera */
+.slidebar.show::-webkit-scrollbar {
+  width: 6px; /* ajusta el ancho si quieres dejarla estrecha */
+  background: transparent; /* fondo de la “track” */
+}
+
+.slidebar.show::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.slidebar.show::-webkit-scrollbar-thumb {
+  background: transparent !important;
+}
+
+/* Firefox */
+.slidebar.show {
+  scrollbar-width: none; /* oculta por completo en Firefox */
+  -ms-overflow-style: none; /* oculta en IE/Edge Legacy */
+}
+
+/*  ─────────────────────────  AgendaExpress‑header.css  v2  ───────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&display=swap");
+
+/* ========== CONTENEDOR ============================ */
+.aexp-header {
+  position: absolute;
+  top: 40px; /* ajusta según prefieras            */
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
+/* ========== TÍTULO ================================= */
+.aexp-title {
+  /* Tipografía */
+  font-family: "Orbitron", sans-serif;
+  font-weight: 800;
+  font-size: clamp(25px, 5vw, 45px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.1;
+
+  /* Evitar saltos de línea */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  /* 🎨 Estilos de color */
+  /* 1️⃣ Fallback sólido */
+  color: var(--neon1, #00eaff);
+  text-shadow: 0 0 6px currentColor, 0 0 12px currentColor;
+
+  /* 2️⃣ Holograma si se soporta background‑clip */
+  background: linear-gradient(
+    130deg,
+    var(--neon1, #00eaff),
+    var(--neon2, #ff00e0),
+    var(--neon3, #7cff00),
+    var(--neon4, #ffea00),
+    var(--neon5, #00ffe8)
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  /* Animación */
+  animation: holoShift 12s linear infinite;
+
+  /* Posicionamiento */
+  position: relative;
+}
+
+/*  Glitch SUTIL sin data‑attributes                   */
+.aexp-title::before,
+.aexp-title::after {
+  content: attr(data-glitch) attr(data-glitch, "AGENDA EXPRESS");
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.aexp-title::before {
+  clip-path: polygon(0 2%, 100% 2%, 100% 18%, 0 18%);
+  animation: glitchX 3s infinite steps(1, end);
+  opacity: 0.75;
+}
+
+.aexp-title::after {
+  clip-path: polygon(0 82%, 100% 82%, 100% 98%, 0 98%);
+  animation: glitchY 2.8s infinite steps(1, end);
+  opacity: 0.6;
+}
+
+/* ========== SUBTÍTULO ============================== */
+.aexp-subtitle {
+  margin-top: 8px;
+  font-family: "Orbitron", sans-serif;
+  font-weight: 600;
+  font-size: clamp(14px, 2.4vw, 22px);
+  text-transform: uppercase;
+
+  /* Fallback */
+  color: var(--neon3, #7cff00);
+  text-shadow: 0 0 4px currentColor;
+
+  /* Holograma */
+  background: linear-gradient(
+    130deg,
+    var(--neon3, #7cff00),
+    var(--neon1, #00eaff)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+  animation: subFade 0.5s forwards;
+}
+
+/* Ajuste de espacio cuando hay subtítulo */
+@supports (selector(:has(*))) {
+  .aexp-header:has(.aexp-subtitle) {
+    padding-bottom: 10px;
+  }
+}
+
+/* ======== ANIMACIONES ======== */
+@keyframes holoShift {
+  0% {
+    background-position: 0 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes glitchX {
+  0%,
+  40%,
+  100% {
+    transform: translateX(0);
+  }
+  41%,
+  42% {
+    transform: translateX(-3px);
+  }
+  43%,
+  44% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes glitchY {
+  0%,
+  55%,
+  100% {
+    transform: translateX(0);
+  }
+  56%,
+  57% {
+    transform: translateX(3px);
+  }
+  58%,
+  59% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes subFade {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/*  Garantiza que tus botones flotantes queden encima */
+.icon-button-agendar,
+.icon-button-mis-servicios,
+.icon-button-servicioHoy,
+.icon-button-servicioManana,
+.icon-button-servicioPasadoManana,
+.icon-button-agendaDinamica,
+.icon-button-facturasEmitidas,
+.icon-button-clientes,
+.icon-button-reprogramacionAutomatica,
+.icon-button-informeEfectivo,
+.icon-button-configuracionUsuarios,
+.icon-button-logout {
+  z-index: 2500;
+}
+
+/*  ─────────────────────────  FIN DEL BLOQUE  ───────────────────────── */
+
+/*  ───────────────────  Ajustes responsivos de AEXP Header  ────────────────── */
+
+/*   481 px – 1000 px ─── mover CABECERA a la esquina superior‑derecha
+     ‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑  SOLO cuando exista la clase .withDia ‑‑‑‑‑‑‑‑‑‑‑‑‑‑ */
+
+@media (min-width: 481px) and (max-width: 1000px) {
+  .aexp-header.withDia {
+    top: 5px;
+    right: 1rem;
+    left: auto;
+    transform: none;
+    text-align: right;
+  }
+  .aexp-header.withDia .aexp-title {
+    font-size: clamp(15px, 4vw, 5px);
+    letter-spacing: 0.08em;
+  }
+  .aexp-header.withDia .aexp-subtitle {
+    margin-top: 4px;
+    font-size: clamp(10px, 2vw, 8px);
+    transform: translateY(-6px) scale(0.95);
+  }
+}
+
+/*  Tu bloque mobile (≤ 480 px) permanece igual y sigue centrado. */
+
+/*   ≤ 480 px ─── Versión *mobile*  (centrado) */
+@media (max-width: 480px) {
+  .aexp-header {
+    top: 90px;
+    left: 50%; /* coloca el contenedor en el centro  */
+    transform: translateX(-50%); /* corrige el centrado horizontal     */
+    text-align: center; /* alinea el texto al centro          */
+  }
+  .aexp-title {
+    font-size: clamp(20px, 7.5vw, 32px);
+  }
+  .aexp-subtitle {
+    font-size: clamp(10px, 3.5vw, 14px);
+  }
+}
+
+.icono-dia-img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.barra-icon-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* 1)  TABLET --- VERTICAL (PORTRAIT) 600-899 px                    */
+/* ════════════════════════════════════════════════════════════════ */
+@media only screen and (min-width: 600px) /* fuera de rango móvil */ and (max-width: 899px) /* debajo de portátiles */ and (orientation: portrait) /* tablet en vertical */ {
+  /* ---------- contenedores principales ---------- */
+  .form-container {
+    max-width: 480px;
+    padding: 2.2rem 2rem;
+  }
+  .homepage-card {
+    /* que la tarjeta llene casi todo el ancho disponible */
+    width: calc(100vw - 2rem);
+    max-width: none;
+    /* centrarla horizontalmente */
+    margin: 0.5rem auto 1rem;
+    /* algo de padding interior para no pegar contenido al borde */
+    max-height: calc(1000vw - 2.3cm);
+  }
+  .table-container {
+    width: calc(141vw - 10cm);
+    max-height: 78vh;
+    font-size: 0.92rem;
+  }
+
+  /* ---------- cabeceras / celdas de tabla ---------- */
+  thead th {
+    font-size: 0.72rem;
+    padding: 6px 8px;
+  }
+  tbody td,
+  td input,
+  select,
+  option {
+    font-size: 0.72rem;
+  }
+
+  /* ---------- botones flotantes ---------- */
+  .generate-button1,
+  .generate-button2,
+  .generate-button3,
+  .generate-button4 {
+    width: 56px;
+    height: 56px;
+  }
+
+  /* ---------- slidebar: oculto, se usa hamburguesa ---------- */
+  .slidebar {
+    left: -320px;
+  }
+  .show-slidebar-button {
+    left: 18px;
+    top: 18px;
+  }
+
+  .icon-button-agendar,
+  .icon-button-mis-servicios,
+  .icon-button-servicioHoy,
+  .icon-button-servicioManana,
+  .icon-button-servicioPasadoManana,
+  .icon-button-agendaDinamica,
+  .icon-button-facturasEmitidas,
+  .icon-button-clientes,
+  .icon-button-reprogramacionAutomatica,
+  .icon-button-informeEfectivo,
+  .icon-button-configuracionUsuarios,
+  .icon-button-logout {
+    display: none !important; /* oculta completamente */
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* 2)  TABLET --- HORIZONTAL (LANDSCAPE) 900-1366 px               */
+/* ════════════════════════════════════════════════════════════════ */
+@media only screen and (min-width: 900px) /* empieza landscape tablet */ and (max-width: 1366px) /* debajo de pantallas fullHD */ and (orientation: landscape) /* horizontal */ {
+  /* ---------- contenedores principales ---------- */
+  .form-container {
+    max-width: 560px;
+    padding: 2rem 1.8rem;
+  }
+  .homepage-card {
+    max-width: 100%;
+    margin-top: 0.5rem;
+  }
+  .table-container {
+    width: calc(100vw - 2cm);
+    max-height: 85vh;
+    font-size: 1rem;
+  }
+
+  /* ---------- cabeceras / celdas de tabla ---------- */
+  thead th {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+  tbody td,
+  td input,
+  select,
+  option {
+    font-size: 0.78rem;
+  }
+
+  /* ---------- botones flotantes ---------- */
+  .generate-button1,
+  .generate-button2 {
+    right: 2vw;
+    bottom: px;
+    width: 52px;
+    height: 52px;
+  }
+
+  /* ---------- slidebar: siempre visible ---------- */
+  /* oculta ☰  */
+
+  .icon-button-agendar,
+  .icon-button-mis-servicios,
+  .icon-button-servicioHoy,
+  .icon-button-servicioManana,
+  .icon-button-servicioPasadoManana,
+  .icon-button-agendaDinamica,
+  .icon-button-facturasEmitidas,
+  .icon-button-clientes,
+  .icon-button-reprogramacionAutomatica,
+  .icon-button-informeEfectivo,
+  .icon-button-configuracionUsuarios,
+  .icon-button-logout {
+    display: none !important; /* oculta completamente */
+  }
+}
+
+/* 1. Layout general */
+.main-container {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  padding: 16px;
+}
+
+/* 2. Tabla con zebra stripes y hover */
+.table-services {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table-services tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+.table-services tr:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* 3. Tipografía */
+body {
+  font-family: "Segoe UI", Roboto, sans-serif;
+  color: #212121;
+}
+h1,
+.module-header {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* 4. Botones de acción */
+.btn-action {
+  background: none;
+  border: none;
+  color: #0066cc;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.btn-action:hover {
+  color: #004999;
+}
+
+/* 5. Scrollbar sutil */
+.table-container {
+  overflow: auto;
+}
+.table-container::-webkit-scrollbar {
+  width: 4px;
+}
+.table-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+/* ================================ */
+/* COLORES BÁSICOS PARA .form-login */
+/* Solo texto negro y bordes bien visibles */
+/* ================================ */
+
+.form-login,
+.form-login .login-box {
+  /* Fondo blanco puro */
+  background-color: #ffffff00 !important;
+  /* Tipografía global */
+  font-family: "Segoe UI", Roboto, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Textos y etiquetas en negro */
+.form-login,
+.form-login label,
+.form-login .login-box h2,
+.form-login .login-box .login-help,
+.form-login .login-box .login-error {
+  color: #000000 !important;
+  font-family: inherit;
+}
+
+/* Inputs con texto negro y borde negro */
+.form-login .login-box input[type="text"],
+.form-login .login-box input[type="password"] {
+  color: #000 !important;
+  border: 1px solid #000 !important;
+  background: transparent !important;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/* Placeholder algo más tenue, pero aún legible */
+.form-login .login-box input::placeholder {
+  color: #555 !important;
+  font-family: inherit;
+}
+
+/* Botones con texto negro y borde negro */
+.form-login .login-box .btn-login,
+.form-login .login-box .btn-google {
+  color: #000 !important;
+  border: 1px solid #000 !important;
+  background: transparent !important;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Cualquier otro elemento de formulario */
+.form-login input,
+.form-login button,
+.form-login select,
+.form-login textarea {
+  color: #000 !important;
+  border-color: #000 !important;
+  font-family: inherit;
+}

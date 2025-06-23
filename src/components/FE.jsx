@@ -1275,57 +1275,78 @@ const Hojadefechas = () => {
     }
   };
 
+  // EMITIR FACTURAS SELECCIONADAS
   const emitirFacturasSeleccionadas = async () => {
-  // 1) Recoge las claves (fecha_id) de los registros seleccionados
-  const seleccionadas = Object.entries(selectedRows)
-    .filter(([_, sel]) => sel)
-    .map(([key]) => key);
-
-  if (!seleccionadas.length) {
-    return Swal.fire({
-      title: "No hay registros seleccionados",
+    const anySelected = Object.values(selectedRows).some(Boolean);
+    if (!anySelected) {
+      return Swal.fire({
+        title: "No hay registros seleccionados",
         text: "Selecciona al menos un registro para emitir facturas.",
         icon: "warning",
         confirmButtonText: "Aceptar",
-    });
-  }
+      });
+    }
 
-  Swal.fire({
+    Swal.fire({
       title: "Emitiendo facturas...",
       allowOutsideClick: false,
       showConfirmButton: false,
       didOpen: () => Swal.showLoading(),
     });
 
-  // 2) Para cada registro seleccionado solo actualiza el campo factura
-  for (const key of seleccionadas) {
-    const [fecha, registroId] = key.split("_");
-    // Determina si viene de data o de registrofechas
-    const origin = dataBranch.some((r) => r.id === registroId)
-      ? "data"
-      : "registrofechas";
-    const path =
-      origin === "data"
+    for (const [key, isSel] of Object.entries(selectedRows)) {
+      if (!isSel) continue;
+      const separador = key.indexOf("_");
+      const fecha = key.substring(0, separador);
+      const registroId = key.substring(separador + 1);
+      const item = filteredData.find((i) => i.fecha === fecha);
+      const registro = item?.registros.find((r) => r.id === registroId);
+      if (!registro) continue;
+
+      // (1) Obtener número, (2) preparar facturaData, (3) push y set, (4) marcar en registro, (5) deseleccionar...
+      const contadorRef = ref(database, "contadorFactura");
+      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+      const numeroFactura = tx.snapshot.val();
+
+      const facturaData = {
+        anombrede: registro.anombrede || "",
+        cubicos: registro.cubicos ?? "",
+        direccion: registro.direccion || "",
+        fecha,
+        numerodefactura: numeroFactura,
+        servicio: registro.servicio || "",
+        timestamp: Date.now(),
+        valor: registro.valor ?? "",
+        item: registro.item || "",
+        descripcion: registro.descripcion || "",
+        qty: registro.qty != null ? registro.qty : "",
+        rate: registro.rate != null ? registro.rate : "",
+        amount: registro.amount != null ? registro.amount : "",
+        fechapago: registro.fechapago || "",
+      };
+      if (registro.pago === "Pago") facturaData.pago = true;
+
+      const factRef = push(ref(database, "facturasemitidas"));
+      await set(factRef, facturaData);
+
+      const esData = dataBranch.some((d) => d.id === registroId);
+      const path = esData
         ? `data/${registroId}`
         : `registrofechas/${fecha}/${registroId}`;
+      await update(ref(database, path), { factura: true });
+      handleFieldChange(fecha, registroId, "factura", true);
 
-    // Actualiza solo el campo factura
-    await update(ref(database, path), { factura: true });
-    // Opcional: refleja el cambio en el estado local
-    handleFieldChange(fecha, registroId, "factura", true, origin);
-  }
+      setSelectedRows((prev) => ({ ...prev, [key]: false }));
+    }
 
-  // 3) Limpia la selección y cierra el loading
-  setSelectedRows({});
-  Swal.close();
-  Swal.fire({
-    icon: "success",
+    // Devuelve esta promesa para hacer `await emitirFacturasSeleccionadas()`
+    return Swal.fire({
+      icon: "success",
       title: "Facturas emitidas correctamente",
       text: "Todas las facturas seleccionadas han sido emitidas.",
       confirmButtonText: "Genial",
-  });
-};
-
+    });
+  };
 
   // Early return: mientras loading sea true, muestra el spinner
   if (loading) {

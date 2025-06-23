@@ -4,14 +4,13 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";  // Importar autent
 import { getFirestore } from "firebase/firestore";  // Importar Firestore
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB53zWuI5_po2oIhI-I8pZa-o4p4Iz521A",
-  authDomain: "oops-out-septic-tank.firebaseapp.com",
-  databaseURL: "https://oops-out-septic-tank-default-rtdb.firebaseio.com",
-  projectId: "oops-out-septic-tank",
-  storageBucket: "oops-out-septic-tank.firebasestorage.app",
-  messagingSenderId: "114814305323",
-  appId: "1:114814305323:web:337c44947d9937d423966e",
-  measurementId: "G-SD3NV7VTCJ"
+  apiKey: "AIzaSyBl3hSY_JN75LnLrEaNNyZP8Xud9PzwDc4",
+  authDomain: "oops-out-septic-tank-5f92a.firebaseapp.com",
+  databaseURL: "https://oops-out-septic-tank-5f92a-default-rtdb.firebaseio.com",
+  projectId: "oops-out-septic-tank-5f92a",
+  storageBucket: "oops-out-septic-tank-5f92a.firebasestorage.app",
+  messagingSenderId: "113759038919",
+  appId: "1:113759038919:web:bfd7c5c01439c8f3d3fde2",
 };
 
 const app = initializeApp(firebaseConfig);

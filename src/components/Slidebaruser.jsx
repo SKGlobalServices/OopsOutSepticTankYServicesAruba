@@ -1,0 +1,140 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
+import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
+import logoutIcon2 from "../assets/img/logoutIcon2.png";
+import servicioHoyIcon from "../assets/img/servicioHoyIcon.jpg";
+import servicioMananaIcon from "../assets/img/servicioMananaIcon.jpg";
+import logoutIcon from "../assets/img/logoutIcon.jpg";
+import barraIcon from "../assets/img/barra_icon.jpg";
+
+const Slidebaruser = () => {
+  const navigate = useNavigate();
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const slidebarRef = useRef(null);
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/");
+      return;
+    }
+
+    if (user.role === "admin") {
+      navigate("/agendaexpress");
+    } else if (user.role === "contador") {
+      navigate("/agendadinamicacontador");
+    }
+  }, [user, navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
+  const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
+
+  const handleClickOutside = (e) => {
+    if (
+      slidebarRef.current &&
+      !slidebarRef.current.contains(e.target) &&
+      !e.target.closest(".show-slidebar-button")
+    ) {
+      setShowSlidebar(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="homepage-container">
+      {/* SLIDEBAR MOVILES */}
+      {/* SLIDEBAR MOVILES */}
+      {/* SLIDEBAR MOVILES */}
+      {/* SLIDEBAR MOVILES */}
+      {/* SLIDEBAR MOVILES */}
+
+      <button className="show-slidebar-button" onClick={toggleSlidebar}>
+        <img src={barraIcon} alt="Menú" className="barra-icon-img" />
+      </button>
+
+      <div
+        ref={slidebarRef}
+        className={`slidebar ${showSlidebar ? "show" : ""}`}
+      >
+        <button
+          className="btn-servHoy2"
+          onClick={() => navigate("/agendadeldiausuario")}
+          style={{ visibility: "hidden" }}
+        >
+          <img
+            className="icon-servHoy2"
+            src={servicioHoyIcon2}
+            alt="Servicios de Hoy"
+          />
+          <span>Servicios de Hoy</span>
+        </button>
+        <button
+          className="btn-servHoy2"
+          onClick={() => navigate("/agendadeldiausuario")}
+        >
+          <img
+            className="icon-servHoy2"
+            src={servicioHoyIcon2}
+            alt="Servicios de Hoy"
+          />
+          <span>Servicios de Hoy</span>
+        </button>
+        <button
+          className="btn-servMan2"
+          onClick={() => navigate("/agendamañanausuario")}
+        >
+          <img
+            className="icon-servMan2"
+            src={servicioMananaIcon2}
+            alt="Servicios de Mañana"
+          />
+          <span>Servicios de Mañana</span>
+        </button>
+        <button className="btn-logout2" onClick={handleLogout}>
+          <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
+          <span>Logout</span>
+        </button>
+      </div>
+
+      {/* SLIDEBAR PC */}
+      {/* SLIDEBAR PC */}
+      {/* SLIDEBAR PC */}
+      {/* SLIDEBAR PC */}
+      {/* SLIDEBAR PC */}
+      <button
+        className="icon-button-servicioHoy"
+        onClick={() => navigate("/agendadeldiausuario")}
+      >
+        <img
+          className="icon-image-servicioHoy"
+          src={servicioHoyIcon}
+          alt="Servicios De Hoy"
+        />
+      </button>
+      <button
+        className="icon-button-servicioManana"
+        onClick={() => navigate("/agendamañanausuario")}
+      >
+        <img
+          className="icon-image-servicioManana"
+          src={servicioMananaIcon}
+          alt="Servicios De Mañana"
+        />
+      </button>
+      <button className="icon-button-logout" onClick={handleLogout}>
+        <img className="icon-image-logout" src={logoutIcon} alt="logout" />
+      </button>
+    </div>
+  );
+};
+
+export default Slidebaruser;
