@@ -18,7 +18,6 @@ import Slidebar from "./Slidebar";
 import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
-import pdf_icon from "../assets/img/pdf_icon.jpg";
 import guardarfactura from "../assets/img/guardarfactura_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
@@ -721,90 +720,6 @@ const Hojadefechas = () => {
     URL.revokeObjectURL(url);
   };
 
-  // EXPORTAR PDF
-  const generatePDF = () => {
-    const doc = new jsPDF("p", "mm", "a4");
-    doc.setFontSize(16);
-    doc.text("Servicios", 105, 20, { align: "center" });
-    doc.setFontSize(10);
-
-    const headers = [
-      [
-        "Fecha",
-        "Realizado Por",
-        "A Nombre De",
-        "Dirección",
-        "Servicio",
-        "Cúbicos",
-        "Valor",
-        "Pago",
-        "Forma De Pago",
-        "Banco",
-        "Notas",
-        "Método De Pago",
-        "Efectivo",
-        "Item",
-        "Descripción",
-        "Qty",
-        "Rate",
-        "Amount",
-        "Factura",
-        "Fecha De Pago",
-      ],
-    ];
-
-    const dataRows = filteredData.flatMap((item) =>
-      item.registros.map((registro) => {
-        const rateNum = parseFloat(registro.rate) || 0;
-        const amountNum = parseFloat(registro.amount) || 0;
-        return [
-          item.fecha,
-          getUserName(registro.realizadopor) || "",
-          registro.anombrede || "",
-          registro.direccion || "",
-          registro.servicio || "",
-          registro.cubicos || "",
-          registro.valor || "",
-          registro.pago === "Pago" ? "Sí" : "No",
-          registro.formadepago || "",
-          registro.banco || "",
-          registro.notas || "",
-          registro.metododepago || "",
-          registro.efectivo || "",
-          registro.item || "",
-          registro.descripcion || "",
-          registro.qty != null ? registro.qty.toString() : "",
-          rateNum.toFixed(2),
-          amountNum.toFixed(2),
-          registro.factura ? "Sí" : "No",
-          registro.fechapago || "",
-        ];
-      })
-    );
-
-    autoTable(doc, {
-      head: headers,
-      body: dataRows,
-      startY: 30,
-      theme: "grid",
-      headStyles: { fillColor: [79, 129, 189], textColor: [255, 255, 255] },
-      styles: {
-        fontSize: 8,
-        overflow: "linebreak", // permite el wrapping
-      },
-      columnStyles: {
-        // índice 14 = columna "Descripción" (empezando en 0)
-        14: {
-          cellWidth: 50, // ancho máximo en mm
-          overflow: "linebreak", // asegurarse de que wrappee
-        },
-      },
-      margin: { top: 30, left: 10, right: 10 },
-    });
-
-    doc.save("Servicios.pdf");
-  };
-
   // Manejo del DatePicker para rango de fechas
   const [showDatePicker, setShowDatePicker] = useState(false);
   const handleDateRangeChange = (dates) => {
@@ -994,6 +909,7 @@ const Hojadefechas = () => {
   };
 
   // Función auxiliar: genera y guarda el PDF usando los datos que ya calculaste.
+  // Función auxiliar: genera y guarda el PDF usando los datos que ya calculaste.
   const generarPDFconDatos = async ({
     filas,
     totalAmount,
@@ -1047,8 +963,8 @@ const Hojadefechas = () => {
     // — Cabecera con número y fecha —
     pdf
       .setFontSize(12)
-      .text(`INVOICE NO: ${invoiceId}`, 160, mT + 35)
-      .text(`DATE: ${today.toLocaleDateString()}`, 160, mT + 40);
+      .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
+      .text(`DATE: ${today.toLocaleDateString()}`, 152, mT + 40);
 
     // — Bill To —
     const yBill = mT + logoHeight + 21;
@@ -1110,13 +1026,13 @@ const Hojadefechas = () => {
     // PAYMENT siempre es el totalAmount
     pdf
       .setFontSize(10)
-      .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 160, afterY);
+      .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY);
 
     // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
     const balance = pagoStatus === "Pago" ? 0 : totalAmount;
     pdf
       .setFontSize(10)
-      .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 160, afterY + 6);
+      .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 152, afterY + 6);
 
     // — Bank Info y footer —
     const bankY = afterY;
@@ -1276,56 +1192,55 @@ const Hojadefechas = () => {
   };
 
   const emitirFacturasSeleccionadas = async () => {
-  // 1) Recoge las claves (fecha_id) de los registros seleccionados
-  const seleccionadas = Object.entries(selectedRows)
-    .filter(([_, sel]) => sel)
-    .map(([key]) => key);
+    // 1) Recoge las claves (fecha_id) de los registros seleccionados
+    const seleccionadas = Object.entries(selectedRows)
+      .filter(([_, sel]) => sel)
+      .map(([key]) => key);
 
-  if (!seleccionadas.length) {
-    return Swal.fire({
-      title: "No hay registros seleccionados",
+    if (!seleccionadas.length) {
+      return Swal.fire({
+        title: "No hay registros seleccionados",
         text: "Selecciona al menos un registro para emitir facturas.",
         icon: "warning",
         confirmButtonText: "Aceptar",
-    });
-  }
+      });
+    }
 
-  Swal.fire({
+    Swal.fire({
       title: "Emitiendo facturas...",
       allowOutsideClick: false,
       showConfirmButton: false,
       didOpen: () => Swal.showLoading(),
     });
 
-  // 2) Para cada registro seleccionado solo actualiza el campo factura
-  for (const key of seleccionadas) {
-    const [fecha, registroId] = key.split("_");
-    // Determina si viene de data o de registrofechas
-    const origin = dataBranch.some((r) => r.id === registroId)
-      ? "data"
-      : "registrofechas";
-    const path =
-      origin === "data"
-        ? `data/${registroId}`
-        : `registrofechas/${fecha}/${registroId}`;
+    // 2) Para cada registro seleccionado solo actualiza el campo factura
+    for (const key of seleccionadas) {
+      const [fecha, registroId] = key.split("_");
+      // Determina si viene de data o de registrofechas
+      const origin = dataBranch.some((r) => r.id === registroId)
+        ? "data"
+        : "registrofechas";
+      const path =
+        origin === "data"
+          ? `data/${registroId}`
+          : `registrofechas/${fecha}/${registroId}`;
 
-    // Actualiza solo el campo factura
-    await update(ref(database, path), { factura: true });
-    // Opcional: refleja el cambio en el estado local
-    handleFieldChange(fecha, registroId, "factura", true, origin);
-  }
+      // Actualiza solo el campo factura
+      await update(ref(database, path), { factura: true });
+      // Opcional: refleja el cambio en el estado local
+      handleFieldChange(fecha, registroId, "factura", true, origin);
+    }
 
-  // 3) Limpia la selección y cierra el loading
-  setSelectedRows({});
-  Swal.close();
-  Swal.fire({
-    icon: "success",
+    // 3) Limpia la selección y cierra el loading
+    setSelectedRows({});
+    Swal.close();
+    Swal.fire({
+      icon: "success",
       title: "Facturas emitidas correctamente",
       text: "Todas las facturas seleccionadas han sido emitidas.",
       confirmButtonText: "Genial",
-  });
-};
-
+    });
+  };
 
   // Early return: mientras loading sea true, muestra el spinner
   if (loading) {
@@ -1688,11 +1603,8 @@ const Hojadefechas = () => {
                           <input
                             type="text"
                             style={{
-                              width: `${Math.max(
-                                registro.anombrede?.length || 1,
-                                15
-                              )}ch`,
-                            }}
+                                width: "20ch",
+                              }}
                             value={registro.anombrede || ""}
                             onChange={(e) =>
                               handleFieldChange(
@@ -1710,10 +1622,7 @@ const Hojadefechas = () => {
                             <input
                               type="text"
                               style={{
-                                width: `${Math.max(
-                                  registro.direccion?.length || 1,
-                                  15
-                                )}ch`,
+                                width: "20ch",
                               }}
                               value={registro.direccion || ""}
                               onChange={(e) =>
@@ -2126,11 +2035,8 @@ const Hojadefechas = () => {
           alt="Generar y Emitir Factura"
         />
       </button>
-      <button className="generate-button1" onClick={generateXLSX}>
-        <img className="generate-button-imagen1" src={excel_icon} alt="Excel" />
-      </button>
-      <button className="generate-button2" onClick={generatePDF}>
-        <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
+      <button className="generate-button2" onClick={generateXLSX}>
+        <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
       </button>
     </div>
   );

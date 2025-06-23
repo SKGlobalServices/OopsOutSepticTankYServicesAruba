@@ -869,10 +869,12 @@ const Informedeefectivo = () => {
                           minWidth: "75px",
                           textAlign: "center",
                           fontWeight: "bold",
+                          justifyContent: "center",
+                          backgroundColor: registro.saldo < 0 ? "red" : "transparent",
                           cursor:
                             isEditable &&
                             registro.origin === "informedeefectivo"
-                              ? "pointer"
+                              ? "default"
                               : "default",
                         }}
                       >

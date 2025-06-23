@@ -834,10 +834,7 @@ const Hojapasadomañana = () => {
                           <input
                             type="text"
                             style={{
-                              width: `${Math.max(
-                                item.direccion?.length || 1,
-                                15
-                              )}ch`,
+                              width: "20ch",
                             }}
                             value={item.direccion || ""}
                             onChange={(e) =>

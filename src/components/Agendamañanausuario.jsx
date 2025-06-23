@@ -284,9 +284,7 @@ const Agendadeldiausuario = () => {
                       {canEdit ? (
                         <input
                           type="text"
-                          style={{
-                            width: `${Math.max(item.notas?.length || 1, 15)}ch`,
-                          }}
+                          style={{width:"20"}}
                           value={item.notas}
                           onChange={(e) =>
                             handleFieldChange(id, "notas", e.target.value)

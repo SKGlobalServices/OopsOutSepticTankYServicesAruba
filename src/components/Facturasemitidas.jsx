@@ -3,7 +3,6 @@ import { database } from "../Database/firebaseConfig";
 import {
   ref,
   set,
-  get,
   onValue,
   update,
   push,
@@ -204,28 +203,101 @@ const Facturasemitidas = () => {
   };
 
   // Handle cambios en la factura
-  const handleFieldChange = (id, field, value) => {
-    const itemRef = ref(database, `facturasemitidas/${id}`);
-    const updates = {};
-    const fac = facturas.find((f) => f.id === id);
+  /**
+   * Maneja cambios de campo en Firebase y sincroniza estado local
+   *
+   * @param {"data"|"registrofechas"|"facturasemitidas"} origin  Origen del registro
+   * @param {string} id                                         ID del registro
+   * @param {string} field                                      Nombre del campo a actualizar
+   * @param {any} value                                         Nuevo valor
+   * @param {string} [fecha]                                    Fecha (solo para registrofechas)
+   */
+  function handleFieldChange(origin, id, field, value, fecha = "") {
+    const safeValue = value ?? "";
 
-    if (field === "pago") {
-      if (value) {
-        const elapsed = Date.now() - fac.timestamp;
-        updates.diasdemora = formatDuration(elapsed);
-      } else {
-        updates.diasdemora = null;
-      }
-      updates.pago = value;
+    // 1) Construir la ruta según el origen
+    let path;
+    if (origin === "data") {
+      path = `data/${id}`;
+    } else if (origin === "registrofechas") {
+      path = `registrofechas/${fecha}/${id}`;
+    } else if (origin === "facturasemitidas") {
+      path = `facturasemitidas/${id}`;
     } else {
-      updates[field] = value;
-      if (field === "direccion") {
-        const match = clients.find((c) => c.direccion === value);
-        updates.cubicos = match ? match.cubicos : "";
-      }
+      console.error("Origen desconocido en handleFieldChange:", origin);
+      return;
     }
-    update(itemRef, updates).catch(console.error);
-  };
+    const dbRefItem = ref(database, path);
+
+    // 2) Actualización inicial en Firebase
+    update(dbRefItem, { [field]: safeValue }).catch(console.error);
+
+    // 3) Lógica de recálculo para qty y rate
+    const applyLocalUpdate = (updater) => {
+      switch (origin) {
+        case "data":
+          setDataBranch((prev) => prev.map(updater));
+          break;
+        case "registrofechas":
+          setDataRegistroFechas((prev) =>
+            prev.map((g) =>
+              g.fecha === fecha
+                ? { ...g, registros: g.registros.map(updater) }
+                : g
+            )
+          );
+          break;
+        case "facturasemitidas":
+          setFacturas((prev) => prev.map(updater));
+          break;
+      }
+    };
+
+    // Helper: obtener el registro actual desde el estado
+    const registro =
+      origin === "data"
+        ? dataBranch.find((r) => r.id === id) || {}
+        : origin === "registrofechas"
+        ? dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === id) || {}
+        : facturas.find((f) => f.id === id) || {};
+
+    // 3a) Si cambió qty → recalcular amount
+    if (field === "qty") {
+      const newQty = parseFloat(safeValue) || 0;
+      const rate = parseFloat(registro.rate) || 0;
+      const newAmount = parseFloat((newQty * rate).toFixed(2));
+
+      update(dbRefItem, { qty: newQty, amount: newAmount }).catch(
+        console.error
+      );
+
+      applyLocalUpdate((r) =>
+        r.id === id ? { ...r, qty: newQty, amount: newAmount } : r
+      );
+      return;
+    }
+
+    // 3b) Si cambió rate → recalcular amount
+    if (field === "rate") {
+      const newRate = parseFloat(safeValue) || 0;
+      const qty = parseFloat(registro.qty) || 0;
+      const newAmount = parseFloat((newRate * qty).toFixed(2));
+
+      update(dbRefItem, { rate: newRate, amount: newAmount }).catch(
+        console.error
+      );
+
+      applyLocalUpdate((r) =>
+        r.id === id ? { ...r, rate: newRate, amount: newAmount } : r
+      );
+      return;
+    }
+
+    // 4) Actualizar cualquier otro campo
+    applyLocalUpdate((r) => (r.id === id ? { ...r, [field]: safeValue } : r));
+  }
 
   // 3️⃣ Combina y ordena
   useEffect(() => {
@@ -1337,10 +1409,7 @@ const Facturasemitidas = () => {
                             type="text"
                             list={`dirs-${item.id}`}
                             style={{
-                              width: `${Math.max(
-                                item.direccion?.length || 1,
-                                15
-                              )}ch`,
+                              width: "20ch",
                             }}
                             value={item.direccion || ""}
                             onChange={(e) =>

@@ -339,6 +339,7 @@ const Reprogramacionautomatica = () => {
         <div class="form-group">
           <label for="tipoRepeticion">Frecuencia:</label>
           <select id="tipoRepeticion" class="swal2-select">
+          <option value=""></option>
             <option value="dia">Día</option>
             <option value="semana">Semana</option>
             <option value="mes">Mes</option>
@@ -849,10 +850,7 @@ const Reprogramacionautomatica = () => {
                         <input
                           type="text"
                           style={{
-                            width: `${Math.max(
-                              item.direccion?.length || 1,
-                              15
-                            )}ch`,
+                            width: "20ch",
                           }}
                           value={item.direccion || ""}
                           onChange={(e) =>
