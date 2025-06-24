@@ -30,18 +30,25 @@ const App = () => {
         alert(
           "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
         );
-        navigate("https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/");
+        navigate(
+          "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
+        );
       }
     });
   };
 
-  // -- Función para sesión única en Firebase y en localStorage (solo para conductor) --
-  const startSessionForUser = (userKey) => {
+  // Inicio de sesión único
+  const startSessionForUser = async (userKey) => {
     const sessionId = `${userKey}_${Date.now()}`;
     const userRef = ref(database, `users/${userKey}`);
-    update(userRef, { activeSession: sessionId });
-    localStorage.setItem("sessionId", sessionId);
-    listenForSessionInvalidation(userKey, sessionId);
+    try {
+      await update(userRef, { activeSession: sessionId });
+      localStorage.setItem("sessionId", sessionId);
+      listenForSessionInvalidation(userKey, sessionId);
+    } catch (updErr) {
+      console.error("No se pudo actualizar la sesión:", updErr);
+      setMessage("Error de servidor al iniciar sesión.");
+    }
   };
 
   // -- Bloqueo por intentar demasiadas veces --
@@ -61,9 +68,7 @@ const App = () => {
     let interval;
     if (blockedUntil && new Date() < blockedUntil) {
       interval = setInterval(() => {
-        const secondsRemaining = Math.ceil(
-          (blockedUntil - new Date()) / 1000
-        );
+        const secondsRemaining = Math.ceil((blockedUntil - new Date()) / 1000);
         if (secondsRemaining > 0) {
           setMessage(
             `Dispositivo bloqueado. Intente nuevamente en ${secondsRemaining} segundos.`
@@ -149,7 +154,9 @@ const App = () => {
         const blockTime = new Date(Date.now() + 5 * 60 * 1000);
         setBlockedUntil(blockTime);
         localStorage.setItem("blockedUntil", blockTime.getTime().toString());
-        setMessage("Dispositivo bloqueado. Intente nuevamente en 300 segundos.");
+        setMessage(
+          "Dispositivo bloqueado. Intente nuevamente en 300 segundos."
+        );
       } else {
         setMessage("Ocurrió un error durante el login con Google.");
       }
@@ -178,7 +185,9 @@ const App = () => {
           const blockTime = new Date(Date.now() + 5 * 60 * 1000);
           setBlockedUntil(blockTime);
           localStorage.setItem("blockedUntil", blockTime.getTime().toString());
-          setMessage("Dispositivo bloqueado. Intente nuevamente en 300 segundos.");
+          setMessage(
+            "Dispositivo bloqueado. Intente nuevamente en 300 segundos."
+          );
         } else {
           setMessage("Correo o contraseña inválidos.");
         }
@@ -288,9 +297,7 @@ const App = () => {
             >
               <img
                 src={showPassword ? iconEyeClosed : iconEyeOpen}
-                alt={
-                  showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-                }
+                alt={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 id="iconeye"
               />
             </button>
@@ -317,6 +324,16 @@ const App = () => {
         sitekey="6LdtjvEqAAAAAIYf7TbTFeLMjE3mCbgbt95hs3sE"
         size="invisible"
         ref={recaptchaRef}
+        asyncScriptOnLoad={() => console.log("reCAPTCHA listo")}
+        onErrored={() => {
+          console.error("🔴 reCAPTCHA error al cargar");
+          setMessage("Error cargando reCAPTCHA. Revisa tu conexión.");
+        }}
+        onExpired={() => {
+          console.warn("⚠️ reCAPTCHA expirado");
+          recaptchaRef.current.reset();
+          setMessage("El captcha expiró. Intenta de nuevo.");
+        }}
       />
     </div>
   );

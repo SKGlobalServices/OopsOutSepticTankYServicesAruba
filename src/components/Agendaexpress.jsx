@@ -205,9 +205,11 @@ const AgendaExpress = () => {
             "Tuberia + Grease Trap",
             "Grease Trap",
             "Water",
+            "Poll",
           ]}
           onChange={(v) => update("servicio", v)}
           {...props}
+        
         />
       ),
       cubicos: (

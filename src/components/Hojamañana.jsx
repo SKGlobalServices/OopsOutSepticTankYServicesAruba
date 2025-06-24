@@ -756,6 +756,7 @@ const Hojamañana = () => {
                 <th>Valor</th>
                 <th>Pago</th>
                 <th>Forma de Pago</th>
+                <th>Banco</th>
                 <th>Acciones</th>
                 <th
                   style={{
@@ -896,6 +897,7 @@ const Hojamañana = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
+                          <option value="Poll">Poll</option>
                         </select>
                       </td>
                       <td>
@@ -954,6 +956,26 @@ const Hojamañana = () => {
                         </select>
                       </td>
                       <td>
+                        <select
+                          value={item.banco}
+                          style={{ width: "15ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(id, "banco", e.target.value)
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Aruba Bank N.V.">
+                            Aruba Bank N.V.
+                          </option>
+                          <option value="Caribbean Mercantile Bank N.V.">
+                            Caribbean Mercantile Bank N.V.
+                          </option>
+                          <option value="RBC Royal Bank N.V.">
+                            RBC Royal Bank N.V.
+                          </option>
+                        </select>
+                      </td>
+                      <td>
                         <button
                           className="delete-button"
                           onClick={() => {
@@ -991,6 +1013,7 @@ const Hojamañana = () => {
                           Borrar
                         </button>
                       </td>
+                      
                       <td>
                         <input
                           type="text"
@@ -1072,7 +1095,7 @@ const Hojamañana = () => {
       </button>
       <button
         className="create-table-button"
-        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "")}
+        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "", "")}
       >
         +
       </button>

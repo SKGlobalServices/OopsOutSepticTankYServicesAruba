@@ -782,8 +782,8 @@ const Homepage = () => {
                 <th>Valor</th>
                 <th>Pago</th>
                 <th>Forma De Pago</th>
-                <th>Acciones</th>
                 <th>Banco</th>
+                <th>Acciones</th>
                 <th
                   style={{
                     backgroundColor: "#6200ffb4",
@@ -923,6 +923,7 @@ const Homepage = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
+                          <option value="Poll">Poll</option>
                         </select>
                       </td>
                       <td>
@@ -982,6 +983,26 @@ const Homepage = () => {
                         </select>
                       </td>
                       <td>
+                        <select
+                          value={item.banco}
+                          style={{ width: "15ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(id, "banco", e.target.value)
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Aruba Bank N.V.">
+                            Aruba Bank N.V.
+                          </option>
+                          <option value="Caribbean Mercantile Bank N.V.">
+                            Caribbean Mercantile Bank N.V.
+                          </option>
+                          <option value="RBC Royal Bank N.V.">
+                            RBC Royal Bank N.V.
+                          </option>
+                        </select>
+                      </td>
+                      <td>
                         <button
                           className="delete-button"
                           onClick={() => {
@@ -1019,26 +1040,7 @@ const Homepage = () => {
                           Borrar
                         </button>
                       </td>
-                      <td>
-                        <select
-                          value={item.banco}
-                          style={{ width: "15ch" }}
-                          onChange={(e) =>
-                            handleFieldChange(id, "banco", e.target.value)
-                          }
-                        >
-                          <option value=""></option>
-                          <option value="Aruba Bank N.V.">
-                            Aruba Bank N.V.
-                          </option>
-                          <option value="Caribbean Mercantile Bank N.V.">
-                            Caribbean Mercantile Bank N.V.
-                          </option>
-                          <option value="RBC Royal Bank N.V.">
-                            RBC Royal Bank N.V.
-                          </option>
-                        </select>
-                      </td>
+                      
                       <td>
                         <input
                           type="text"

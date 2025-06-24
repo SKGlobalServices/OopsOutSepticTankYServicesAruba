@@ -357,8 +357,8 @@ const Clientes = () => {
             <thead>
               <tr>
                 <th>Seleccionar</th>
-                <th>Dirección</th>
                 <th>A Nombre De</th>
+                <th>Dirección</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
               </tr>
@@ -382,12 +382,12 @@ const Clientes = () => {
                     <td>
                       <input
                         type="text"
-                        style={{ textAlign: "center", width: "25ch" }}
-                        value={cliente.direccion}
+                        style={{ textAlign: "center", width: "20ch" }}
+                        value={cliente.anombrede}
                         onChange={(e) =>
                           handleFieldChange(
                             cliente.id,
-                            "direccion",
+                            "anombrede",
                             e.target.value
                           )
                         }
@@ -396,12 +396,12 @@ const Clientes = () => {
                     <td>
                       <input
                         type="text"
-                        style={{ textAlign: "center", width: "20ch" }}
-                        value={cliente.anombrede}
+                        style={{ textAlign: "center", width: "25ch" }}
+                        value={cliente.direccion}
                         onChange={(e) =>
                           handleFieldChange(
                             cliente.id,
-                            "anombrede",
+                            "direccion",
                             e.target.value
                           )
                         }

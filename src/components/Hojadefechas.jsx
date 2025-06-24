@@ -56,17 +56,10 @@ const Hojadefechas = () => {
     formadepago: [],
     metododepago: [],
     efectivo: [],
-    item: [],
     factura: "",
-    descripcion: "",
-    qtyMin: "",
-    qtyMax: "",
-    rateMin: "",
-    rateMax: "",
-    amountMin: "",
-    amountMax: "",
     fechaInicio: null,
     fechaFin: null,
+
     fechaPagoInicio: null,
     fechaPagoFin: null,
   });
@@ -311,15 +304,8 @@ const Hojadefechas = () => {
   }, [dataBranch, dataRegistroFechas]);
 
   // ————————
-  // AQUÍ: OPCIONES DE ITEM PARA EL FILTRO
-  const itemOptions = Array.from(
-    new Set(
-      // extrae todos los valores de `item` (que no sean falsy)
-      todos.map((r) => r.item).filter(Boolean)
-    )
-  ).map((v) => ({ value: v, label: v }));
 
-  // 2) FILTRA ESE ARRAY
+  // 1) FILTRA ESE ARRAY
   const filtrados = todos.filter((registro) => {
     // 0) Filtro por rango de fecha de pago
     if (filters.fechaPagoInicio && filters.fechaPagoFin) {
@@ -357,21 +343,14 @@ const Hojadefechas = () => {
     if (!match(filters.metododepago, "metododepago")) return false;
     if (!match(filters.efectivo, "efectivo", true)) return false;
 
-    // 3) Factura sí/no
+    // 2) Factura sí/no
     if (
       filters.factura !== "" &&
       Boolean(registro.factura) !== (filters.factura === "true")
     )
       return false;
 
-    // 4) ITEM
-    if (
-      filters.item.length &&
-      !filters.item.some((o) => o.value === registro.item)
-    )
-      return false;
-
-    // 5) DESCRIPCIÓN (subcadena, case-insensitive)
+    // 3) DESCRIPCIÓN (subcadena, case-insensitive)
     if (
       filters.descripcion &&
       !registro.descripcion
@@ -380,17 +359,17 @@ const Hojadefechas = () => {
     )
       return false;
 
-    // 6) QTY (rango numérico)
+    // 4) QTY (rango numérico)
     const qty = parseFloat(registro.qty) || 0;
     if (filters.qtyMin && qty < parseFloat(filters.qtyMin)) return false;
     if (filters.qtyMax && qty > parseFloat(filters.qtyMax)) return false;
 
-    // 7) RATE (rango numérico)
+    // 5) RATE (rango numérico)
     const rate = parseFloat(registro.rate) || 0;
     if (filters.rateMin && rate < parseFloat(filters.rateMin)) return false;
     if (filters.rateMax && rate > parseFloat(filters.rateMax)) return false;
 
-    // 8) AMOUNT (rango numérico)
+    // 6) AMOUNT (rango numérico)
     const amount = parseFloat(registro.amount) || 0;
     if (filters.amountMin && amount < parseFloat(filters.amountMin))
       return false;
@@ -916,6 +895,7 @@ const Hojadefechas = () => {
     billToValue,
     numeroFactura,
     pagoStatus,
+    pagoDate,
   }) => {
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
@@ -1021,12 +1001,7 @@ const Hojadefechas = () => {
     });
 
     // — Total —
-    const afterY = pdf.lastAutoTable.finalY + 8;
-    // — Total —
-    // PAYMENT siempre es el totalAmount
-    pdf
-      .setFontSize(10)
-      .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY);
+    const afterY = pdf.lastAutoTable.finalY;
 
     // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
     const balance = pagoStatus === "Pago" ? 0 : totalAmount;
@@ -1047,7 +1022,7 @@ const Hojadefechas = () => {
       .setFontSize(10)
       .text(footerText, (w - pdf.getTextWidth(footerText)) / 2, h - 10);
 
-    // — Marca de agua PAID (si aplica) —
+    // — Marca de agua PAID, fecha de pago y PAYMENT —
     if (pagoStatus === "Pago") {
       const wPt = pdf.internal.pageSize.getWidth();
       const hPt = pdf.internal.pageSize.getHeight();
@@ -1056,6 +1031,7 @@ const Hojadefechas = () => {
       canvas.width = Math.floor(wPt * SCALE);
       canvas.height = Math.floor(hPt * SCALE);
       const ctx = canvas.getContext("2d");
+
       ctx.scale(SCALE, SCALE);
       ctx.translate(wPt / 2, hPt / 2);
       ctx.rotate(Math.PI / 6);
@@ -1065,10 +1041,25 @@ const Hojadefechas = () => {
       ctx.font = "16px Arial";
       ctx.fillStyle = "green";
       ctx.fillText("PAID", 0, 0);
+
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
+
+      // — Fecha de pago debajo del sello —
+      pdf
+        .setFontSize(12)
+        .setTextColor(0, 0, 0)
+        .text(`Fecha de Pago: ${pagoDate}`, wPt / 2, hPt / 2 + 20, {
+          align: "center",
+        });
+
+      // — PAYMENT total —
+      pdf
+        .setFontSize(10)
+        .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
     }
 
+    // — Guarda el PDF —
     pdf.save(`Invoice-${invoiceId}.pdf`);
   };
 
@@ -1178,6 +1169,7 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura,
         pagoStatus: base.pago,
+        pagoDate: base.fechapago,
       });
     } else if (isDenied) {
       // 8b) Si el usuario dice No → generar el PDF sin emitir
@@ -1187,6 +1179,7 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura,
         pagoStatus: base.pago,
+        pagoDate: base.fechapago,
       });
     }
   };
@@ -1411,77 +1404,7 @@ const Hojadefechas = () => {
           onChange={(opts) => setFilters({ ...filters, efectivo: opts || [] })}
           placeholder="Monto(s)..."
         />
-        <label>Item</label>
-        <Select
-          isClearable
-          isMulti
-          options={itemOptions}
-          value={filters.item}
-          onChange={(opts) => setFilters({ ...filters, item: opts || [] })}
-          placeholder="Item(s)..."
-        />
-        <label>Descripción</label>
-        <input
-          type="text"
-          placeholder="Buscar descripción"
-          value={filters.descripcion}
-          onChange={(e) =>
-            setFilters({ ...filters, descripcion: e.target.value })
-          }
-        />
-        <label>Qty</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.qtyMin}
-            onChange={(e) => setFilters({ ...filters, qtyMin: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.qtyMax}
-            onChange={(e) => setFilters({ ...filters, qtyMax: e.target.value })}
-          />
-        </div>
-        <label>Rate</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.rateMin}
-            onChange={(e) =>
-              setFilters({ ...filters, rateMin: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.rateMax}
-            onChange={(e) =>
-              setFilters({ ...filters, rateMax: e.target.value })
-            }
-          />
-        </div>
-        <label>Amount</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.amountMin}
-            onChange={(e) =>
-              setFilters({ ...filters, amountMin: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.amountMax}
-            onChange={(e) =>
-              setFilters({ ...filters, amountMax: e.target.value })
-            }
-          />
-        </div>
+
         <label>Factura</label>
         <select
           value={filters.factura}
@@ -1506,15 +1429,7 @@ const Hojadefechas = () => {
               banco: [],
               metododepago: [],
               efectivo: [],
-              item: [],
               factura: "",
-              descripcion: "",
-              qtyMin: "",
-              qtyMax: "",
-              rateMin: "",
-              rateMax: "",
-              amountMin: "",
-              amountMax: "",
               fechaInicio: null,
               fechaFin: null,
             })
@@ -1552,475 +1467,347 @@ const Hojadefechas = () => {
                 <th style={{ backgroundColor: "#6200ffb4" }}>Notas</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Método De Pago</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Efectivo</th>
-                <th style={{ backgroundColor: "#00ad00" }}>ITEM</th>
-                <th style={{ backgroundColor: "#00ad00" }}>DESCRIPCIÓN</th>
-                <th style={{ backgroundColor: "#00ad00" }}>QTY</th>
-                <th style={{ backgroundColor: "#00ad00" }}>RATE</th>
-                <th style={{ backgroundColor: "#00ad00" }}>AMOUNT</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Emitir</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Factura</th>
-                <th style={{ backgroundColor: "#00ad00" }}>Fecha De Pago</th>
+                <th style={{ backgroundColor: "#00ad00" }}>Fecha de pago</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Pago</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.length > 0 ? (
-                filteredData.map((item) => (
-                  <React.Fragment key={item.fecha}>
-                    {item.registros.map((registro) => (
-                      <tr key={registro.id}>
-                        <td
-                          style={{
-                            minWidth: "75px",
-                            textAlign: "center",
-                            fontWeight: "bold",
-                          }}
+              {filteredData.map((item) => (
+                <React.Fragment key={item.fecha}>
+                  {item.registros.map((registro) => (
+                    <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
+                      <td
+                        style={{
+                          minWidth: "75px",
+                          textAlign: "center",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {item.fecha}
+                      </td>
+                      <td>
+                        <select
+                          value={registro.realizadopor || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "realizadopor",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
                         >
-                          {item.fecha}
-                        </td>
-                        <td>
-                          <select
-                            value={registro.realizadopor || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "realizadopor",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            {users.map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {u.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
+                          <option value=""></option>
+                          {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={registro.anombrede || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "anombrede",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="direccion-fixed-td">
+                        <div className="custom-select-container">
                           <input
+                            className="direccion-fixed-input "
+                            style={{ width: "18ch" }}
                             type="text"
-                            style={{
-                                width: "20ch",
-                              }}
-                            value={registro.anombrede || ""}
+                            value={registro.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(
                                 item.fecha,
                                 registro.id,
-                                "anombrede",
+                                "direccion",
                                 e.target.value,
                                 registro.origin
                               )
                             }
+                            list={`direccion-options-${registro.id}`}
                           />
-                        </td>
-                        <td className="direccion-fixed-td">
-                          <div className="custom-select-container">
-                            <input
-                              type="text"
-                              style={{
-                                width: "20ch",
-                              }}
-                              value={registro.direccion || ""}
-                              onChange={(e) =>
-                                handleFieldChange(
-                                  item.fecha,
-                                  registro.id,
-                                  "direccion",
-                                  e.target.value,
-                                  registro.origin
-                                )
-                              }
-                              list={`direccion-options-${registro.id}`}
-                            />
-                            {/* <datalist id={`direccion-options-${registro.id}`}>
+                          {/* <datalist id={`direccion-options-${registro.id}`}>
                               {clients.map((client, index) => (
                                 <option key={index} value={client.direccion}>
                                   {client.direccion}
                                 </option>
                               ))}
                             </datalist> */}
-                          </div>
-                        </td>
-                        <td>
-                          <select
-                            value={registro.servicio || ""}
-                            style={{ width: "18ch" }}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "servicio",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="Poso">Poso</option>
-                            <option value="Tuberia">Tuberia</option>
-                            <option value="Poso + Tuberia">
-                              Poso + Tuberia
-                            </option>
-                            <option value="Poso + Grease Trap">
-                              Poso + Grease Trap
-                            </option>
-                            <option value="Tuberia + Grease Trap">
-                              Tuberia + Grease Trap
-                            </option>
-                            <option value="Grease Trap">Grease Trap</option>
-                            <option value="Water">Water</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            style={{ textAlign: "center" }}
-                            value={registro.cubicos || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "cubicos",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            style={{ width: "10ch" }}
-                            value={registro.valor || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "valor",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={registro.pago || ""}
-                            style={{ width: "12ch" }}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "pago",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="Debe">Debe</option>
-                            <option value="Pago">Pago</option>
-                            <option value="Pendiente">Pendiente</option>
-                            <option value="Pendiente Fin De Mes">-</option>
-                          </select>
-                        </td>
-                        <td>
-                          <select
-                            value={registro.formadepago || ""}
-                            style={{ width: "15ch" }}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "formadepago",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia">Transferencia</option>
-                            <option value="Intercambio">Intercambio</option>
-                            <option value="Garantia">Garantia</option>
-                            <option value="Perdido">Perdido</option>
-                          </select>
-                        </td>
-                        <td>
-                          <select
-                            value={registro.banco || ""}
-                            style={{ width: "18ch" }}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "banco",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="Aruba Bank N.V.">
-                              Aruba Bank N.V.
-                            </option>
-                            <option value="Caribbean Mercantile Bank N.V.">
-                              Caribbean Mercantile Bank N.V.
-                            </option>
-                            <option value="RBC Royal Bank N.V.">
-                              RBC Royal Bank N.V.
-                            </option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            style={{
-                              width: `${Math.max(
-                                registro.notas?.length || 1,
-                                15
-                              )}ch`,
-                            }}
-                            value={registro.notas || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "notas",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={registro.metododepago || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "metododepago",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="credito">Crédito</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="efectivo">Efectivo</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            style={{ width: "10ch" }}
-                            value={registro.efectivo || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "efectivo",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                            disabled={registro.metododepago !== "efectivo"}
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={registro.item || ""}
-                            style={{ width: "28ch" }}
-                            onChange={(e) =>
-                              handleItemSelect(
-                                item.fecha,
-                                registro.id,
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value=""></option>
-                            <option value="Septic Tank">Septic Tank</option>
-                            <option value="Pipes Cleaning">
-                              Pipes Cleaning
-                            </option>
-                            <option value="Services">Services</option>
-                            <option value="Grease Trap">Grease Trap</option>
-                            <option value="Grease Trap & Pipe Cleanings">
-                              Grease Trap & Pipe Cleanings
-                            </option>
-                            <option value="Septic Tank & Grease Trap">
-                              Septic Tank & Grease Trap
-                            </option>
-                            <option value="Dow Temporal">Dow Temporal</option>
-                            <option value="Water Truck">Water Truck</option>
-                            <option value="Pool">Pool</option>
-                          </select>
-                        </td>
-                        <td
-                          style={{
-                            alignItems: "center", // centra en Y
-                            maxWidth: "26ch",
-                          }}
+                        </div>
+                      </td>
+                      <td>
+                        <select
+                          value={registro.servicio || ""}
+                          style={{ width: "18ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "servicio",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
                         >
-                          <button
-                            style={{
-                              border: "none",
-                              backgroundColor: "transparent",
-                              borderRadius: "0.25em",
-                              color: "black",
-                              padding: "0.2em 0.5em",
-                              cursor: "pointer",
-                              fontSize: "1em",
-                              maxWidth: "100%",
-                              alignSelf: "center",
-                            }}
-                            onClick={() =>
-                              handleDescriptionClick(
-                                item.fecha,
-                                registro.id,
-                                registro.descripcion
-                              )
-                            }
-                          >
-                            {registro.descripcion ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  flex: 1,
-                                  maxWidth: "20ch",
-                                }}
-                              >
-                                {registro.descripcion || ""}
-                              </p>
-                            ) : (
-                              "ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ"
-                            )}
-                          </button>
-                        </td>
-
-                        <td>
-                          <input
-                            type="number"
-                            step="1"
-                            style={{ width: "6ch" }}
-                            value={registro.qty || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "qty",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            step="0.01"
-                            style={{ width: "10ch" }}
-                            value={
-                              registro.rate != null
-                                ? parseFloat(registro.rate).toFixed(2)
-                                : ""
-                            }
-                            onChange={(e) =>
-                              handleRateChange(
-                                item.fecha,
-                                registro.id,
-                                e.target.value
-                              )
-                            }
-                          />
-                        </td>
-                        <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                          {registro.amount != null
-                            ? parseFloat(registro.amount).toFixed(2)
-                            : "0.00"}
-                        </td>
-
-                        <td>
-                          <input
-                            type="checkbox"
-                            style={{
-                              width: "3ch",
-                              height: "3ch",
-                              marginLeft: "30%",
-                            }}
-                            checked={
-                              !!selectedRows[`${item.fecha}_${registro.id}`]
-                            }
-                            onChange={(e) =>
-                              handleRowSelection(
-                                item.fecha,
-                                registro.id,
-                                e.target.checked
-                              )
-                            }
-                            disabled={registro.factura === true}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={registro.factura === true}
-                            readOnly
-                            style={{
-                              width: "3ch",
-                              height: "3ch",
-                              marginLeft: "35%",
-                              pointerEvents: "none",
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="date"
-                            value={registro.fechapago || ""}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "fechapago",
-                                e.target.value,
-                                registro.origin
-                              )
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={registro.pago === "Pago"}
-                            readOnly
-                            style={{
-                              width: "3ch",
-                              height: "3ch",
-                              marginLeft: "28%",
-                              pointerEvents: "none",
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))
+                          <option value=""></option>
+                          <option value="Poso">Poso</option>
+                          <option value="Tuberia">Tuberia</option>
+                          <option value="Poso + Tuberia">Poso + Tuberia</option>
+                          <option value="Poso + Grease Trap">
+                            Poso + Grease Trap
+                          </option>
+                          <option value="Tuberia + Grease Trap">
+                            Tuberia + Grease Trap
+                          </option>
+                          <option value="Grease Trap">Grease Trap</option>
+                          <option value="Water">Water</option>
+                          <option value="Poll">Poll</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ textAlign: "center" }}
+                          value={registro.cubicos || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "cubicos",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: "10ch" }}
+                          value={registro.valor || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "valor",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={registro.pago || ""}
+                          style={{ width: "12ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "pago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Debe">Debe</option>
+                          <option value="Pago">Pago</option>
+                          <option value="Pendiente">Pendiente</option>
+                          <option value="Pendiente Fin De Mes">-</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={registro.formadepago || ""}
+                          style={{ width: "15ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "formadepago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Transferencia">Transferencia</option>
+                          <option value="Intercambio">Intercambio</option>
+                          <option value="Garantia">Garantia</option>
+                          <option value="Perdido">Perdido</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={registro.banco || ""}
+                          style={{ width: "18ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "banco",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Aruba Bank N.V.">
+                            Aruba Bank N.V.
+                          </option>
+                          <option value="Caribbean Mercantile Bank N.V.">
+                            Caribbean Mercantile Bank N.V.
+                          </option>
+                          <option value="RBC Royal Bank N.V.">
+                            RBC Royal Bank N.V.
+                          </option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          style={{
+                            width: `${Math.max(
+                              registro.notas?.length || 1,
+                              15
+                            )}ch`,
+                          }}
+                          value={registro.notas || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "notas",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={registro.metododepago || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "metododepago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="credito">Crédito</option>
+                          <option value="cancelado">Cancelado</option>
+                          <option value="efectivo">Efectivo</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          style={{ width: "10ch" }}
+                          value={registro.efectivo || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "efectivo",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                          disabled={registro.metododepago !== "efectivo"}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          style={{
+                            width: "3ch",
+                            height: "3ch",
+                            marginLeft: "30%",
+                          }}
+                          checked={
+                            !!selectedRows[`${item.fecha}_${registro.id}`]
+                          }
+                          onChange={(e) =>
+                            handleRowSelection(
+                              item.fecha,
+                              registro.id,
+                              e.target.checked
+                            )
+                          }
+                          disabled={registro.factura === true}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={registro.factura === true}
+                          readOnly
+                          style={{
+                            width: "3ch",
+                            height: "3ch",
+                            marginLeft: "35%",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          value={registro.fechapago || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "fechapago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={registro.pago === "Pago"}
+                          readOnly
+                          style={{
+                            width: "3ch",
+                            height: "3ch",
+                            marginLeft: "28%",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
               ) : (
-                <tr>
-                  <td colSpan="14">No hay datos disponibles.</td>
-                </tr>
-              )}
+              <tr>
+                <td colSpan="14">No hay datos disponibles.</td>
+              </tr>
+              )
             </tbody>
           </table>
         </div>

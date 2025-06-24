@@ -324,6 +324,7 @@ const Reprogramacionautomatica = () => {
           <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
           <option value="Grease Trap">Grease Trap</option>
           <option value="Water">Water</option>
+          <option value="Poll">Poll</option>
         </select>
       </div>
         <!-- Cúbicos -->
@@ -1066,6 +1067,7 @@ const Reprogramacionautomatica = () => {
                         Borrar
                       </button>
                     </td>
+
                     <td>
                       <input
                         style={{

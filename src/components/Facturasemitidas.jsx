@@ -1405,7 +1405,7 @@ const Facturasemitidas = () => {
                       </td>
                       <td className="direccion-fixed-td">
                         <div className="custom-select-container">
-                          <input
+                          <input className="custom-select-input"
                             type="text"
                             list={`dirs-${item.id}`}
                             style={{
