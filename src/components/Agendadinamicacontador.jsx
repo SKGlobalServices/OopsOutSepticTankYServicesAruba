@@ -26,6 +26,13 @@ const Agendadinamicacontador = () => {
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
 
+  // Loader
+  const [loading, setLoading] = useState(true);
+  const [loadedRegistroFechas, setLoadedRegistroFechas] = useState(false);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
+
   // Estado de filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -82,6 +89,7 @@ const Agendadinamicacontador = () => {
       } else {
         setDataRegistroFechas([]);
       }
+      setLoadedRegistroFechas(true);
     });
     return () => unsubscribe();
   }, []);
@@ -109,6 +117,7 @@ const Agendadinamicacontador = () => {
       } else {
         setDataBranch([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -127,6 +136,7 @@ const Agendadinamicacontador = () => {
       } else {
         setUsers([]);
       }
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
@@ -143,6 +153,7 @@ const Agendadinamicacontador = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -765,6 +776,21 @@ const Agendadinamicacontador = () => {
         : null,
     }));
   };
+
+  useEffect(() => {
+    if (loadedRegistroFechas && loadedData && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedRegistroFechas, loadedData, loadedUsers, loadedClients]);
+
+  // ← AGREGAR: Early return con el spinner
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">

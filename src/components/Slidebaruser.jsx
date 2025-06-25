@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
@@ -12,14 +13,13 @@ const Slidebaruser = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user")) || {};
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !user.role) {
       navigate("/");
       return;
     }
-
     if (user.role === "admin") {
       navigate("/agendaexpress");
     } else if (user.role === "contador") {
@@ -34,29 +34,29 @@ const Slidebaruser = () => {
 
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
 
-  const handleClickOutside = (e) => {
-    if (
-      slidebarRef.current &&
-      !slidebarRef.current.contains(e.target) &&
-      !e.target.closest(".show-slidebar-button")
-    ) {
-      setShowSlidebar(false);
-    }
-  };
-
   useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        slidebarRef.current &&
+        !slidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-slidebar-button")
+      ) {
+        setShowSlidebar(false);
+      }
+    };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Genera URL de imagen al azar para cada usuario
+  const seed = encodeURIComponent(
+    user.username || user.email || user.id || Math.random()
+  );
+  const placeholderUrl = `https://loremflickr.com/80/80/portrait?lock=${seed}`;
+
   return (
     <div className="homepage-container">
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-
+      {/* botón hamburguesa móvil */}
       <button className="show-slidebar-button" onClick={toggleSlidebar}>
         <img src={barraIcon} alt="Menú" className="barra-icon-img" />
       </button>
@@ -65,6 +65,19 @@ const Slidebaruser = () => {
         ref={slidebarRef}
         className={`slidebar ${showSlidebar ? "show" : ""}`}
       >
+        {/* ===== HEADER USUARIO ===== */}
+        <div className="sidebar-user">
+          <p className="user-greeting">
+            Bienvenid@, {user.name || "Invitado"}
+          </p>
+          <img
+            className="user-photo"
+            src={user.photoURL || placeholderUrl}
+            alt={user.name || "Invitado"}
+          />
+        </div>
+
+        {/* ===== BOTONES MÓVIL ===== */}
         <button
           className="btn-servHoy2"
           onClick={() => navigate("/agendadeldiausuario")}
@@ -103,13 +116,14 @@ const Slidebaruser = () => {
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
           <span>Logout</span>
         </button>
+
+        {/* ===== FOOTER ===== */}
+        <div className="sidebar-footer">
+          © {new Date().getFullYear()} SK GLOBAL SERVICES
+        </div>
       </div>
 
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
+      {/* ===== BOTONES PC ===== */}
       <button
         className="icon-button-servicioHoy"
         onClick={() => navigate("/agendadeldiausuario")}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
 import {
   ref,
@@ -14,7 +14,6 @@ import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import autoTable from "jspdf-autotable";
 import Slidebar from "./Slidebar";
-import Clock from "./Clock";
 import Select from "react-select";
 import filtericon from "../assets/img/filters_icon.jpg";
 import logotipo from "../assets/img/logo.png";
@@ -65,9 +64,6 @@ const Facturasemitidas = () => {
     direccion: [],
     numerodefactura: [],
     anombrede: [],
-    servicio: [],
-    cubicos: [],
-    valor: [],
     diasdemora: [],
     fechaEmision: [null, null],
     fechaServicio: [null, null],
@@ -81,6 +77,7 @@ const Facturasemitidas = () => {
     rateMax: "",
     amountMin: "",
     amountMax: "",
+    personalizado: "",
   });
 
   // Reloj interno
@@ -89,7 +86,7 @@ const Facturasemitidas = () => {
 
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
-    }, 60 * 1000);
+    }, 24 * 60 * 60 * 1000); // Actualiza cada 24 horas);
 
     return () => clearInterval(timer);
   }, []);
@@ -120,10 +117,10 @@ const Facturasemitidas = () => {
     const unsubscribe = onValue(dbRef, (snap) => {
       if (snap.exists()) {
         const groups = Object.entries(snap.val());
-
         const list = groups.flatMap(([fecha, regs]) =>
           Object.entries(regs).map(([id, rec]) => ({
             origin: "registrofechas",
+            fecha, // <-- aquí!
             id,
             factura: rec.factura ?? false,
             ...rec,
@@ -147,6 +144,7 @@ const Facturasemitidas = () => {
         const rec = child.val();
         data.push({
           id: child.key,
+          pago: Boolean(rec.pago),
           factura: rec.factura ?? false,
           ...rec,
         });
@@ -188,19 +186,25 @@ const Facturasemitidas = () => {
     });
   }, []);
 
-  // Formatea fecha y duración
+  // Formatea fecha y dias de mora
   const formatDate = (ts) => {
     const d = new Date(ts);
     return `${String(d.getDate()).padStart(2, "0")}/${String(
       d.getMonth() + 1
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
-  const formatDuration = (ms) => {
-    const days = Math.floor(ms / 86400000);
-    const hours = Math.floor((ms % 86400000) / 3600000);
-    const minutes = Math.floor((ms % 3600000) / 60000);
-    return `${days}d ${hours}h ${minutes}m`;
+  const calculateDaysDelay = (timestamp, isPaid) => {
+    if (isPaid) return 0; // Si está pagada, no hay mora
+    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
+    return Math.max(0, days);
   };
+
+  // const formatDuration = (ms) => {
+  //   const days = Math.floor(ms / 86400000);
+  //   const hours = Math.floor((ms % 86400000) / 3600000);
+  //   const minutes = Math.floor((ms % 3600000) / 60000);
+  //   return `${days}d ${hours}h ${minutes}m`;
+  // };
 
   // Handle cambios en la factura
   /**
@@ -238,18 +242,21 @@ const Facturasemitidas = () => {
         case "data":
           setDataBranch((prev) => prev.map(updater));
           break;
+
         case "registrofechas":
+          // Como aquí guardas un array plano con { id, fecha, … },
+          // basta con buscar por id (y opcionalmente fecha)
           setDataRegistroFechas((prev) =>
-            prev.map((g) =>
-              g.fecha === fecha
-                ? { ...g, registros: g.registros.map(updater) }
-                : g
-            )
+            prev.map((r) => (r.id === id && r.fecha === fecha ? updater(r) : r))
           );
           break;
+
         case "facturasemitidas":
           setFacturas((prev) => prev.map(updater));
           break;
+
+        default:
+          console.error("Origen desconocido en applyLocalUpdate:", origin);
       }
     };
 
@@ -258,9 +265,7 @@ const Facturasemitidas = () => {
       origin === "data"
         ? dataBranch.find((r) => r.id === id) || {}
         : origin === "registrofechas"
-        ? dataRegistroFechas
-            .find((g) => g.fecha === fecha)
-            ?.registros.find((r) => r.id === id) || {}
+        ? dataRegistroFechas.find((r) => r.id === id && r.fecha === fecha) || {}
         : facturas.find((f) => f.id === id) || {};
 
     // 3a) Si cambió qty → recalcular amount
@@ -300,21 +305,43 @@ const Facturasemitidas = () => {
   }
 
   // 3️⃣ Combina y ordena
-  useEffect(() => {
+  const merged = useMemo(() => {
     const all = [
       ...facturas.map((f) => ({ origin: "facturasemitidas", ...f })),
       ...dataBranch,
       ...dataRegistroFechas,
     ];
-    // orden descendente por timestamp
     all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    // sólo dejamos los que `factura === true`
-    const visible = all.filter((item) => item.factura === true);
-    setTodos(visible);
+    return all.filter((item) => item.factura);
   }, [facturas, dataBranch, dataRegistroFechas]);
 
-  // Confirmación de pago
-  const confirmPagoChange = (id, checked) => {
+  const visibleTodos = useMemo(() => {
+    return merged.filter((f) => {
+      // aquí tu lógica de filtros, por ejemplo:
+      if (
+        filters.descripcion &&
+        !f.descripcion
+          ?.toLowerCase()
+          .includes(filters.descripcion.toLowerCase())
+      )
+        return false;
+      // … resto de checks …
+      return true;
+    });
+  }, [merged, filters]);
+
+  // 1) Nueva función
+  const handlePagoCheck = (itemObj, checked) => {
+    // 1.1) Optimistic update local
+    setFacturas((prev) =>
+      prev.map((f) =>
+        f.id === itemObj.id && f.origin === itemObj.origin
+          ? { ...f, pago: checked }
+          : f
+      )
+    );
+
+    // 1.2) Confirmación SweetAlert
     Swal.fire({
       title: checked
         ? "¿Deseas marcar esta factura como pagada?"
@@ -325,16 +352,29 @@ const Facturasemitidas = () => {
       confirmButtonText: "Sí",
     }).then((res) => {
       if (res.isConfirmed) {
-        handleFieldChange(id, "pago", checked);
+        // persisto en Firebase
+        handleFieldChange(
+          itemObj.origin,
+          itemObj.id,
+          "pago",
+          checked,
+          itemObj.fecha
+        );
         Swal.fire({
           title: "¡Listo!",
-          text: checked
-            ? "El registro ha sido MARCADO"
-            : "El registro ha sido REANUDADO",
           icon: "success",
-          timer: 1500,
+          timer: 1200,
           showConfirmButton: false,
         });
+      } else {
+        // si cancela, revertimos el optimistic update
+        setFacturas((prev) =>
+          prev.map((f) =>
+            f.id === itemObj.id && f.origin === itemObj.origin
+              ? { ...f, pago: !checked }
+              : f
+          )
+        );
       }
     });
   };
@@ -444,30 +484,6 @@ const Facturasemitidas = () => {
       .filter((d) => d) // elimina vacíos
       .map((d) => ({ value: d, label: d }));
   }, [facturas]);
-  const servicioOptions = React.useMemo(
-    () =>
-      [...new Set(facturas.map((f) => f.servicio))].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [facturas]
-  );
-  const cubicosOptions = React.useMemo(
-    () =>
-      [...new Set(facturas.map((f) => String(f.cubicos)))].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [facturas]
-  );
-  const valorOptions = React.useMemo(
-    () =>
-      [...new Set(facturas.map((f) => String(f.valor)))].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [facturas]
-  );
   const moraOptions = React.useMemo(() => {
     const opts = [];
     for (let i = 1; i <= 100; i++) {
@@ -540,33 +556,16 @@ const Facturasemitidas = () => {
     )
       return false;
 
-    // 6) Servicio
-    if (filters.servicio.length > 0 && !filters.servicio.includes(f.servicio))
-      return false;
-
-    // 7) Cúbicos
-    if (
-      filters.cubicos.length > 0 &&
-      !filters.cubicos.includes(String(f.cubicos))
-    )
-      return false;
-
-    // 8) Valor
-    if (filters.valor.length > 0 && !filters.valor.includes(String(f.valor)))
-      return false;
-
-    // 9) Días de mora
+    // 6) Días de mora
     if (filters.diasdemora.length > 0) {
-      const days = f.diasdemora
-        ? parseInt(f.diasdemora, 10)
-        : Math.floor((currentTime - f.timestamp) / 86_400_000);
+      const days = calculateDaysDelay(f.timestamp, f.pago);
       const ok = filters.diasdemora.some((sel) =>
         sel === "10+" ? days >= 10 : days === parseInt(sel, 10)
       );
       if (!ok) return false;
     }
 
-    // 10) Pago
+    // 7) Pago
     if (filters.pago.length > 0) {
       const isPaid = Boolean(f.pago);
       if (!filters.pago.includes(isPaid)) return false;
@@ -574,12 +573,12 @@ const Facturasemitidas = () => {
 
     // ── filtros extra ──
 
-    // 11) Item
+    // 8) Item
     if (filters.item.length > 0 && !filters.item.includes(f.item)) {
       return false;
     }
 
-    // 12) Descripción (subcadena, case-insensitive)
+    // 9) Descripción (subcadena, case-insensitive)
     if (
       filters.descripcion &&
       !f.descripcion?.toLowerCase().includes(filters.descripcion.toLowerCase())
@@ -587,17 +586,27 @@ const Facturasemitidas = () => {
       return false;
     }
 
-    // 13) Qty mínimo/máximo
+    // 10) Personalizado (subcadena, case-insensitive)
+    if (
+      filters.personalizado &&
+      !f.personalizado
+        ?.toLowerCase()
+        .includes(filters.personalizado.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // 11) Qty mínimo/máximo
     const qty = Number(f.qty) || 0;
     if (filters.qtyMin && qty < Number(filters.qtyMin)) return false;
     if (filters.qtyMax && qty > Number(filters.qtyMax)) return false;
 
-    // 14) Rate mínimo/máximo
+    // 12) Rate mínimo/máximo
     const rate = Number(f.rate) || 0;
     if (filters.rateMin && rate < Number(filters.rateMin)) return false;
     if (filters.rateMax && rate > Number(filters.rateMax)) return false;
 
-    // 15) Amount mínimo/máximo
+    // 13) Amount mínimo/máximo
     const amount = Number(f.amount) || 0;
     if (filters.amountMin && amount < Number(filters.amountMin)) return false;
     if (filters.amountMax && amount > Number(filters.amountMax)) return false;
@@ -753,7 +762,7 @@ const Facturasemitidas = () => {
     }).then((result) => {
       if (result.isConfirmed) {
         const desc = result.value;
-        handleFieldChange(registroId, "descripcion", desc);
+        handleFieldChange("facturasemitidas", registroId, "descripcion", desc);
         Swal.fire("Guardado", "Descripción guardada correctamente", "success");
       }
     });
@@ -851,6 +860,7 @@ const Facturasemitidas = () => {
     // 3) Extraer datos seleccionados
     const selectedData = facturas.filter((f) => selectedRows.includes(f.id));
     const base = selectedData[0];
+    const pagoStatus = base.pago === true ? "Pago" : "Debe";
 
     // 4) Calcular Bill To
     let billToValue = "";
@@ -886,38 +896,55 @@ const Facturasemitidas = () => {
     const numeroFactura = tx.snapshot.val();
     // 6a) Formatear a 5 dígitos con ceros a la izquierda
     const invoiceNumber = numeroFactura.toString().padStart(4, "0");
+    // 6a) Formatear YYMM + secuencia 4 dígitos
+    const today = new Date();
+    const yy = String(today.getFullYear()).slice(-2); // e.g. "25"
+    const mm = String(today.getMonth() + 1).padStart(2, "0"); // e.g. "06"
+    const seq = String(numeroFactura).padStart(4, "0"); // e.g. "0001"
+    const invoiceId = `${yy}${mm}${seq}`; // "25060001"
 
     // 7) Generar PDF
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10,
       mT = 10,
       logoSize = 28;
+    // Obtener logo en base64 y sus dimensiones originales
     const logo = await getBase64ImageFromUrl(logotipo);
-    pdf.addImage(logo, "PNG", mL, mT, logoSize * 2.5, logoSize);
+    const img = new Image();
+    img.src = logo;
+    await new Promise((r) => (img.onload = r));
+
+    // Ajustar altura fija y calcular ancho proporcional
+    const logoHeight = 18; // por ejemplo 18 mm de alto
+    const logoWidth = (img.width / img.height) * logoHeight;
+
+    // Insertar logo
+    pdf.addImage(logo, "PNG", mL, mT, logoWidth, logoHeight);
 
     // — Empresa —
     const textX = mL + logoSize * 2.5 + 5;
     pdf.setFontSize(16).text(invoiceConfig.companyName, textX, mT + 5);
     pdf
       .setFontSize(10)
-      .text(`Address: ${invoiceConfig.address}`, textX, mT + 12)
+      .text(`Address: ${invoiceConfig.address}`, textX, mT + 11)
       .text(
         `${invoiceConfig.city}, ${invoiceConfig.country}, ${invoiceConfig.postalCode}`,
         textX,
         mT + 16
       )
-      .text(`Tel: ${invoiceConfig.phone}`, textX, mT + 16)
-      .text(`Email: ${invoiceConfig.email}`, textX, mT + 17);
+      .text(`Tel: ${invoiceConfig.phone}`, textX, mT + 21)
+      .text(`Email: ${invoiceConfig.email}`, textX, mT + 26);
 
     // — Número y fecha —
     pdf
       .setFontSize(12)
-      .text(`INVOICE NO: ${invoiceNumber}`, 160, mT + 35)
-      .text(`DATE: ${new Date().toLocaleDateString()}`, 160, mT + 40);
+      .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
+      .text(`DATE: ${today.toLocaleDateString()}`, 152, mT + 40);
 
     // — Bill To —
-    const yBill = mT + logoSize + 10;
+    const yBill = mT + logoHeight + 21;
     pdf.setFontSize(12).text("BILL TO:", mL, yBill);
+
     const labelW = pdf.getTextWidth("BILL TO:");
     pdf.setFontSize(10).text(billToValue, mL + labelW + 5, yBill);
 
@@ -926,73 +953,107 @@ const Facturasemitidas = () => {
       head: [["DATE", "ITEM", "Descripción", "QTY", "RATE", "AMOUNT"]],
       body: filas,
       startY: yBill + 8,
-      theme: "grid",
-      headStyles: { fillColor: [0, 164, 189], textColor: [255, 255, 255] },
-      styles: { fontSize: 9 },
       margin: { left: mL, right: 10 },
+      theme: "grid",
+      headStyles: { fillColor: [0, 164, 189], textColor: 255 },
+      styles: {
+        fontSize: 9,
+        overflow: "linebreak",
+      },
+      columnStyles: {
+        0: {
+          // DATE
+          cellWidth: 20,
+          halign: "left",
+        },
+        1: {
+          // ITEM
+          cellWidth: 48,
+          halign: "left",
+        },
+        2: {
+          // Descripción
+          cellWidth: 75,
+          overflow: "linebreak",
+        },
+        3: {
+          // QTY
+          cellWidth: 12,
+          halign: "center",
+        },
+        4: {
+          // RATE
+          cellWidth: 15,
+          halign: "right",
+        },
+        5: {
+          // AMOUNT
+          cellWidth: 20,
+          halign: "right",
+        },
+      },
     });
 
     // — Total y balance —
-    const afterY = pdf.lastAutoTable.finalY + 8;
+    const afterY = pdf.lastAutoTable.finalY;
+    // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
+    const balance = pagoStatus === "Pago" ? 0 : totalAmount;
     pdf
       .setFontSize(10)
-      .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 160, afterY);
-    const balance = base.pago ? 0 : totalAmount;
-    pdf.text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 160, afterY + 6);
+      .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 152, afterY + 6);
 
     // — Bank Info y footer —
-    const bankY = afterY;
+    const bankY = afterY + 6;
     pdf.text("Bank Info:", mL, bankY);
     pdf
       .setFontSize(9)
       .text(pdf.splitTextToSize(invoiceConfig.bankInfo, 80), mL, bankY + 6);
-    const rawFooter = (invoiceConfig.footer || "").replace(/[\r\n]+/g, " ");
-    const { width: w, height: h } = pdf.internal.pageSize;
+    const footerText = (invoiceConfig.footer || "").replace(/\r?\n/g, " ");
+    const w = pdf.internal.pageSize.getWidth();
+    const h = pdf.internal.pageSize.getHeight();
     pdf
       .setFontSize(10)
-      .text(rawFooter, (w - pdf.getTextWidth(rawFooter)) / 2, h - 10);
+      .text(footerText, (w - pdf.getTextWidth(footerText)) / 2, h - 10);
 
-    // — Marca de agua PAID si aplica —
-    if (base.pago) {
-      // — dimensiones del PDF en “puntos” (72 dpi) —
+    // — Marca de agua PAID, fecha de pago y PAYMENT —
+    if (pagoStatus === "Pago") {
       const wPt = pdf.internal.pageSize.getWidth();
       const hPt = pdf.internal.pageSize.getHeight();
-
-      // — factor de escala para mayor nitidez —
       const SCALE = 3;
-
-      // 1) Crear canvas “grande”
       const canvas = document.createElement("canvas");
       canvas.width = Math.floor(wPt * SCALE);
       canvas.height = Math.floor(hPt * SCALE);
       const ctx = canvas.getContext("2d");
 
-      // 2) Escalar de px → pt
       ctx.scale(SCALE, SCALE);
-
-      // 3) Mover origen al centro de la página
       ctx.translate(wPt / 2, hPt / 2);
-
-      // 4) Girar la diagonal de TL→BR:
-      //    ángulo = atan(alto/ancho)
-      const angle = Math.atan2(hPt, wPt);
       ctx.rotate(Math.PI / 6);
-
-      // 5) Dibujar el texto semi-transparente
       ctx.globalAlpha = 0.3;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "16px Arial"; // lo ajustas a tu gusto
+      ctx.font = "16px Arial";
       ctx.fillStyle = "green";
       ctx.fillText("PAID", 0, 0);
 
-      // 6) Pasar el canvas al PDF
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
+
+      // — PAYMENT total —
+      pdf
+        .setFontSize(10)
+        .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
+
+      // — Fecha de pago debajo del sello —
+      // pdf
+      //   .setFontSize(12)
+      //   .setTextColor(0, 128, 0)
+      //   .text(`${pagoDate}`, wPt / 2, hPt / 2 + 15, {
+      //     align: "center",
+      //   });
     }
 
-    // — Guardar —
-    pdf.save(`Invoice-${invoiceNumber}.pdf`);
+    // — Guarda el PDF —
+    pdf.save(`Invoice-${invoiceId}.pdf`);
   };
 
   const addEmptyInvoice = () => {
@@ -1137,51 +1198,6 @@ const Facturasemitidas = () => {
           value={filters.direccion.map((v) => ({ value: v, label: v }))}
         />
 
-        <label>Servicio</label>
-        <Select
-          isClearable
-          isMulti
-          options={servicioOptions}
-          placeholder="Selecciona servicio(s)..."
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              servicio: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-          value={filters.servicio.map((v) => ({ value: v, label: v }))}
-        />
-
-        <label>Cúbicos</label>
-        <Select
-          isClearable
-          isMulti
-          options={cubicosOptions}
-          placeholder="Selecciona cúbicos..."
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              cubicos: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-          value={filters.cubicos.map((v) => ({ value: v, label: v }))}
-        />
-
-        <label>Valor</label>
-        <Select
-          isClearable
-          isMulti
-          options={valorOptions}
-          placeholder="Selecciona valor(es)..."
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              valor: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-          value={filters.valor.map((v) => ({ value: v, label: v }))}
-        />
-
         <label>Días de Mora</label>
         <Select
           isClearable
@@ -1218,6 +1234,16 @@ const Facturasemitidas = () => {
           value={filters.descripcion}
           onChange={(e) =>
             setFilters({ ...filters, descripcion: e.target.value })
+          }
+        />
+
+        <label>Personalizado</label>
+        <input
+          type="text"
+          placeholder="Buscar personalizado"
+          value={filters.personalizado}
+          onChange={(e) =>
+            setFilters({ ...filters, personalizado: e.target.value })
           }
         />
 
@@ -1309,14 +1335,12 @@ const Facturasemitidas = () => {
               direccion: [],
               numerodefactura: [],
               anombrede: [],
-              servicio: [],
-              cubicos: [],
-              valor: [],
               diasdemora: [],
               factura: "true",
               pago: [],
               item: [],
               descripcion: "",
+              personalizado: "",
               qtyMin: "",
               qtyMax: "",
               rateMin: "",
@@ -1333,12 +1357,11 @@ const Facturasemitidas = () => {
       </div>
 
       <div className="homepage-title">
-        <div className="homepage-card">
-          <h1 className="title-page">Facturas Emitidas</h1>
-          <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
-            <Clock />
-          </div>
+        <div className="homepage-card" style={{ padding: "10px" }}>
+          <h1 className="title-page" style={{ marginBottom: "-18px" }}>
+            Facturas Emitidas
+          </h1>
+          <div>{new Date().toLocaleDateString()}</div>
         </div>
       </div>
 
@@ -1348,14 +1371,13 @@ const Facturasemitidas = () => {
           <table className="service-table">
             <thead>
               <tr>
+                <th>Seleccionar</th>
                 <th>Fecha Emisión</th>
                 <th>Fecha Servicio</th>
                 <th>Factura</th>
                 <th>A Nombre De</th>
+                <th>Personalizado</th>
                 <th className="direccion-fixed-th">Dirección</th>
-                <th>Servicio</th>
-                <th>Cúbicos</th>
-                <th>Valor</th>
                 <th>Días de Mora</th>
                 <th>Item</th>
                 <th>Descripción</th>
@@ -1364,19 +1386,31 @@ const Facturasemitidas = () => {
                 <th>amount</th>
                 <th>Fecha de pago</th>
                 <th>Pago</th>
-                <th>Seleccionar</th>
               </tr>
             </thead>
             <tbody>
-              {todos.length > 0 ? (
-                todos.map((item) => {
+              {visibleTodos.length > 0 ? (
+                visibleTodos.map((item) => {
                   // calcula mora si es necesario, formatea fecha, etc.
                   const emissionTs = item.timestamp;
-                  const mora = item.pago
-                    ? item.diasdemora
-                    : formatDuration(currentTime - emissionTs);
+                  const diasMora = calculateDaysDelay(
+                    item.timestamp,
+                    item.pago
+                  );
                   return (
                     <tr key={`${item.origin}-${item.id}`}>
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.includes(item.id)}
+                          onChange={() => handleSelectRow(item.id)}
+                          style={{
+                            width: "3ch",
+                            height: "3ch",
+                            marginLeft: "0%",
+                          }}
+                        />
+                      </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
                         {formatDate(item.timestamp)}
                       </td>
@@ -1388,35 +1422,50 @@ const Facturasemitidas = () => {
                         <input
                           type="text"
                           style={{
-                            width: `${Math.max(
-                              item.anombrede?.length || 1,
-                              20
-                            )}ch`,
+                            width: "16ch",
                           }}
                           value={item.anombrede || ""}
                           onChange={(e) =>
                             handleFieldChange(
+                              item.origin,
                               item.id,
                               "anombrede",
-                              e.target.value
+                              e.target.value,
+                              item.fecha
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          style={{ width: "20ch" }}
+                          value={item.personalizado || ""}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.origin,
+                              item.id,
+                              "personalizado",
+                              e.target.value,
+                              item.fecha
                             )
                           }
                         />
                       </td>
                       <td className="direccion-fixed-td">
                         <div className="custom-select-container">
-                          <input className="custom-select-input"
+                          <input
+                            className="direccion-fixed-input "
+                            style={{ width: "18ch" }}
                             type="text"
-                            list={`dirs-${item.id}`}
-                            style={{
-                              width: "20ch",
-                            }}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(
+                                item.origin,
                                 item.id,
                                 "direccion",
-                                e.target.value
+                                e.target.value,
+                                item.fecha
                               )
                             }
                           />
@@ -1427,58 +1476,8 @@ const Facturasemitidas = () => {
                           </datalist>
                         </div>
                       </td>
-                      <td style={{ minWidth: "22ch" }}>
-                        <select
-                          value={item.servicio || ""}
-                          style={{ width: "22ch" }}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.id,
-                              "servicio",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value=""></option>
-                          <option value="Poso">Poso</option>
-                          <option value="Tuberia">Tuberia</option>
-                          <option value="Poso + Tuberia">Poso + Tuberia</option>
-                          <option value="Poso + Grease Trap">
-                            Poso + Grease Trap
-                          </option>
-                          <option value="Tuberia + Grease Trap">
-                            Tuberia + Grease Trap
-                          </option>
-                          <option value="Grease Trap">Grease Trap</option>
-                          <option value="Water">Water</option>
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          style={{ width: "10ch", textAlign: "center" }}
-                          value={item.cubicos || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.id,
-                              "cubicos",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          style={{ width: "10ch", textAlign: "center" }}
-                          value={item.valor || ""}
-                          onChange={(e) =>
-                            handleFieldChange(item.id, "valor", e.target.value)
-                          }
-                        />
-                      </td>
                       <td style={{ textAlign: "center", width: "6ch" }}>
-                        {mora}
+                        {diasMora}
                       </td>
                       <td>
                         <select
@@ -1506,14 +1505,18 @@ const Facturasemitidas = () => {
                       </td>
                       <td
                         style={{
-                          alignItems: "center", // centra en Y
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          boxSizing: "border-box",
                           maxWidth: "26ch",
+                          width: "20ch",
+                          padding: "0.25em 0.5em",
+                          height: "100%",
+                          overflow: "hidden",
                         }}
                       >
                         <button
-                          onClick={() =>
-                            handleDescriptionClick(item.id, item.descripcion)
-                          }
                           style={{
                             border: "none",
                             backgroundColor: "transparent",
@@ -1522,9 +1525,13 @@ const Facturasemitidas = () => {
                             padding: "0.2em 0.5em",
                             cursor: "pointer",
                             fontSize: "1em",
-                            maxWidth: "100%",
+                            maxWidth: "20ch",
                             textAlign: "left",
+                            width: "100%",
                           }}
+                          onClick={() =>
+                            handleDescriptionClick(item.id, item.descripcion)
+                          }
                         >
                           {item.descripcion ? (
                             <p
@@ -1534,18 +1541,20 @@ const Facturasemitidas = () => {
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
                                 flex: 1,
-                                maxWidth: "20ch",
                               }}
                             >
-                              {item.descripcion}
+                              {item.descripcion || ""}
                             </p>
                           ) : (
-                            // Mantiene el alto del td aunque esté vacío
-                            "ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ"
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
                           )}
                         </button>
                       </td>
-
                       <td>
                         <input
                           type="number"
@@ -1583,9 +1592,11 @@ const Facturasemitidas = () => {
                           value={item.fechapago || ""}
                           onChange={(e) =>
                             handleFieldChange(
+                              item.origin,
                               item.id,
                               "fechapago",
-                              e.target.value
+                              e.target.value,
+                              item.fecha
                             )
                           }
                         />
@@ -1597,23 +1608,12 @@ const Facturasemitidas = () => {
                             width: "3ch",
                             height: "3ch",
                             marginLeft: "10%",
+                            cursor: "pointer",
                           }}
-                          checked={item.pago === true}
+                          checked={Boolean(item.pago)}
                           onChange={(e) =>
-                            confirmPagoChange(item.id, e.target.checked)
+                            handlePagoCheck(item, e.target.checked)
                           }
-                        />
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.includes(item.id)}
-                          onChange={() => handleSelectRow(item.id)}
-                          style={{
-                            width: "3ch",
-                            height: "3ch",
-                            marginLeft: "0%",
-                          }}
                         />
                       </td>
                     </tr>

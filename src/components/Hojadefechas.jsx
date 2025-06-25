@@ -59,9 +59,6 @@ const Hojadefechas = () => {
     factura: "",
     fechaInicio: null,
     fechaFin: null,
-
-    fechaPagoInicio: null,
-    fechaPagoFin: null,
   });
 
   // Cargar datos de la rama "registrofechas"
@@ -307,13 +304,6 @@ const Hojadefechas = () => {
 
   // 1) FILTRA ESE ARRAY
   const filtrados = todos.filter((registro) => {
-    // 0) Filtro por rango de fecha de pago
-    if (filters.fechaPagoInicio && filters.fechaPagoFin) {
-      if (!registro.fechapago) return false;
-      const pagoDate = new Date(registro.fechapago); // asumiendo "YYYY-MM-DD"
-      if (pagoDate < filters.fechaPagoInicio || pagoDate > filters.fechaPagoFin)
-        return false;
-    }
     // 1) Rango de fechas
     if (filters.fechaInicio && filters.fechaFin) {
       const [d, m, y] = registro.fecha.split("-");
@@ -358,25 +348,6 @@ const Hojadefechas = () => {
         .includes(filters.descripcion.toLowerCase())
     )
       return false;
-
-    // 4) QTY (rango numérico)
-    const qty = parseFloat(registro.qty) || 0;
-    if (filters.qtyMin && qty < parseFloat(filters.qtyMin)) return false;
-    if (filters.qtyMax && qty > parseFloat(filters.qtyMax)) return false;
-
-    // 5) RATE (rango numérico)
-    const rate = parseFloat(registro.rate) || 0;
-    if (filters.rateMin && rate < parseFloat(filters.rateMin)) return false;
-    if (filters.rateMax && rate > parseFloat(filters.rateMax)) return false;
-
-    // 6) AMOUNT (rango numérico)
-    const amount = parseFloat(registro.amount) || 0;
-    if (filters.amountMin && amount < parseFloat(filters.amountMin))
-      return false;
-    if (filters.amountMax && amount > parseFloat(filters.amountMax))
-      return false;
-
-    // Si pasa todos los filtros, lo incluimos
     return true;
   });
 
@@ -609,19 +580,7 @@ const Hojadefechas = () => {
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
         Efectivo: registro.efectivo || "",
-        Item: registro.item || "",
-        Descripción: registro.descripcion || "",
-        Qty: registro.qty != null ? registro.qty : "",
-        Rate:
-          registro.rate != null
-            ? (parseFloat(registro.rate) || 0).toFixed(2)
-            : "",
-        Amount:
-          registro.amount != null
-            ? (parseFloat(registro.amount) || 0).toFixed(2)
-            : "",
         Factura: registro.factura ? "Sí" : "No",
-        "Fecha De Pago": registro.fechapago || "",
       }))
     );
 
@@ -642,13 +601,7 @@ const Hojadefechas = () => {
       "Notas",
       "Método De Pago",
       "Efectivo",
-      "Item",
-      "Descripción",
-      "Qty",
-      "Rate",
-      "Amount",
       "Factura",
-      "Fecha De Pago",
     ];
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
@@ -757,6 +710,22 @@ const Hojadefechas = () => {
         const desc = result.value;
         handleFieldChange(fecha, registroId, "descripcion", desc);
         Swal.fire("Guardado", "Descripción guardada correctamente", "success");
+      }
+    });
+  };
+
+  const handleNotesClick = (fecha, registroId, currentNotes, origin) => {
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputLabel: "Notas",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleFieldChange(fecha, registroId, "notas", result.value, origin);
       }
     });
   };
@@ -887,15 +856,14 @@ const Hojadefechas = () => {
     });
   };
 
-  // Función auxiliar: genera y guarda el PDF usando los datos que ya calculaste.
-  // Función auxiliar: genera y guarda el PDF usando los datos que ya calculaste.
+  // Función auxiliar: genera y guarda el PDF usando los datos que ya se ingresaron.
   const generarPDFconDatos = async ({
     filas,
     totalAmount,
     billToValue,
     numeroFactura,
     pagoStatus,
-    pagoDate,
+    // pagoDate,
   }) => {
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
@@ -948,7 +916,6 @@ const Hojadefechas = () => {
 
     // — Bill To —
     const yBill = mT + logoHeight + 21;
-
     pdf.setFontSize(12).text("BILL TO:", mL, yBill);
 
     const labelW = pdf.getTextWidth("BILL TO:");
@@ -1010,7 +977,7 @@ const Hojadefechas = () => {
       .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 152, afterY + 6);
 
     // — Bank Info y footer —
-    const bankY = afterY;
+    const bankY = afterY + 6;
     pdf.text("Bank Info:", mL, bankY);
     pdf
       .setFontSize(9)
@@ -1045,18 +1012,18 @@ const Hojadefechas = () => {
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
 
-      // — Fecha de pago debajo del sello —
-      pdf
-        .setFontSize(12)
-        .setTextColor(0, 0, 0)
-        .text(`Fecha de Pago: ${pagoDate}`, wPt / 2, hPt / 2 + 20, {
-          align: "center",
-        });
-
       // — PAYMENT total —
       pdf
         .setFontSize(10)
         .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
+
+      // — Fecha de pago debajo del sello —
+      // pdf
+      //   .setFontSize(12)
+      //   .setTextColor(0, 128, 0)
+      //   .text(`${pagoDate}`, wPt / 2, hPt / 2 + 15, {
+      //     align: "center",
+      //   });
     }
 
     // — Guarda el PDF —
@@ -1065,79 +1032,161 @@ const Hojadefechas = () => {
 
   const generateAndMaybeEmitFactura = async () => {
     // 1) Validar selección
-    if (!Object.values(selectedRows).some(Boolean)) {
+    // EN generateAndMaybeEmitFactura, justo antes de "const base = selectedData[0];"
+    // 1) Validar selección
+    const flat = filteredData.flatMap((group) =>
+      group.registros.map((r) => ({ ...r, fecha: group.fecha }))
+    );
+
+    // filtrar solo los marcados en selectedRows:
+    const selectedData = flat.filter((r) => selectedRows[`${r.fecha}_${r.id}`]);
+
+    if (selectedData.length === 0) {
       return Swal.fire({
         title: "No hay registros seleccionados",
-        text: "Selecciona al menos un registro para generar la factura.",
+        text: "Seleccione al menos uno para generar la factura.",
         icon: "warning",
         confirmButtonText: "Aceptar",
       });
     }
 
-    // 2) Pedir Bill To…
-    const { value: billToResult } = await Swal.fire({
-      title: "Bill To:",
-      html: `
-      <select id="bill-to-type" class="swal2-select" style="width:75%">
-        <option value="" disabled selected>Elija...</option>
-        <option value="anombrede">A Nombre De</option>
-        <option value="direccion">Dirección</option>
-        <option value="personalizado">Personalizado</option>
-      </select>
-      <input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display: none; width: 75%; margin: 6px auto; text-align: center;" />`,
+    // ya puedes usar selectedData para "base", preparar filas, etc.
+
+    // 2) Solicitar datos de la factura (Bill To + linea de detalle)
+    const { value: res } = await Swal.fire({
+      title: "Generar Factura",
+      html:
+        `<label>Bill To:</label>` +
+        `<select id="bill-to-type" class="swal2-select" style="width:75%;">
+         <option value="" disabled selected>Elija...</option>
+         <option value="anombrede">A Nombre De</option>
+         <option value="direccion">Dirección</option>
+         <option value="personalizado">Personalizado</option>
+       </select>` +
+        `<input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />` +
+        `<hr/>` +
+        `<label>Item:</label>` +
+        `<select id="swal-item" class="swal2-select" style="width:75%;">
+         <option value="" disabled selected>Seleccione...</option>
+         ${Object.keys(ITEM_RATES)
+           .map((i) => `<option value="${i}">${i}</option>`)
+           .join("\n")}
+       </select>` +
+        `<input id="swal-description" class="swal2-input" placeholder="Descripción" />` +
+        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" />` +
+        `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
+        `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
-        const type = document.getElementById("bill-to-type").value;
-        const custom = document.getElementById("bill-to-custom").value;
-        if (!type) Swal.showValidationMessage("Selecciona un tipo");
-        if (type === "personalizado" && !custom)
-          Swal.showValidationMessage("Escribe el texto personalizado");
-        return { billToType: type, customValue: custom };
+        const billToType = document.getElementById("bill-to-type").value;
+        const customValue = document
+          .getElementById("bill-to-custom")
+          .value.trim();
+        const item = document.getElementById("swal-item").value;
+        const description = document
+          .getElementById("swal-description")
+          .value.trim();
+        const qty = parseFloat(document.getElementById("swal-qty").value) || 0;
+        const rate =
+          parseFloat(document.getElementById("swal-rate").value) || 0;
+        const amount =
+          parseFloat(document.getElementById("swal-amount").value) || 0;
+
+        // Validaciones básicas
+        if (!billToType)
+          Swal.showValidationMessage("Seleccione un tipo de Bill To");
+        if (billToType === "personalizado" && !customValue)
+          Swal.showValidationMessage(
+            "Ingrese texto personalizado para Bill To"
+          );
+        if (!item) Swal.showValidationMessage("Seleccione un item");
+        if (!description) Swal.showValidationMessage("Ingrese una descripción");
+        if (qty <= 0) Swal.showValidationMessage("Qty debe ser mayor que 0");
+        return {
+          billToType,
+          customValue,
+          item,
+          description,
+          qty,
+          rate,
+          amount,
+        };
       },
       didOpen: () => {
+        // Mostrar input personalizado si corresponde
         const sel = document.getElementById("bill-to-type");
         const inp = document.getElementById("bill-to-custom");
         sel.addEventListener("change", (e) => {
           inp.style.display =
             e.target.value === "personalizado" ? "block" : "none";
         });
+
+        // Cálculo automático de Rate -> Amount
+        const itemSel = document.getElementById("swal-item");
+        const qtyInp = document.getElementById("swal-qty");
+        const rateInp = document.getElementById("swal-rate");
+        const amtInp = document.getElementById("swal-amount");
+        itemSel.addEventListener("change", (e) => {
+          const defaultRate = ITEM_RATES[e.target.value] ?? 0;
+          rateInp.value = defaultRate.toFixed(2);
+          amtInp.value = (
+            defaultRate * (parseFloat(qtyInp.value) || 0)
+          ).toFixed(2);
+        });
+        [qtyInp, rateInp].forEach((field) =>
+          field.addEventListener("input", () => {
+            const q = parseFloat(qtyInp.value) || 0;
+            const r = parseFloat(rateInp.value) || 0;
+            amtInp.value = (q * r).toFixed(2);
+          })
+        );
       },
     });
-    if (!billToResult) return;
+    if (!res) return; // Usuario canceló
 
-    // 3) Extraer registros seleccionados
-    const selectedData = filteredData.flatMap((item) =>
-      item.registros.filter((r) => selectedRows[`${item.fecha}_${r.id}`])
-    );
-    const base = selectedData[0] || {};
-
-    // 4) Calcular Bill To
+    // 3) Calcular valor de Bill To
+    const base = selectedData[0];
     let billToValue = "";
-    switch (billToResult.billToType) {
+    switch (res.billToType) {
       case "anombrede":
-        billToValue = base.anombrede || "";
+        billToValue = base.anombrede;
         break;
       case "direccion":
-        billToValue = base.direccion || "";
+        billToValue = base.direccion;
         break;
       case "personalizado":
-        billToValue = billToResult.customValue;
+        billToValue = res.customValue;
+        break;
     }
 
-    // 5) Preparar filas
-    const filas = selectedData.map((r) => {
-      const rateNum = parseFloat(r.rate) || 0;
-      const amountNum = parseFloat(r.amount) || 0;
-      return [
-        r.fecha,
-        r.item || "",
-        r.descripcion || "",
-        r.qty != null ? r.qty.toString() : "",
-        r.rate != null ? rateNum.toFixed(2) : "",
-        r.amount != null ? amountNum.toFixed(2) : "",
-      ];
+    // 4) Escribir en Firebase: una entrada por cada registro seleccionado
+    const factRef = ref(database, "facturasemitidas");
+    selectedData.forEach((r) => {
+      const newRef = push(factRef);
+      set(newRef, {
+        ...r,
+        item: res.item,
+        descripcion: res.description,
+        qty: res.qty,
+        rate: res.rate,
+        amount: res.amount,
+        billTo: billToValue,
+        timestamp: Date.now(),
+        factura: true,
+        pago: r.pago === "Pago",
+      }).catch(console.error);
     });
+
+    // 5) Preparar filas con los datos ingresados en el modal
+    const filas = selectedData.map((r) => [
+      r.fecha,
+      res.item, // el item elegido
+      res.description, // la descripción ingresada
+      res.qty.toString(), // la cantidad ingresada
+      res.rate.toFixed(2), // el rate calculado
+      res.amount.toFixed(2), // el amount resultante
+    ]);
 
     // 6) Calcular totalAmount sumando los campos 'amount' de los registros seleccionados
     const totalAmount = selectedData.reduce(
@@ -1169,7 +1218,12 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura,
         pagoStatus: base.pago,
-        pagoDate: base.fechapago,
+        agoDate: base.fechapago,
+        item: res.item,
+        description: res.description,
+        qty: res.qty,
+        rate: res.rate,
+        amount: res.amount,
       });
     } else if (isDenied) {
       // 8b) Si el usuario dice No → generar el PDF sin emitir
@@ -1180,6 +1234,11 @@ const Hojadefechas = () => {
         numeroFactura,
         pagoStatus: base.pago,
         pagoDate: base.fechapago,
+        item: res.item,
+        description: res.description,
+        qty: res.qty,
+        rate: res.rate,
+        amount: res.amount,
       });
     }
   };
@@ -1469,7 +1528,6 @@ const Hojadefechas = () => {
                 <th style={{ backgroundColor: "#6200ffb4" }}>Efectivo</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Emitir</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Factura</th>
-                <th style={{ backgroundColor: "#00ad00" }}>Fecha de pago</th>
                 <th style={{ backgroundColor: "#00ad00" }}>Pago</th>
               </tr>
             </thead>
@@ -1510,6 +1568,7 @@ const Hojadefechas = () => {
                       </td>
                       <td>
                         <input
+                          style={{ width: "16ch" }}
                           type="text"
                           value={registro.anombrede || ""}
                           onChange={(e) =>
@@ -1576,7 +1635,7 @@ const Hojadefechas = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
-                          <option value="Poll">Poll</option>
+                          <option value="Pool">Pool</option>
                         </select>
                       </td>
                       <td>
@@ -1681,25 +1740,50 @@ const Hojadefechas = () => {
                         </select>
                       </td>
                       <td>
-                        <input
-                          type="text"
+                        <button
                           style={{
-                            width: `${Math.max(
-                              registro.notas?.length || 1,
-                              15
-                            )}ch`,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            borderRadius: "0.25em",
+                            color: "black",
+                            padding: "0.2em 0.5em",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "20ch",
+                            textAlign: "left",
+                            width: "100%",
                           }}
-                          value={registro.notas || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
+                          onClick={() =>
+                            handleNotesClick(
                               item.fecha,
                               registro.id,
-                              "notas",
-                              e.target.value,
+                              registro.notas,
                               registro.origin
                             )
                           }
-                        />
+                        >
+                          {registro.notas ? (
+                            <p
+                              style={{
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                                paddingRight: "5px",
+                              }}
+                            >
+                              {registro.notas || ""}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       </td>
                       <td>
                         <select
@@ -1773,21 +1857,6 @@ const Hojadefechas = () => {
                       </td>
                       <td>
                         <input
-                          type="date"
-                          value={registro.fechapago || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "fechapago",
-                              e.target.value,
-                              registro.origin
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
                           type="checkbox"
                           checked={registro.pago === "Pago"}
                           readOnly
@@ -1803,11 +1872,6 @@ const Hojadefechas = () => {
                   ))}
                 </React.Fragment>
               ))}
-              ) : (
-              <tr>
-                <td colSpan="14">No hay datos disponibles.</td>
-              </tr>
-              )
             </tbody>
           </table>
         </div>

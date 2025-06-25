@@ -13,6 +13,10 @@ const Usuarios = () => {
   const [showPasswords, setShowPasswords] = useState({});
   const slidebarRef = useRef(null);
 
+  // LOADER
+  const [loading, setLoading] = useState(true);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+
   // Escucha de Firebase para "users"
   useEffect(() => {
     const dbRef = ref(database, "users");
@@ -22,6 +26,7 @@ const Usuarios = () => {
       } else {
         setData([]);
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -92,6 +97,14 @@ const Usuarios = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">
@@ -169,9 +182,11 @@ const Usuarios = () => {
                         {showPasswords[id] ? "Ocultar" : "Mostrar"}
                       </button>
                     </td>
-                    <td style={{
-                          minWidth: "18ch",
-                        }}>
+                    <td
+                      style={{
+                        minWidth: "18ch",
+                      }}
+                    >
                       <select
                         value={item.role || "user"}
                         onChange={(e) =>
@@ -194,7 +209,7 @@ const Usuarios = () => {
                         }}
                       >
                         <button
-                        className="lock-on-button"
+                          className="lock-on-button"
                           style={{
                             opacity:
                               item.candadoservicioshoy === "sdhca" ? 1 : 0.3,
@@ -214,7 +229,7 @@ const Usuarios = () => {
                           />
                         </button>
                         <button
-                        className="lock-off-button"
+                          className="lock-off-button"
                           style={{
                             opacity:
                               item.candadoservicioshoy === "sdhcc" ? 1 : 0.3,
@@ -246,7 +261,7 @@ const Usuarios = () => {
                         }}
                       >
                         <button
-                        className="lock-on-button"
+                          className="lock-on-button"
                           style={{
                             opacity:
                               item.candadoserviciosmañana === "sdmca" ? 1 : 0.3,
@@ -266,7 +281,7 @@ const Usuarios = () => {
                           />
                         </button>
                         <button
-                        className="lock-off-button"
+                          className="lock-off-button"
                           style={{
                             opacity:
                               item.candadoserviciosmañana === "sdmcc" ? 1 : 0.3,

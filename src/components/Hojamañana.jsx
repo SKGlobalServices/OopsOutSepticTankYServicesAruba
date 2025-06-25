@@ -12,6 +12,10 @@ import Slidebar from "./Slidebar";
 import Select from "react-select";
 
 const Hojamañana = () => {
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
@@ -39,15 +43,22 @@ const Hojamañana = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
-        fetchedData.sort(([idA, itemA], [idB, itemB]) => {
-          if (!itemA.realizadopor) return -1;
-          if (!itemB.realizadopor) return 1;
-          return itemA.realizadopor.localeCompare(itemB.realizadopor);
-        });
-        setData(fetchedData);
+
+        // Separar los datos
+        const con = fetchedData.filter(([, it]) => !!it.realizadopor);
+        const sin = fetchedData.filter(([, it]) => !it.realizadopor);
+
+        // Ordenar primero los que tienen realizadopor (A-Z), luego los vacíos
+        setData([
+          ...con.sort(([, a], [, b]) =>
+            a.realizadopor.localeCompare(b.realizadopor)
+          ),
+          ...sin,
+        ]);
       } else {
         setData([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -66,6 +77,7 @@ const Hojamañana = () => {
       } else {
         setUsers([]);
       }
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
@@ -88,6 +100,7 @@ const Hojamañana = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -172,10 +185,10 @@ const Hojamañana = () => {
 
   // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
   const reorderData = (sinRealizadopor, conRealizadopor) => [
-    ...sinRealizadopor,
     ...conRealizadopor.sort(([, a], [, b]) =>
       a.realizadopor.localeCompare(b.realizadopor)
     ),
+    ...sinRealizadopor,
   ];
 
   // Función para agregar un nuevo servicio
@@ -211,16 +224,6 @@ const Hojamañana = () => {
     };
     // Guarda en Firebase
     await set(newDataRef, newData).catch(console.error);
-
-    // 1) Separa tu estado actual en vacíos y con valor
-    const sin = data.filter(([, it]) => !it.realizadopor);
-    const con = data.filter(([, it]) => !!it.realizadopor);
-
-    // 2) Inserta el nuevo al inicio de los vacíos
-    const sinActualizado = [[newDataRef.key, newData], ...sin];
-
-    // 3) Reordena y actualiza estado
-    setData(reorderData(sinActualizado, con));
   };
 
   // Función para actualizar campos en Firebase
@@ -248,7 +251,7 @@ const Hojamañana = () => {
         .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
 
       // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
-      return [...sinRealizadopor, ...conRealizadopor];
+      return [...conRealizadopor, ...sinRealizadopor];
     });
 
     // --- Lógica específica para servicio ---
@@ -289,7 +292,7 @@ const Hojamañana = () => {
   // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
   const loadClientFields = (direccion, dataId) => {
     const cli = clients.find((c) => c.direccion === direccion);
-    const dbRefItem = ref(database, `data/${dataId}`);
+    const dbRefItem = ref(database, `hojamañana/${dataId}`);
     if (cli) {
       // si existe el cliente, actualiza cubicos, valor y anombrede
       update(dbRefItem, {
@@ -566,6 +569,40 @@ const Hojamañana = () => {
     return true;
   });
 
+  // Función para editar notas con Swal
+  const handleNotesClick = (id, currentNotes) => {
+    console.log(id);
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputLabel: "Notas",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const notes = result.value;
+        handleFieldChange(id, "notas", notes);
+        Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (loadedData && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedData, loadedUsers, loadedClients]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -750,7 +787,7 @@ const Hojamañana = () => {
               <tr>
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Sevicio</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
@@ -758,13 +795,7 @@ const Hojamañana = () => {
                 <th>Forma de Pago</th>
                 <th>Banco</th>
                 <th>Acciones</th>
-                <th
-                  style={{
-                    backgroundColor: "#6200ffb4",
-                  }}
-                >
-                  Notas
-                </th>
+                <th>Notas</th>
                 <th
                   style={{
                     backgroundColor: "#6200ffb4",
@@ -818,12 +849,7 @@ const Hojamañana = () => {
                       <td>
                         <input
                           type="text"
-                          style={{
-                            width: `${Math.max(
-                              item.anombrede?.length || 1,
-                              20
-                            )}ch`,
-                          }}
+                          style={{ width: "16ch" }}
                           value={item.anombrede}
                           onChange={(e) =>
                             handleFieldChange(id, "anombrede", e.target.value)
@@ -833,10 +859,9 @@ const Hojamañana = () => {
                       <td>
                         <div className="custom-select-container">
                           <input
+                            className="direccion-fixed-input "
+                            style={{ width: "18ch", textAlign: "center" }}
                             type="text"
-                            style={{
-                              width: "20ch",
-                            }}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(id, "direccion", e.target.value)
@@ -853,7 +878,6 @@ const Hojamañana = () => {
                                 200
                               )
                             }
-                            className="custom-select-input"
                           />
                           <datalist
                             id={`direccion-options-${id}`}
@@ -897,7 +921,7 @@ const Hojamañana = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
-                          <option value="Poll">Poll</option>
+                          <option value="Pool">Pool</option>
                         </select>
                       </td>
                       <td>
@@ -1013,18 +1037,45 @@ const Hojamañana = () => {
                           Borrar
                         </button>
                       </td>
-                      
+
                       <td>
-                        <input
-                          type="text"
+                        <button
                           style={{
-                            width: `${Math.max(item.notas?.length || 1, 15)}ch`,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            borderRadius: "0.25em",
+                            color: "black",
+                            padding: "0.2em 0.5em",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "100%",
+                            textAlign: "left",
+                            width: "100%",
                           }}
-                          value={item.notas}
-                          onChange={(e) =>
-                            handleFieldChange(id, "notas", e.target.value)
-                          }
-                        />
+                          onClick={() => handleNotesClick(id, item.notas)}
+                        >
+                          {item.notas ? (
+                            <p
+                              style={{
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                                paddingRight: "5px",
+                              }}
+                            >
+                              {item.notas || ""}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       </td>
                       <td>
                         <select
@@ -1095,7 +1146,9 @@ const Hojamañana = () => {
       </button>
       <button
         className="create-table-button"
-        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "", "")}
+        onClick={() =>
+          addData("", "", "", "", "", "", "", "", "", "", "", "", "")
+        }
       >
         +
       </button>

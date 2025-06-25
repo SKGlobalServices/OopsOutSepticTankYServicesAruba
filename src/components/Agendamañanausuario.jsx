@@ -6,6 +6,11 @@ import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
 
 const Agendadeldiausuario = () => {
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
+
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
@@ -22,6 +27,7 @@ const Agendadeldiausuario = () => {
       } else {
         setData([]);
       }
+      setLoadedData(true);
     });
     const unsubUsers = onValue(ref(database, "users"), (snap) => {
       if (snap.exists()) {
@@ -30,7 +36,10 @@ const Agendadeldiausuario = () => {
           .map(([id, u]) => ({ id, name: u.name }))
           .sort((a, b) => a.name.localeCompare(b.name));
         setUsers(fetched);
+      } else {
+        setUsers([]);
       }
+      setLoadedUsers(true);
     });
     const unsubClients = onValue(ref(database, "clientes"), (snap) => {
       if (snap.exists()) {
@@ -41,7 +50,10 @@ const Agendadeldiausuario = () => {
             cubicos: c.cubicos,
           }))
         );
+      } else {
+        setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => {
       unsubData();
@@ -219,6 +231,36 @@ const Agendadeldiausuario = () => {
       ? "credito"
       : "";
 
+  const handleNotesClick = (id, currentNotes) => {
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputLabel: "Notas",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleFieldChange(id, "notas", result.value);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (loadedData && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedData, loadedUsers, loadedClients]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
+
   return (
     <div className="homepage-container">
       <Slidebaruser />
@@ -238,7 +280,7 @@ const Agendadeldiausuario = () => {
           <table className="service-table">
             <thead>
               <tr>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Notas</th>
                 <th>Cúbicos</th>
                 <th>Realizado Por</th>
@@ -250,7 +292,7 @@ const Agendadeldiausuario = () => {
               {data.length > 0 ? (
                 data.map(([id, item]) => (
                   <tr key={id} className={getRowClass(item.metododepago)}>
-                    <td>
+                    <td className="direccion-fixed-td">
                       {canEdit ? (
                         <p
                           className="p-text"
@@ -282,14 +324,43 @@ const Agendadeldiausuario = () => {
                     </td>
                     <td>
                       {canEdit ? (
-                        <input
-                          type="text"
-                          style={{width:"20"}}
-                          value={item.notas}
-                          onChange={(e) =>
-                            handleFieldChange(id, "notas", e.target.value)
-                          }
-                        />
+                        <button
+                          style={{
+                            border: "none",
+                            backgroundColor: "transparent",
+                            borderRadius: "0.25em",
+                            color: "black",
+                            padding: "0.2em 0.5em",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "20ch",
+                            textAlign: "left",
+                            width: "100%",
+                          }}
+                          onClick={() => handleNotesClick(id, item.notas)}
+                        >
+                          {item.notas ? (
+                            <p
+                              style={{
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                                maxWidth: "20ch",
+                              }}
+                            >
+                              {item.notas}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       ) : (
                         <p
                           style={{

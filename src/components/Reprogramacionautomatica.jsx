@@ -23,6 +23,9 @@ const Reprogramacionautomatica = () => {
     mes: "",
     activo: "",
   });
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
 
   // Escucha de Firebase para "reprogramacionautomatica"
   useEffect(() => {
@@ -47,6 +50,7 @@ const Reprogramacionautomatica = () => {
       } else {
         setData([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -219,6 +223,7 @@ const Reprogramacionautomatica = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -297,6 +302,8 @@ const Reprogramacionautomatica = () => {
       dia: [],
       semana: "",
       mes: "",
+      soloUnaVez: false,
+      fechaEjecucion: null,
     };
 
     // HTML del formulario SIN el select de frecuencia mensual
@@ -324,7 +331,7 @@ const Reprogramacionautomatica = () => {
           <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
           <option value="Grease Trap">Grease Trap</option>
           <option value="Water">Water</option>
-          <option value="Poll">Poll</option>
+          <option value="Pool">Pool</option>
         </select>
       </div>
         <!-- Cúbicos -->
@@ -382,7 +389,18 @@ const Reprogramacionautomatica = () => {
               )
               .join("")}
           </div>
-        </div>
+          </div>
+            <!-- Solo una vez -->
+          <div class="form-group">
+            <label for="soloUnaVez">Solo realizarse una vez:</label>
+            <input type="checkbox" id="soloUnaVez"/> 
+          </div>
+          
+          <!-- Fecha específica (solo si soloUnaVez está marcado) -->
+          <div id="fecha-container" class="form-group" style="display: none;">
+            <label for="fechaEjecucion">Fecha de ejecución:</label>
+            <input id="fechaEjecucion" type="date" class="swal2-input"/>
+          </div>
       </div>
     `;
 
@@ -477,6 +495,9 @@ const Reprogramacionautomatica = () => {
       focusConfirm: false,
       didOpen: () => {
         const sel = document.getElementById("tipoRepeticion");
+        const soloUnaVezCheckbox = document.getElementById("soloUnaVez");
+        const fechaContainer = document.getElementById("fecha-container");
+
         sel.addEventListener("change", () => {
           document.getElementById("dia-container").style.display =
             sel.value === "dia" ? "block" : "none";
@@ -485,6 +506,15 @@ const Reprogramacionautomatica = () => {
           document.getElementById("mes-container").style.display =
             sel.value === "mes" ? "block" : "none";
         });
+
+        soloUnaVezCheckbox.addEventListener("change", () => {
+          fechaContainer.style.display = soloUnaVezCheckbox.checked
+            ? "block"
+            : "none";
+          if (!soloUnaVezCheckbox.checked) {
+            document.getElementById("fechaEjecucion").value = "";
+          }
+        });
       },
       preConfirm: () => {
         const direccion = document.getElementById("direccion").value.trim();
@@ -492,15 +522,25 @@ const Reprogramacionautomatica = () => {
           Swal.showValidationMessage("La dirección es obligatoria");
           return false;
         }
+
         const servicio = document.getElementById("servicio").value;
         const cubicos = document.getElementById("cubicos").value;
         const rc = parseInt(document.getElementById("repetirCada").value, 10);
+        const soloUnaVez = document.getElementById("soloUnaVez").checked;
+        const fechaEjecucion = document.getElementById("fechaEjecucion").value;
+
+        if (soloUnaVez && !fechaEjecucion) {
+          Swal.showValidationMessage("Selecciona una fecha de ejecución");
+          return false;
+        }
+
         if (!rc || rc < 1) {
           Swal.showValidationMessage(
             'Ingresa un valor válido en "Repetir cada"'
           );
           return false;
         }
+
         const periodo = document.getElementById("tipoRepeticion").value;
         let dia = [],
           semana = "",
@@ -549,6 +589,8 @@ const Reprogramacionautomatica = () => {
           dia,
           semana,
           mes,
+          soloUnaVez,
+          fechaEjecucion,
         };
       },
     }).then((result) => {
@@ -561,7 +603,9 @@ const Reprogramacionautomatica = () => {
           result.value.periodo,
           result.value.dia,
           result.value.semana,
-          result.value.mes
+          result.value.mes,
+          result.value.soloUnaVez,
+          result.value.fechaEjecucion
         );
         Swal.fire({
           title: "¡Guardado!",
@@ -586,6 +630,8 @@ const Reprogramacionautomatica = () => {
     dia,
     semana,
     mes,
+    soloUnaVez = false,
+    fechaEjecucion = null,
     activo = false
   ) => {
     const dbRef = ref(database, "reprogramacionautomatica");
@@ -599,6 +645,8 @@ const Reprogramacionautomatica = () => {
       dia,
       semana,
       mes,
+      soloUnaVez,
+      fechaEjecucion,
       activo,
       timestamp: Date.now(),
     };
@@ -696,6 +744,38 @@ const Reprogramacionautomatica = () => {
 
     return true;
   });
+
+  const checkAndDeactivateExecutedOnce = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0]; // formato YYYY-MM-DD
+
+    data.forEach(([id, item]) => {
+      if (
+        item.soloUnaVez &&
+        item.activo &&
+        item.fechaEjecucion &&
+        item.fechaEjecucion <= todayStr
+      ) {
+        // Desactivar el registro porque ya se ejecutó
+        updateFields(id, { activo: false });
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (loadedData && loadedClients) {
+      setLoading(false);
+      checkAndDeactivateExecutedOnce();
+    }
+  }, [loadedData, loadedClients]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">
@@ -831,13 +911,15 @@ const Reprogramacionautomatica = () => {
           <table className="service-table">
             <thead>
               <tr>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Servicio</th>
                 <th>Cúbicos</th>
                 <th>Repetir Cada</th>
                 <th>Día</th>
                 <th>Semana</th>
                 <th>Mes</th>
+                <th>Solo Una Vez</th>
+                <th>Fecha de Ejecución</th>
                 <th>Acciones</th>
                 <th>Activar / Desactivar</th>
               </tr>
@@ -846,13 +928,13 @@ const Reprogramacionautomatica = () => {
               {filteredData && filteredData.length > 0 ? (
                 filteredData.map(([id, item]) => (
                   <tr key={id}>
-                    <td>
+                    {/* Dirección */}
+                    <td className="direccion-fixed-td">
                       <div className="custom-select-container">
                         <input
+                          className="direccion-fixed-input "
                           type="text"
-                          style={{
-                            width: "20ch",
-                          }}
+                          style={{ width: "18ch" }}
                           value={item.direccion || ""}
                           onChange={(e) =>
                             handleFieldChange(id, "direccion", e.target.value)
@@ -866,6 +948,8 @@ const Reprogramacionautomatica = () => {
                         </datalist>
                       </div>
                     </td>
+
+                    {/* Servicio */}
                     <td>
                       <select
                         value={item.servicio}
@@ -888,6 +972,8 @@ const Reprogramacionautomatica = () => {
                         <option value="Water">Water</option>
                       </select>
                     </td>
+
+                    {/* Cúbicos */}
                     <td>
                       <input
                         type="number"
@@ -898,6 +984,8 @@ const Reprogramacionautomatica = () => {
                         }
                       />
                     </td>
+
+                    {/* Repetir Cada */}
                     <td style={{ textAlign: "center" }}>
                       <input
                         type="number"
@@ -913,29 +1001,25 @@ const Reprogramacionautomatica = () => {
                         }}
                       />
                     </td>
+
+                    {/* Día (checkbox simple) */}
                     <td>
                       <input
-                        type="checkbox"
                         style={{
                           width: "3ch",
                           height: "3ch",
-                          marginLeft: "10px",
+                          marginLeft: "40%",
                         }}
-                        checked={item.periodo === "dia"}
-                        disabled={
-                          item.periodo === "semana" || item.periodo === "mes"
+                        type="checkbox"
+                        checked={item.soloUnaVez === true}
+                        onChange={(e) =>
+                          updateFields(id, { soloUnaVez: e.target.checked })
                         }
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          updateFields(id, {
-                            periodo: checked ? "dia" : "",
-                            dia: checked ? ["Cada día"] : [],
-                            semana: "",
-                            mes: "",
-                          });
-                        }}
                       />
                     </td>
+
+                    {/* Semana (días de la semana) */}
+
                     <td>
                       <div style={{ display: "flex", gap: "0.5rem" }}>
                         {dayOptions.map((day) => (
@@ -983,6 +1067,8 @@ const Reprogramacionautomatica = () => {
                         ))}
                       </div>
                     </td>
+
+                    {/* Mes (días del mes) */}
                     <td>
                       <div
                         style={{
@@ -1029,6 +1115,37 @@ const Reprogramacionautomatica = () => {
                         ))}
                       </div>
                     </td>
+
+                    {/* Solo Una Vez */}
+                    <td>
+                      <input
+                        style={{
+                          width: "3ch",
+                          height: "3ch",
+                          marginLeft: "40%",
+                        }}
+                        type="checkbox"
+                        checked={item.soloUnaVez === true}
+                        onChange={(e) =>
+                          updateFields(id, { soloUnaVez: e.target.checked })
+                        }
+                      />
+                    </td>
+
+                    {/* Fecha de Ejecución */}
+                    <td>
+                      <input
+                        type="date"
+                        value={item.fechaEjecucion || ""}
+                        disabled={!item.soloUnaVez}
+                        onChange={(e) =>
+                          updateFields(id, { fechaEjecucion: e.target.value })
+                        }
+                        style={{ width: "15ch" }}
+                      />
+                    </td>
+
+                    {/* Acciones */}
                     <td>
                       <button
                         className="delete-button"

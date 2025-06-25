@@ -501,9 +501,9 @@ html {
   text-align: center;
   font-size: 15px;
   margin-top: 20px;
-  margin-bottom: -10px;
+  margin-bottom: 10px;
   font-weight: bold;
-  color: #000000;
+  color: #cfcfcf;
 }
 
 /* Textos Slidebar */
@@ -1558,7 +1558,7 @@ details[open] .module-content {
   text-align: center;
   padding: 1rem 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 2rem;
+  margin-bottom: 30px;
 }
 .user-greeting {
   font-size: 0.9rem;
@@ -3464,3 +3464,5 @@ h1,
   border-color: #000 !important;
   font-family: inherit;
 }
+
+

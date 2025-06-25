@@ -12,6 +12,10 @@ import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
 
 const Hojapasadomañana = () => {
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
@@ -49,6 +53,7 @@ const Hojapasadomañana = () => {
       } else {
         setData([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -67,6 +72,7 @@ const Hojapasadomañana = () => {
       } else {
         setUsers([]);
       }
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
@@ -89,6 +95,7 @@ const Hojapasadomañana = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -566,6 +573,38 @@ const Hojapasadomañana = () => {
     return true;
   });
 
+  const handleNotesClick = (id, currentNotes) => {
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputLabel: "Notas",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const notes = result.value;
+        handleFieldChange(id, "notas", notes);
+        Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (loadedData && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedData, loadedUsers, loadedClients]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -758,13 +797,7 @@ const Hojapasadomañana = () => {
                 <th>Forma de Pago</th>
                 <th>Banco</th>
                 <th>Acciones</th>
-                <th
-                  style={{
-                    backgroundColor: "#6200ffb4",
-                  }}
-                >
-                  Notas
-                </th>
+                <th>Notas</th>
                 <th
                   style={{
                     backgroundColor: "#6200ffb4",
@@ -818,12 +851,7 @@ const Hojapasadomañana = () => {
                       <td>
                         <input
                           type="text"
-                          style={{
-                            width: `${Math.max(
-                              item.anombrede?.length || 1,
-                              20
-                            )}ch`,
-                          }}
+                          style={{ width: "16ch" }}
                           value={item.anombrede}
                           onChange={(e) =>
                             handleFieldChange(id, "anombrede", e.target.value)
@@ -897,7 +925,7 @@ const Hojapasadomañana = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
-                          <option value="Poll">Poll</option>
+                          <option value="pool">Pool</option>
                         </select>
                       </td>
                       <td>
@@ -1014,16 +1042,43 @@ const Hojapasadomañana = () => {
                         </button>
                       </td>
                       <td>
-                        <input
-                          type="text"
+                        <button
                           style={{
-                            width: `${Math.max(item.notas?.length || 1, 15)}ch`,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            borderRadius: "0.25em",
+                            color: "black",
+                            padding: "0.2em 0.5em",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "20ch",
+                            textAlign: "left",
+                            width: "100%",
                           }}
-                          value={item.notas}
-                          onChange={(e) =>
-                            handleFieldChange(id, "notas", e.target.value)
-                          }
-                        />
+                          onClick={() => handleNotesClick(id, item.notas)}
+                        >
+                          {item.notas ? (
+                            <p
+                              style={{
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                                maxWidth: "20ch",
+                              }}
+                            >
+                              {item.notas}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       </td>
                       <td>
                         <select
@@ -1094,7 +1149,9 @@ const Hojapasadomañana = () => {
       </button>
       <button
         className="create-table-button"
-        onClick={() => addData("", "", "", "", "", "", "", "", "", "", "", "", "")}
+        onClick={() =>
+          addData("", "", "", "", "", "", "", "", "", "", "", "", "")
+        }
       >
         +
       </button>

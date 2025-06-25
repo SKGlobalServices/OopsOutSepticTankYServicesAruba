@@ -27,6 +27,8 @@ const Clientes = () => {
     valorMax: "",
   });
 
+  const [loading, setLoading] = useState(true);
+
   // Carga datos de Firebase, incluyendo anombrede
   useEffect(() => {
     const dbRef = ref(database, "clientes");
@@ -68,6 +70,7 @@ const Clientes = () => {
         setDirections([]);
         setNames([]);
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -256,6 +259,14 @@ const Clientes = () => {
       });
     });
 
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -358,7 +369,7 @@ const Clientes = () => {
               <tr>
                 <th>Seleccionar</th>
                 <th>A Nombre De</th>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
               </tr>
@@ -382,7 +393,7 @@ const Clientes = () => {
                     <td>
                       <input
                         type="text"
-                        style={{ textAlign: "center", width: "20ch" }}
+                        style={{ textAlign: "center", width: "16ch" }}
                         value={cliente.anombrede}
                         onChange={(e) =>
                           handleFieldChange(
@@ -393,10 +404,11 @@ const Clientes = () => {
                         }
                       />
                     </td>
-                    <td>
+                    <td className="direccion-fixed-td">
                       <input
+                        className="direccion-fixed-input "
                         type="text"
-                        style={{ textAlign: "center", width: "25ch" }}
+                        style={{ textAlign: "center", width: "18ch" }}
                         value={cliente.direccion}
                         onChange={(e) =>
                           handleFieldChange(

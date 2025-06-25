@@ -40,6 +40,12 @@ const Informedeefectivo = () => {
   const [directions, setDirections] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [loadedRegistroFechas, setLoadedRegistroFechas] = useState(false);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedInformeEfectivo, setLoadedInformeEfectivo] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
 
   // Estados para filtros
   const [filters, setFilters] = useState({
@@ -87,6 +93,7 @@ const Informedeefectivo = () => {
       } else {
         setRegistroFechasData([]);
       }
+      setLoadedRegistroFechas(true);
     });
     return () => unsubscribe();
   }, []);
@@ -110,6 +117,7 @@ const Informedeefectivo = () => {
       } else {
         setDataData([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -131,6 +139,7 @@ const Informedeefectivo = () => {
       } else {
         setInformedeefectivoData([]);
       }
+      setLoadedInformeEfectivo(true);
     });
     return () => unsubscribe();
   }, []);
@@ -149,6 +158,7 @@ const Informedeefectivo = () => {
       } else {
         setUsers([]);
       }
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
@@ -169,6 +179,7 @@ const Informedeefectivo = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -743,6 +754,32 @@ const Informedeefectivo = () => {
     }
   };
 
+  useEffect(() => {
+    if (
+      loadedRegistroFechas &&
+      loadedData &&
+      loadedInformeEfectivo &&
+      loadedUsers &&
+      loadedClients
+    ) {
+      setLoading(false);
+    }
+  }, [
+    loadedRegistroFechas,
+    loadedData,
+    loadedInformeEfectivo,
+    loadedUsers,
+    loadedClients,
+  ]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -851,7 +888,7 @@ const Informedeefectivo = () => {
               <tr>
                 <th>Fecha</th>
                 <th>Realizado Por</th>
-                <th>Dirección/Nota</th>
+                <th className="direccion-fixed-th">Dirección/Nota</th>
                 <th>Método De Pago</th>
                 <th>Efectivo</th>
                 <th>Saldo</th>
@@ -870,7 +907,8 @@ const Informedeefectivo = () => {
                           textAlign: "center",
                           fontWeight: "bold",
                           justifyContent: "center",
-                          backgroundColor: registro.saldo < 0 ? "red" : "transparent",
+                          backgroundColor:
+                            registro.saldo < 0 ? "red" : "transparent",
                           cursor:
                             isEditable &&
                             registro.origin === "informedeefectivo"
@@ -931,9 +969,11 @@ const Informedeefectivo = () => {
                           ))}
                         </select>
                       </td>
-                      <td>
+                      <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
+                            className="custom-select-input"
+                            style={{ width: "18ch" }}
                             type="text"
                             value={registro.direccion || ""}
                             onChange={(e) =>

@@ -55,10 +55,10 @@ const AgendaExpress = () => {
     }
   };
 
-  const rootCls = `agendaEX ${
-    fase === "formulario" ? "fase-form" : ""
-  }`;
-  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[dia];
+  const rootCls = `agendaEX ${fase === "formulario" ? "fase-form" : ""}`;
+  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[
+    dia
+  ];
 
   /* ============================================================= */
   /*                       Wizard Form v2                           */
@@ -84,9 +84,7 @@ const AgendaExpress = () => {
 
     // Cuando cambie la dirección, carga automáticamente 'cubicos'
     useEffect(() => {
-      const cli = clients.find(
-        (c) => c.direccion === data.direccion
-      );
+      const cli = clients.find((c) => c.direccion === data.direccion);
       if (cli && cli.cubicos != null) {
         setData((d) => ({ ...d, cubicos: cli.cubicos }));
       }
@@ -97,7 +95,7 @@ const AgendaExpress = () => {
 
     /* ---------- Aquí redefinimos AutoInput, NumInput y TextArea ---------- */
     const AutoInput = ({
-      fieldKey,   // ej: "direccion" o "servicio"
+      fieldKey, // ej: "direccion" o "servicio"
       label,
       value,
       onChange,
@@ -209,7 +207,6 @@ const AgendaExpress = () => {
           ]}
           onChange={(v) => update("servicio", v)}
           {...props}
-        
         />
       ),
       cubicos: (
@@ -277,10 +274,7 @@ const AgendaExpress = () => {
   const Progress = ({ paso, total }) => (
     <div className="chips">
       {Array.from({ length: total }).map((_, i) => (
-        <span
-          key={i}
-          className={i === paso ? "on" : i < paso ? "done" : ""}
-        />
+        <span key={i} className={i === paso ? "on" : i < paso ? "done" : ""} />
       ))}
     </div>
   );

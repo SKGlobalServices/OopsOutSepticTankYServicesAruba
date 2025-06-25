@@ -13,6 +13,10 @@ import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 
 const Homepage = () => {
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
   const [data, setData] = useState([]); // Cada elemento es: [id, item]
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
@@ -41,15 +45,20 @@ const Homepage = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
-        fetchedData.sort(([idA, itemA], [idB, itemB]) => {
-          if (!itemA.realizadopor) return -1;
-          if (!itemB.realizadopor) return 1;
-          return itemA.realizadopor.localeCompare(itemB.realizadopor);
-        });
-        setData(fetchedData);
+
+        const con = fetchedData.filter(([, it]) => !!it.realizadopor);
+        const sin = fetchedData.filter(([, it]) => !it.realizadopor);
+
+        setData([
+          ...con.sort(([, a], [, b]) =>
+            a.realizadopor.localeCompare(b.realizadopor)
+          ),
+          ...sin,
+        ]);
       } else {
         setData([]);
       }
+      setLoadedData(true);
     });
     return () => unsubscribe();
   }, []);
@@ -68,6 +77,7 @@ const Homepage = () => {
       } else {
         setUsers([]);
       }
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
@@ -90,6 +100,7 @@ const Homepage = () => {
       } else {
         setClients([]);
       }
+      setLoadedClients(true);
     });
     return () => unsubscribe();
   }, []);
@@ -179,10 +190,10 @@ const Homepage = () => {
 
   // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
   const reorderData = (sinRealizadopor, conRealizadopor) => [
-    ...sinRealizadopor,
     ...conRealizadopor.sort(([, a], [, b]) =>
       a.realizadopor.localeCompare(b.realizadopor)
     ),
+    ...sinRealizadopor,
   ];
 
   // Función para agregar un nuevo servicio
@@ -220,16 +231,6 @@ const Homepage = () => {
     };
     // Guarda en Firebase
     await set(newDataRef, newData).catch(console.error);
-
-    // 1) Separa tu estado actual en vacíos y con valor
-    const sin = data.filter(([, it]) => !it.realizadopor);
-    const con = data.filter(([, it]) => !!it.realizadopor);
-
-    // 2) Inserta el nuevo al inicio de los vacíos
-    const sinActualizado = [[newDataRef.key, newData], ...sin];
-
-    // 3) Reordena y actualiza estado
-    setData(reorderData(sinActualizado, con));
   };
 
   // Función para actualizar campos en Firebase
@@ -257,7 +258,7 @@ const Homepage = () => {
         .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
 
       // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
-      return [...sinRealizadopor, ...conRealizadopor];
+      return [...conRealizadopor, ...sinRealizadopor];
     });
 
     // --- Lógica específica para servicio ---
@@ -579,6 +580,39 @@ const Homepage = () => {
 
     return true;
   });
+
+  const handleNotesClick = (id, currentNotes) => {
+    console.log(id);
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputLabel: "Notas",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const notes = result.value;
+        handleFieldChange(id, "notas", notes);
+        Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (loadedData && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedData, loadedUsers, loadedClients]);
+
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">
@@ -1040,18 +1074,45 @@ const Homepage = () => {
                           Borrar
                         </button>
                       </td>
-                      
+
                       <td>
-                        <input
-                          type="text"
+                        <button
                           style={{
-                            width: `${Math.max(item.notas?.length || 1, 15)}ch`,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            borderRadius: "0.25em",
+                            color: "black",
+                            padding: "0.2em 0.5em",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "20ch",
+                            textAlign: "left",
+                            width: "100%",
                           }}
-                          value={item.notas}
-                          onChange={(e) =>
-                            handleFieldChange(id, "notas", e.target.value)
-                          }
-                        />
+                          onClick={() => handleNotesClick(id, item.notas)}
+                        >
+                          {item.notas ? (
+                            <p
+                              style={{
+                                margin: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                                paddingRight: "5px",
+                              }}
+                            >
+                              {item.notas || ""}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       </td>
                       <td>
                         <select
