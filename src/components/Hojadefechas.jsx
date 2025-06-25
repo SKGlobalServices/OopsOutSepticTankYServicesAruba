@@ -1161,22 +1161,22 @@ const Hojadefechas = () => {
     }
 
     // 4) Escribir en Firebase: una entrada por cada registro seleccionado
-    const factRef = ref(database, "facturasemitidas");
-    selectedData.forEach((r) => {
-      const newRef = push(factRef);
-      set(newRef, {
-        ...r,
-        item: res.item,
-        descripcion: res.description,
-        qty: res.qty,
-        rate: res.rate,
-        amount: res.amount,
-        billTo: billToValue,
-        timestamp: Date.now(),
-        factura: true,
-        pago: r.pago === "Pago",
-      }).catch(console.error);
-    });
+    // const factRef = ref(database, "facturasemitidas");
+    // selectedData.forEach((r) => {
+    //   const newRef = push(factRef);
+    //   set(newRef, {
+    //     ...r,
+    //     item: res.item,
+    //     descripcion: res.description,
+    //     qty: res.qty,
+    //     rate: res.rate,
+    //     amount: res.amount,
+    //     billTo: billToValue,
+    //     timestamp: Date.now(),
+    //     pago: r.pago === "Pago",
+    //     factura: true,
+    //   }).catch(console.error);
+    // });
 
     // 5) Preparar filas con los datos ingresados en el modal
     const filas = selectedData.map((r) => [
@@ -1210,6 +1210,24 @@ const Hojadefechas = () => {
 
     if (isConfirmed) {
       // 8a) Si el usuario dice Sí → emitimos primero
+      const factRef = ref(database, "facturasemitidas");
+      selectedData.forEach((r) => {
+        const newRef = push(factRef);
+        set(newRef, {
+          ...r,
+          item: res.item,
+          descripcion: res.description,
+          qty: res.qty,
+          rate: res.rate,
+          amount: res.amount,
+          billTo: billToValue,
+          timestamp: Date.now(),
+          pago: r.pago === "Pago",
+          factura: true,
+          numerodefactura: numeroFactura,
+          fecha: r.fecha,
+        }).catch(console.error);
+      });
       await emitirFacturasSeleccionadas();
       // 9a) Cuando terminen de emitir, generar el PDF
       await generarPDFconDatos({

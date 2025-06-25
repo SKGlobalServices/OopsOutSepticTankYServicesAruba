@@ -36,7 +36,6 @@ const Facturasemitidas = () => {
   // Estados para los datos:
   const [dataBranch, setDataBranch] = useState([]);
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
-  const [todos, setTodos] = useState([]);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -80,17 +79,6 @@ const Facturasemitidas = () => {
     personalizado: "",
   });
 
-  // Reloj interno
-  useEffect(() => {
-    setCurrentTime(Date.now());
-
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 24 * 60 * 60 * 1000); // Actualiza cada 24 horas);
-
-    return () => clearInterval(timer);
-  }, []);
-
   // 1️⃣ Datos “data”
   useEffect(() => {
     const dbRef = ref(database, "data");
@@ -99,7 +87,7 @@ const Facturasemitidas = () => {
         const list = Object.entries(snap.val()).map(([id, rec]) => ({
           origin: "data",
           id,
-          factura: rec.factura ?? false,
+          factura: rec.factura === true || rec.factura === "true",
           ...rec,
         }));
         setDataBranch(list);
@@ -177,6 +165,7 @@ const Facturasemitidas = () => {
     return unsubscribe;
   }, []);
 
+  // Cargar configuracion de factura
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
@@ -516,7 +505,7 @@ const Facturasemitidas = () => {
 
   const filteredFacturas = facturas.filter((f) => {
     // 0) Solo facturas con factura===true
-    if (f.factura !== true) return false;
+    if (f.factura !== true && f.factura !== "true") return false;
 
     // 1) Rango de fechaEmision
     if (filters.fechaEmision[0] && filters.fechaEmision[1]) {
@@ -1074,6 +1063,17 @@ const Facturasemitidas = () => {
     }).catch(console.error);
   };
 
+  // Reloj interno
+  useEffect(() => {
+    setCurrentTime(Date.now());
+
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 24 * 60 * 60 * 1000); // Actualiza cada 24 horas);
+
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (loadedData && loadedRegistro && loadedClients && loadedFacturas) {
       setLoading(false);
@@ -1390,7 +1390,7 @@ const Facturasemitidas = () => {
             </thead>
             <tbody>
               {visibleTodos.length > 0 ? (
-                visibleTodos.map((item) => {
+                visibleTodos.map((item, index) => {
                   // calcula mora si es necesario, formatea fecha, etc.
                   const emissionTs = item.timestamp;
                   const diasMora = calculateDaysDelay(
@@ -1398,7 +1398,11 @@ const Facturasemitidas = () => {
                     item.pago
                   );
                   return (
-                    <tr key={`${item.origin}-${item.id}`}>
+                    <tr
+                      key={`${item.origin}-${item.id}-${
+                        item.fecha || ""
+                      }-${index}`}
+                    >
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
