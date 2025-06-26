@@ -1950,6 +1950,24 @@ button.delete-button:hover {
     margin-bottom: -3px;
   }
 
+  .hojapasadomañana .current-date {
+    font-size: 12px;
+    font-weight: bold;
+    color: rgb(0, 0, 0);
+    text-align: left;
+    margin-left: 0px;
+    margin-top: -20px;
+    margin-bottom: -5px;
+  }
+
+  /* Puedes seguir agregando más estilos exclusivos así */
+  .hojapasadomañana .title-page {
+    color: #333;
+    font-size: 15px;
+    margin-bottom: -10px;
+    margin-top: -10px;
+  }
+
   .current-date:hover {
     transition: transform 0.2s ease, color 0.3s ease;
     color: #5271ff;
@@ -2134,28 +2152,28 @@ button.delete-button:hover {
     min-height: 11vw;
     min-width: 11vw;
   }
-}
 
-.direccion-fixed-th {
-  position: sticky;
-  top: -11%; /* Ajusta el offset vertical */
-  left: 0px; /* Fija el elemento en el lado izquierdo */
-  z-index: 900;
-  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
-  width: 20px;
-}
+  .direccion-fixed-th {
+    position: sticky;
+    top: -11%;
+    left: -10px; /* Mueve 10px a la izquierda */
+    z-index: 900;
+    white-space: nowrap;
+    width: 20px;
+  }
 
-.direccion-fixed-td {
-  position: sticky;
-  top: 0; /* Ajusta a 0 o un valor positivo */
-  left: 0px; /* Ajusta a 0 o un valor positivo */
-  z-index: 800;
-  white-space: nowrap;
-  width: 20px;
-}
+  .direccion-fixed-td {
+    position: sticky;
+    top: 0;
+    left: -10px; /* Mismo ajuste */
+    z-index: 800;
+    white-space: nowrap;
+    width: 20px;
+  }
 
-.direccion-fixed-input {
-  width: 18px;
+  .direccion-fixed-input {
+    width: 18px;
+  }
 }
 
 /* 📱 Estilos para móviles en modo horizontal (landscape) */
@@ -2577,34 +2595,34 @@ button.delete-button:hover {
     border-radius: 10px;
     transition: transform 0.3s ease, filter 0.3s ease;
   }
-}
 
-/* 1000 ariba */
+  /* 1000 ariba */
 
-.direccion-fixed-th {
-  position: sticky;
-  top: -11%; /* Ajusta el offset vertical */
-  left: -6px; /* Fija el elemento en el lado izquierdo */
-  z-index: 900;
-  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
-  width: 20px;
-}
+  .direccion-fixed-th {
+    position: sticky;
+    top: -11%; /* Ajusta el offset vertical */
+    left: -6px; /* Fija el elemento en el lado izquierdo */
+    z-index: 900;
+    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+    width: 20px;
+  }
 
-.direccion-fixed-td {
-  position: sticky;
-  top: -4%; /* Ajusta el offset vertical */
-  left: -6px; /* Fija el elemento en el lado izquierdo */
-  z-index: 800;
-  white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
-  width: 20px;
-}
+  .direccion-fixed-td {
+    position: sticky;
+    top: -4%; /* Ajusta el offset vertical */
+    left: -6px; /* Fija el elemento en el lado izquierdo */
+    z-index: 800;
+    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+    width: 20px;
+  }
 
-.direccion-fixed-input {
-  width: 18px;
-}
+  .direccion-fixed-input {
+    width: 18px;
+  }
 
-.custom-filter-input {
-  margin-right: 100px !important;
+  .custom-filter-input {
+    margin-right: 100px !important;
+  }
 }
 
 /* =========  AGENDA‑EXPRESS — Ultra‑Holo Skin  ========= */
@@ -3470,10 +3488,6 @@ h1,
   font-family: inherit;
 }
 
-
-
-
-
 .agendaEX .dropdown-list {
   position: absolute;
   top: calc(100% + 2px);
@@ -3514,4 +3528,3 @@ h1,
   background: var(--accent, #00eaff);
   border-radius: 10px;
 }
-

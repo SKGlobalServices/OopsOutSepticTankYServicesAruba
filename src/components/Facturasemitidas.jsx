@@ -394,7 +394,8 @@ const Facturasemitidas = () => {
 
   const filteredFacturas = facturas.filter((f) => {
     // 0) Solo facturas con factura===true
-    if (f.factura !== true && f.factura !== "true") return false;
+    if (!f.factura || f.factura === false || f.factura === "false")
+      return false;
 
     // 1) Rango de fechaEmision
     if (filters.fechaEmision[0] && filters.fechaEmision[1]) {
@@ -779,7 +780,7 @@ const Facturasemitidas = () => {
     const yy = String(today.getFullYear()).slice(-2); // e.g. "25"
     const mm = String(today.getMonth() + 1).padStart(2, "0"); // e.g. "06"
     const seq = String(numeroFactura).padStart(4, "0"); // e.g. "0001"
-    const invoiceId = `${yy}${mm}${seq}`; // "25060001"
+    const invoiceId = base.numerodefactura; // "25060001"
 
     // 7) Generar PDF
     const pdf = new jsPDF("p", "mm", "a4");
@@ -934,13 +935,25 @@ const Facturasemitidas = () => {
     pdf.save(`Invoice-${invoiceId}.pdf`);
   };
 
-  const addEmptyInvoice = () => {
+  const addEmptyInvoice = async () => {
+    // Generar el número de factura completo
+    const contadorRef = ref(database, "contadorFactura");
+    const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+    const numeroFactura = tx.snapshot.val();
+
+    // Formatear YYMM + secuencia 4 dígitos
+    const today = new Date();
+    const yy = String(today.getFullYear()).slice(-2);
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const seq = String(numeroFactura).padStart(4, "0");
+    const invoiceId = `${yy}${mm}${seq}`;
+
     const invoiceRef = ref(database, "facturasemitidas");
     const newRef = push(invoiceRef);
     set(newRef, {
       timestamp: Date.now(),
       fecha: formatDate(Date.now()),
-      numerodefactura: "",
+      numerodefactura: invoiceId,
       anombrede: "",
       direccion: "",
       servicio: "",

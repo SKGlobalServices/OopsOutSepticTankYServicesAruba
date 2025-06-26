@@ -606,7 +606,7 @@ const Hojapasadomañana = () => {
   }
 
   return (
-    <div className="homepage-container">
+    <div className="hojapasadomañana">
       <Slidebar />
       {/* Filtros */}
       <div onClick={toggleFilterSlidebar}>
@@ -858,12 +858,12 @@ const Hojapasadomañana = () => {
                           }
                         />
                       </td>
-                      <td>
+                      <td className="direccion-fixed-td">
                         <div className="custom-select-container">
-                          <input 
-                            class name="direccion=fixed-input"
+                          <input
+                            className="direccion-fixed-input custom-select-input"
                             type="text"
-                            style={{ width: "18ch", textAlign: "center"}}
+                            style={{ width: "20ch" }}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(id, "direccion", e.target.value)
@@ -880,8 +880,8 @@ const Hojapasadomañana = () => {
                                 200
                               )
                             }
-                            className="custom-select-input"
                           />
+
                           <datalist
                             id={`direccion-options-${id}`}
                             style={{

@@ -1248,6 +1248,13 @@ const Hojadefechas = () => {
       const factRef = ref(database, "facturasemitidas");
       selectedData.forEach((r) => {
         const newRef = push(factRef);
+
+        const today = new Date();
+        const yy = String(today.getFullYear()).slice(-2);
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const seq = String(numeroFactura).padStart(4, "0");
+        const invoiceId = `${yy}${mm}${seq}`;
+
         set(newRef, {
           ...r,
           item: res.item,
@@ -1259,7 +1266,7 @@ const Hojadefechas = () => {
           timestamp: Date.now(),
           pago: r.pago === "Pago",
           factura: true,
-          numerodefactura: numeroFactura,
+          numerodefactura: invoiceId,
           fecha: r.fecha,
         }).catch(console.error);
       });

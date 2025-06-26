@@ -856,12 +856,12 @@ const Hojamañana = () => {
                           }
                         />
                       </td>
-                      <td>
+                      <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
-                            className="direccion-fixed-input "
-                            style={{ width: "18ch", textAlign: "center" }}
+                            className="direccion-fixed-input"
                             type="text"
+                            style={{ width: "20ch" }}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(id, "direccion", e.target.value)

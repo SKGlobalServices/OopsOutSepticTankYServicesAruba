@@ -810,7 +810,7 @@ const Homepage = () => {
               <tr>
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Servicio</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
@@ -890,13 +890,12 @@ const Homepage = () => {
                           }
                         />
                       </td>
-                      <td>
+                      <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
+                            className="direccion-fixed-input custom-select-input"
                             type="text"
-                            style={{
-                              width: "20ch",
-                            }}
+                            style={{ width: "20ch" }}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(id, "direccion", e.target.value)
@@ -913,8 +912,8 @@ const Homepage = () => {
                                 200
                               )
                             }
-                            className="custom-select-input"
                           />
+
                           <datalist
                             id={`direccion-options-${id}`}
                             style={{
