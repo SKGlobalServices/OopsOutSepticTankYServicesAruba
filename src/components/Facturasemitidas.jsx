@@ -29,13 +29,8 @@ const Facturasemitidas = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   // LOADER
   const [loading, setLoading] = useState(true);
-  const [loadedData, setLoadedData] = useState(false);
-  const [loadedRegistro, setLoadedRegistro] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
   const [loadedFacturas, setLoadedFacturas] = useState(false);
-  // Estados para los datos:
-  const [dataBranch, setDataBranch] = useState([]);
-  const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -79,50 +74,6 @@ const Facturasemitidas = () => {
     personalizado: "",
   });
 
-  // 1️⃣ Datos “data”
-  useEffect(() => {
-    const dbRef = ref(database, "data");
-    const unsubscribe = onValue(dbRef, (snap) => {
-      if (snap.exists()) {
-        const list = Object.entries(snap.val()).map(([id, rec]) => ({
-          origin: "data",
-          id,
-          factura: rec.factura === true || rec.factura === "true",
-          ...rec,
-        }));
-        setDataBranch(list);
-      } else {
-        setDataBranch([]);
-      }
-      setLoadedData(true);
-    });
-    return unsubscribe;
-  }, []);
-
-  // 2️⃣ Datos “registrofechas”
-  useEffect(() => {
-    const dbRef = ref(database, "registrofechas");
-    const unsubscribe = onValue(dbRef, (snap) => {
-      if (snap.exists()) {
-        const groups = Object.entries(snap.val());
-        const list = groups.flatMap(([fecha, regs]) =>
-          Object.entries(regs).map(([id, rec]) => ({
-            origin: "registrofechas",
-            fecha, // <-- aquí!
-            id,
-            factura: rec.factura ?? false,
-            ...rec,
-          }))
-        );
-        setDataRegistroFechas(list);
-      } else {
-        setDataRegistroFechas([]);
-      }
-      setLoadedRegistro(true);
-    });
-    return unsubscribe;
-  }, []);
-
   // Cargar facturas
   useEffect(() => {
     const factRef = ref(database, "facturasemitidas");
@@ -130,11 +81,13 @@ const Facturasemitidas = () => {
       const data = [];
       snap.forEach((child) => {
         const rec = child.val();
+        const { id: _, ...recWithoutId } = rec; // Excluye el ID
         data.push({
+          origin: "facturasemitidas",
           id: child.key,
           pago: Boolean(rec.pago),
           factura: rec.factura ?? false,
-          ...rec,
+          ...recWithoutId,
         });
       });
       data.sort((a, b) => b.timestamp - a.timestamp);
@@ -188,74 +141,27 @@ const Facturasemitidas = () => {
     return Math.max(0, days);
   };
 
-  // const formatDuration = (ms) => {
-  //   const days = Math.floor(ms / 86400000);
-  //   const hours = Math.floor((ms % 86400000) / 3600000);
-  //   const minutes = Math.floor((ms % 3600000) / 60000);
-  //   return `${days}d ${hours}h ${minutes}m`;
-  // };
-
-  // Handle cambios en la factura
   /**
-   * Maneja cambios de campo en Firebase y sincroniza estado local
+   * Maneja cambios de campo en Firebase y sincroniza estado local,
+   * incluyendo recálculo de amount si cambian qty o rate.
    *
-   * @param {"data"|"registrofechas"|"facturasemitidas"} origin  Origen del registro
-   * @param {string} id                                         ID del registro
-   * @param {string} field                                      Nombre del campo a actualizar
-   * @param {any} value                                         Nuevo valor
-   * @param {string} [fecha]                                    Fecha (solo para registrofechas)
+   * @param {string} id     ID del registro en facturasemitidas
+   * @param {string} field  Nombre del campo a actualizar
+   * @param {any}    value  Nuevo valor
    */
-  function handleFieldChange(origin, id, field, value, fecha = "") {
+  function handleFieldChange(origen, id, field, value) {
+    const dbRefItem = ref(database, `facturasemitidas/${id}`);
+    update(dbRefItem, { [field]: value }).catch(console.error);
+    setFacturas((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [field]: value } : f))
+    );
     const safeValue = value ?? "";
-
-    // 1) Construir la ruta según el origen
-    let path;
-    if (origin === "data") {
-      path = `data/${id}`;
-    } else if (origin === "registrofechas") {
-      path = `registrofechas/${fecha}/${id}`;
-    } else if (origin === "facturasemitidas") {
-      path = `facturasemitidas/${id}`;
-    } else {
-      console.error("Origen desconocido en handleFieldChange:", origin);
-      return;
-    }
-    const dbRefItem = ref(database, path);
 
     // 2) Actualización inicial en Firebase
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
 
     // 3) Lógica de recálculo para qty y rate
-    const applyLocalUpdate = (updater) => {
-      switch (origin) {
-        case "data":
-          setDataBranch((prev) => prev.map(updater));
-          break;
-
-        case "registrofechas":
-          // Como aquí guardas un array plano con { id, fecha, … },
-          // basta con buscar por id (y opcionalmente fecha)
-          setDataRegistroFechas((prev) =>
-            prev.map((r) => (r.id === id && r.fecha === fecha ? updater(r) : r))
-          );
-          break;
-
-        case "facturasemitidas":
-          setFacturas((prev) => prev.map(updater));
-          break;
-
-        default:
-          console.error("Origen desconocido en applyLocalUpdate:", origin);
-      }
-    };
-
-    // Helper: obtener el registro actual desde el estado
-    const registro =
-      origin === "data"
-        ? dataBranch.find((r) => r.id === id) || {}
-        : origin === "registrofechas"
-        ? dataRegistroFechas.find((r) => r.id === id && r.fecha === fecha) || {}
-        : facturas.find((f) => f.id === id) || {};
+    const registro = facturas.find((f) => f.id === id) || {};
 
     // 3a) Si cambió qty → recalcular amount
     if (field === "qty") {
@@ -263,12 +169,16 @@ const Facturasemitidas = () => {
       const rate = parseFloat(registro.rate) || 0;
       const newAmount = parseFloat((newQty * rate).toFixed(2));
 
+      // Persistir ambos en Firebase
       update(dbRefItem, { qty: newQty, amount: newAmount }).catch(
         console.error
       );
 
-      applyLocalUpdate((r) =>
-        r.id === id ? { ...r, qty: newQty, amount: newAmount } : r
+      // Actualizar estado local
+      setFacturas((prev) =>
+        prev.map((f) =>
+          f.id === id ? { ...f, qty: newQty, amount: newAmount } : f
+        )
       );
       return;
     }
@@ -283,88 +193,67 @@ const Facturasemitidas = () => {
         console.error
       );
 
-      applyLocalUpdate((r) =>
-        r.id === id ? { ...r, rate: newRate, amount: newAmount } : r
+      setFacturas((prev) =>
+        prev.map((f) =>
+          f.id === id ? { ...f, rate: newRate, amount: newAmount } : f
+        )
       );
       return;
     }
 
     // 4) Actualizar cualquier otro campo
-    applyLocalUpdate((r) => (r.id === id ? { ...r, [field]: safeValue } : r));
+    setFacturas((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [field]: safeValue } : f))
+    );
   }
 
   // 3️⃣ Combina y ordena
-  const merged = useMemo(() => {
-    const all = [
-      ...facturas.map((f) => ({ origin: "facturasemitidas", ...f })),
-      ...dataBranch,
-      ...dataRegistroFechas,
-    ];
-    all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    return all.filter((item) => item.factura);
-  }, [facturas, dataBranch, dataRegistroFechas]);
+  // const merged = useMemo(() => {
+  //   return facturas
+  //     .sort((a, b) => b.timestamp - a.timestamp)
+  //     .filter((f) => f.factura);
+  // }, [facturas]);
 
-  const visibleTodos = useMemo(() => {
-    return merged.filter((f) => {
-      // aquí tu lógica de filtros, por ejemplo:
-      if (
-        filters.descripcion &&
-        !f.descripcion
-          ?.toLowerCase()
-          .includes(filters.descripcion.toLowerCase())
-      )
-        return false;
-      // … resto de checks …
-      return true;
-    });
-  }, [merged, filters]);
+  // const visibleTodos = useMemo(() => {
+  //   return merged.filter((f) => {
+  //     // aquí tu lógica de filtros, por ejemplo:
+  //     if (
+  //       filters.descripcion &&
+  //       !f.descripcion
+  //         ?.toLowerCase()
+  //         .includes(filters.descripcion.toLowerCase())
+  //     )
+  //       return false;
+  //     // … resto de checks …
+  //     return true;
+  //   });
+  // }, [merged, filters]);
 
-  // 1) Nueva función
-  const handlePagoCheck = (itemObj, checked) => {
-    // 1.1) Optimistic update local
-    setFacturas((prev) =>
-      prev.map((f) =>
-        f.id === itemObj.id && f.origin === itemObj.origin
-          ? { ...f, pago: checked }
-          : f
-      )
-    );
-
-    // 1.2) Confirmación SweetAlert
+  // 1) La función que actualiza Firebase y el estado local
+  const handlePagoToggle = (item, checked) => {
     Swal.fire({
       title: checked
         ? "¿Deseas marcar esta factura como pagada?"
-        : "¿Deseas reanudar la cuenta de cobro?",
+        : "¿Deseas desmarcar el pago?",
       icon: "question",
       showCancelButton: true,
-      cancelButtonText: "No",
       confirmButtonText: "Sí",
+      cancelButtonText: "No",
     }).then((res) => {
-      if (res.isConfirmed) {
-        // persisto en Firebase
-        handleFieldChange(
-          itemObj.origin,
-          itemObj.id,
-          "pago",
-          checked,
-          itemObj.fecha
-        );
-        Swal.fire({
-          title: "¡Listo!",
-          icon: "success",
-          timer: 1200,
-          showConfirmButton: false,
-        });
-      } else {
-        // si cancela, revertimos el optimistic update
-        setFacturas((prev) =>
-          prev.map((f) =>
-            f.id === itemObj.id && f.origin === itemObj.origin
-              ? { ...f, pago: !checked }
-              : f
-          )
-        );
-      }
+      if (!res.isConfirmed) return;
+
+      // 1) Apunto a /facturasemitidas/${item.id}
+      const itemRef = ref(database, `facturasemitidas/${item.id}`);
+      // 2) Actualizo sólo la propiedad "pago"
+      update(itemRef, { pago: checked })
+        .then(() => {
+          // 3) Reflejo el cambio en mi estado local
+          setFacturas((prev) =>
+            prev.map((f) => (f.id === item.id ? { ...f, pago: checked } : f))
+          );
+          Swal.fire({ title: "¡Listo!", icon: "success", timer: 1000 });
+        })
+        .catch(console.error);
     });
   };
 
@@ -1075,10 +964,10 @@ const Facturasemitidas = () => {
   }, []);
 
   useEffect(() => {
-    if (loadedData && loadedRegistro && loadedClients && loadedFacturas) {
+    if (loadedClients && loadedFacturas) {
       setLoading(false);
     }
-  }, [loadedData, loadedRegistro, loadedClients, loadedFacturas]);
+  }, [loadedClients, loadedFacturas]);
 
   // Early return: spinner mientras carga
   if (loading) {
@@ -1389,8 +1278,11 @@ const Facturasemitidas = () => {
               </tr>
             </thead>
             <tbody>
-              {visibleTodos.length > 0 ? (
-                visibleTodos.map((item, index) => {
+              {/* {visibleTodos.length > 0 ? (
+                visibleTodos.map((item, index) => { */}
+              {filteredFacturas.length > 0 ? (
+                (console.log("Filas filtradas:", filteredFacturas), // Debug
+                filteredFacturas.map((item, index) => {
                   // calcula mora si es necesario, formatea fecha, etc.
                   const emissionTs = item.timestamp;
                   const diasMora = calculateDaysDelay(
@@ -1434,8 +1326,7 @@ const Facturasemitidas = () => {
                               item.origin,
                               item.id,
                               "anombrede",
-                              e.target.value,
-                              item.fecha
+                              e.target.value
                             )
                           }
                         />
@@ -1450,8 +1341,7 @@ const Facturasemitidas = () => {
                               item.origin,
                               item.id,
                               "personalizado",
-                              e.target.value,
-                              item.fecha
+                              e.target.value
                             )
                           }
                         />
@@ -1468,8 +1358,7 @@ const Facturasemitidas = () => {
                                 item.origin,
                                 item.id,
                                 "direccion",
-                                e.target.value,
-                                item.fecha
+                                e.target.value
                               )
                             }
                           />
@@ -1599,8 +1488,7 @@ const Facturasemitidas = () => {
                               item.origin,
                               item.id,
                               "fechapago",
-                              e.target.value,
-                              item.fecha
+                              e.target.value
                             )
                           }
                         />
@@ -1608,21 +1496,20 @@ const Facturasemitidas = () => {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
+                          checked={item.pago}
+                          onChange={(e) =>
+                            handlePagoToggle(item, e.target.checked)
+                          }
                           style={{
                             width: "3ch",
                             height: "3ch",
-                            marginLeft: "10%",
                             cursor: "pointer",
                           }}
-                          checked={Boolean(item.pago)}
-                          onChange={(e) =>
-                            handlePagoCheck(item, e.target.checked)
-                          }
                         />
                       </td>
                     </tr>
                   );
-                })
+                }))
               ) : (
                 <tr>
                   <td colSpan="17">No hay datos disponibles.</td>

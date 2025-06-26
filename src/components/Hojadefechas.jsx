@@ -22,6 +22,14 @@ import guardarfactura from "../assets/img/guardarfactura_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 
+// Función auxiliar para formatear números con formato 0,000.00
+const formatCurrency = (amount) => {
+  return Number(amount || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 const Hojadefechas = () => {
   // LOADER
   const [loading, setLoading] = useState(true);
@@ -827,6 +835,7 @@ const Hojadefechas = () => {
   // ① Estado para la configuración de la factura
   const [invoiceConfig, setInvoiceConfig] = useState({
     companyName: "",
+    address: "",
     country: "",
     city: "",
     postalCode: "",
@@ -865,6 +874,13 @@ const Hojadefechas = () => {
     pagoStatus,
     // pagoDate,
   }) => {
+    // Validar que invoiceConfig tenga datos
+    if (!invoiceConfig.companyName) {
+      console.warn("Configuración de factura no cargada completamente");
+      // Esperar un poco más para que se cargue la configuración
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
     const mT = 15; // margen superior
@@ -896,17 +912,21 @@ const Hojadefechas = () => {
     const seq = numeroFactura.toString().padStart(4, "0"); // "0001"
     const invoiceId = `${yy}${mm}${seq}`; // "25060001"
 
-    pdf.setFontSize(16).text(invoiceConfig.companyName, textX, mT + 5);
+    pdf
+      .setFontSize(16)
+      .text(invoiceConfig.companyName || "Company Name", textX, mT + 5);
     pdf
       .setFontSize(10)
-      .text(`Address: ${invoiceConfig.address}`, textX, mT + 11)
+      .text(`Address: ${invoiceConfig.address || "Address"}`, textX, mT + 11)
       .text(
-        `${invoiceConfig.city}, ${invoiceConfig.country}, ${invoiceConfig.postalCode}`,
+        `${invoiceConfig.city || "City"}, ${
+          invoiceConfig.country || "Country"
+        }, ${invoiceConfig.postalCode || "Postal Code"}`,
         textX,
         mT + 16
       )
-      .text(`Tel: ${invoiceConfig.phone}`, textX, mT + 21)
-      .text(`Email: ${invoiceConfig.email}`, textX, mT + 26);
+      .text(`Tel: ${invoiceConfig.phone || "Phone"}`, textX, mT + 21)
+      .text(`Email: ${invoiceConfig.email || "Email"}`, textX, mT + 26);
 
     // — Cabecera con número y fecha —
     pdf
@@ -971,14 +991,21 @@ const Hojadefechas = () => {
     const afterY = pdf.lastAutoTable.finalY;
 
     // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
+    // — Total —
+    // siempre mantenemos balance como number, y formateamos con tu helper:
     const balance = pagoStatus === "Pago" ? 0 : totalAmount;
-    pdf
-      .setFontSize(10)
-      .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 152, afterY + 6);
+    pdf.setFontSize(10);
+    pdf.text(
+      `BALANCE DUE: AWG ${formatCurrency(balance)}`, // ahora siempre pasas un string
+      152,
+      afterY + 6
+    );
+
+    pdf.setFontSize(10).text(`BALANCE DUE: AWG ${balance}`, 152, afterY + 6);
 
     // — Bank Info y footer —
-    const bankY = afterY + 6;
-    pdf.text("Bank Info:", mL, bankY);
+    const bankY = afterY + 12;
+    pdf.setFontSize(10).text("Bank Info:", mL, bankY);
     pdf
       .setFontSize(9)
       .text(pdf.splitTextToSize(invoiceConfig.bankInfo, 80), mL, bankY + 6);
@@ -1015,7 +1042,7 @@ const Hojadefechas = () => {
       // — PAYMENT total —
       pdf
         .setFontSize(10)
-        .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
+        .text(`PAYMENT: AWG ${formatCurrency(totalAmount)}`, 152, afterY + 12);
 
       // — Fecha de pago debajo del sello —
       // pdf
@@ -1050,12 +1077,21 @@ const Hojadefechas = () => {
       });
     }
 
-    // ya puedes usar selectedData para "base", preparar filas, etc.
+    const base = selectedData[0];
 
     // 2) Solicitar datos de la factura (Bill To + linea de detalle)
     const { value: res } = await Swal.fire({
       title: "Generar Factura",
       html:
+        `<div style="margin-bottom:15px;padding:12px;border:1px solid #ddd;border-radius:5px;background-color:#f9f9f9;">
+          <h4 style="margin:0 0 10px 0;color:#333;">Información del Servicio</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px;">
+            <div><b>Dirección:</b> ${base.direccion || "No especificada"}</div>
+            <div><b>Servicio:</b> ${base.servicio || "No especificado"}</div>
+            <div><b>Cúbicos:</b> ${base.cubicos || "0"}</div>
+            <div><b>Valor:</b> AWG ${formatCurrency(base.valor)}</div>
+          </div>
+        </div>` +
         `<label>Bill To:</label>` +
         `<select id="bill-to-type" class="swal2-select" style="width:75%;">
          <option value="" disabled selected>Elija...</option>
@@ -1072,7 +1108,7 @@ const Hojadefechas = () => {
            .map((i) => `<option value="${i}">${i}</option>`)
            .join("\n")}
        </select>` +
-        `<input id="swal-description" class="swal2-input" placeholder="Descripción" />` +
+        `<textarea id="swal-description" class="swal2-textarea" placeholder="Descripción del servicio" style="width:60%;min-height:80px;resize:vertical;"></textarea>` +
         `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" />` +
         `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
         `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
@@ -1091,7 +1127,9 @@ const Hojadefechas = () => {
         const rate =
           parseFloat(document.getElementById("swal-rate").value) || 0;
         const amount =
-          parseFloat(document.getElementById("swal-amount").value) || 0;
+          parseFloat(
+            document.getElementById("swal-amount").value.replace(/[^\d.-]/g, "")
+          ) || 0;
 
         // Validaciones básicas
         if (!billToType)
@@ -1130,15 +1168,16 @@ const Hojadefechas = () => {
         itemSel.addEventListener("change", (e) => {
           const defaultRate = ITEM_RATES[e.target.value] ?? 0;
           rateInp.value = defaultRate.toFixed(2);
-          amtInp.value = (
-            defaultRate * (parseFloat(qtyInp.value) || 0)
-          ).toFixed(2);
+          const calculatedAmount =
+            defaultRate * (parseFloat(qtyInp.value) || 0);
+          amtInp.value = formatCurrency(calculatedAmount);
         });
         [qtyInp, rateInp].forEach((field) =>
           field.addEventListener("input", () => {
             const q = parseFloat(qtyInp.value) || 0;
             const r = parseFloat(rateInp.value) || 0;
-            amtInp.value = (q * r).toFixed(2);
+            const calculatedAmount = q * r;
+            amtInp.value = formatCurrency(calculatedAmount);
           })
         );
       },
@@ -1146,7 +1185,6 @@ const Hojadefechas = () => {
     if (!res) return; // Usuario canceló
 
     // 3) Calcular valor de Bill To
-    const base = selectedData[0];
     let billToValue = "";
     switch (res.billToType) {
       case "anombrede":
@@ -1181,18 +1219,15 @@ const Hojadefechas = () => {
     // 5) Preparar filas con los datos ingresados en el modal
     const filas = selectedData.map((r) => [
       r.fecha,
-      res.item, // el item elegido
-      res.description, // la descripción ingresada
-      res.qty.toString(), // la cantidad ingresada
-      res.rate.toFixed(2), // el rate calculado
-      res.amount.toFixed(2), // el amount resultante
+      res.item,
+      res.description,
+      res.qty,
+      res.rate,
+      formatCurrency(res.amount),
     ]);
 
     // 6) Calcular totalAmount sumando los campos 'amount' de los registros seleccionados
-    const totalAmount = selectedData.reduce(
-      (sum, r) => sum + (parseFloat(r.amount) || 0),
-      0
-    );
+    const totalAmount = res.amount * selectedData.length;
 
     // 7) Incrementar contador en Firebase y obtener número
     const contadorRef = ref(database, "contadorFactura");
@@ -1232,7 +1267,7 @@ const Hojadefechas = () => {
       // 9a) Cuando terminen de emitir, generar el PDF
       await generarPDFconDatos({
         filas,
-        totalAmount,
+        totalAmount: totalAmount,
         billToValue,
         numeroFactura,
         pagoStatus: base.pago,
@@ -1247,7 +1282,7 @@ const Hojadefechas = () => {
       // 8b) Si el usuario dice No → generar el PDF sin emitir
       await generarPDFconDatos({
         filas,
-        totalAmount,
+        totalAmount: totalAmount,
         billToValue,
         numeroFactura,
         pagoStatus: base.pago,
@@ -1353,25 +1388,6 @@ const Hojadefechas = () => {
             onChange={handleDateRangeChange}
             startDate={filters.fechaInicio}
             endDate={filters.fechaFin}
-            selectsRange
-            inline
-          />
-        )}
-        <label>Rango Fecha de Pago</label>
-        <button
-          onClick={() => setShowPagoDatePicker(!showPagoDatePicker)}
-          className="filter-button"
-        >
-          {showPagoDatePicker
-            ? "Ocultar selector de Fecha de Pago"
-            : "Filtrar por Fecha de Pago"}
-        </button>
-        {showPagoDatePicker && (
-          <DatePicker
-            selected={filters.fechaPagoInicio}
-            onChange={handlePagoDateRangeChange}
-            startDate={filters.fechaPagoInicio}
-            endDate={filters.fechaPagoFin}
             selectsRange
             inline
           />

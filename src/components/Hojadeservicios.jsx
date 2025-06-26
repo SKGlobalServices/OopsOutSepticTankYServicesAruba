@@ -957,7 +957,7 @@ const Homepage = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
-                          <option value="Poll">Poll</option>
+                          <option value="pool">Pool</option>
                         </select>
                       </td>
                       <td>

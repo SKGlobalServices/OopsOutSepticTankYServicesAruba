@@ -507,6 +507,12 @@ const Reprogramacionautomatica = () => {
         const diaCtr = document.getElementById("dia-container");
         const semCtr = document.getElementById("semanal-container");
         const mesCtr = document.getElementById("mes-container");
+        const fechaInput = document.getElementById("fechaEjecucion");
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + 2); // día después de mañana
+        const minExecDate = minDate.toISOString().split("T")[0];
+
+        fechaInput.setAttribute("min", minExecDate);
 
         // Mostrar/ocultar contenedores según el tipo de repetición
         sel.addEventListener("change", () => {
@@ -519,11 +525,11 @@ const Reprogramacionautomatica = () => {
         solounavezCheckbox.addEventListener("change", () => {
           const once = solounavezCheckbox.checked;
 
-          // 1) Fecha de ejecución
+          // 2) Fecha de ejecución
           fechaContainer.style.display = once ? "block" : "none";
           if (!once) document.getElementById("fechaEjecucion").value = "";
 
-          // 2) Deshabilitar intervalo y frecuencia
+          // 3) Deshabilitar intervalo y frecuencia
           if (once) {
             rcInput.value = "";
             periodoEl.value = "";
@@ -531,11 +537,11 @@ const Reprogramacionautomatica = () => {
           rcInput.disabled = once;
           periodoEl.disabled = once;
 
-          // 3) forzar cursor en JS (complementario al CSS)
+          // 4) forzar cursor en JS (complementario al CSS)
           rcInput.style.cursor = once ? "not-allowed" : "auto";
           periodoEl.style.cursor = once ? "not-allowed" : "auto";
 
-          // 4) Ocultar containers de frecuencia
+          // 5) Ocultar containers de frecuencia
           diaCtr.style.display = once
             ? "none"
             : sel.value === "dia"
@@ -552,7 +558,7 @@ const Reprogramacionautomatica = () => {
             ? "block"
             : "none";
 
-          // 4) Desmarcar y deshabilitar todos los checkboxes de día/semana/mes
+          // 6) Desmarcar y deshabilitar todos los checkboxes de día/semana/mes
           const allBoxes = [
             ...diaCtr.querySelectorAll("input[type=checkbox]"),
             ...semCtr.querySelectorAll("input[type=checkbox]"),
@@ -818,6 +824,12 @@ const Reprogramacionautomatica = () => {
     });
   };
 
+  const minExecDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split("T")[0]; // “YYYY-MM-DD”
+  })();
+
   useEffect(() => {
     if (loadedData && loadedClients) {
       setLoading(false);
@@ -994,7 +1006,7 @@ const Reprogramacionautomatica = () => {
                           value={item.direccion || ""}
                           list={`direccion-options-${id}`}
                           onChange={(e) =>
-                            updateFields(id, "direccion", e.target.value)
+                            handleFieldChange(id, "direccion", e.target.value)
                           }
                         />
                         <datalist id={`direccion-options-${id}`}>
@@ -1011,7 +1023,7 @@ const Reprogramacionautomatica = () => {
                         value={item.servicio}
                         style={{ width: "18ch" }}
                         onChange={(e) =>
-                          updateFields(id, "servicio", e.target.value)
+                          handleFieldChange(id, "servicio", e.target.value)
                         }
                       >
                         <option value=""></option>
@@ -1036,7 +1048,7 @@ const Reprogramacionautomatica = () => {
                         style={{ width: "12ch", textAlign: "center" }}
                         value={item.cubicos}
                         onChange={(e) =>
-                          updateFields(id, "cubicos", e.target.value)
+                          handleFieldChange(id, "cubicos", e.target.value)
                         }
                       />
                     </td>
@@ -1046,7 +1058,8 @@ const Reprogramacionautomatica = () => {
                       <input
                         type="number"
                         style={{ width: "6ch" }}
-                        value={item.rc ?? ""}
+                        value={item.solounavez ? "" : item.rc ?? ""}
+                        disabled={item.solounavez}
                         onChange={(e) => {
                           const rc = parseInt(e.target.value, 10) || 0;
                           const updates = { rc };
@@ -1227,13 +1240,12 @@ const Reprogramacionautomatica = () => {
                               dia: [],
                               semana: "",
                               mes: "",
-                              rc: "",
+                              rc: null,
                             }),
                           });
                         }}
                       />
                     </td>
-
                     {/* Fecha de Ejecución */}
                     <td>
                       <input
@@ -1241,12 +1253,12 @@ const Reprogramacionautomatica = () => {
                         style={{ width: "12ch" }}
                         value={item.fechaEjecucion || ""}
                         disabled={!item.solounavez}
+                        min={minExecDate}
                         onChange={(e) =>
                           updateFields(id, { fechaEjecucion: e.target.value })
                         }
                       />
                     </td>
-
                     {/* Acciones */}
                     <td>
                       <button

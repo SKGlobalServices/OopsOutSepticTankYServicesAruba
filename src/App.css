@@ -2808,7 +2808,6 @@ button.delete-button:hover {
 .chips span.done {
   background: var(--c2);
 }
-
 .autoField input,
 .autoField textarea {
   width: 88%;
@@ -2820,7 +2819,12 @@ button.delete-button:hover {
   font-size: clamp(0.9rem, 2.4vw, 1rem);
   backdrop-filter: blur(4px);
   transition: border 0.25s, box-shadow 0.25s, transform 0.25s;
+
+  /* 🔧 Agrega esto al final */
+  direction: ltr;
+  text-align: left;
 }
+
 .autoField input:focus,
 .autoField textarea:focus {
   outline: none;
@@ -2828,6 +2832,7 @@ button.delete-button:hover {
   box-shadow: 0 0 10px var(--accent, var(--c1));
   transform: scale(1.02);
 }
+
 .autoField small {
   font-size: 0.72rem;
   color: #8288a6;
@@ -3465,4 +3470,48 @@ h1,
   font-family: inherit;
 }
 
+
+
+
+
+.agendaEX .dropdown-list {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  z-index: 9999;
+}
+
+.agendaEX .dropdown-list li {
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #fff;
+  border-bottom: 1px solid #292929;
+  transition: background 0.2s ease;
+}
+
+.agendaEX .dropdown-list li:last-child {
+  border-bottom: none;
+}
+
+.agendaEX .dropdown-list li:hover {
+  background: #333;
+  color: #00eaff;
+}
+
+.agendaEX .dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.agendaEX .dropdown-list::-webkit-scrollbar-thumb {
+  background: var(--accent, #00eaff);
+  border-radius: 10px;
+}
 

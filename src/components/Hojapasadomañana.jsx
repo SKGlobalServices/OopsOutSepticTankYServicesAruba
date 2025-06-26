@@ -789,7 +789,7 @@ const Hojapasadomañana = () => {
               <tr>
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
-                <th>Dirección</th>
+                <th className="direccion-fixed-th">Dirección</th>
                 <th>Sevicio</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
@@ -860,11 +860,10 @@ const Hojapasadomañana = () => {
                       </td>
                       <td>
                         <div className="custom-select-container">
-                          <input
+                          <input 
+                            class name="direccion=fixed-input"
                             type="text"
-                            style={{
-                              width: "20ch",
-                            }}
+                            style={{ width: "18ch", textAlign: "center"}}
                             value={item.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(id, "direccion", e.target.value)
