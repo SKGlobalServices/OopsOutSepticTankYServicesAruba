@@ -995,13 +995,7 @@ const Hojadefechas = () => {
     // siempre mantenemos balance como number, y formateamos con tu helper:
     const balance = pagoStatus === "Pago" ? 0 : totalAmount;
     pdf.setFontSize(10);
-    pdf.text(
-      `BALANCE DUE: AWG ${formatCurrency(balance)}`, // ahora siempre pasas un string
-      152,
-      afterY + 6
-    );
-
-    pdf.setFontSize(10).text(`BALANCE DUE: AWG ${balance}`, 152, afterY + 6);
+    pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
 
     // — Bank Info y footer —
     const bankY = afterY + 12;
@@ -1043,14 +1037,6 @@ const Hojadefechas = () => {
       pdf
         .setFontSize(10)
         .text(`PAYMENT: AWG ${formatCurrency(totalAmount)}`, 152, afterY + 12);
-
-      // — Fecha de pago debajo del sello —
-      // pdf
-      //   .setFontSize(12)
-      //   .setTextColor(0, 128, 0)
-      //   .text(`${pagoDate}`, wPt / 2, hPt / 2 + 15, {
-      //     align: "center",
-      //   });
     }
 
     // — Guarda el PDF —
@@ -1139,7 +1125,6 @@ const Hojadefechas = () => {
             "Ingrese texto personalizado para Bill To"
           );
         if (!item) Swal.showValidationMessage("Seleccione un item");
-        if (!description) Swal.showValidationMessage("Ingrese una descripción");
         if (qty <= 0) Swal.showValidationMessage("Qty debe ser mayor que 0");
         return {
           billToType,

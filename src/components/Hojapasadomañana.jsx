@@ -44,12 +44,18 @@ const Hojapasadomañana = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
-        fetchedData.sort(([idA, itemA], [idB, itemB]) => {
-          if (!itemA.realizadopor) return -1;
-          if (!itemB.realizadopor) return 1;
-          return itemA.realizadopor.localeCompare(itemB.realizadopor);
-        });
-        setData(fetchedData);
+
+        // Separar los datos
+        const con = fetchedData.filter(([, it]) => !!it.realizadopor);
+        const sin = fetchedData.filter(([, it]) => !it.realizadopor);
+
+        // Ordenar primero los que tienen realizadopor (A-Z), luego los vacíos
+        setData([
+          ...con.sort(([, a], [, b]) =>
+            a.realizadopor.localeCompare(b.realizadopor)
+          ),
+          ...sin,
+        ]);
       } else {
         setData([]);
       }
@@ -179,10 +185,10 @@ const Hojapasadomañana = () => {
 
   // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
   const reorderData = (sinRealizadopor, conRealizadopor) => [
-    ...sinRealizadopor,
     ...conRealizadopor.sort(([, a], [, b]) =>
       a.realizadopor.localeCompare(b.realizadopor)
     ),
+    ...sinRealizadopor,
   ];
 
   // Función para agregar un nuevo servicio
@@ -255,7 +261,7 @@ const Hojapasadomañana = () => {
         .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
 
       // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
-      return [...sinRealizadopor, ...conRealizadopor];
+      return [...conRealizadopor, ...sinRealizadopor];
     });
 
     // --- Lógica específica para servicio ---

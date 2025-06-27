@@ -1864,9 +1864,9 @@ button.delete-button:hover {
 
   /* Estilo para los botones */
   button.delete-button {
-    background-color: #ff6347;
+    background-color: #ff6347d2;
     color: #fff;
-    padding: 4px 10px;
+    padding: 2px 5px;
     cursor: pointer;
     font-size: 5px;
     border: none;
@@ -1928,7 +1928,7 @@ button.delete-button:hover {
     touch-action: manipulation;
     height: 10%;
     max-height: 150%;
-    width: calc(100vw - 1.2cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
+    width: calc(113vw - 2cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
     max-width: none;
     margin: 0 10px;
     padding: 10px;
@@ -2070,7 +2070,7 @@ button.delete-button:hover {
   text,
   .custom-select-container {
     width: 86%;
-    margin: 2px 6px;
+    margin: 0px 6px;
     padding: 0px 0px;
     font-size: 5px;
     opacity: 90%;

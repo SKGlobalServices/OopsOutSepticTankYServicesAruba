@@ -770,16 +770,10 @@ const Facturasemitidas = () => {
       0
     );
     // 6) Incrementar contador y obtener número de factura
-    const contadorRef = ref(database, "contadorFactura");
-    const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    const numeroFactura = tx.snapshot.val();
-    // 6a) Formatear a 5 dígitos con ceros a la izquierda
-    const invoiceNumber = numeroFactura.toString().padStart(4, "0");
+    // const contadorRef = ref(database, "contadorFactura");
+
     // 6a) Formatear YYMM + secuencia 4 dígitos
     const today = new Date();
-    const yy = String(today.getFullYear()).slice(-2); // e.g. "25"
-    const mm = String(today.getMonth() + 1).padStart(2, "0"); // e.g. "06"
-    const seq = String(numeroFactura).padStart(4, "0"); // e.g. "0001"
     const invoiceId = base.numerodefactura; // "25060001"
 
     // 7) Generar PDF
@@ -914,6 +908,12 @@ const Facturasemitidas = () => {
       ctx.fillStyle = "green";
       ctx.fillText("PAID", 0, 0);
 
+      const pagoDate = base.fechapago || today.toLocaleDateString();
+      ctx.globalAlpha = 0.4;
+      ctx.font = "5px Arial";
+      ctx.fillStyle = "green";
+      ctx.fillText(pagoDate, 0, 10);
+
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
 
@@ -921,14 +921,6 @@ const Facturasemitidas = () => {
       pdf
         .setFontSize(10)
         .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
-
-      // — Fecha de pago debajo del sello —
-      // pdf
-      //   .setFontSize(12)
-      //   .setTextColor(0, 128, 0)
-      //   .text(`${pagoDate}`, wPt / 2, hPt / 2 + 15, {
-      //     align: "center",
-      //   });
     }
 
     // — Guarda el PDF —
@@ -1294,7 +1286,6 @@ const Facturasemitidas = () => {
               {/* {visibleTodos.length > 0 ? (
                 visibleTodos.map((item, index) => { */}
               {filteredFacturas.length > 0 ? (
-                (console.log("Filas filtradas:", filteredFacturas), // Debug
                 filteredFacturas.map((item, index) => {
                   // calcula mora si es necesario, formatea fecha, etc.
                   const emissionTs = item.timestamp;
@@ -1410,17 +1401,7 @@ const Facturasemitidas = () => {
                         </select>
                       </td>
                       <td
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                          boxSizing: "border-box",
-                          maxWidth: "26ch",
-                          width: "20ch",
-                          padding: "0.25em 0.5em",
-                          height: "100%",
-                          overflow: "hidden",
-                        }}
+
                       >
                         <button
                           style={{
@@ -1522,7 +1503,7 @@ const Facturasemitidas = () => {
                       </td>
                     </tr>
                   );
-                }))
+                })
               ) : (
                 <tr>
                   <td colSpan="17">No hay datos disponibles.</td>
