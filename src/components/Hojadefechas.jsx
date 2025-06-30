@@ -1564,7 +1564,7 @@ const Hojadefechas = () => {
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
                       <td
                         style={{
-                          minWidth: "75px",
+                          minWidth: window.innerWidth < 768 ? "55px" : "80px",
                           textAlign: "center",
                           fontWeight: "bold",
                         }}
@@ -1583,6 +1583,10 @@ const Hojadefechas = () => {
                               registro.origin
                             )
                           }
+                          style={{
+                            minWidth:
+                              window.innerWidth < 768 ? "65px" : "80px",
+                          }}
                         >
                           <option value=""></option>
                           {users.map((u) => (
@@ -1592,6 +1596,7 @@ const Hojadefechas = () => {
                           ))}
                         </select>
                       </td>
+
                       <td>
                         <input
                           style={{ width: "16ch" }}
@@ -1638,7 +1643,7 @@ const Hojadefechas = () => {
                       <td>
                         <select
                           value={registro.servicio || ""}
-                          style={{ width: "18ch" }}
+                          style={{ width: "23ch" }}
                           onChange={(e) =>
                             handleFieldChange(
                               item.fecha,
@@ -1742,7 +1747,7 @@ const Hojadefechas = () => {
                       <td>
                         <select
                           value={registro.banco || ""}
-                          style={{ width: "18ch" }}
+                          style={{ width: "22ch" }}
                           onChange={(e) =>
                             handleFieldChange(
                               item.fecha,

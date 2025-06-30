@@ -1835,6 +1835,10 @@ button.delete-button:hover {
   transform: scale(0.95);
 }
 
+.small-text-mobile {
+  font-size: 16px; /* Tamaño por defecto en desktop */
+}
+
 /* Estilos para móviles y pantallas pequeñas */
 
 /* 📱 Estilos para móviles en modo vertical */
@@ -1860,6 +1864,10 @@ button.delete-button:hover {
   table.service-table td {
     font-size: 5px;
     padding: 0px;
+  }
+
+  .small-text-mobile {
+    font-size: 7px; /* Tamaño más pequeño en celulares */
   }
 
   /* Estilo para los botones */
@@ -2009,7 +2017,7 @@ button.delete-button:hover {
     background-color: #fff;
 
     /* 3) Flecha SVG como fondo */
-    background-image: url("data:image/svg+xml;charset=UTF-8,\<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'>\<path fill='%230a0505' d='M0 0l5 6 5-6z'/>\</svg>");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpolyline points='1,1 6,7 11,1' fill='none' stroke='%230a0505' stroke-width='2'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right;
     background-size: 0.375rem 0.225rem; /* ← aquí ajustas ancho x alto */

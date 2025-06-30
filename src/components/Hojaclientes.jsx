@@ -46,6 +46,7 @@ const Clientes = () => {
             direccion,
             anombrede,
             cubicos: cliente.cubicos || 0,
+            email: cliente.email || "",
           });
           if (direccion) uniqueDirections.add(direccion);
           if (anombrede) uniqueNames.add(anombrede);
@@ -161,7 +162,8 @@ const Clientes = () => {
         `<input id="swal-direccion" class="swal2-input" placeholder="Dirección">` +
         `<input id="swal-anombrede" class="swal2-input" placeholder="A nombre de (opcional)">` +
         `<input id="swal-cubicos" type="number" min="0" class="swal2-input" placeholder="Cúbicos (opcional)">` +
-        `<input id="swal-valor" type="number" min="0" class="swal2-input" placeholder="Valor (opcional)">`,
+        `<input id="swal-valor" type="number" min="0" class="swal2-input" placeholder="Valor (opcional)">` +
+        `<input id="swal-email" type="email" class="swal2-input" placeholder="Email (opcional)">`,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: "Agregar",
@@ -176,6 +178,8 @@ const Clientes = () => {
           .value.trim();
         const cubicosVal = document.getElementById("swal-cubicos").value;
         const valorVal = document.getElementById("swal-valor").value;
+        const email = document.getElementById("swal-email").value.trim();
+
 
         // Validación: dirección obligatoria
         if (!direccion) {
@@ -188,6 +192,7 @@ const Clientes = () => {
           anombrede: anombrede || null,
           cubicos: cubicosVal ? Number(cubicosVal) : 0,
           valor: valorVal ? Number(valorVal) : 0,
+          email: email || null,
         };
 
         // Push dentro de preConfirm para integrar la operación en el flujo
@@ -372,6 +377,7 @@ const Clientes = () => {
                 <th className="direccion-fixed-th">Dirección</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
+                <th>Email</th>
               </tr>
             </thead>
             <tbody>
@@ -440,6 +446,16 @@ const Clientes = () => {
                         value={cliente.valor}
                         onChange={(e) =>
                           handleFieldChange(cliente.id, "valor", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="email"
+                        style={{ textAlign: "center", width: "35ch" }}
+                        value={cliente.email}
+                        onChange={(e) =>
+                          handleFieldChange(cliente.id, "email", e.target.value)
                         }
                       />
                     </td>

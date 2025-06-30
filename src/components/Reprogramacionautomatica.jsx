@@ -1021,7 +1021,7 @@ const Reprogramacionautomatica = () => {
                     <td>
                       <select
                         value={item.servicio}
-                        style={{ width: "18ch" }}
+                        style={{ width: "22ch" }}
                         onChange={(e) =>
                           handleFieldChange(id, "servicio", e.target.value)
                         }
@@ -1131,7 +1131,10 @@ const Reprogramacionautomatica = () => {
                             }}
                           >
                             {/* La letra arriba */}
-                            <span>{day.substring(0, 1)}</span>
+                            <span className="small-text-mobile">
+                              {day.substring(0, 1)}
+                            </span>
+
                             {/* La casilla debajo */}
                             <input
                               type="checkbox"

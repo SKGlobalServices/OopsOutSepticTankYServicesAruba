@@ -704,25 +704,50 @@ const Facturasemitidas = () => {
       });
     }
 
-    // 2) Pedir Bill To…
     const { value: billToResult } = await Swal.fire({
       title: "Bill To:",
       html: `
-      <select id="bill-to-type" class="swal2-select" style="width:75%;">
-        <option value="" disabled selected>Elija...</option>
-        <option value="anombrede">A Nombre De</option>
-        <option value="direccion">Dirección</option>
-        <option value="personalizado">Personalizado</option>
-      </select>
-      <input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />`,
+    <select id="bill-to-type" class="swal2-select" style="width:75%;">
+      <option value="" disabled selected>Elija…</option>
+      <option value="anombrede">A Nombre De</option>
+      <option value="direccion">Dirección</option>
+      <option value="personalizado">Personalizado</option>
+    </select>
+    <input id="bill-to-custom" class="swal2-input"
+           placeholder="Texto personalizado"
+           style="display:none; width:70%; margin:0.5em auto 0;"
+    />`,
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
         const type = document.getElementById("bill-to-type").value;
-        const custom = document.getElementById("bill-to-custom").value;
-        if (!type) Swal.showValidationMessage("Seleccione un tipo");
-        if (type === "personalizado" && !custom)
+        const custom = document.getElementById("bill-to-custom").value.trim();
+        if (!type) {
+          Swal.showValidationMessage("Seleccione un tipo");
+          return false;
+        }
+        if (type === "personalizado" && !custom) {
           Swal.showValidationMessage("Escriba el texto personalizado");
+          return false;
+        }
+
+        // etiquetas legibles para el error
+        const labels = {
+          anombrede: "A Nombre De",
+          direccion: "Dirección",
+        };
+
+        const base = facturas.find((f) => selectedRows.includes(f.id));
+        if (
+          (type === "anombrede" && !base.anombrede) ||
+          (type === "direccion" && !base.direccion)
+        ) {
+          Swal.showValidationMessage(
+            `No hay datos para generar factura con '${labels[type]}'.`
+          );
+          return false;
+        }
+
         return { billToType: type, customValue: custom };
       },
       didOpen: () => {
@@ -734,7 +759,7 @@ const Facturasemitidas = () => {
         });
       },
     });
-    if (!billToResult) return; // cancelado
+    if (!billToResult) return; // canceló o no pasó validación
 
     // 3) Extraer datos seleccionados
     const selectedData = facturas.filter((f) => selectedRows.includes(f.id));
@@ -1400,9 +1425,7 @@ const Facturasemitidas = () => {
                           <option value="Pool">Pool</option>
                         </select>
                       </td>
-                      <td
-
-                      >
+                      <td>
                         <button
                           style={{
                             border: "none",
@@ -1446,6 +1469,7 @@ const Facturasemitidas = () => {
                         <input
                           type="number"
                           step="1"
+                          min="0"
                           style={{ width: "6ch", textAlign: "center" }}
                           value={item.qty || ""}
                           onChange={(e) =>
@@ -1455,17 +1479,44 @@ const Facturasemitidas = () => {
                       </td>
                       <td>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*([.][0-9]{0,2})?"
                           style={{ width: "10ch", textAlign: "center" }}
                           value={
                             item.rate != null
-                              ? (parseFloat(item.rate) || 0).toFixed(2)
-                              : ""
+                              ? parseFloat(item.rate).toFixed(2)
+                              : "0.00"
                           }
-                          onChange={(e) =>
-                            handleFacturaRateChange(item.id, e.target.value)
-                          }
+                          onFocus={(e) => {
+                            const val = e.target.value;
+                            const dot = val.indexOf(".");
+                            if (dot > -1) {
+                              e.target.setSelectionRange(0, dot);
+                            } else {
+                              e.target.select();
+                            }
+                          }}
+                          onClick={(e) => {
+                            const val = e.target.value;
+                            const dot = val.indexOf(".");
+                            const pos = e.target.selectionStart;
+                            if (dot > -1 && pos > dot) {
+                              e.target.setSelectionRange(dot + 1, val.length);
+                            } else {
+                              e.target.setSelectionRange(
+                                0,
+                                dot > -1 ? dot : val.length
+                              );
+                            }
+                          }}
+                          onChange={(e) => {
+                            let v = e.target.value.replace(/[^0-9.]/g, "");
+                            const parts = v.split(".");
+                            if (parts.length > 2)
+                              v = parts[0] + "." + parts.slice(1).join("");
+                            handleFacturaRateChange(item.id, v);
+                          }}
                         />
                       </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
