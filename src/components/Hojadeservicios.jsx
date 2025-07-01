@@ -45,7 +45,6 @@ const Homepage = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
-
         const con = fetchedData.filter(([, it]) => !!it.realizadopor);
         const sin = fetchedData.filter(([, it]) => !it.realizadopor);
 
@@ -600,6 +599,76 @@ const Homepage = () => {
     });
   };
 
+  const TotalServiciosPorTrabajador = () => {
+    // 1) Calculamos los totales por trabajador
+    const counts = filteredData.reduce((acc, [_, item]) => {
+      const uid = item.realizadopor;
+      if (uid) acc[uid] = (acc[uid] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 2) Armamos la tabla HTML
+    let html = `
+    <table style="
+      width: 100%;
+      border-collapse: collapse;
+      font-family: sans-serif;
+      text-align: left;
+    ">
+      <thead>
+        <tr>
+          <th style="
+            background-color: #5271ff;
+            color: white;
+            padding: 8px;
+            border: 1px solid #ddd;
+          ">Trabajador</th>
+          <th style="
+            background-color: #5271ff;
+            color: white;
+            padding: 8px;
+            border: 1px solid #ddd;
+          ">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+    // 3) Una fila por cada trabajador
+    Object.entries(counts).forEach(([userId, cnt]) => {
+      const name = getUserName(userId) || userId;
+      html += `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #ddd;">${name}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center">${cnt}</td>
+      </tr>
+    `;
+    });
+
+    // 4) Calcula el gran total
+    const grandTotal = Object.values(counts).reduce((sum, n) => sum + n, 0);
+
+    // 5) Fila extra con “Total:” y el gran total
+    html += `
+      <tr style="font-weight: bold;">
+        <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: left">Total:</th>
+        <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: center">${grandTotal}</th
+      </tr>
+    </tbody>
+  </table>
+  `;
+
+    // 6) Mostramos el Swal
+    Swal.fire({
+      title: "Total de servicios por trabajador",
+      html,
+      width: "600px",
+      showCloseButton: true,
+      focusConfirm: false,
+      confirmButtonText: "Cerrar",
+    });
+  };
+
   useEffect(() => {
     if (loadedData && loadedUsers && loadedClients) {
       setLoading(false);
@@ -855,9 +924,14 @@ const Homepage = () => {
                   return (
                     <tr key={id} className={rowClass}>
                       {/* Select para "Realizado Por" */}
-                      <td style={{ minWidth: "26ch" }}>
+                      <td>
                         <select
-                          style={{ width: "24ch" }}
+                          style={{
+                            width: "fit-content",
+                            minWidth: "24ch",
+                            maxWidth: "100%",
+                            paddingRight: "3ch",
+                          }}
                           value={item.realizadopor || ""}
                           onChange={(e) =>
                             handleFieldChange(
@@ -1091,16 +1165,7 @@ const Homepage = () => {
                           onClick={() => handleNotesClick(id, item.notas)}
                         >
                           {item.notas ? (
-                            <p
-                              style={{
-                                margin: 0,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                flex: 1,
-                                paddingRight: "5px",
-                              }}
-                            >
+                            <p className="texto-ajustable">
                               {item.notas || ""}
                             </p>
                           ) : (
@@ -1172,6 +1237,24 @@ const Homepage = () => {
               )}
             </tbody>
           </table>
+        </div>
+        
+        <div
+          className="button-container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <button
+            style={{ backgroundColor: "#5271ff" }}
+            onClick={TotalServiciosPorTrabajador}
+            className="filter-button"
+          >
+            Servicios Por Trabajador
+          </button>
         </div>
       </div>
 

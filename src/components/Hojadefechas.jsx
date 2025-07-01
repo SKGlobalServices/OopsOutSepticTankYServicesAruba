@@ -37,7 +37,6 @@ const Hojadefechas = () => {
   const [loadedRegistro, setLoadedRegistro] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
-  // Estados para los datos:
   const [dataBranch, setDataBranch] = useState([]);
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [todos, setTodos] = useState([]);
@@ -47,7 +46,6 @@ const Hojadefechas = () => {
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const [selectedRows, setSelectedRows] = useState({});
   const [selectAll, setSelectAll] = useState(false);
-  const [showPagoDatePicker, setShowPagoDatePicker] = useState(false);
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
@@ -569,6 +567,13 @@ const Hojadefechas = () => {
   const getUserName = (userId) => {
     const found = users.find((u) => u.id === userId);
     return found ? found.name : "";
+  };
+
+  // Función para manejar cambios en campos específicos
+  const getSelectWidth = () => {
+    const maxLength = Math.max(...users.map((u) => u.name.length));
+    const baseWidth = maxLength * 8 + 20;
+    return Math.max(baseWidth, 100);
   };
 
   // EXPORTAR XLSX
@@ -1584,8 +1589,10 @@ const Hojadefechas = () => {
                             )
                           }
                           style={{
-                            minWidth:
-                              window.innerWidth < 768 ? "65px" : "80px",
+                            width: "fit-content",
+                            minWidth: "16ch",
+                            maxWidth: "100%",
+                            paddingRight: "3ch",
                           }}
                         >
                           <option value=""></option>

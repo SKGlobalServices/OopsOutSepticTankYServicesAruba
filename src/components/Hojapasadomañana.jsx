@@ -44,8 +44,6 @@ const Hojapasadomañana = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedData = Object.entries(snapshot.val());
-
-        // Separar los datos
         const con = fetchedData.filter(([, it]) => !!it.realizadopor);
         const sin = fetchedData.filter(([, it]) => !it.realizadopor);
 
@@ -834,9 +832,13 @@ const Hojapasadomañana = () => {
                   return (
                     <tr key={id} className={rowClass}>
                       {/* Select para "Realizado Por" */}
-                      <td style={{ minWidth: "26ch" }}>
+                      <td>
                         <select
-                          style={{ width: "24ch" }}
+                          style={{
+                            width: "fit-content",
+                            minWidth: "24ch",
+                            maxWidth: "100%",
+                          }}
                           value={item.realizadopor || ""}
                           onChange={(e) =>
                             handleFieldChange(

@@ -908,20 +908,48 @@ body {
   background-color: #c70000;
 }
 
+.lock-on-button,
+.lock-off-button {
+  padding: 6px !important;
+}
+
+.lock-on-button img,
+.lock-off-button img {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+@media (max-width: 768px) {
+  .lock-on-button,
+  .lock-off-button {
+    padding: 4px !important;
+  }
+
+  .lock-on-button img,
+  .lock-off-button img {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .lock-on-button,
+  .lock-off-button {
+    padding: 2px !important;
+  }
+
+  .lock-on-button img,
+  .lock-off-button img {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
 .direccion-fixed-th {
   position: sticky;
   top: -11%;
-  left: -16px;
+  left: -18px;
   z-index: 900;
-  white-space: nowrap;
-  width: 20px;
-}
-
-.direccion-fixed-td {
-  position: sticky;
-  top: 1;
-  left: -16px;
-  z-index: 800;
   white-space: nowrap;
   width: 20px;
 }
@@ -1103,17 +1131,16 @@ tr.credito td {
 
 /* Estilos adicionales si es necesario */
 table.service-table td {
-  padding: 1px 0px;
+  padding: 1px 0;
   border: 1px solid rgba(224, 224, 224, 0.26);
+}
+
+table.service-table td {
+  border-bottom: 1px solid #b9b9b9;
 }
 
 table.service-table {
   border-collapse: collapse; /* opcional, para un único trazo si hay celdas contiguas */
-}
-
-table.service-table td {
-  padding: 1px 0;
-  border-bottom: 1px solid #b9b9b9; /* sólo borde inferior */
 }
 
 table.service-table {
@@ -1856,27 +1883,108 @@ button.delete-button:hover {
   }
 
   th {
-    font-size: 5px;
+    font-size: 6px;
     padding: 4px;
   }
 
   td,
   table.service-table td {
-    font-size: 5px;
+    font-size: 6px;
     padding: 0px;
+    font-weight: bold;
+  }
+
+  .texto-ajustable {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 4px;
+    font-size: 6px; /* Escalable con el <td> */
+    line-height: 1.2em;
+    width: 100%;
   }
 
   .small-text-mobile {
-    font-size: 7px; /* Tamaño más pequeño en celulares */
+    font-size: 6px; /* Tamaño más pequeño en celulares */
   }
 
+
+
+
+
+.user table.service-table th,
+.user table.service-table td,
+.user table.service-table input,
+.user table.service-table select,
+.user table.service-table button,
+.user table.service-table option,
+.user table.service-table p {
+  font-size: 9px !important;
+  font-weight: bold !important;
+}
+/* Evita que inputs se vean diferentes */
+table.service-table input[type="number"],
+table.service-table select {
+  text-align: center;
+}
+
+
+
+/* Ajusta el ancho del modal automáticamente */
+.swal2-popup {
+  width: 90vw !important;      /* 90% del ancho visible */
+  max-width: 400px;            /* límite en escritorio */
+  box-sizing: border-box;
+  padding: 1.5rem !important;
+}
+
+/* Texto centrado y responsive */
+.swal2-title {
+  font-size: 1.2rem !important;
+  text-align: center;
+  word-wrap: break-word;
+}
+
+/* Ajuste del contenido del modal */
+.swal2-html-container {
+  font-size: 1rem !important;
+  text-align: center;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Botón de confirmación responsive */
+.swal2-confirm {
+  width: 100px;
+  max-width: 100%;
+  font-size: 1rem;
+  padding: 6px 12px;
+}
+
+
+/* Estilos generales para el botón de edición */
+.edit-button {
+  margin-left: 12%;
+  padding: 3px 5px;
+  font-size: 7px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+
+  
   /* Estilo para los botones */
   button.delete-button {
     background-color: #ff6347d2;
     color: #fff;
     padding: 2px 5px;
     cursor: pointer;
-    font-size: 5px;
+    font-size: 6px;
     border: none;
     font-weight: bold;
     transition: background-color 0.3s ease;
@@ -2080,7 +2188,7 @@ button.delete-button:hover {
     width: 86%;
     margin: 0px 6px;
     padding: 0px 0px;
-    font-size: 5px;
+    font-size: 6px;
     opacity: 90%;
   }
   .tu-elemento {
@@ -2095,7 +2203,7 @@ button.delete-button:hover {
   .filter-button.reset-button {
     flex: 0 0 auto;
     padding: 6px;
-    font-size: 5px;
+    font-size: 6px;
     border: none;
     cursor: pointer;
     text-align: center;
@@ -2104,7 +2212,7 @@ button.delete-button:hover {
   }
 
   .delete-button {
-    font-size: 5px;
+    font-size: 6px;
   }
 
   .filter-button.active {
@@ -2149,13 +2257,13 @@ button.delete-button:hover {
   }
 
   .generate-button1 {
-    right: 32vw;
+    right: 40vw;
     bottom: 1vh;
     min-height: 11vw;
     min-width: 11vw;
   }
   .generate-button2 {
-    right: 20vw;
+    right: 25vw;
     bottom: 1vh;
     min-height: 11vw;
     min-width: 11vw;
@@ -2167,16 +2275,16 @@ button.delete-button:hover {
     left: -10px; /* Mueve 10px a la izquierda */
     z-index: 900;
     white-space: nowrap;
-    width: 20px;
+    width: 16px;
   }
 
   .direccion-fixed-td {
     position: sticky;
     top: 0;
-    left: -10px; /* Mismo ajuste */
+    left: -13px; /* Mismo ajuste */
     z-index: 800;
     white-space: nowrap;
-    width: 20px;
+    width: 16px;
   }
 
   .direccion-fixed-input {
@@ -3273,6 +3381,22 @@ button.delete-button:hover {
     font-size: 0.92rem;
   }
 
+  .direccion-fixed-th {
+    position: sticky;
+    top: -11%; /* Ajusta el offset vertical */
+    left: -4px; /* Fija el elemento en el lado izquierdo */
+    z-index: 900;
+    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+    width: 20px;
+  }
+  .direccion-fixed-td {
+    position: sticky;
+    top: 0;
+    left: -4px; /* Mismo ajuste */
+    z-index: 800;
+    white-space: nowrap;
+    width: 20px;
+  }
   /* ---------- cabeceras / celdas de tabla ---------- */
   thead th {
     font-size: 0.72rem;

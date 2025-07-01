@@ -222,11 +222,7 @@ const Usuarios = () => {
                             )
                           }
                         >
-                          <img
-                            src={lock_on}
-                            alt="Abierto"
-                            style={{ width: 20, height: 20 }}
-                          />
+                          <img src={lock_on} alt="Abierto" />
                         </button>
                         <button
                           className="lock-off-button"
@@ -242,11 +238,7 @@ const Usuarios = () => {
                             )
                           }
                         >
-                          <img
-                            src={lock_off}
-                            alt="Cerrado"
-                            style={{ width: 20, height: 20 }}
-                          />
+                          <img src={lock_off} alt="Cerrado" />
                         </button>
                       </div>
                     </td>
@@ -274,11 +266,7 @@ const Usuarios = () => {
                             )
                           }
                         >
-                          <img
-                            src={lock_on}
-                            alt="Abierto"
-                            style={{ width: 20, height: 20 }}
-                          />
+                          <img src={lock_on} alt="Abierto" />
                         </button>
                         <button
                           className="lock-off-button"
@@ -294,11 +282,7 @@ const Usuarios = () => {
                             )
                           }
                         >
-                          <img
-                            src={lock_off}
-                            alt="Cerrado"
-                            style={{ width: 20, height: 20 }}
-                          />
+                          <img src={lock_off} alt="Cerrado" />
                         </button>
                       </div>
                     </td>

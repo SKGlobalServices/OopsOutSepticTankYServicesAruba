@@ -5,6 +5,8 @@ import Swal from "sweetalert2";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
 
+
+
 const Agendadeldiausuario = () => {
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
@@ -16,19 +18,27 @@ const Agendadeldiausuario = () => {
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
 
-  // --- Efecto para cargar datos de 'data', 'users' y 'clients' (idéntico a tu código) ---
+  // Cargar la rama "data"
   useEffect(() => {
     const unsubData = onValue(ref(database, "data"), (snap) => {
       if (snap.exists()) {
         const fetched = Object.entries(snap.val());
-        const sin = fetched.filter(([, it]) => !it.realizadopor);
         const con = fetched.filter(([, it]) => !!it.realizadopor);
-        setData(reorderData(sin, con));
+        const sin = fetched.filter(([, it]) => !it.realizadopor);
+
+        setData([
+          ...con.sort(([, a], [, b]) =>
+            a.realizadopor.localeCompare(b.realizadopor)
+          ),
+          ...sin,
+        ]);
       } else {
         setData([]);
       }
       setLoadedData(true);
     });
+
+    // Cargar "users" (excluyendo administradores y contadores)
     const unsubUsers = onValue(ref(database, "users"), (snap) => {
       if (snap.exists()) {
         const fetched = Object.entries(snap.val())
@@ -42,6 +52,7 @@ const Agendadeldiausuario = () => {
       setLoadedUsers(true);
     });
 
+    // Cargar "clientes"
     const unsubClients = onValue(ref(database, "clientes"), (snap) => {
       if (snap.exists()) {
         setClients(
@@ -84,7 +95,7 @@ const Agendadeldiausuario = () => {
         .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
 
       // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
-      return [...sinRealizadopor, ...conRealizadopor];
+      return [...conRealizadopor, ...sinRealizadopor];
     });
 
     // --- Lógica específica para servicio ---
@@ -156,6 +167,8 @@ const Agendadeldiausuario = () => {
     }
   };
 
+  
+
   // --- Hook para verificar permisos 'candadoservicioshoy' ---
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -205,14 +218,6 @@ const Agendadeldiausuario = () => {
     };
   }, []);
 
-  // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
-  const reorderData = (sinRealizadopor, conRealizadopor) => [
-    ...sinRealizadopor,
-    ...conRealizadopor.sort(([, a], [, b]) =>
-      a.realizadopor.localeCompare(b.realizadopor)
-    ),
-  ];
-
   // --- Helper para clases de fila según método de pago ---
   const getRowClass = (metodo) =>
     metodo === "efectivo"
@@ -239,6 +244,39 @@ const Agendadeldiausuario = () => {
     });
   };
 
+  const loggedUser = JSON.parse(localStorage.getItem("user"));
+  const myUserId = loggedUser?.id;
+  const showMisServicios = () => {
+    if (!myUserId) {
+      return Swal.fire("Error", "No hay usuario logueado", "error");
+    }
+    // Filtra sólo los servicios de “yo”
+    const mis = data.filter(([_, item]) => item.realizadopor === myUserId);
+
+    // Si quieres sólo el conteo:
+    const total = mis.length;
+
+    // O si prefieres un listado con dirección y servicio:
+    let html = total
+      ? `<ul style="text-align:left;">${mis
+          .map(
+            ([, it]) =>
+              `<li><strong>${it.servicio || "(sin servicio)"}</strong> — ${
+                it.direccion || "(sin dirección)"
+              }</li>`
+          )
+          .join("")}</ul>`
+      : "<p>No tienes servicios asignados hoy.</p>";
+
+    Swal.fire({
+      title: `Mis servicios de hoy (${total})`,
+      html,
+      width: "500px",
+      showCloseButton: true,
+      confirmButtonText: "Cerrar",
+    });
+  };
+
   useEffect(() => {
     if (loadedData && loadedUsers && loadedClients) {
       setLoading(false);
@@ -254,7 +292,8 @@ const Agendadeldiausuario = () => {
   }
 
   return (
-    <div className="homepage-container">
+   <div className={`homepage-container ${loggedUser?.role === "user" ? "user" : ""}`}>
+
       <Slidebaruser />
 
       <div className="homepage-title">
@@ -289,7 +328,7 @@ const Agendadeldiausuario = () => {
                         <p
                           className="p-text"
                           style={{
-                            width: "30ch",
+                            width: "20ch",
                             textAlign: "left",
                             backgroundColor: "white",
                             margin: "5px",
@@ -456,6 +495,23 @@ const Agendadeldiausuario = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div
+          className="button-container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <button
+            style={{ backgroundColor: "#5271ff" }}
+            onClick={showMisServicios}
+            className="filter-button"
+          >
+            Mis Servicios De Hoy
+          </button>
         </div>
       </div>
     </div>
