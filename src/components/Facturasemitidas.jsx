@@ -1039,7 +1039,7 @@ const Facturasemitidas = () => {
     // 6) Incrementar contador y obtener número de factura
     // const contadorRef = ref(database, "contadorFactura");
 
-    // 6a) Formatear YYMM + secuencia 4 dígitos
+    // 6a) Formatear YYMM + secuencia 5 dígitos
     const today = new Date();
     const invoiceId = base.numerodefactura; // "25060001"
 
@@ -1200,7 +1200,7 @@ const Facturasemitidas = () => {
     const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
     const numerodefactura = tx.snapshot.val();
 
-    // Formatear YYMM + secuencia 4 dígitos
+    // Formatear YYMM + secuencia 5 dígitos
     const today = new Date();
     const yy = String(today.getFullYear()).slice(-2);
     const mm = String(today.getMonth() + 1).padStart(2, "0");

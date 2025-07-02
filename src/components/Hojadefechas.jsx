@@ -961,14 +961,6 @@ const Hojadefechas = () => {
     // ... continúa con la lógica para añadir datos al PDF como filas, totales, etc.
     const textX = mL + logoWidth + 5;
 
-    // TODO: Borrar esto cuando se pruebe que funciona bien
-    // // 1) Calcula YYMM + secuencia de 4 dígitos
-    // const today = new Date();
-    // const yy = today.getFullYear().toString().slice(-2); // "25"
-    // const mm = String(today.getMonth() + 1).padStart(2, "0"); // "06"
-    // const seq = numeroFactura.toString().padStart(5, "0"); // "0001"
-    // const invoiceId = `${yy}${mm}${seq}`; // "25060001"
-
     pdf
       .setFontSize(16)
       .text(invoiceConfig.companyName || "Company Name", textX, mT + 5);
@@ -1122,25 +1114,6 @@ const Hojadefechas = () => {
 
     const base = selectedData[0];
 
-    // TODO: Borrar este comentario cuando se implemente el contador de facturas
-    // const numeroEstimado = await new Promise((resolve) => {
-    //   const contadorRef = ref(database, "contadorFactura");
-    //   onValue(
-    //     contadorRef,
-    //     (snapshot) => {
-    //       resolve((snapshot.val() || 0) + 1);
-    //     },
-    //     { onlyOnce: true }
-    //   );
-    // });
-
-    // // Formatear número de factura estimado
-    // const today = new Date();
-    // const yy = String(today.getFullYear()).slice(-2);
-    // const mm = String(today.getMonth() + 1).padStart(2, "0");
-    // const seq = String(numeroEstimado).padStart(4, "0");
-    // const invoiceIdEstimado = `${yy}${mm}${seq}`;
-
     // 2) Calcular número de factura estimado
     let invoiceIdEstimado;
 
@@ -1175,7 +1148,7 @@ const Hojadefechas = () => {
       const today = new Date();
       const yy = String(today.getFullYear()).slice(-2);
       const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const seq = String(numeroEstimado).padStart(4, "0");
+      const seq = String(numeroEstimado).padStart(5, "0");
       invoiceIdEstimado = `${yy}${mm}${seq}`;
     }
 
@@ -1349,7 +1322,7 @@ const Hojadefechas = () => {
       const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
 
       invoiceIdFinal = numeroData.numeroFactura;
-      numeroFactura = parseInt(invoiceIdFinal.slice(-4)); // Extraer número de secuencia
+      numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
 
       // Eliminar de números disponibles
       await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
@@ -1359,18 +1332,13 @@ const Hojadefechas = () => {
       const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
       numeroFactura = tx.snapshot.val();
 
-      // Formatear YYMM + secuencia 4 dígitos para nuevo número
+      // Formatear YYMM + secuencia 5 dígitos para nuevo número
       const today = new Date();
       const yy = String(today.getFullYear()).slice(-2);
       const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const seq = String(numeroFactura).padStart(4, "0");
+      const seq = String(numeroFactura).padStart(5, "0");
       invoiceIdFinal = `${yy}${mm}${seq}`;
     }
-
-    // TODO: Borrar este comentario cuando se implemente el contador de facturas
-    // const contadorRef = ref(database, "contadorFactura");
-    // const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    // const numeroFactura = tx.snapshot.val();
 
     // 8) Preguntar si queremos emitir antes de generar el PDF
     const { isConfirmed, isDenied } = await Swal.fire({
@@ -1382,13 +1350,6 @@ const Hojadefechas = () => {
     });
 
     if (isConfirmed) {
-      // TODO: Borrar este comentario cuando se implemente el contador de facturas
-      // const today = new Date();
-      // const yy = String(today.getFullYear()).slice(-2);
-      // const mm = String(today.getMonth() + 1).padStart(2, "0");
-      // const seq = String(numeroFactura).padStart(4, "0");
-      // const invoiceId = `${yy}${mm}${seq}`;
-
       // Actualiza cada registro en su ruta original
       await Promise.all(
         selectedData.map((r) => {
@@ -1587,6 +1548,79 @@ const Hojadefechas = () => {
       title: "Facturas emitidas correctamente",
       text: "Todas las facturas seleccionadas han sido emitidas.",
       confirmButtonText: "Genial",
+    });
+  };
+
+  const TotalServiciosPorTrabajador = () => {
+    // 1) Aplano todos los registros filtrados
+    const allRecords = filteredData.flatMap((group) => group.registros);
+
+    // 2) Calculo totales por trabajador (incluye unassigned como "__unassigned__")
+    const counts = allRecords.reduce((acc, item) => {
+      const uid = item.realizadopor || "__unassigned__";
+      acc[uid] = (acc[uid] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 3) Extraigo el conteo de "Sin Asignar" y remuevo de los demás
+    const unassignedCount = counts["__unassigned__"] || 0;
+    delete counts["__unassigned__"];
+
+    // 4) Construyo el HTML
+    let html = `
+    <table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:left;">
+      <thead>
+        <tr>
+          <th style="background-color:#5271ff;color:white;padding:8px;border:1px solid #ddd;">Trabajador</th>
+          <th style="background-color:#5271ff;color:white;padding:8px;border:1px solid #ddd;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+    // 5) Fila para cada trabajador con cnt > 0
+    Object.entries(counts).forEach(([uid, cnt]) => {
+      if (cnt === 0) return;
+      const name = users.find((u) => u.id === uid)?.name || uid;
+      html += `
+      <tr>
+        <td style="padding:8px;border:1px solid #ddd;">${name}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center;">${cnt}</td>
+      </tr>
+    `;
+    });
+
+    // 6) Fila de "Sin Asignar" (siempre)
+    html += `
+    <tr>
+      <td style="padding:8px;border:1px solid #ddd;">Sin Asignar</td>
+      <td style="padding:8px;border:1px solid #ddd;text-align:center;">${unassignedCount}</td>
+    </tr>
+  `;
+
+    // 7) Gran total
+    const grandTotal = allRecords.length;
+    html += `
+      <tr style="font-weight:bold;">
+        <th style="padding:8px;border:1px solid #ddd;background-color:#5271ff;color:white;text-align:left;">
+          Total:
+        </th>
+        <th style="padding:8px;border:1px solid #ddd;background-color:#5271ff;color:white;text-align:center;">
+          ${grandTotal}
+        </th>
+      </tr>
+    </tbody>
+  </table>
+  `;
+
+    // 8) Muestro el modal
+    Swal.fire({
+      title: "Total de servicios por trabajador",
+      html,
+      width: "600px",
+      showCloseButton: true,
+      focusConfirm: false,
+      confirmButtonText: "Cerrar",
     });
   };
 
@@ -2154,35 +2188,36 @@ const Hojadefechas = () => {
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <button
-                          onClick={() =>
-                            cancelInvoice(
-                              item.fecha,
-                              registro.id,
-                              registro.numerodefactura,
-                              registro.origin
-                            )
-                          }
-                          className="delete-button"
-                          style={{
-                            border: "1px solid #ff3300",
-                            backgroundColor: "transparent",
-                            cursor: "pointer",
-                            color:"black",
-                            fontWeight: "normal",
-                            marginLeft:"0"
-                          }}
-                          disabled={
-                            !registro.factura || !registro.numerodefactura
-                          }
-                          title={
-                            !registro.factura || !registro.numerodefactura
-                              ? "Solo se pueden cancelar facturas emitidas"
-                              : `Cancelar factura ${registro.numerodefactura}`
-                          }
-                        >
-                          Cancelar Factura
-                        </button>
+                        {registro.factura && registro.numerodefactura ? (
+                          <button
+                            onClick={() =>
+                              cancelInvoice(
+                                item.fecha,
+                                registro.id,
+                                registro.numerodefactura,
+                                registro.origin
+                              )
+                            }
+                            className="delete-button"
+                            style={{
+                              border: "1px solid #ff3300",
+                              backgroundColor: "transparent",
+                              cursor: "pointer",
+                              color: "black",
+                              fontWeight: "normal",
+                              marginLeft: "0",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                            }}
+                            title={`Cancelar factura ${registro.numerodefactura}`}
+                          >
+                            Cancelar Factura
+                          </button>
+                        ) : (
+                          <span style={{ color: "#ccc", fontSize: "12px" }}>
+                            Sin factura
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -2190,6 +2225,23 @@ const Hojadefechas = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div
+          className="button-container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <button
+            style={{ backgroundColor: "#5271ff" }}
+            onClick={TotalServiciosPorTrabajador}
+            className="filter-button"
+          >
+            Servicios Por Trabajador
+          </button>
         </div>
       </div>
       <button
