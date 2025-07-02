@@ -183,110 +183,143 @@ const Hojadefechas = () => {
     ...dataRegistroFechas,
   ];
 
-  const realizadoporOptions = users.map((u) => ({
-    value: u.id,
-    label: u.name,
-  }));
+  const realizadoporOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...users.map((u) => ({
+      value: u.id,
+      label: u.name,
+    })),
+  ];
 
-  const anombredeOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.anombrede).filter(Boolean)
+  const anombredeOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.anombrede).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const direccionOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.direccion).filter(Boolean)
+  const direccionOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.direccion).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a.localeCompare(b))
-    .map((v) => ({ value: v, label: v }));
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const servicioOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.servicio).filter(Boolean)
+  const servicioOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.servicio).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const cubicosOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.cubicos).filter(Boolean)
+  const cubicosOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.cubicos).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
-  const valorOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.valor).filter(Boolean)
+  const valorOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.valor).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: formatCurrency(v) })),
+  ];
 
-  const pagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.pago).filter(Boolean)
+  const pagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.pago).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const formadePagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.formadepago).filter(Boolean)
+  const formadePagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.formadepago).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const BancoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.banco).filter(Boolean)
+  const BancoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.banco).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const metododepagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.metododepago).filter(Boolean)
+  const metododepagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.metododepago).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const efectivoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.efectivo).filter(Boolean)
+  const efectivoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.efectivo).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
   // ————————
   // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
@@ -321,10 +354,26 @@ const Hojadefechas = () => {
     const match = (arr, field, toStr = false) =>
       !arr.length ||
       arr.some((opt) => {
+        // Si el valor es "__EMPTY__", solo verifica si el campo está vacío
+        if (opt.value === "__EMPTY__") {
+          const fieldValue = registro[field];
+          return (
+            !fieldValue ||
+            fieldValue === "" ||
+            fieldValue === null ||
+            fieldValue === undefined
+          );
+        }
+
         const val = toStr
           ? (registro[field] ?? "").toString()
-          : (registro[field] ?? "").toLowerCase();
-        return val === (toStr ? opt.value : opt.value.toLowerCase());
+          : (registro[field] ?? "").toString().toLowerCase();
+
+        const optValue = toStr
+          ? (opt.value ?? "").toString()
+          : (opt.value ?? "").toString().toLowerCase();
+
+        return val === optValue;
       });
 
     if (!match(filters.realizadopor, "realizadopor")) return false;
@@ -905,17 +954,20 @@ const Hojadefechas = () => {
     const logoY = mT - 1; // en lugar de solo +5
     pdf.addImage(logo, "PNG", mL, logoY, logoWidth, logoHeight);
     // Número de factura formateado
-    const numStr = numeroFactura.toString();
-    const invoiceNumber = numStr.padStart(4, "0");
+    // Usar el número de factura que viene como parámetro (ya está formateado)
+    const invoiceId = numeroFactura; // El número ya viene formateado como "25060001"
+    const today = new Date();
+
     // ... continúa con la lógica para añadir datos al PDF como filas, totales, etc.
     const textX = mL + logoWidth + 5;
 
-    // 1) Calcula YYMM + secuencia de 4 dígitos
-    const today = new Date();
-    const yy = today.getFullYear().toString().slice(-2); // "25"
-    const mm = String(today.getMonth() + 1).padStart(2, "0"); // "06"
-    const seq = numeroFactura.toString().padStart(4, "0"); // "0001"
-    const invoiceId = `${yy}${mm}${seq}`; // "25060001"
+    // TODO: Borrar esto cuando se pruebe que funciona bien
+    // // 1) Calcula YYMM + secuencia de 4 dígitos
+    // const today = new Date();
+    // const yy = today.getFullYear().toString().slice(-2); // "25"
+    // const mm = String(today.getMonth() + 1).padStart(2, "0"); // "06"
+    // const seq = numeroFactura.toString().padStart(5, "0"); // "0001"
+    // const invoiceId = `${yy}${mm}${seq}`; // "25060001"
 
     pdf
       .setFontSize(16)
@@ -1070,7 +1122,67 @@ const Hojadefechas = () => {
 
     const base = selectedData[0];
 
-    // 2) Solicitar datos de la factura (Bill To + linea de detalle)
+    // TODO: Borrar este comentario cuando se implemente el contador de facturas
+    // const numeroEstimado = await new Promise((resolve) => {
+    //   const contadorRef = ref(database, "contadorFactura");
+    //   onValue(
+    //     contadorRef,
+    //     (snapshot) => {
+    //       resolve((snapshot.val() || 0) + 1);
+    //     },
+    //     { onlyOnce: true }
+    //   );
+    // });
+
+    // // Formatear número de factura estimado
+    // const today = new Date();
+    // const yy = String(today.getFullYear()).slice(-2);
+    // const mm = String(today.getMonth() + 1).padStart(2, "0");
+    // const seq = String(numeroEstimado).padStart(4, "0");
+    // const invoiceIdEstimado = `${yy}${mm}${seq}`;
+
+    // 2) Calcular número de factura estimado
+    let invoiceIdEstimado;
+
+    const availableNumsRef = ref(database, "facturasDisponibles");
+    const availableSnapshot = await new Promise((resolve) => {
+      onValue(availableNumsRef, resolve, { onlyOnce: true });
+    });
+
+    if (availableSnapshot.exists()) {
+      // Hay números disponibles, usar el menor para mostrar
+      const availableData = availableSnapshot.val();
+      const sortedAvailable = Object.entries(availableData).sort(
+        ([, a], [, b]) => a.numeroFactura.localeCompare(b.numeroFactura)
+      );
+      const [_, numeroData] = sortedAvailable[0]; // Tomar el menor
+
+      invoiceIdEstimado = numeroData.numeroFactura;
+    } else {
+      // No hay números disponibles, calcular el siguiente número secuencial
+      const numeroEstimado = await new Promise((resolve) => {
+        const contadorRef = ref(database, "contadorFactura");
+        onValue(
+          contadorRef,
+          (snapshot) => {
+            resolve((snapshot.val() || 0) + 1);
+          },
+          { onlyOnce: true }
+        );
+      });
+
+      // Formatear número de factura estimado
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const seq = String(numeroEstimado).padStart(4, "0");
+      invoiceIdEstimado = `${yy}${mm}${seq}`;
+    }
+
+    // Usar today para el modal
+    const today = new Date();
+
+    // 3) Solicitar datos de la factura (Bill To + linea de detalle)
     const { value: res } = await Swal.fire({
       title: "Generar Factura",
       html:
@@ -1081,8 +1193,20 @@ const Hojadefechas = () => {
             <div><b>Servicio:</b> ${base.servicio || "No especificado"}</div>
             <div><b>Cúbicos:</b> ${base.cubicos || "0"}</div>
             <div><b>Valor:</b> AWG ${formatCurrency(base.valor)}</div>
+            <div style="grid-column: 1 / -1; text-align: center; margin-top: 8px;">
+              <span style="padding:8px 16px;border-radius:20px;font-weight:bold;font-size:16px;box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                Factura #${invoiceIdEstimado}
+              </span>
+            </div>
           </div>
         </div>` +
+        `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;">
+          <label style="min-width:100px;font-size:14px;">Fecha Emisión:</label>
+          <input id="fecha-emision" type="date" class="swal2-input" value="${
+            today.toISOString().split("T")[0]
+          }" style="width:150px;margin:0;font-size:12px;padding:4px 8px;" />
+        </div>` +
+        `<hr style="color:transparent;"/>` +
         `<label>Bill To:</label>` +
         `<select id="bill-to-type" class="swal2-select" style="width:75%;">
          <option value="" disabled selected>Elija...</option>
@@ -1106,6 +1230,7 @@ const Hojadefechas = () => {
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
+        const fechaEmision = document.getElementById("fecha-emision").value;
         const billToType = document.getElementById("bill-to-type").value;
         const customValue = document
           .getElementById("bill-to-custom")
@@ -1123,6 +1248,8 @@ const Hojadefechas = () => {
           ) || 0;
 
         // Validaciones básicas
+        if (!fechaEmision)
+          Swal.showValidationMessage("Seleccione la fecha de emisión");
         if (!billToType)
           Swal.showValidationMessage("Seleccione un tipo de Bill To");
         if (billToType === "personalizado" && !customValue)
@@ -1132,6 +1259,8 @@ const Hojadefechas = () => {
         if (!item) Swal.showValidationMessage("Seleccione un item");
         if (qty <= 0) Swal.showValidationMessage("Qty debe ser mayor que 0");
         return {
+          fechaEmision,
+          facturaNumero: invoiceIdEstimado,
           billToType,
           customValue,
           item,
@@ -1174,7 +1303,7 @@ const Hojadefechas = () => {
     });
     if (!res) return; // Usuario canceló
 
-    // 3) Calcular valor de Bill To
+    // 4) Calcular valor de Bill To
     let billToValue = "";
     switch (res.billToType) {
       case "anombrede":
@@ -1187,24 +1316,6 @@ const Hojadefechas = () => {
         billToValue = res.customValue;
         break;
     }
-
-    // 4) Escribir en Firebase: una entrada por cada registro seleccionado
-    // const factRef = ref(database, "facturasemitidas");
-    // selectedData.forEach((r) => {
-    //   const newRef = push(factRef);
-    //   set(newRef, {
-    //     ...r,
-    //     item: res.item,
-    //     descripcion: res.description,
-    //     qty: res.qty,
-    //     rate: res.rate,
-    //     amount: res.amount,
-    //     billTo: billToValue,
-    //     timestamp: Date.now(),
-    //     pago: r.pago === "Pago",
-    //     factura: true,
-    //   }).catch(console.error);
-    // });
 
     // 5) Preparar filas con los datos ingresados en el modal
     const filas = selectedData.map((r) => [
@@ -1220,9 +1331,46 @@ const Hojadefechas = () => {
     const totalAmount = res.amount * selectedData.length;
 
     // 7) Incrementar contador en Firebase y obtener número
-    const contadorRef = ref(database, "contadorFactura");
-    const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    const numeroFactura = tx.snapshot.val();
+    let numeroFactura;
+    let invoiceIdFinal;
+
+    // Verificar si hay números disponibles para reutilizar
+    const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+    const numerosSnapshot = await new Promise((resolve) => {
+      onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
+    });
+
+    if (numerosSnapshot.exists()) {
+      // Hay números disponibles, usar el menor
+      const numerosData = numerosSnapshot.val();
+      const sortedNumeros = Object.entries(numerosData).sort(([, a], [, b]) =>
+        a.numeroFactura.localeCompare(b.numeroFactura)
+      );
+      const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
+
+      invoiceIdFinal = numeroData.numeroFactura;
+      numeroFactura = parseInt(invoiceIdFinal.slice(-4)); // Extraer número de secuencia
+
+      // Eliminar de números disponibles
+      await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
+    } else {
+      // No hay números disponibles, generar nuevo
+      const contadorRef = ref(database, "contadorFactura");
+      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+      numeroFactura = tx.snapshot.val();
+
+      // Formatear YYMM + secuencia 4 dígitos para nuevo número
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const seq = String(numeroFactura).padStart(4, "0");
+      invoiceIdFinal = `${yy}${mm}${seq}`;
+    }
+
+    // TODO: Borrar este comentario cuando se implemente el contador de facturas
+    // const contadorRef = ref(database, "contadorFactura");
+    // const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+    // const numeroFactura = tx.snapshot.val();
 
     // 8) Preguntar si queremos emitir antes de generar el PDF
     const { isConfirmed, isDenied } = await Swal.fire({
@@ -1234,39 +1382,44 @@ const Hojadefechas = () => {
     });
 
     if (isConfirmed) {
-      // 8a) Si el usuario dice Sí → emitimos primero
-      const factRef = ref(database, "facturasemitidas");
-      selectedData.forEach((r) => {
-        const newRef = push(factRef);
+      // TODO: Borrar este comentario cuando se implemente el contador de facturas
+      // const today = new Date();
+      // const yy = String(today.getFullYear()).slice(-2);
+      // const mm = String(today.getMonth() + 1).padStart(2, "0");
+      // const seq = String(numeroFactura).padStart(4, "0");
+      // const invoiceId = `${yy}${mm}${seq}`;
 
-        const today = new Date();
-        const yy = String(today.getFullYear()).slice(-2);
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const seq = String(numeroFactura).padStart(4, "0");
-        const invoiceId = `${yy}${mm}${seq}`;
-
-        set(newRef, {
-          ...r,
-          item: res.item,
-          descripcion: res.description,
-          qty: res.qty,
-          rate: res.rate,
-          amount: res.amount,
-          billTo: billToValue,
-          timestamp: Date.now(),
-          pago: r.pago === "Pago",
-          factura: true,
-          numerodefactura: invoiceId,
-          fecha: r.fecha,
-        }).catch(console.error);
-      });
+      // Actualiza cada registro en su ruta original
+      await Promise.all(
+        selectedData.map((r) => {
+          const origin = dataBranch.some((x) => x.id === r.id)
+            ? "data"
+            : "registrofechas";
+          const path =
+            origin === "data"
+              ? `data/${r.id}`
+              : `registrofechas/${r.fecha}/${r.id}`;
+          return update(ref(database, path), {
+            item: res.item,
+            descripcion: res.description,
+            qty: res.qty,
+            rate: res.rate,
+            amount: res.amount,
+            billTo: billToValue,
+            timestamp: Date.now(),
+            pago: r.pago === "Pago",
+            factura: true,
+            numerodefactura: invoiceIdFinal,
+          });
+        })
+      );
       await emitirFacturasSeleccionadas();
       // 9a) Cuando terminen de emitir, generar el PDF
       await generarPDFconDatos({
         filas,
         totalAmount: totalAmount,
         billToValue,
-        numeroFactura,
+        numeroFactura: invoiceIdFinal,
         pagoStatus: base.pago,
         agoDate: base.fechapago,
         item: res.item,
@@ -1281,7 +1434,7 @@ const Hojadefechas = () => {
         filas,
         totalAmount: totalAmount,
         billToValue,
-        numeroFactura,
+        numeroFactura: invoiceIdFinal,
         pagoStatus: base.pago,
         pagoDate: base.fechapago,
         item: res.item,
@@ -1289,6 +1442,99 @@ const Hojadefechas = () => {
         qty: res.qty,
         rate: res.rate,
         amount: res.amount,
+      });
+    }
+  };
+
+  // Función para cancelar factura
+  const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
+    const { isConfirmed } = await Swal.fire({
+      title: "¿Cancelar Factura?",
+      text: `¿Estás seguro de que deseas cancelar la factura ${numeroFactura}? Esto borrará todos los datos de facturación y el número quedará disponible para reutilización.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, Cancelar",
+      cancelButtonText: "No",
+      confirmButtonColor: "#d33",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      // 1) Limpiar los campos de facturación (campos "F")
+      const fromData = origin === "data";
+      const path = fromData
+        ? `data/${registroId}`
+        : `registrofechas/${fecha}/${registroId}`;
+      const facturaRef = ref(database, path);
+
+      await update(facturaRef, {
+        // Mantener datos base del servicio
+        // Limpiar solo campos de facturación (F)
+        item: null,
+        descripcion: null,
+        qty: null,
+        rate: null,
+        amount: null,
+        billTo: null,
+        personalizado: null,
+        factura: false, // Cambiar a false
+        numerodefactura: null, // Limpiar número
+        fechaEmision: null,
+      });
+
+      // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
+      if (numeroFactura) {
+        const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+        const newAvailableRef = push(numerosDisponiblesRef);
+        await set(newAvailableRef, {
+          numeroFactura: numeroFactura,
+          fechaCancelacion: Date.now(),
+        });
+      }
+
+      // 3) Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId
+          ? {
+              ...r,
+              item: null,
+              descripcion: null,
+              qty: null,
+              rate: null,
+              amount: null,
+              billTo: null,
+              personalizado: null,
+              factura: false,
+              numerodefactura: null,
+              fechaEmision: null,
+            }
+          : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Factura Cancelada",
+        text: `La factura ${numeroFactura} ha sido cancelada. El número quedará disponible para reutilización.`,
+        timer: 2000,
+      });
+    } catch (error) {
+      console.error("Error cancelando factura:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Hubo un error al cancelar la factura.",
       });
     }
   };
@@ -1557,9 +1803,10 @@ const Hojadefechas = () => {
                 <th style={{ backgroundColor: "#6200ffb4" }}>Notas</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Método De Pago</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Efectivo</th>
-                <th style={{ backgroundColor: "#00ad00" }}>Emitir</th>
-                <th style={{ backgroundColor: "#00ad00" }}>Factura</th>
-                <th style={{ backgroundColor: "#00ad00" }}>Pago</th>
+                <th>Emitir</th>
+                <th>Factura</th>
+                <th>Pago</th>
+                <th>Cancelar</th>
               </tr>
             </thead>
             <tbody>
@@ -1905,6 +2152,37 @@ const Hojadefechas = () => {
                             pointerEvents: "none",
                           }}
                         />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          onClick={() =>
+                            cancelInvoice(
+                              item.fecha,
+                              registro.id,
+                              registro.numerodefactura,
+                              registro.origin
+                            )
+                          }
+                          className="delete-button"
+                          style={{
+                            border: "1px solid #ff3300",
+                            backgroundColor: "transparent",
+                            cursor: "pointer",
+                            color:"black",
+                            fontWeight: "normal",
+                            marginLeft:"0"
+                          }}
+                          disabled={
+                            !registro.factura || !registro.numerodefactura
+                          }
+                          title={
+                            !registro.factura || !registro.numerodefactura
+                              ? "Solo se pueden cancelar facturas emitidas"
+                              : `Cancelar factura ${registro.numerodefactura}`
+                          }
+                        >
+                          Cancelar Factura
+                        </button>
                       </td>
                     </tr>
                   ))}

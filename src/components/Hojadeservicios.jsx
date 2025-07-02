@@ -122,72 +122,97 @@ const Homepage = () => {
   }, [users, data]);
 
   // Opciones para filtros:
-  const realizadoporOptions = users.map((u) => ({
-    value: u.id,
-    label: u.name,
-  }));
 
-  const anombredeOptions = Array.from(
-    new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const realizadoporOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...users.map((u) => ({
+      value: u.id,
+      label: u.name,
+    })),
+  ];
 
-  const direccionOptions = Array.from(
-    new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const anombredeOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const servicioOptions = Array.from(
-    new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const direccionOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    Array.from(new Set(data.map(([_, item]) => item.direccion).filter(Boolean)))
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const cubicosOptions = Array.from(
-    new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+  const servicioOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const valorOptions = Array.from(
-    new Set(data.map(([_, item]) => item.valor).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+  const cubicosOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
+    )
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
-  const pagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.pago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const valorOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map(([_, item]) => item.valor).filter(Boolean)))
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
-  const formadePagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const pagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map(([_, item]) => item.pago).filter(Boolean)))
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const BancoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.banco).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const formadePagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const metodoPagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const BancoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    Array.from(new Set(data.map(([_, item]) => item.banco).filter(Boolean)))
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const efectivoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+  const metodoPagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
+  const efectivoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
+    )
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
+
   const reorderData = (sinRealizadopor, conRealizadopor) => [
     ...conRealizadopor.sort(([, a], [, b]) =>
       a.realizadopor.localeCompare(b.realizadopor)
@@ -551,7 +576,18 @@ const Homepage = () => {
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
       filterArr.some((f) => {
+        // Si el filtro es "__EMPTY__", verificamos si el campo está vacío
+        if (f.value === "__EMPTY__") {
+          const fieldValue = item[field];
+          return (
+            !fieldValue ||
+            fieldValue === "" ||
+            fieldValue === null ||
+            fieldValue === undefined
+          );
+        }
         // para numéricos, comparamos string con item[field]
+
         return (
           item[field]?.toString().toLowerCase() ===
           f.value.toString().toLowerCase()
@@ -600,14 +636,19 @@ const Homepage = () => {
   };
 
   const TotalServiciosPorTrabajador = () => {
-    // 1) Calculamos los totales por trabajador
+    // 1) Calculamos los totales por trabajador asignado
     const counts = filteredData.reduce((acc, [_, item]) => {
       const uid = item.realizadopor;
       if (uid) acc[uid] = (acc[uid] || 0) + 1;
       return acc;
     }, {});
 
-    // 2) Armamos la tabla HTML
+    // 2) Calculamos cuántos servicios no tienen 'realizadopor'
+    const unassignedCount = filteredData.filter(
+      ([_, item]) => !item.realizadopor
+    ).length;
+
+    // 3) Armamos la tabla HTML
     let html = `
     <table style="
       width: 100%;
@@ -634,31 +675,37 @@ const Homepage = () => {
       <tbody>
   `;
 
-    // 3) Una fila por cada trabajador
-    Object.entries(counts).forEach(([userId, cnt]) => {
-      const name = getUserName(userId) || userId;
+    // 4) Una fila por cada usuario (incluso con 0)
+    users.forEach((u) => {
+      const cnt = counts[u.id] || 0;
       html += `
       <tr>
-        <td style="padding: 8px; border: 1px solid #ddd;">${name}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${u.name}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center">${cnt}</td>
       </tr>
     `;
     });
 
-    // 4) Calcula el gran total
-    const grandTotal = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    // 5) Fila para los servicios sin asignar
+    html += `
+    <tr>
+      <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: left">Sin Asignar</th>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: center">${unassignedCount}</td>
+    </tr>
+  `;
 
-    // 5) Fila extra con “Total:” y el gran total
+    // 6) Calcula el gran total (debe coincidir con filteredData.length)
+    const grandTotal = filteredData.length;
     html += `
       <tr style="font-weight: bold;">
         <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: left">Total:</th>
-        <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: center">${grandTotal}</th
+        <th style="padding: 8px; border: 1px solid #ddd; background-color: #5271ff; color: white; text-align: center">${grandTotal}</th>
       </tr>
     </tbody>
   </table>
   `;
 
-    // 6) Mostramos el Swal
+    // 7) Mostramos el Swal
     Swal.fire({
       title: "Total de servicios por trabajador",
       html,
@@ -1155,7 +1202,6 @@ const Homepage = () => {
                             backgroundColor: "transparent",
                             borderRadius: "0.25em",
                             color: "black",
-                            padding: "0.2em 0.5em",
                             cursor: "pointer",
                             fontSize: "1em",
                             maxWidth: "20ch",
@@ -1238,7 +1284,7 @@ const Homepage = () => {
             </tbody>
           </table>
         </div>
-        
+
         <div
           className="button-container"
           style={{

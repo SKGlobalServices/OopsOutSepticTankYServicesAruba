@@ -136,7 +136,7 @@ const AgendaExpress = () => {
                 top: "100%",
                 left: 0,
                 right: 0,
-                maxHeight: "200px",
+                maxHeight: "150px",
                 overflowY: "auto",
                 background: "#222",
                 color: "white",
@@ -332,7 +332,7 @@ const AgendaExpress = () => {
     const listo = data.direccion.trim() !== "";
 
     return (
-      <div className="turboCard" style={{ "--accent": accent }}>
+      <div className="turboCard" >
         <Progress paso={step} total={campos.length} />
         {fieldUI}
         <div className="turboBtns">

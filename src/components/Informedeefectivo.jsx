@@ -288,17 +288,29 @@ const Informedeefectivo = () => {
         if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
           return false;
       }
-      if (
-        filters.realizadopor.length > 0 &&
-        !filters.realizadopor.includes(record.realizadopor)
-      )
-        return false;
 
-      if (
-        filters.direccion.length &&
-        !filters.direccion.includes(record.direccion)
-      )
-        return false;
+      // Filtro para "realizadopor" con soporte para vacíos
+      if (filters.realizadopor.length > 0) {
+        const matchRealizado = filters.realizadopor.some((filterValue) => {
+          if (filterValue === "__EMPTY__") {
+            return !record.realizadopor || record.realizadopor.trim() === "";
+          }
+          return record.realizadopor === filterValue;
+        });
+        if (!matchRealizado) return false;
+      }
+
+      // Filtro para "direccion" con soporte para vacíos
+      if (filters.direccion.length > 0) {
+        const matchDireccion = filters.direccion.some((filterValue) => {
+          if (filterValue === "__EMPTY__") {
+            return !record.direccion || record.direccion.trim() === "";
+          }
+          return record.direccion === filterValue;
+        });
+        if (!matchDireccion) return false;
+      }
+
       if (filters.metododepago && record.metododepago !== filters.metododepago)
         return false;
       return true;
@@ -823,7 +835,10 @@ const Informedeefectivo = () => {
         <Select
           isClearable
           isMulti
-          options={users.map((u) => ({ value: u.id, label: u.name }))}
+          options={[
+            { value: "__EMPTY__", label: "🚫 Vacío" },
+            ...users.map((u) => ({ value: u.id, label: u.name })),
+          ]}
           placeholder="Usuario(s)..."
           onChange={(opts) =>
             setFilters((f) => ({
@@ -833,17 +848,23 @@ const Informedeefectivo = () => {
           }
           value={filters.realizadopor.map((id) => ({
             value: id,
-            label: users.find((u) => u.id === id)?.name || id,
+            label:
+              id === "__EMPTY__"
+                ? "🚫 Vacío"
+                : users.find((u) => u.id === id)?.name || id,
           }))}
         />
         <label>Dirección/Nota</label>
         <Select
           isClearable
           isMulti
-          options={directions.map((direccion) => ({
-            value: direccion,
-            label: direccion,
-          }))}
+          options={[
+            { value: "__EMPTY__", label: "🚫 Vacío" },
+            ...directions.map((direccion) => ({
+              value: direccion,
+              label: direccion,
+            })),
+          ]}
           placeholder="Selecciona dirección(es)..."
           onChange={(selectedOptions) =>
             setFilters({
@@ -853,7 +874,10 @@ const Informedeefectivo = () => {
                 : [],
             })
           }
-          value={filters.direccion.map((dir) => ({ value: dir, label: dir }))}
+          value={filters.direccion.map((dir) => ({
+            value: dir,
+            label: dir === "__EMPTY__" ? "🚫 Vacío" : dir,
+          }))}
         />
         <button
           className="discard-filter-button"

@@ -122,65 +122,90 @@ const Hojapasadomañana = () => {
   }, [users, data]);
 
   // Opciones para los filtros
-  const realizadoporOptions = users.map((u) => ({
-    value: u.id,
-    label: u.name,
-  }));
+  const realizadoporOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...users.map((u) => ({
+      value: u.id,
+      label: u.name,
+    })),
+  ];
 
-  const anombredeOptions = Array.from(
-    new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const anombredeOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const direccionOptions = Array.from(
-    new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const direccionOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const servicioOptions = Array.from(
-    new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const servicioOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const cubicosOptions = Array.from(
-    new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+  const cubicosOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
+    )
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
-  const valorOptions = Array.from(
-    new Set(data.map(([_, item]) => item.valor).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+  const valorOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map(([_, item]) => item.valor).filter(Boolean)))
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
 
-  const pagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.pago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const pagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map(([_, item]) => item.pago).filter(Boolean)))
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const formadePagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const formadePagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const metodoPagoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+  const metodoPagoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
+  ];
 
-  const efectivoOptions = Array.from(
-    new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
-
+  const efectivoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
+    )
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
   // Función para reordenar: concatena vacíos (en orden dado) + con valor (alfabético)
   const reorderData = (sinRealizadopor, conRealizadopor) => [
     ...conRealizadopor.sort(([, a], [, b]) =>
@@ -549,6 +574,17 @@ const Hojapasadomañana = () => {
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
       filterArr.some((f) => {
+        // Si el filtro es "__EMPTY__", verificamos si el campo está vacío
+        if (f.value === "__EMPTY__") {
+          const fieldValue = item[field];
+          return (
+            !fieldValue ||
+            fieldValue === "" ||
+            fieldValue === null ||
+            fieldValue === undefined
+          );
+        }
+
         // para numéricos, comparamos string con item[field]
         return (
           item[field]?.toString().toLowerCase() ===

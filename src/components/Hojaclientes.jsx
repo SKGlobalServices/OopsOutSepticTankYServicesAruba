@@ -180,7 +180,6 @@ const Clientes = () => {
         const valorVal = document.getElementById("swal-valor").value;
         const email = document.getElementById("swal-email").value.trim();
 
-
         // Validación: dirección obligatoria
         if (!direccion) {
           Swal.showValidationMessage("La dirección es obligatoria");
@@ -231,12 +230,42 @@ const Clientes = () => {
 
   // Aplica ambos filtros antes de ordenar
   const filteredData = data
-    .filter((c) =>
-      filter.direccion.length ? filter.direccion.includes(c.direccion) : true
-    )
-    .filter((c) =>
-      filter.anombrede.length ? filter.anombrede.includes(c.anombrede) : true
-    )
+    .filter((c) => {
+      if (!filter.direccion.length) return true;
+
+      // Verificar si se seleccionó "vacío"
+      if (filter.direccion.includes("__EMPTY__")) {
+        const hasEmpty =
+          !c.direccion ||
+          c.direccion === "" ||
+          c.direccion === null ||
+          c.direccion === undefined;
+        const hasOthers = filter.direccion.some(
+          (d) => d !== "__EMPTY__" && d === c.direccion
+        );
+        return hasEmpty || hasOthers;
+      }
+
+      return filter.direccion.includes(c.direccion);
+    })
+    .filter((c) => {
+      if (!filter.anombrede.length) return true;
+
+      // Verificar si se seleccionó "vacío"
+      if (filter.anombrede.includes("__EMPTY__")) {
+        const hasEmpty =
+          !c.anombrede ||
+          c.anombrede === "" ||
+          c.anombrede === null ||
+          c.anombrede === undefined;
+        const hasOthers = filter.anombrede.some(
+          (d) => d !== "__EMPTY__" && d === c.anombrede
+        );
+        return hasEmpty || hasOthers;
+      }
+
+      return filter.anombrede.includes(c.anombrede);
+    })
     .filter((c) => {
       const cubicos = Number(c.cubicos);
       const cubicosMin = filter.cubicosMin ? Number(filter.cubicosMin) : null;
@@ -294,7 +323,10 @@ const Clientes = () => {
         <Select
           isClearable
           isMulti
-          options={directions.map((dir) => ({ value: dir, label: dir }))}
+          options={[
+            { value: "__EMPTY__", label: "🚫 Vacío" },
+            ...directions.map((dir) => ({ value: dir, label: dir })),
+          ]}
           placeholder="Selecciona dirección(es)..."
           onChange={handleDireccionFilterChange}
           value={filter.direccion.map((dir) => ({ value: dir, label: dir }))}
@@ -303,7 +335,10 @@ const Clientes = () => {
         <Select
           isClearable
           isMulti
-          options={names.map((name) => ({ value: name, label: name }))}
+          options={[
+            { value: "__EMPTY__", label: "🚫 Vacío" },
+            ...names.map((name) => ({ value: name, label: name })),
+          ]}
           placeholder="Selecciona nombre(s)..."
           onChange={handleNameFilterChange}
           value={filter.anombrede.map((name) => ({ value: name, label: name }))}

@@ -571,7 +571,7 @@ html {
   font-size: 20px;
   margin-bottom: 15px;
   text-align: center;
-  color: #ffffff;
+  color: #000000;
 }
 
 /* Etiquetas de campo */
@@ -948,10 +948,20 @@ body {
 .direccion-fixed-th {
   position: sticky;
   top: -11%;
-  left: -18px;
+  left: -5px;
   z-index: 900;
   white-space: nowrap;
   width: 20px;
+}
+
+.direccion-fixed-td {
+  position: sticky;
+  top: -10;
+  left: -5px;
+  z-index: 800;
+  white-space: nowrap;
+  width: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .direccion-fixed-input {
@@ -1866,6 +1876,16 @@ button.delete-button:hover {
   font-size: 16px; /* Tamaño por defecto en desktop */
 }
 
+.texto-ajustable {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 1px;
+  line-height: 1.2em;
+  width: 100%;
+}
+
 /* Estilos para móviles y pantallas pequeñas */
 
 /* 📱 Estilos para móviles en modo vertical */
@@ -1909,75 +1929,66 @@ button.delete-button:hover {
     font-size: 6px; /* Tamaño más pequeño en celulares */
   }
 
+  .user table.service-table th,
+  .user table.service-table td,
+  .user table.service-table input,
+  .user table.service-table select,
+  .user table.service-table button,
+  .user table.service-table option,
+  .user table.service-table p {
+    font-size: 9px !important;
+    font-weight: bold !important;
+  }
+  /* Evita que inputs se vean diferentes */
+  table.service-table input[type="number"],
+  table.service-table select {
+    text-align: center;
+  }
 
+  /* Ajusta el ancho del modal automáticamente */
+  .swal2-popup {
+    width: 90vw !important; /* 90% del ancho visible */
+    max-width: 400px; /* límite en escritorio */
+    box-sizing: border-box;
+    padding: 1.5rem !important;
+  }
 
+  /* Texto centrado y responsive */
+  .swal2-title {
+    font-size: 1.2rem !important;
+    text-align: center;
+    word-wrap: break-word;
+  }
 
+  /* Ajuste del contenido del modal */
+  .swal2-html-container {
+    font-size: 1rem !important;
+    text-align: center;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 
-.user table.service-table th,
-.user table.service-table td,
-.user table.service-table input,
-.user table.service-table select,
-.user table.service-table button,
-.user table.service-table option,
-.user table.service-table p {
-  font-size: 9px !important;
-  font-weight: bold !important;
-}
-/* Evita que inputs se vean diferentes */
-table.service-table input[type="number"],
-table.service-table select {
-  text-align: center;
-}
+  /* Botón de confirmación responsive */
+  .swal2-confirm {
+    width: 100px;
+    max-width: 100%;
+    font-size: 1rem;
+    padding: 6px 12px;
+  }
 
+  /* Estilos generales para el botón de edición */
+  .edit-button {
+    margin-left: 12%;
+    padding: 3px 5px;
+    font-size: 7px;
+    font-weight: bold;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+  }
 
-
-/* Ajusta el ancho del modal automáticamente */
-.swal2-popup {
-  width: 90vw !important;      /* 90% del ancho visible */
-  max-width: 400px;            /* límite en escritorio */
-  box-sizing: border-box;
-  padding: 1.5rem !important;
-}
-
-/* Texto centrado y responsive */
-.swal2-title {
-  font-size: 1.2rem !important;
-  text-align: center;
-  word-wrap: break-word;
-}
-
-/* Ajuste del contenido del modal */
-.swal2-html-container {
-  font-size: 1rem !important;
-  text-align: center;
-  max-width: 100%;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-/* Botón de confirmación responsive */
-.swal2-confirm {
-  width: 100px;
-  max-width: 100%;
-  font-size: 1rem;
-  padding: 6px 12px;
-}
-
-
-/* Estilos generales para el botón de edición */
-.edit-button {
-  margin-left: 12%;
-  padding: 3px 5px;
-  font-size: 7px;
-  font-weight: bold;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-
-  
   /* Estilo para los botones */
   button.delete-button {
     background-color: #ff6347d2;
@@ -2766,41 +2777,6 @@ table.service-table select {
   position: fixed;
   inset: 0;
   overflow: auto;
-  background: #03060c; /* negro azulado profundo  */
-  perspective: 1000px; /* sutil sensación “3‑D”   */
-}
-
-/*  2️⃣  Halo/Glow estático (sólo un ligero brillo cian)                      */
-.agendaEX::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at 50% 30%,
-    rgba(0, 234, 255, 0.1) 0 0,
-    rgba(0, 234, 255, 0.03) 45%,
-    transparent 70%
-  );
-  z-index: -1;
-}
-
-/*  3️⃣  Lluvia de caracteres “Matrix” — sólo CSS + SVG embebido             */
-.agendaEX::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  /* ――  Patrón de letras en base64‑SVG ―― */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='600'%3E%3Cstyle%3Etext{fill:%2300eaff55;font:700 14px monospace}%3C/style%3E%3Ctext x='0' y='20' opacity='.9' >1010011100101011100</text>%3Ctext x='0' y='40' opacity='.85'>0110100011110001110</text>%3Ctext x='0' y='60' opacity='.75'>1101001010101111001</text>%3Ctext x='0' y='80' opacity='.6' >0011110100110100011</text>%3Ctext x='0' y='100' opacity='.45'>1001101110001010110</text>%3Ctext x='0' y='120' opacity='.35'>1110001001110010101</text>%3C/svg%3E");
-  background-size: 200px 600px;
-  background-repeat: repeat;
-  mix-blend-mode: screen; /* fusiona con brillo UI   */
-  opacity: 0.45;
-
-  /* ――  Animación de caída ―― */
-  animation: matrixScroll var(--matrix-speed) linear infinite;
-  z-index: -2; /* por detrás de todo     */
 }
 
 @keyframes matrixScroll {
@@ -2830,35 +2806,36 @@ table.service-table select {
   justify-content: center;
 }
 .tarjeta {
-  width: clamp(140px, 32vw, 190px);
+  width: clamp(150px, 30vw, 200px);
   aspect-ratio: 1;
-  border-radius: var(--radius);
+  border-radius: var(--radius, 24px);
   background: linear-gradient(145deg, var(--c1), var(--c2));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font: 600 clamp(0.85rem, 2.2vw, 1.15rem) var(--font);
+  font: 600 clamp(0.8rem, 2vw, 1.05rem) var(--font "Orbitron", sans-serif);
   border: none;
   cursor: pointer;
   position: relative;
   overflow: hidden;
   animation: tiltIn 0.9s cubic-bezier(0.22, 1.2, 0.46, 1.01) forwards;
+  box-shadow: 0 2px 16px 0 rgba(30, 30, 30, 0.32); /* Sombra gris suave */
+  transition: transform 0.18s cubic-bezier(0.22, 1.2, 0.46, 1.01),
+    box-shadow 0.18s cubic-bezier(0.22, 1.2, 0.46, 1.01); /*  esto es clave */
 }
+
 .tarjeta .shine,
 .tarjeta::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+  display: none;
 }
 .tarjeta::after {
   background: conic-gradient(from 90deg, var(--c1), var(--c2), var(--c1));
   mix-blend-mode: overlay;
   filter: blur(24px);
   opacity: 0.35;
+  display: none;
 }
 .tarjeta .shine {
   background: radial-gradient(circle at 0% 0%, #ffffff55 0%, transparent 46%);
@@ -2866,21 +2843,24 @@ table.service-table select {
   width: 140%;
   height: 140%;
   transition: transform 0.8s cubic-bezier(0.22, 1.2, 0.46, 1.01);
+  display: none;
 }
 .tarjeta:hover .shine {
   transform: translate(-30%, -30%);
 }
 .tarjeta:hover {
   transform: translateY(-16px) scale(1.07);
-  box-shadow: 0 0 28px 6px var(--c1);
+  box-shadow: 0 8px 24px 0 rgba(30, 30, 30, 0.22); /* Sombra gris más notoria al hacer hover */
 }
+
 .icono-dia {
-  font-size: clamp(2.2rem, 5vw, 3.6rem);
-  filter: drop-shadow(0 0 6px #000);
+  font-size: clamp(1.6rem, 3vw, 2.6rem); /* Ícono más pequeño */
+  filter: drop-shadow(0 0 2px #00000044);
 }
 .titulo-dia {
   letter-spacing: 0.6px;
-  margin-top: 0.2rem;
+  margin-top: 0.18rem;
+  font-size: clamp(0.75rem, 1.4vw, 0.98rem); /* Más pequeño */
 }
 
 /* ---------- wizard card (centrada) ---------- */
@@ -2920,41 +2900,47 @@ table.service-table select {
     transform: translateX(-50%);
   }
 }
+/* ============================== */
+/* INDICADORES, CAMPOS Y BOTONES */
+/* AZUL CORPORATIVO — SISTEMA SK */
+/* ============================== */
 
-/* indicadores, campos y botones */
+/* Chips de progreso (pasos) */
 .chips {
   display: flex;
   gap: 0.55rem;
   justify-content: center;
 }
+
 .chips span {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #444a;
-  box-shadow: 0 0 6px #0008;
+  background: #d9e2ef;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
   transition: all 0.35s;
 }
+
 .chips span.on {
-  background: var(--accent, var(--c1));
-  box-shadow: 0 0 10px var(--accent, var(--c1));
+  background: #007bff;
+  box-shadow: 0 0 10px #007bff;
 }
+
 .chips span.done {
-  background: var(--c2);
+  background: #0056b3;
 }
+
+/* Campos de texto */
 .autoField input,
 .autoField textarea {
   width: 88%;
   padding: 0.85rem 1.15rem;
   border-radius: 22px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border);
-  color: var(--txt);
+  background: #ffffff;
+  border: 1px solid #007bff;
+  color: #212529;
   font-size: clamp(0.9rem, 2.4vw, 1rem);
-  backdrop-filter: blur(4px);
   transition: border 0.25s, box-shadow 0.25s, transform 0.25s;
-
-  /* 🔧 Agrega esto al final */
   direction: ltr;
   text-align: left;
 }
@@ -2962,24 +2948,26 @@ table.service-table select {
 .autoField input:focus,
 .autoField textarea:focus {
   outline: none;
-  border-color: var(--accent, var(--c1));
-  box-shadow: 0 0 10px var(--accent, var(--c1));
+  border-color: #007bff;
+  box-shadow: 0 0 10px #007bff;
   transform: scale(1.02);
 }
 
 .autoField small {
   font-size: 0.72rem;
-  color: #8288a6;
+  color: #6c757d;
   margin-top: 0.4rem;
   display: block;
 }
 
+/* Botones de acción */
 .turboBtns {
   display: flex;
   gap: 1.15rem;
   justify-content: center;
   margin-top: 0.8rem;
 }
+
 .turboBtns button {
   flex: 1;
   padding: 0.9rem 0;
@@ -2987,51 +2975,58 @@ table.service-table select {
   border-radius: 100vmax;
   font: 600 1rem var(--font);
   cursor: pointer;
-  color: #fff;
-  background: #0003;
-  border: 1px solid var(--border);
+  color: #ffffff;
+  background: #007bff;
+  border: 1px solid #0056b3;
   transition: transform 0.25s, filter 0.25s, background 0.25s;
 }
+
 .turboBtns button:hover {
-  filter: brightness(1.15);
+  background: #0056b3;
   transform: translateY(-3px);
 }
+
 .turboBtns button:disabled {
-  opacity: 0.35;
+  opacity: 0.5;
   pointer-events: none;
 }
+
+/* Botón principal con animación */
 @keyframes pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 10px var(--accent, var(--c1));
+  0%, 100% {
+    box-shadow: 0 0 10px #007bff;
   }
   50% {
-    box-shadow: 0 0 18px var(--c2);
+    box-shadow: 0 0 18px #0056b3;
   }
 }
+
 .turboBtns .ok {
-  background: linear-gradient(135deg, var(--accent, var(--c1)), var(--c2));
-  box-shadow: 0 0 10px var(--accent, var(--c1));
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  box-shadow: 0 0 10px #007bff;
   animation: pulse 3s infinite;
 }
 
+/* Botón cancelar */
 .cancel {
   margin: 1.15rem auto 0;
   display: block;
   padding: 0.6rem 2.6rem;
   border-radius: 3rem;
   background: transparent;
-  border: 1px solid var(--c3);
-  color: var(--c3);
+  border: 1px solid #6c757d;
+  color: #6c757d;
   font-size: 0.92rem;
   cursor: pointer;
-  transition: background 0.25s, transform 0.25s;
+  transition: background 0.25s, transform 0.25s, color 0.25s;
 }
+
 .cancel:hover {
   transform: translateY(-2px);
-  border-color: var(--accent, var(--c1));
-  color: var(--accent, var(--c1));
+  border-color: #007bff;
+  color: #007bff;
 }
+
 
 /* ==========  “Pocket mode”  ≤ 480 px  ========= */
 @keyframes scrollBG_mob {
@@ -3135,6 +3130,18 @@ table.service-table select {
 }
 
 /* ========== TÍTULO ================================= */
+.aexp-header {
+  position: absolute;
+  top: 40px; /* ajusta según prefieras */
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
+/* ========== TÍTULO SIN NEÓN NI ANIMACIÓN ============ */
 .aexp-title {
   /* Tipografía */
   font-family: "Orbitron", sans-serif;
@@ -3149,76 +3156,29 @@ table.service-table select {
   overflow: hidden;
   text-overflow: ellipsis;
 
-  /* 🎨 Estilos de color */
-  /* 1️⃣ Fallback sólido */
-  color: var(--neon1, #00eaff);
-  text-shadow: 0 0 6px currentColor, 0 0 12px currentColor;
+ /* 🎨 Color plano corporativo (sin neón) */
+color: #007bff; /* Azul oficial del sistema Agenda Express */
 
-  /* 2️⃣ Holograma si se soporta background‑clip */
-  background: linear-gradient(
-    130deg,
-    var(--neon1, #00eaff),
-    var(--neon2, #ff00e0),
-    var(--neon3, #7cff00),
-    var(--neon4, #ffea00),
-    var(--neon5, #00ffe8)
-  );
-  background-size: 400% 400%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 
-  /* Animación */
-  animation: holoShift 12s linear infinite;
 
-  /* Posicionamiento */
   position: relative;
 }
 
-/*  Glitch SUTIL sin data‑attributes                   */
+/* Título sin glitch ni efectos extra */
 .aexp-title::before,
 .aexp-title::after {
-  content: attr(data-glitch) attr(data-glitch, "AGENDA EXPRESS");
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: screen;
-  pointer-events: none;
+  content: none;
 }
-
-.aexp-title::before {
-  clip-path: polygon(0 2%, 100% 2%, 100% 18%, 0 18%);
-  animation: glitchX 3s infinite steps(1, end);
-  opacity: 0.75;
-}
-
-.aexp-title::after {
-  clip-path: polygon(0 82%, 100% 82%, 100% 98%, 0 98%);
-  animation: glitchY 2.8s infinite steps(1, end);
-  opacity: 0.6;
-}
-
-/* ========== SUBTÍTULO ============================== */
+/* ========== SUBTÍTULO AZUL CORPORATIVO ========== */
 .aexp-subtitle {
   margin-top: 8px;
-  font-family: "Orbitron", sans-serif;
+  font-family: "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: clamp(14px, 2.4vw, 22px);
   text-transform: uppercase;
 
-  /* Fallback */
-  color: var(--neon3, #7cff00);
-  text-shadow: 0 0 4px currentColor;
-
-  /* Holograma */
-  background: linear-gradient(
-    130deg,
-    var(--neon3, #7cff00),
-    var(--neon1, #00eaff)
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0056b3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 
   opacity: 0;
   transform: translateY(-10px) scale(0.95);
@@ -3620,27 +3580,35 @@ h1,
   font-family: inherit;
 }
 
+
+
+/*AGENDA*/
 .agendaEX .dropdown-list {
   position: absolute;
-  top: calc(100% + 2px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #1a1a1a;
+  background-color: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
   border-radius: 6px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12) !important;
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #333;
   z-index: 9999;
+  font-family: "Segoe UI", sans-serif;
+  color: #ffffff;
+  border-radius: 25px; /* ✔️ Bordes redondeados para todo el menú */
+
 }
 
 .agendaEX .dropdown-list li {
   padding: 12px 14px;
   cursor: pointer;
   font-size: 15px;
-  color: #fff;
-  border-bottom: 1px solid #292929;
-  transition: background 0.2s ease;
+  color: #212529 !important;
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f1f1f1;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .agendaEX .dropdown-list li:last-child {
@@ -3648,8 +3616,8 @@ h1,
 }
 
 .agendaEX .dropdown-list li:hover {
-  background: #333;
-  color: #00eaff;
+  background-color: #f1f3f5 !important;
+  color: var(--accent, #005bbd) !important;
 }
 
 .agendaEX .dropdown-list::-webkit-scrollbar {
@@ -3657,6 +3625,16 @@ h1,
 }
 
 .agendaEX .dropdown-list::-webkit-scrollbar-thumb {
-  background: var(--accent, #00eaff);
+  background-color: var(--accent, #002853);
   border-radius: 10px;
+}
+
+
+/* 🔧 Asegura que los botones se mantengan horizontales siempre */
+.turboBtns {
+  display: flex;
+  flex-direction: row; /* ✔️ Fuerza horizontal en todas las pantallas */
+  gap: 1.15rem;
+  justify-content: center;
+  margin-top: 0.8rem;
 }

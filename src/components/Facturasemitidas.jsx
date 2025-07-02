@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import {
   ref,
   set,
-  onValue,
-  update,
   push,
+  update,
+  onValue,
   runTransaction,
 } from "firebase/database";
 import DatePicker from "react-datepicker";
@@ -14,23 +14,45 @@ import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import autoTable from "jspdf-autotable";
 import Slidebar from "./Slidebar";
-import Select from "react-select";
+import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
+import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 
+const ITEM_RATES = {
+  "Septic Tank": 80.0,
+  "Pipes Cleaning": 125.0,
+  Services: 0.0,
+  "Grease Trap": 135.0,
+  "Grease Trap & Pipe Cleanings": 135.0,
+  "Septic Tank & Grease Trap": 135.0,
+  "Dow Temporal": 25.0,
+  "Water Truck": 160.0,
+  Pool: 0.0,
+};
+
 const Facturasemitidas = () => {
-  const [facturas, setFacturas] = useState([]);
-  const [clients, setClients] = useState([]);
   const [directions, setDirections] = useState([]);
-  const [filter, setFilter] = useState({ direccion: [] });
-  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
-  const filterSlidebarRef = useRef(null);
-  const [currentTime, setCurrentTime] = useState(Date.now());
-  const [selectedRows, setSelectedRows] = useState([]);
-  // LOADER
+  const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadedClients, setLoadedClients] = useState(false);
+  const [loadedData, setLoadedData] = useState(false);
   const [loadedFacturas, setLoadedFacturas] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [loadedRegistro, setLoadedRegistro] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
+  const [dataBranch, setDataBranch] = useState([]);
+  const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
+  const [todos, setTodos] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const slidebarRef = useRef(null);
+  const filterSlidebarRef = useRef(null);
+  const [editingRate, setEditingRate] = useState({});
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -61,43 +83,101 @@ const Facturasemitidas = () => {
     diasdemora: [],
     fechaEmision: [null, null],
     fechaServicio: [null, null],
-    pago: [],
     factura: "true",
+    pago: [],
     item: [],
     descripcion: "",
+    personalizado: "",
     qtyMin: "",
     qtyMax: "",
     rateMin: "",
     rateMax: "",
     amountMin: "",
     amountMax: "",
-    personalizado: "",
   });
 
-  // Cargar facturas
+  // Cargar datos de la rama "registrofechas"
   useEffect(() => {
-    const factRef = ref(database, "facturasemitidas");
-    const unsubscribe = onValue(factRef, (snap) => {
-      const data = [];
-      snap.forEach((child) => {
-        const rec = child.val();
-        const { id: _, ...recWithoutId } = rec; // Excluye el ID
-        data.push({
-          origin: "facturasemitidas",
-          id: child.key,
-          pago: Boolean(rec.pago),
-          factura: rec.factura ?? false,
-          ...recWithoutId,
+    const dbRef = ref(database, "registrofechas");
+    // onValue devuelve la función para desuscribirse
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const allData = snapshot.val();
+        const formattedData = Object.entries(allData).map(
+          ([fecha, registros]) => ({
+            fecha,
+            registros: Object.entries(registros).map(([id, registro]) => ({
+              id,
+              ...registro,
+            })),
+          })
+        );
+        formattedData.sort((a, b) => {
+          const [dayA, monthA, yearA] = a.fecha.split("-");
+          const [dayB, monthB, yearB] = b.fecha.split("-");
+          const dateA = new Date(yearA, monthA - 1, dayA);
+          const dateB = new Date(yearB, monthB - 1, dayB);
+          return dateB - dateA;
         });
-      });
-      data.sort((a, b) => b.timestamp - a.timestamp);
-      setFacturas(data);
-      setLoadedFacturas(true);
+        setDataRegistroFechas(formattedData);
+        setLoadedRegistro(true);
+      } else {
+        setDataRegistroFechas([]);
+      }
     });
+    // Aquí devolvemos la función unsubscribe para limpiar el listener
     return unsubscribe;
   }, []);
 
-  // Cargar clientes y extraer direcciones
+  // Cargar datos de la rama "data"
+  useEffect(() => {
+    const dbRef = ref(database, "data");
+    // onValue devuelve la función de limpieza
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const dataVal = snapshot.val();
+        const dataList = Object.entries(dataVal).map(([id, record]) => {
+          const today = new Date();
+          const day = ("0" + today.getDate()).slice(-2);
+          const month = ("0" + (today.getMonth() + 1)).slice(-2);
+          const year = today.getFullYear();
+          const fecha = `${day}-${month}-${year}`;
+          return { id, ...record, fecha };
+        });
+        dataList.sort((a, b) => b.timestamp - a.timestamp);
+        setDataBranch(dataList);
+        setLoadedData(true);
+      } else {
+        setDataBranch([]);
+      }
+    });
+
+    // Aquí devolvemos directamente la función unsubscribe
+    return unsubscribe;
+  }, []);
+
+  // Cargar "users" (excluyendo administradores y contadores)
+  useEffect(() => {
+    const dbRef = ref(database, "users");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetchedUsers = Object.entries(snapshot.val())
+          .filter(
+            ([_, user]) => user.role !== "admin" && user.role !== "contador"
+          )
+          .map(([id, user]) => ({ id, name: user.name }));
+        fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
+        setUsers(fetchedUsers);
+        setLoadedUsers(true);
+      } else {
+        setUsers([]);
+      }
+    });
+    // limpia el listener al desmontar
+    return unsubscribe;
+  }, []);
+
+  // Cargar clientes
   useEffect(() => {
     const clientsRef = ref(database, "clientes");
     const unsubscribe = onValue(clientsRef, (snap) => {
@@ -118,15 +198,416 @@ const Facturasemitidas = () => {
     return unsubscribe;
   }, []);
 
-  // Cargar configuracion de factura
+  // ② Carga desde Firebase (“configuraciondefactura”)
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
-      if (snap.exists()) {
-        setInvoiceConfig(snap.val());
-      }
+      if (snap.exists()) setInvoiceConfig(snap.val());
     });
   }, []);
+
+  // Cuando todas las fuentes de datos estén listas, oculta el loader
+  useEffect(() => {
+    if (loadedData && loadedRegistro && loadedUsers && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedData, loadedRegistro, loadedUsers, loadedClients]);
+
+  // Opciones para filtros (se combinan ambos registros)
+  const allRegistros = [
+    ...dataBranch.map((record) => ({
+      fecha: record.fecha,
+      registros: [record],
+    })),
+    ...dataRegistroFechas,
+  ];
+
+  const realizadoporOptions = users.map((u) => ({
+    value: u.id,
+    label: u.name,
+  }));
+
+  const anombredeOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.anombrede).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const direccionOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.direccion).filter(Boolean)
+      )
+    )
+  )
+    .sort((a, b) => a.localeCompare(b))
+    .map((v) => ({ value: v, label: v }));
+
+  const servicioOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.servicio).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const cubicosOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.cubicos).filter(Boolean)
+      )
+    )
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  const valorOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.valor).filter(Boolean)
+      )
+    )
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  const pagoOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.pago).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const formadePagoOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.formadepago).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const BancoOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.banco).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const metododepagoOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.metododepago).filter(Boolean)
+      )
+    )
+  )
+    .sort()
+    .map((v) => ({ value: v, label: v }));
+
+  const efectivoOptions = Array.from(
+    new Set(
+      allRegistros.flatMap((item) =>
+        item.registros.map((r) => r.efectivo).filter(Boolean)
+      )
+    )
+  )
+    .sort((a, b) => a - b)
+    .map((v) => ({ value: v.toString(), label: v.toString() }));
+
+  // ————————
+  // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
+  useEffect(() => {
+    const vivos = dataBranch.map((r) => ({
+      ...r,
+      fecha: r.fecha,
+      origin: "data",
+    }));
+    const historicos = dataRegistroFechas.flatMap((g) =>
+      g.registros.map((r) => ({
+        ...r,
+        fecha: g.fecha,
+        origin: "registrofechas",
+      }))
+    );
+    setTodos([...vivos, ...historicos]);
+  }, [dataBranch, dataRegistroFechas]);
+
+  // ————————
+
+  // 1) FILTRA ESE ARRAY
+  const filtrados = todos.filter((r) => {
+    // 1) Filtrar por Fecha de Emisión (timestamp)
+    const [emiStart, emiEnd] = filters.fechaEmision;
+    if (emiStart && emiEnd) {
+      const fechaEmi = new Date(r.timestamp);
+      if (fechaEmi < emiStart || fechaEmi > emiEnd) return false;
+    }
+
+    // 2) Filtrar por Fecha de Servicio (r.fecha formato "DD-MM-YYYY")
+    const [srvStart, srvEnd] = filters.fechaServicio;
+    if (srvStart && srvEnd) {
+      const [d, m, y] = r.fecha.split("-");
+      const fechaSrv = new Date(+y, m - 1, +d);
+      if (fechaSrv < srvStart || fechaSrv > srvEnd) return false;
+    }
+
+    // 3) Multi-select: número de factura
+    if (
+      filters.numerodefactura.length > 0 &&
+      !filters.numerodefactura.includes(r.numerodefactura)
+    )
+      return false;
+
+    // 4) Multi-select: A Nombre De
+    if (
+      filters.anombrede.length > 0 &&
+      !filters.anombrede.includes(r.anombrede)
+    )
+      return false;
+
+    // 5) Multi-select: Dirección
+    if (
+      filters.direccion.length > 0 &&
+      !filters.direccion.includes(r.direccion)
+    )
+      return false;
+
+    // 6) Días de Mora
+    if (filters.diasdemora.length > 0) {
+      const dias = calculateDaysDelay(r.timestamp, r.pago);
+      const matchDias = filters.diasdemora.some((v) =>
+        v === "10+" ? dias >= 10 : dias === +v
+      );
+      if (!matchDias) return false;
+    }
+
+    // 7) Factura sí/no
+    if (filters.factura !== "" && r.factura !== (filters.factura === "true"))
+      return false;
+
+    // 8) Multi-select: Item
+    if (filters.item.length > 0 && !filters.item.includes(r.item)) return false;
+
+    // 9) Subcadena: Descripción
+    if (
+      filters.descripcion &&
+      !r.descripcion?.toLowerCase().includes(filters.descripcion.toLowerCase())
+    )
+      return false;
+
+    // 10) Subcadena: Personalizado
+    if (
+      filters.personalizado &&
+      !r.personalizado
+        ?.toLowerCase()
+        .includes(filters.personalizado.toLowerCase())
+    )
+      return false;
+
+    // 11) Rangos numéricos: qty
+    if (filters.qtyMin && (r.qty == null || r.qty < parseFloat(filters.qtyMin)))
+      return false;
+    if (filters.qtyMax && (r.qty == null || r.qty > parseFloat(filters.qtyMax)))
+      return false;
+
+    // 12) Rangos numéricos: rate
+    if (
+      filters.rateMin &&
+      (r.rate == null || r.rate < parseFloat(filters.rateMin))
+    )
+      return false;
+    if (
+      filters.rateMax &&
+      (r.rate == null || r.rate > parseFloat(filters.rateMax))
+    )
+      return false;
+
+    // 13) Rangos numéricos: amount
+    if (
+      filters.amountMin &&
+      (r.amount == null || r.amount < parseFloat(filters.amountMin))
+    )
+      return false;
+    if (
+      filters.amountMax &&
+      (r.amount == null || r.amount > parseFloat(filters.amountMax))
+    )
+      return false;
+
+    // 14) Multi-select: Pago
+    if (filters.pago.length > 0 && !filters.pago.includes(r.pago)) return false;
+
+    return true;
+  });
+
+  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA
+  const grouped = filtrados.reduce((acc, r) => {
+    (acc[r.fecha] = acc[r.fecha] || []).push(r);
+    return acc;
+  }, {});
+  const filteredData = Object.entries(grouped)
+    .map(([fecha, registros]) => ({ fecha, registros }))
+    .sort((a, b) => {
+      const [d1, m1, y1] = a.fecha.split("-");
+      const [d2, m2, y2] = b.fecha.split("-");
+      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+    });
+
+  // A partir de aquí utiliza filteredData para mapear tu tabla…
+
+  const handleRowSelection = (fecha, registroId, checked) => {
+    const key = `${fecha}_${registroId}`;
+    setSelectedRows((prev) => {
+      const newSelections = { ...prev, [key]: checked };
+      let totalRecords = 0;
+      let selectedCount = 0;
+      filteredData.forEach((item) => {
+        item.registros.forEach((registro) => {
+          totalRecords++;
+          if (newSelections[`${item.fecha}_${registro.id}`]) {
+            selectedCount++;
+          }
+        });
+      });
+      setSelectAll(totalRecords === selectedCount);
+      return newSelections;
+    });
+  };
+
+  // Solo agrega una nueva dirección al cambiar el servicio
+  const syncWithClients = (direccion, cubicos) => {
+    const exists = clients.some((c) => c.direccion === direccion);
+    if (!exists) {
+      addClient(direccion, cubicos);
+    }
+  };
+
+  const addClient = (direccion, cubicos) => {
+    const dbRefClientes = ref(database, "clientes");
+    const newClientRef = push(dbRefClientes);
+    set(newClientRef, { direccion, cubicos }).catch((error) => {
+      console.error("Error adding client: ", error);
+    });
+  };
+
+  // Función para actualizar campos (gestiona tanto los registros de "data" como de "registrofechas")
+  function handleFieldChange(fecha, registroId, field, value, origin) {
+    const safeValue = value ?? "";
+    const fromData = origin === "data";
+    const path = fromData
+      ? `data/${registroId}`
+      : `registrofechas/${fecha}/${registroId}`;
+    const dbRefItem = ref(database, path);
+
+    // Si cambió item, qty o rate, recalcular amount
+    let updates = { [field]: safeValue };
+
+    // Obtener registro local
+    const registro = fromData
+      ? dataBranch.find((r) => r.id === registroId) || {}
+      : dataRegistroFechas
+          .find((g) => g.fecha === fecha)
+          ?.registros.find((r) => r.id === registroId) || {};
+
+    // Logic para qty y rate
+    if (field === "qty" || field === "rate") {
+      const qty =
+        field === "qty"
+          ? parseFloat(safeValue) || 0
+          : parseFloat(registro.qty) || 0;
+      const rate =
+        field === "rate"
+          ? parseFloat(safeValue) || 0
+          : parseFloat(registro.rate) || 0;
+      updates.qty = qty;
+      updates.rate = rate;
+      updates.amount = parseFloat((qty * rate).toFixed(2));
+    }
+
+    // Logic para item
+    if (field === "item") {
+      const newRate = ITEM_RATES[safeValue] ?? 0;
+      const qty = parseFloat(registro.qty) || 0;
+      updates.rate = parseFloat(newRate.toFixed(2));
+      updates.amount = parseFloat((newRate * qty).toFixed(2));
+    }
+
+    // Grabar todo en Firebase de una sola vez
+    update(dbRefItem, updates).catch(console.error);
+
+    // Actualizar estado local
+    const updater = (r) => (r.id === registroId ? { ...r, ...updates } : r);
+
+    if (fromData) {
+      setDataBranch((prev) => prev.map(updater));
+    } else {
+      setDataRegistroFechas((prev) =>
+        prev.map((g) =>
+          g.fecha === fecha ? { ...g, registros: g.registros.map(updater) } : g
+        )
+      );
+    }
+
+    // Si cambió servicio, sincronizar cliente
+    if (field === "servicio") {
+      const current = fromData
+        ? dataBranch.find((r) => r.id === registroId)
+        : dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === registroId);
+      if (current) syncWithClients(current.direccion, current.cubicos);
+    }
+  }
+
+  // Mostrar/ocultar slidebars
+  const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        slidebarRef.current &&
+        !slidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-slidebar-button")
+      ) {
+        setShowSlidebar(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutsideFilter = (e) => {
+      if (
+        filterSlidebarRef.current &&
+        !filterSlidebarRef.current.contains(e.target) &&
+        !e.target.closest(".show-filter-slidebar-button")
+      ) {
+        setShowFilterSlidebar(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutsideFilter);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideFilter);
+  }, []);
+
+  const getUserName = (userId) => {
+    const found = users.find((u) => u.id === userId);
+    return found ? found.name : "";
+  };
 
   // Formatea fecha y dias de mora
   const formatDate = (ts) => {
@@ -135,6 +616,7 @@ const Facturasemitidas = () => {
       d.getMonth() + 1
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
+
   const calculateDaysDelay = (timestamp, isPaid) => {
     if (isPaid) return 0; // Si está pagada, no hay mora
     const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
@@ -145,92 +627,13 @@ const Facturasemitidas = () => {
    * Maneja cambios de campo en Firebase y sincroniza estado local,
    * incluyendo recálculo de amount si cambian qty o rate.
    *
-   * @param {string} id     ID del registro en facturasemitidas
+   * @param {string} id     ID del registro en registrofechas
    * @param {string} field  Nombre del campo a actualizar
    * @param {any}    value  Nuevo valor
    */
-  function handleFieldChange(origen, id, field, value) {
-    const dbRefItem = ref(database, `facturasemitidas/${id}`);
-    update(dbRefItem, { [field]: value }).catch(console.error);
-    setFacturas((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, [field]: value } : f))
-    );
-    const safeValue = value ?? "";
 
-    // 2) Actualización inicial en Firebase
-    update(dbRefItem, { [field]: safeValue }).catch(console.error);
-
-    // 3) Lógica de recálculo para qty y rate
-    const registro = facturas.find((f) => f.id === id) || {};
-
-    // 3a) Si cambió qty → recalcular amount
-    if (field === "qty") {
-      const newQty = parseFloat(safeValue) || 0;
-      const rate = parseFloat(registro.rate) || 0;
-      const newAmount = parseFloat((newQty * rate).toFixed(2));
-
-      // Persistir ambos en Firebase
-      update(dbRefItem, { qty: newQty, amount: newAmount }).catch(
-        console.error
-      );
-
-      // Actualizar estado local
-      setFacturas((prev) =>
-        prev.map((f) =>
-          f.id === id ? { ...f, qty: newQty, amount: newAmount } : f
-        )
-      );
-      return;
-    }
-
-    // 3b) Si cambió rate → recalcular amount
-    if (field === "rate") {
-      const newRate = parseFloat(safeValue) || 0;
-      const qty = parseFloat(registro.qty) || 0;
-      const newAmount = parseFloat((newRate * qty).toFixed(2));
-
-      update(dbRefItem, { rate: newRate, amount: newAmount }).catch(
-        console.error
-      );
-
-      setFacturas((prev) =>
-        prev.map((f) =>
-          f.id === id ? { ...f, rate: newRate, amount: newAmount } : f
-        )
-      );
-      return;
-    }
-
-    // 4) Actualizar cualquier otro campo
-    setFacturas((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, [field]: safeValue } : f))
-    );
-  }
-
-  // 3️⃣ Combina y ordena
-  // const merged = useMemo(() => {
-  //   return facturas
-  //     .sort((a, b) => b.timestamp - a.timestamp)
-  //     .filter((f) => f.factura);
-  // }, [facturas]);
-
-  // const visibleTodos = useMemo(() => {
-  //   return merged.filter((f) => {
-  //     // aquí tu lógica de filtros, por ejemplo:
-  //     if (
-  //       filters.descripcion &&
-  //       !f.descripcion
-  //         ?.toLowerCase()
-  //         .includes(filters.descripcion.toLowerCase())
-  //     )
-  //       return false;
-  //     // … resto de checks …
-  //     return true;
-  //   });
-  // }, [merged, filters]);
-
-  // 1) La función que actualiza Firebase y el estado local
-  const handlePagoToggle = (item, checked) => {
+  // 1) La función que actualiza Firebase y el estado local (PAGO)
+  const handlePagoToggle = (fecha, id, origin, checked) => {
     Swal.fire({
       title: checked
         ? "¿Deseas marcar esta factura como pagada?"
@@ -242,15 +645,32 @@ const Facturasemitidas = () => {
     }).then((res) => {
       if (!res.isConfirmed) return;
 
-      // 1) Apunto a /facturasemitidas/${item.id}
-      const itemRef = ref(database, `facturasemitidas/${item.id}`);
-      // 2) Actualizo sólo la propiedad "pago"
+      // ruta en RTDB
+      const path =
+        origin === "data" ? `data/${id}` : `registrofechas/${fecha}/${id}`;
+      const itemRef = ref(database, path);
+
       update(itemRef, { pago: checked })
         .then(() => {
-          // 3) Reflejo el cambio en mi estado local
-          setFacturas((prev) =>
-            prev.map((f) => (f.id === item.id ? { ...f, pago: checked } : f))
-          );
+          // ACTUALIZO estado local según el origen
+          if (origin === "data") {
+            setDataBranch((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, pago: checked } : r))
+            );
+          } else {
+            setDataRegistroFechas((prev) =>
+              prev.map((group) =>
+                group.fecha !== fecha
+                  ? group
+                  : {
+                      ...group,
+                      registros: group.registros.map((r) =>
+                        r.id === id ? { ...r, pago: checked } : r
+                      ),
+                    }
+              )
+            );
+          }
           Swal.fire({ title: "¡Listo!", icon: "success", timer: 1000 });
         })
         .catch(console.error);
@@ -321,11 +741,6 @@ const Facturasemitidas = () => {
 
   // FILTRADO
   const toggleFilterSlidebar = () => setShowFilterSlidebar((v) => !v);
-  const handleFilterChange = (opts) =>
-    setFilter({
-      direccion: opts ? opts.map((o) => o.value) : [],
-    });
-  const resetFilters = () => setFilter({ direccion: [] });
 
   useEffect(() => {
     const handler = (e) => {
@@ -341,47 +756,13 @@ const Facturasemitidas = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const invoiceOptions = React.useMemo(
-    () =>
-      [...new Set(facturas.map((f) => String(f.numerodefactura)))].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [facturas]
-  );
-  const nameOptions = React.useMemo(
-    () =>
-      [...new Set(facturas.map((f) => f.anombrede))].map((v) => ({
-        value: v,
-        label: v,
-      })),
-    [facturas]
-  );
-  const directionOptions = React.useMemo(() => {
-    return [...new Set(facturas.map((f) => f.direccion))]
-      .filter((d) => d) // elimina vacíos
-      .map((d) => ({ value: d, label: d }));
-  }, [facturas]);
-  const moraOptions = React.useMemo(() => {
-    const opts = [];
-    for (let i = 1; i <= 100; i++) {
-      opts.push({ value: `${i}`, label: `${i}` });
-    }
-    opts.push({ value: "10+", label: "10+" });
-    return opts;
-  }, []);
+  // …tras anombredeOptions y direccionOptions…
+  const nameOptions = anombredeOptions;
+  const directionOptions = direccionOptions;
 
-  const ITEM_RATES = {
-    "Septic Tank": 80.0,
-    "Pipes Cleaning": 125.0,
-    Services: 0.0,
-    "Grease Trap": 135.0,
-    "Grease Trap & Pipe Cleanings": 135.0,
-    "Septic Tank & Grease Trap": 135.0,
-    "Dow Temporal": 25.0,
-    "Water Truck": 160.0,
-    Pool: 0.0,
-  };
+  const moraOptions = Array.from({ length: 10 }, (_, i) => i + 1)
+    .map((n) => ({ value: n.toString(), label: n.toString() }))
+    .concat({ value: "10+", label: "10+" });
 
   const itemOptions = React.useMemo(
     () =>
@@ -391,108 +772,6 @@ const Facturasemitidas = () => {
       })),
     []
   );
-
-  const filteredFacturas = facturas.filter((f) => {
-    // 0) Solo facturas con factura===true
-    if (!f.factura || f.factura === false || f.factura === "false")
-      return false;
-
-    // 1) Rango de fechaEmision
-    if (filters.fechaEmision[0] && filters.fechaEmision[1]) {
-      const [from, to] = filters.fechaEmision;
-      if (f.timestamp < from.getTime() || f.timestamp > to.getTime())
-        return false;
-    }
-
-    // 2) Rango de fechaServicio
-    if (filters.fechaServicio[0] && filters.fechaServicio[1]) {
-      const [day, month, year] = f.fecha.split("-");
-      const servTs = new Date(+year, +month - 1, +day).getTime();
-      const [fromS, toS] = filters.fechaServicio;
-      if (servTs < fromS.getTime() || servTs > toS.getTime()) {
-        return false;
-      }
-    }
-
-    // 3) Dirección
-    if (
-      filters.direccion.length > 0 &&
-      !filters.direccion.includes(f.direccion)
-    )
-      return false;
-
-    // 4) Número de factura
-    if (
-      filters.numerodefactura.length > 0 &&
-      !filters.numerodefactura.includes(String(f.numerodefactura))
-    )
-      return false;
-
-    // 5) A nombre de
-    if (
-      filters.anombrede.length > 0 &&
-      !filters.anombrede.includes(f.anombrede)
-    )
-      return false;
-
-    // 6) Días de mora
-    if (filters.diasdemora.length > 0) {
-      const days = calculateDaysDelay(f.timestamp, f.pago);
-      const ok = filters.diasdemora.some((sel) =>
-        sel === "10+" ? days >= 10 : days === parseInt(sel, 10)
-      );
-      if (!ok) return false;
-    }
-
-    // 7) Pago
-    if (filters.pago.length > 0) {
-      const isPaid = Boolean(f.pago);
-      if (!filters.pago.includes(isPaid)) return false;
-    }
-
-    // ── filtros extra ──
-
-    // 8) Item
-    if (filters.item.length > 0 && !filters.item.includes(f.item)) {
-      return false;
-    }
-
-    // 9) Descripción (subcadena, case-insensitive)
-    if (
-      filters.descripcion &&
-      !f.descripcion?.toLowerCase().includes(filters.descripcion.toLowerCase())
-    ) {
-      return false;
-    }
-
-    // 10) Personalizado (subcadena, case-insensitive)
-    if (
-      filters.personalizado &&
-      !f.personalizado
-        ?.toLowerCase()
-        .includes(filters.personalizado.toLowerCase())
-    ) {
-      return false;
-    }
-
-    // 11) Qty mínimo/máximo
-    const qty = Number(f.qty) || 0;
-    if (filters.qtyMin && qty < Number(filters.qtyMin)) return false;
-    if (filters.qtyMax && qty > Number(filters.qtyMax)) return false;
-
-    // 12) Rate mínimo/máximo
-    const rate = Number(f.rate) || 0;
-    if (filters.rateMin && rate < Number(filters.rateMin)) return false;
-    if (filters.rateMax && rate > Number(filters.rateMax)) return false;
-
-    // 13) Amount mínimo/máximo
-    const amount = Number(f.amount) || 0;
-    if (filters.amountMin && amount < Number(filters.amountMin)) return false;
-    if (filters.amountMax && amount > Number(filters.amountMax)) return false;
-
-    // Si pasa todos los chequeos, lo incluimos
-    return true;
-  });
 
   // SELECCIÓN
   const handleSelectRow = (id) => {
@@ -629,7 +908,7 @@ const Facturasemitidas = () => {
   };
 
   // Función para editar descripción con Swal
-  const handleDescriptionClick = (registroId, currentDesc) => {
+  const handleDescriptionClick = (fecha, registroId, currentDesc, origin) => {
     Swal.fire({
       title: "Descripción",
       input: "textarea",
@@ -640,56 +919,16 @@ const Facturasemitidas = () => {
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        const desc = result.value;
-        handleFieldChange("facturasemitidas", registroId, "descripcion", desc);
+        handleFieldChange(
+          fecha,
+          registroId,
+          "descripcion",
+          result.value,
+          origin
+        );
         Swal.fire("Guardado", "Descripción guardada correctamente", "success");
       }
     });
-  };
-
-  // actualiza item → recalcula rate & amount
-  const handleFacturaItemChange = (id, itemValue) => {
-    const factura = facturas.find((f) => f.id === id) || {};
-    const newRate = ITEM_RATES[itemValue] ?? 0;
-    const newQty = Number(factura.qty) || 0;
-    const newAmount = newRate * newQty;
-
-    const updates = { item: itemValue, rate: newRate, amount: newAmount };
-    update(ref(database, `facturasemitidas/${id}`), updates).catch(
-      console.error
-    );
-
-    setFacturas(facturas.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-  };
-
-  // actualiza qty → recalcula amount
-  const handleFacturaQtyChange = (id, qtyValue) => {
-    const factura = facturas.find((f) => f.id === id) || {};
-    const newQty = parseFloat(qtyValue) || 0;
-    const newRate = Number(factura.rate) || 0;
-    const newAmount = newRate * newQty;
-
-    const updates = { qty: newQty, amount: newAmount };
-    update(ref(database, `facturasemitidas/${id}`), updates).catch(
-      console.error
-    );
-
-    setFacturas(facturas.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-  };
-
-  // actualiza rate → recalcula amount
-  const handleFacturaRateChange = (id, rateValue) => {
-    const factura = facturas.find((f) => f.id === id) || {};
-    const newRate = parseFloat(rateValue) || 0;
-    const newQty = Number(factura.qty) || 0;
-    const newAmount = newRate * newQty;
-
-    const updates = { rate: newRate, amount: newAmount };
-    update(ref(database, `facturasemitidas/${id}`), updates).catch(
-      console.error
-    );
-
-    setFacturas(facturas.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   };
 
   // Generar factura
@@ -737,10 +976,12 @@ const Facturasemitidas = () => {
           direccion: "Dirección",
         };
 
-        const base = facturas.find((f) => selectedRows.includes(f.id));
+        // buscamos el registro "base" dentro de filteredData en lugar de facturas
+        const allRecs = filteredData.flatMap((g) => g.registros);
+        const base = allRecs.find((r) => selectedRows.includes(r.id));
         if (
-          (type === "anombrede" && !base.anombrede) ||
-          (type === "direccion" && !base.direccion)
+          (type === "anombrede" && !base?.anombrede) ||
+          (type === "direccion" && !base?.direccion)
         ) {
           Swal.showValidationMessage(
             `No hay datos para generar factura con '${labels[type]}'.`
@@ -761,10 +1002,11 @@ const Facturasemitidas = () => {
     });
     if (!billToResult) return; // canceló o no pasó validación
 
-    // 3) Extraer datos seleccionados
-    const selectedData = facturas.filter((f) => selectedRows.includes(f.id));
+    // 3) Extraer datos seleccionados desde filteredData
+    const allRecs = filteredData.flatMap((g) => g.registros);
+    const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
     const base = selectedData[0];
-    const pagoStatus = base.pago === true ? "Pago" : "Debe";
+    const pagoStatus = base.pago ? "Pago" : "Debe";
 
     // 4) Calcular Bill To
     let billToValue = "";
@@ -956,20 +1198,27 @@ const Facturasemitidas = () => {
     // Generar el número de factura completo
     const contadorRef = ref(database, "contadorFactura");
     const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    const numeroFactura = tx.snapshot.val();
+    const numerodefactura = tx.snapshot.val();
 
     // Formatear YYMM + secuencia 4 dígitos
     const today = new Date();
     const yy = String(today.getFullYear()).slice(-2);
     const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const seq = String(numeroFactura).padStart(4, "0");
+    const seq = String(numerodefactura).padStart(5, "0");
     const invoiceId = `${yy}${mm}${seq}`;
 
-    const invoiceRef = ref(database, "facturasemitidas");
-    const newRef = push(invoiceRef);
-    set(newRef, {
+    // 3) Calcular la clave “hoy” con guiones
+    const dd = String(today.getDate()).padStart(2, "0");
+    const fechaKey = `${dd}-${mm}-${today.getFullYear()}`;
+
+    // 4) Hacer push dentro de registrofechas/<fechaKey> en lugar de la raíz
+    const groupRef = ref(database, `registrofechas/${fechaKey}`);
+    const newRef = push(groupRef);
+
+    await set(newRef, {
       timestamp: Date.now(),
-      fecha: formatDate(Date.now()),
+      // opcional si no lo necesitas dentro del objeto, pues ya caerá bajo la rama correcta:
+      fecha: fechaKey,
       numerodefactura: invoiceId,
       anombrede: "",
       direccion: "",
@@ -1011,7 +1260,6 @@ const Facturasemitidas = () => {
   return (
     <div className="homepage-container">
       <Slidebar />
-
       {/* Filtros */}
       <div className="filter-button-wrapper">
         <img
@@ -1071,21 +1319,6 @@ const Facturasemitidas = () => {
             placeholderText="Desde – Hasta"
           />
         )}
-
-        <label>Factura</label>
-        <Select
-          isClearable
-          isMulti
-          options={invoiceOptions}
-          placeholder="Selecciona factura(s)..."
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              numerodefactura: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-          value={filters.numerodefactura.map((v) => ({ value: v, label: v }))}
-        />
 
         <label>A Nombre De</label>
         <Select
@@ -1276,15 +1509,15 @@ const Facturasemitidas = () => {
       </div>
 
       <div className="homepage-title">
-        <div className="homepage-card" style={{ padding: "10px" }}>
-          <h1 className="title-page" style={{ marginBottom: "-18px" }}>
-            Facturas Emitidas
-          </h1>
-          <div>{new Date().toLocaleDateString()}</div>
+        <div className="homepage-card">
+          <h1 className="title-page">Facturas Emitidas</h1>
+          <div className="current-date">
+            <div>{new Date().toLocaleDateString()}</div>
+            <Clock />
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
       <div className="homepage-card">
         <div className="table-container">
           <table className="service-table">
@@ -1308,27 +1541,15 @@ const Facturasemitidas = () => {
               </tr>
             </thead>
             <tbody>
-              {/* {visibleTodos.length > 0 ? (
-                visibleTodos.map((item, index) => { */}
-              {filteredFacturas.length > 0 ? (
-                filteredFacturas.map((item, index) => {
-                  // calcula mora si es necesario, formatea fecha, etc.
-                  const emissionTs = item.timestamp;
-                  const diasMora = calculateDaysDelay(
-                    item.timestamp,
-                    item.pago
-                  );
-                  return (
-                    <tr
-                      key={`${item.origin}-${item.id}-${
-                        item.fecha || ""
-                      }-${index}`}
-                    >
+              {filteredData.map(({ fecha, registros }) => (
+                <React.Fragment key={fecha}>
+                  {registros.map((r) => (
+                    <tr key={`${r.origin}_${fecha}_${r.id}`}>
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
-                          checked={selectedRows.includes(item.id)}
-                          onChange={() => handleSelectRow(item.id)}
+                          checked={selectedRows.includes(r.id)}
+                          onChange={() => handleSelectRow(r.id)}
                           style={{
                             width: "3ch",
                             height: "3ch",
@@ -1337,25 +1558,24 @@ const Facturasemitidas = () => {
                         />
                       </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        {formatDate(item.timestamp)}
+                        {formatDate(r.timestamp)}
                       </td>
-                      <td style={{ textAlign: "center" }}>{item.fecha}</td>
+                      <td style={{ textAlign: "center" }}>{fecha}</td>
                       <td style={{ textAlign: "center" }}>
-                        {item.numerodefactura}
+                        {r.numerodefactura}
                       </td>
                       <td>
                         <input
                           type="text"
-                          style={{
-                            width: "16ch",
-                          }}
-                          value={item.anombrede || ""}
+                          style={{ width: "16ch" }}
+                          value={r.anombrede || ""}
                           onChange={(e) =>
                             handleFieldChange(
-                              item.origin,
-                              item.id,
+                              fecha,
+                              r.id,
                               "anombrede",
-                              e.target.value
+                              e.target.value,
+                              r.origin
                             )
                           }
                         />
@@ -1364,13 +1584,14 @@ const Facturasemitidas = () => {
                         <input
                           type="text"
                           style={{ width: "20ch" }}
-                          value={item.personalizado || ""}
+                          value={r.personalizado || ""}
                           onChange={(e) =>
                             handleFieldChange(
-                              item.origin,
-                              item.id,
+                              fecha,
+                              r.id,
                               "personalizado",
-                              e.target.value
+                              e.target.value,
+                              r.origin
                             )
                           }
                         />
@@ -1378,20 +1599,22 @@ const Facturasemitidas = () => {
                       <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
-                            className="direccion-fixed-input "
+                            className="direccion-fixed-input"
                             style={{ width: "18ch" }}
                             type="text"
-                            value={item.direccion || ""}
+                            list={`dirs-${r.id}`}
+                            value={r.direccion || ""}
                             onChange={(e) =>
                               handleFieldChange(
-                                item.origin,
-                                item.id,
+                                fecha,
+                                r.id,
                                 "direccion",
-                                e.target.value
+                                e.target.value,
+                                r.origin
                               )
                             }
                           />
-                          <datalist id={`dirs-${item.id}`}>
+                          <datalist id={`dirs-${r.id}`}>
                             {clients.map((c) => (
                               <option key={c.id} value={c.direccion} />
                             ))}
@@ -1399,14 +1622,20 @@ const Facturasemitidas = () => {
                         </div>
                       </td>
                       <td style={{ textAlign: "center", width: "6ch" }}>
-                        {diasMora}
+                        {calculateDaysDelay(r.timestamp, r.pago)}
                       </td>
                       <td>
                         <select
-                          value={item.item || ""}
+                          value={r.item || ""}
                           style={{ width: "28ch" }}
                           onChange={(e) =>
-                            handleFacturaItemChange(item.id, e.target.value)
+                            handleFieldChange(
+                              fecha,
+                              r.id,
+                              "item",
+                              e.target.value,
+                              r.origin
+                            )
                           }
                         >
                           <option value=""></option>
@@ -1440,10 +1669,15 @@ const Facturasemitidas = () => {
                             width: "100%",
                           }}
                           onClick={() =>
-                            handleDescriptionClick(item.id, item.descripcion)
+                            handleDescriptionClick(
+                              fecha,
+                              r.id,
+                              r.descripcion,
+                              r.origin
+                            )
                           }
                         >
-                          {item.descripcion ? (
+                          {r.descripcion ? (
                             <p
                               style={{
                                 margin: 0,
@@ -1453,7 +1687,7 @@ const Facturasemitidas = () => {
                                 flex: 1,
                               }}
                             >
-                              {item.descripcion || ""}
+                              {r.descripcion}
                             </p>
                           ) : (
                             <span
@@ -1461,7 +1695,7 @@ const Facturasemitidas = () => {
                                 width: "100%",
                                 display: "inline-block",
                               }}
-                            ></span>
+                            />
                           )}
                         </button>
                       </td>
@@ -1471,9 +1705,15 @@ const Facturasemitidas = () => {
                           step="1"
                           min="0"
                           style={{ width: "6ch", textAlign: "center" }}
-                          value={item.qty || ""}
+                          value={r.qty || ""}
                           onChange={(e) =>
-                            handleFacturaQtyChange(item.id, e.target.value)
+                            handleFieldChange(
+                              fecha,
+                              r.id,
+                              "qty",
+                              e.target.value,
+                              r.origin
+                            )
                           }
                         />
                       </td>
@@ -1483,57 +1723,71 @@ const Facturasemitidas = () => {
                           inputMode="decimal"
                           pattern="[0-9]*([.][0-9]{0,2})?"
                           style={{ width: "10ch", textAlign: "center" }}
+                          // Mostramos el valor en edición o, si no, el rate formateado
                           value={
-                            item.rate != null
-                              ? parseFloat(item.rate).toFixed(2)
-                              : "0.00"
+                            editingRate[r.id] != null
+                              ? editingRate[r.id]
+                              : r.rate != null
+                              ? r.rate.toFixed(2)
+                              : ""
                           }
-                          onFocus={(e) => {
-                            const val = e.target.value;
-                            const dot = val.indexOf(".");
-                            if (dot > -1) {
-                              e.target.setSelectionRange(0, dot);
-                            } else {
-                              e.target.select();
-                            }
-                          }}
-                          onClick={(e) => {
-                            const val = e.target.value;
-                            const dot = val.indexOf(".");
-                            const pos = e.target.selectionStart;
-                            if (dot > -1 && pos > dot) {
-                              e.target.setSelectionRange(dot + 1, val.length);
-                            } else {
-                              e.target.setSelectionRange(
-                                0,
-                                dot > -1 ? dot : val.length
-                              );
-                            }
+                          onFocus={() => {
+                            // Precargamos el valor formateado al entrar el foco
+                            setEditingRate((prev) => ({
+                              ...prev,
+                              [r.id]: r.rate != null ? r.rate.toFixed(2) : "",
+                            }));
                           }}
                           onChange={(e) => {
-                            let v = e.target.value.replace(/[^0-9.]/g, "");
-                            const parts = v.split(".");
-                            if (parts.length > 2)
-                              v = parts[0] + "." + parts.slice(1).join("");
-                            handleFacturaRateChange(item.id, v);
+                            // Solo admitimos dígitos y punto
+                            const raw = e.target.value.replace(/[^0-9.]/g, "");
+                            // Actualizamos el estado crudo para mantener cursor
+                            setEditingRate((prev) => ({
+                              ...prev,
+                              [r.id]: raw,
+                            }));
+                            // Y guardamos inmediatamente en Firebase / estado local
+                            handleFieldChange(
+                              fecha,
+                              r.id,
+                              "rate",
+                              raw,
+                              r.origin
+                            );
+                          }}
+                          onBlur={() => {
+                            // Al salir, limpiamos el estado de edición para volver a formatear
+                            setEditingRate((prev) => {
+                              const next = { ...prev };
+                              delete next[r.id];
+                              return next;
+                            });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              // evitamos comportamientos indeseados y volvemos a seleccionar todo
+                              e.preventDefault();
+                              e.target.select();
+                            }
                           }}
                         />
                       </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        {item.amount != null
-                          ? (parseFloat(item.amount) || 0).toFixed(2)
+                        {r.amount != null
+                          ? (parseFloat(r.amount) || 0).toFixed(2)
                           : "0.00"}
                       </td>
                       <td>
                         <input
                           type="date"
-                          value={item.fechapago || ""}
+                          value={r.fechapago || ""}
                           onChange={(e) =>
                             handleFieldChange(
-                              item.origin,
-                              item.id,
+                              fecha,
+                              r.id,
                               "fechapago",
-                              e.target.value
+                              e.target.value,
+                              r.origin
                             )
                           }
                         />
@@ -1541,9 +1795,14 @@ const Facturasemitidas = () => {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
-                          checked={item.pago}
+                          checked={r.pago}
                           onChange={(e) =>
-                            handlePagoToggle(item, e.target.checked)
+                            handlePagoToggle(
+                              fecha,
+                              r.id,
+                              r.origin,
+                              e.target.checked
+                            )
                           }
                           style={{
                             width: "3ch",
@@ -1553,13 +1812,9 @@ const Facturasemitidas = () => {
                         />
                       </td>
                     </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="17">No hay datos disponibles.</td>
-                </tr>
-              )}
+                  ))}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -1612,7 +1867,6 @@ const Facturasemitidas = () => {
           </button>
         </div>
       </div>
-      {/* Botones de acción */}
     </div>
   );
 };
