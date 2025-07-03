@@ -142,7 +142,9 @@ const Homepage = () => {
 
   const direccionOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
-    Array.from(new Set(data.map(([_, item]) => item.direccion).filter(Boolean)))
+    ...Array.from(
+      new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
+    )
       .sort()
       .map((v) => ({ value: v, label: v })),
   ];
