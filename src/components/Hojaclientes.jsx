@@ -17,6 +17,11 @@ const Clientes = () => {
   const slidebarRef = useRef(null);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
+  
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
+  
   // Ahora filter incluye anombrede
   const [filter, setFilter] = useState({
     direccion: [],
@@ -90,7 +95,8 @@ const Clientes = () => {
     }));
   };
 
-  const resetFilters = () =>
+  // Función para resetear filtros y volver a página 1
+  const resetFilters = () => {
     setFilter({
       direccion: [],
       anombrede: [],
@@ -99,6 +105,8 @@ const Clientes = () => {
       valorMin: "",
       valorMax: "",
     });
+    setCurrentPage(1); // Resetear a página 1 cuando se limpian filtros
+  };
   const toggleSlidebar = () => setShowSlidebar((v) => !v);
   const toggleFilterSlidebar = () => setShowFilterSlidebar((v) => !v);
 
@@ -214,6 +222,7 @@ const Clientes = () => {
     });
   };
 
+  // Función para eliminar clientes seleccionados con paginación
   const handleDeleteClientes = () => {
     selectedClientes.forEach((id) => {
       remove(ref(database, `clientes/${id}`)).catch((err) =>
@@ -221,6 +230,12 @@ const Clientes = () => {
       );
     });
     setSelectedClientes([]);
+    // Si después de eliminar la página actual queda vacía, ir a la anterior
+    const totalAfterDelete = filteredData.length - selectedClientes.length;
+    const totalPages = Math.ceil(totalAfterDelete / itemsPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
   };
 
   const handleSelectCliente = (id) =>
@@ -228,70 +243,78 @@ const Clientes = () => {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  // Aplica ambos filtros antes de ordenar
+  // Aplicar filtros sobre todos los datos (sin paginación)
   const filteredData = data
     .filter((c) => {
       if (!filter.direccion.length) return true;
-
-      // Verificar si se seleccionó "vacío"
       if (filter.direccion.includes("__EMPTY__")) {
-        const hasEmpty =
-          !c.direccion ||
-          c.direccion === "" ||
-          c.direccion === null ||
-          c.direccion === undefined;
-        const hasOthers = filter.direccion.some(
-          (d) => d !== "__EMPTY__" && d === c.direccion
-        );
+        const hasEmpty = !c.direccion || c.direccion === "" || c.direccion === null || c.direccion === undefined;
+        const hasOthers = filter.direccion.some((d) => d !== "__EMPTY__" && d === c.direccion);
         return hasEmpty || hasOthers;
       }
-
       return filter.direccion.includes(c.direccion);
     })
     .filter((c) => {
       if (!filter.anombrede.length) return true;
-
-      // Verificar si se seleccionó "vacío"
       if (filter.anombrede.includes("__EMPTY__")) {
-        const hasEmpty =
-          !c.anombrede ||
-          c.anombrede === "" ||
-          c.anombrede === null ||
-          c.anombrede === undefined;
-        const hasOthers = filter.anombrede.some(
-          (d) => d !== "__EMPTY__" && d === c.anombrede
-        );
+        const hasEmpty = !c.anombrede || c.anombrede === "" || c.anombrede === null || c.anombrede === undefined;
+        const hasOthers = filter.anombrede.some((d) => d !== "__EMPTY__" && d === c.anombrede);
         return hasEmpty || hasOthers;
       }
-
       return filter.anombrede.includes(c.anombrede);
     })
     .filter((c) => {
       const cubicos = Number(c.cubicos);
       const cubicosMin = filter.cubicosMin ? Number(filter.cubicosMin) : null;
       const cubicosMax = filter.cubicosMax ? Number(filter.cubicosMax) : null;
-      return (
-        (!cubicosMin || cubicos >= cubicosMin) &&
-        (!cubicosMax || cubicos <= cubicosMax)
-      );
+      return (!cubicosMin || cubicos >= cubicosMin) && (!cubicosMax || cubicos <= cubicosMax);
     })
     .filter((c) => {
       const valor = Number(c.valor);
       const valorMin = filter.valorMin ? Number(filter.valorMin) : null;
       const valorMax = filter.valorMax ? Number(filter.valorMax) : null;
-      return (
-        (!valorMin || valor >= valorMin) && (!valorMax || valor <= valorMax)
-      );
+      return (!valorMin || valor >= valorMin) && (!valorMax || valor <= valorMax);
     })
     .sort((a, b) => {
       const aIsNew = a.direccion.startsWith("Nuevo Cliente");
       const bIsNew = b.direccion.startsWith("Nuevo Cliente");
       if (aIsNew && !bIsNew) return -1;
       if (!aIsNew && bIsNew) return 1;
-      return a.direccion.localeCompare(b.direccion, undefined, {
-        sensitivity: "base",
-      });
+      return a.direccion.localeCompare(b.direccion, undefined, { sensitivity: "base" });
     });
+
+  // Cálculos de paginación
+  const totalItems = filteredData.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageData = filteredData.slice(startIndex, endIndex);
+
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setSelectedClientes([]); // Limpiar selección al cambiar página
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+    setSelectedClientes([]); // Limpiar selección
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedClientes([]);
+  }, [filter]);
 
   if (loading) {
     return (
@@ -401,8 +424,9 @@ const Clientes = () => {
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* Información de paginación y controles */}
       <div className="homepage-card">
+        {/* Tabla */}
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -416,8 +440,8 @@ const Clientes = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.length ? (
-                filteredData.map((cliente) => (
+              {currentPageData.length ? (
+                currentPageData.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>
                       <input
@@ -498,12 +522,78 @@ const Clientes = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4">No se encontraron clientes</td>
+                  <td colSpan="6">No se encontraron clientes</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} clientes
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
+        </div>
+
         <div
           className="button-container"
           style={{
@@ -519,9 +609,10 @@ const Clientes = () => {
             className="filter-button"
             disabled={!selectedClientes.length}
           >
-            Eliminar Clientes Seleccionados
+            Eliminar Clientes Seleccionados ({selectedClientes.length})
           </button>
         </div>
+
       </div>
       <button onClick={handleAddCliente} className="create-table-button">
         +
