@@ -117,16 +117,37 @@ const Reprogramacionautomatica = () => {
   // 3) Genera N ocurrencias por item y recoge todas, luego ordena y trunca a 100
   const computePredictedTransfers = () => {
     const today = new Date();
-    const active = data.filter(([, item]) => item.activo);
-    const perItem = active.length ? Math.ceil(100 / active.length) : 0;
-
     const events = [];
-    for (let [, item] of active) {
-      const actualBase = item.timestamp
+
+    // 1) Añadir los “solo una vez”
+    data.forEach(([, item]) => {
+      if (item.activo && item.solounavez && item.fechaEjecucion) {
+        const date = new Date(item.fechaEjecucion + "T00:00");
+        if (!isNaN(date) && date >= today) {
+          events.push({
+            direccion: item.direccion,
+            servicio: item.servicio,
+            date,
+            regla: "Solo una vez",
+          });
+        }
+      }
+    });
+    // 2) Ahora generar los periódicos (excluyendo los one-offs)
+    const periodicItems = data.filter(
+      ([, item]) => item.activo && !item.solounavez
+    );
+    // repartimos las “ranuras” restantes entre periódicos
+    const slots = Math.max(100 - events.length, 0);
+    const perItem = periodicItems.length
+      ? Math.ceil(slots / periodicItems.length)
+      : 0;
+
+    for (let [, item] of periodicItems) {
+      let baseDate = item.timestamp
         ? new Date(item.timestamp)
         : new Date(today);
-      let baseDate = actualBase;
-
+      const actualBase = new Date(item.timestamp || today);
       for (let i = 0; i < perItem; i++) {
         const next = nextOccurrence(item, baseDate, actualBase);
         if (!next) break;
@@ -149,6 +170,7 @@ const Reprogramacionautomatica = () => {
       }
     }
 
+    // 3) ordenar y truncar a 100
     return events
       .sort((a, b) => a.date - b.date)
       .slice(0, 100)
