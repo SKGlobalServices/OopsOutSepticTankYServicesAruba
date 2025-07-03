@@ -54,6 +54,10 @@ const Facturasemitidas = () => {
   const filterSlidebarRef = useRef(null);
   const [editingRate, setEditingRate] = useState({});
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
+
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
     const blob = await res.blob();
@@ -466,7 +470,54 @@ const Facturasemitidas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
-  // A partir de aquí utiliza filteredData para mapear tu tabla…
+  // Cálculos de paginación
+  const allRecords = filteredData.flatMap(group => group.registros);
+  const totalItems = allRecords.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageRecords = allRecords.slice(startIndex, endIndex);
+
+  // Reagrupar los registros paginados por fecha
+  const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
+    (acc[r.fecha] = acc[r.fecha] || []).push(r);
+    return acc;
+  }, {});
+  const paginatedData = Object.entries(paginatedGrouped)
+    .map(([fecha, registros]) => ({ fecha, registros }))
+    .sort((a, b) => {
+      const [d1, m1, y1] = a.fecha.split("-");
+      const [d2, m2, y2] = b.fecha.split("-");
+      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+    });
+
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setSelectedRows([]); // Limpiar selección al cambiar página
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+    setSelectedRows([]); // Limpiar selección
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRows([]);
+  }, [filters]);
+
+  // A partir de aquí utiliza paginatedData para mapear tu tabla…
 
   const handleRowSelection = (fecha, registroId, checked) => {
     const key = `${fecha}_${registroId}`;
@@ -1541,7 +1592,7 @@ const Facturasemitidas = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map(({ fecha, registros }) => (
+              {paginatedData.map(({ fecha, registros }) => (
                 <React.Fragment key={fecha}>
                   {registros.map((r) => (
                     <tr key={`${r.origin}_${fecha}_${r.id}`}>
@@ -1723,7 +1774,6 @@ const Facturasemitidas = () => {
                           inputMode="decimal"
                           pattern="[0-9]*([.][0-9]{0,2})?"
                           style={{ width: "10ch", textAlign: "center" }}
-                          // Mostramos el valor en edición o, si no, el rate formateado
                           value={
                             editingRate[r.id] != null
                               ? editingRate[r.id]
@@ -1732,21 +1782,17 @@ const Facturasemitidas = () => {
                               : ""
                           }
                           onFocus={() => {
-                            // Precargamos el valor formateado al entrar el foco
                             setEditingRate((prev) => ({
                               ...prev,
                               [r.id]: r.rate != null ? r.rate.toFixed(2) : "",
                             }));
                           }}
                           onChange={(e) => {
-                            // Solo admitimos dígitos y punto
                             const raw = e.target.value.replace(/[^0-9.]/g, "");
-                            // Actualizamos el estado crudo para mantener cursor
                             setEditingRate((prev) => ({
                               ...prev,
                               [r.id]: raw,
                             }));
-                            // Y guardamos inmediatamente en Firebase / estado local
                             handleFieldChange(
                               fecha,
                               r.id,
@@ -1756,7 +1802,6 @@ const Facturasemitidas = () => {
                             );
                           }}
                           onBlur={() => {
-                            // Al salir, limpiamos el estado de edición para volver a formatear
                             setEditingRate((prev) => {
                               const next = { ...prev };
                               delete next[r.id];
@@ -1765,7 +1810,6 @@ const Facturasemitidas = () => {
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                              // evitamos comportamientos indeseados y volvemos a seleccionar todo
                               e.preventDefault();
                               e.target.select();
                             }
@@ -1817,6 +1861,70 @@ const Facturasemitidas = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} clientes
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
         </div>
         <div
           style={{

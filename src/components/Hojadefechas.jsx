@@ -49,6 +49,10 @@ const Hojadefechas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
+
   // Estado de filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -419,7 +423,54 @@ const Hojadefechas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
-  // A partir de aquí utiliza filteredData para mapear tu tabla…
+  // Cálculos de paginación
+  const allRecords = filteredData.flatMap(group => group.registros);
+  const totalItems = allRecords.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageRecords = allRecords.slice(startIndex, endIndex);
+
+  // Reagrupar los registros paginados por fecha
+  const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
+    (acc[r.fecha] = acc[r.fecha] || []).push(r);
+    return acc;
+  }, {});
+  const paginatedData = Object.entries(paginatedGrouped)
+    .map(([fecha, registros]) => ({ fecha, registros }))
+    .sort((a, b) => {
+      const [d1, m1, y1] = a.fecha.split("-");
+      const [d2, m2, y2] = b.fecha.split("-");
+      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+    });
+
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setSelectedRows({}); // Limpiar selección al cambiar página
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+    setSelectedRows({}); // Limpiar selección
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRows({});
+  }, [filters]);
+
+  // A partir de aquí utiliza paginatedData para mapear tu tabla…
 
   const handleRowSelection = (fecha, registroId, checked) => {
     const key = `${fecha}_${registroId}`;
@@ -899,7 +950,7 @@ const Hojadefechas = () => {
     footer: "",
   });
 
-  // ② Carga desde Firebase (“configuraciondefactura”)
+  // ② Carga desde Firebase ("configuraciondefactura")
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
@@ -1844,7 +1895,7 @@ const Hojadefechas = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((item) => (
+              {paginatedData.map((item) => (
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
@@ -1919,13 +1970,6 @@ const Hojadefechas = () => {
                             }
                             list={`direccion-options-${registro.id}`}
                           />
-                          {/* <datalist id={`direccion-options-${registro.id}`}>
-                              {clients.map((client, index) => (
-                                <option key={index} value={client.direccion}>
-                                  {client.direccion}
-                                </option>
-                              ))}
-                            </datalist> */}
                         </div>
                       </td>
                       <td>
@@ -2225,24 +2269,88 @@ const Hojadefechas = () => {
               ))}
             </tbody>
           </table>
+      </div>
+      <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
         </div>
-        <div
-          className="button-container"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
-          }}
+      </div>
+      <div
+        className="button-container"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <button
+          style={{ backgroundColor: "#5271ff" }}
+          onClick={TotalServiciosPorTrabajador}
+          className="filter-button"
         >
-          <button
-            style={{ backgroundColor: "#5271ff" }}
-            onClick={TotalServiciosPorTrabajador}
-            className="filter-button"
-          >
-            Servicios Por Trabajador
-          </button>
-        </div>
+          Servicios Por Trabajador
+        </button>
       </div>
       <button
         className="generate-button3"
