@@ -133,6 +133,7 @@ const Reprogramacionautomatica = () => {
         }
       }
     });
+    
     // 2) Ahora generar los periódicos (excluyendo los one-offs)
     const periodicItems = data.filter(
       ([, item]) => item.activo && !item.solounavez
