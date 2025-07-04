@@ -447,8 +447,11 @@ const Facturasemitidas = () => {
     )
       return false;
 
-    // 14) Multi-select: Pago
-    if (filters.pago.length > 0 && !filters.pago.includes(r.pago)) return false;
+    // 14) Multi-select: Pago  
+    if (filters.pago.length > 0) {
+      const pagoValue = r.pago === "Pago" || r.pago === true; // Normalizar: "Pago" = true, otros = false
+      if (!filters.pago.includes(pagoValue)) return false;
+    }
 
     return true;
   });
