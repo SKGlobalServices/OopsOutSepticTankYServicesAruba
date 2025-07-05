@@ -47,6 +47,10 @@ const Informedeefectivo = () => {
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
+
   // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -344,6 +348,36 @@ const Informedeefectivo = () => {
     });
     return withSaldo.reverse();
   }, [displayedRecords]);
+
+  // Cálculos de paginación
+  const totalItems = computedRecords.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageData = computedRecords.slice(startIndex, endIndex);
+
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   // --- FUNCIONALIDAD DE EXPORTACIÓN ---
   const getExportRecords = () => {
@@ -920,8 +954,8 @@ const Informedeefectivo = () => {
               </tr>
             </thead>
             <tbody>
-              {computedRecords.length > 0 ? (
-                computedRecords.map((registro) => {
+              {currentPageData.length > 0 ? (
+                currentPageData.map((registro) => {
                   const isEditable = editingRows[registro.id] || false;
                   return (
                     <tr key={registro.id}>
@@ -1128,6 +1162,73 @@ const Informedeefectivo = () => {
             </tbody>
           </table>
         </div>
+        
+        {/* Controles de paginación */}
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
+        </div>
+
         <div
           className="button-container"
           style={{

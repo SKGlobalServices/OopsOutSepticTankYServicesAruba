@@ -1233,22 +1233,22 @@ const Hojadefechas = () => {
         `<hr style="color:transparent;"/>` +
         `<label>Bill To:</label>` +
         `<select id="bill-to-type" class="swal2-select" style="width:75%;">
-         <option value="" disabled selected>Elija...</option>
+         <option value="" disabled>Elija...</option>
          <option value="anombrede">A Nombre De</option>
-         <option value="direccion">Dirección</option>
+         <option value="direccion" selected>Dirección</option>
          <option value="personalizado">Personalizado</option>
        </select>` +
         `<input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />` +
         `<hr/>` +
         `<label>Item:</label>` +
         `<select id="swal-item" class="swal2-select" style="width:75%;">
-         <option value="" disabled selected>Seleccione...</option>
+         <option value="" disabled>Seleccione...</option>
          ${Object.keys(ITEM_RATES)
-           .map((i) => `<option value="${i}">${i}</option>`)
+           .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
            .join("\n")}
        </select>` +
         `<textarea id="swal-description" class="swal2-textarea" placeholder="Descripción del servicio" style="width:60%;min-height:80px;resize:vertical;"></textarea>` +
-        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" />` +
+        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" value="1" />` +
         `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
         `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
       focusConfirm: false,
@@ -1308,6 +1308,13 @@ const Hojadefechas = () => {
         const qtyInp = document.getElementById("swal-qty");
         const rateInp = document.getElementById("swal-rate");
         const amtInp = document.getElementById("swal-amount");
+        
+        // Calcular automáticamente al abrir el modal con valores por defecto
+        const defaultRate = ITEM_RATES["Septic Tank"] ?? 0;
+        rateInp.value = defaultRate.toFixed(2);
+        const calculatedAmount = defaultRate * (parseFloat(qtyInp.value) || 0);
+        amtInp.value = formatCurrency(calculatedAmount);
+        
         itemSel.addEventListener("change", (e) => {
           const defaultRate = ITEM_RATES[e.target.value] ?? 0;
           rateInp.value = defaultRate.toFixed(2);

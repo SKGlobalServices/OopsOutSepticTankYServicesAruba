@@ -1246,21 +1246,50 @@ const Facturasemitidas = () => {
   };
 
   const addEmptyInvoice = async () => {
-    // Generar el número de factura completo
-    const contadorRef = ref(database, "contadorFactura");
-    const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    const numerodefactura = tx.snapshot.val();
+    // 1. Revisar si hay números disponibles en facturasDisponibles
+    const availableNumsRef = ref(database, "facturasDisponibles");
+    let invoiceId = null;
+    let usedAvailableKey = null;
+    let numerodefactura = null;
 
-    // Formatear YYMM + secuencia 5 dígitos
-    const today = new Date();
-    const yy = String(today.getFullYear()).slice(-2);
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const seq = String(numerodefactura).padStart(5, "0");
-    const invoiceId = `${yy}${mm}${seq}`;
+    const availableSnapshot = await new Promise((resolve) => {
+      onValue(availableNumsRef, resolve, { onlyOnce: true });
+    });
+
+    if (availableSnapshot.exists()) {
+      // Hay números disponibles, usar el menor
+      const availableData = availableSnapshot.val();
+      const sortedAvailable = Object.entries(availableData).sort(
+        ([, a], [, b]) => a.numeroFactura.localeCompare(b.numeroFactura)
+      );
+      const [key, numeroData] = sortedAvailable[0];
+      invoiceId = numeroData.numeroFactura;
+      usedAvailableKey = key;
+      numerodefactura = parseInt(invoiceId.slice(-5));
+    } else {
+      // No hay números disponibles, generar nuevo
+      const contadorRef = ref(database, "contadorFactura");
+      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+      numerodefactura = tx.snapshot.val();
+      // Formatear YYMM + secuencia 5 dígitos
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const seq = String(numerodefactura).padStart(5, "0");
+      invoiceId = `${yy}${mm}${seq}`;
+    }
+
+    // Si se usó un número disponible, eliminarlo de la lista
+    if (usedAvailableKey) {
+      await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
+    }
 
     // 3) Calcular la clave “hoy” con guiones
+    const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
-    const fechaKey = `${dd}-${mm}-${today.getFullYear()}`;
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    const fechaKey = `${dd}-${mm}-${yyyy}`;
 
     // 4) Hacer push dentro de registrofechas/<fechaKey> en lugar de la raíz
     const groupRef = ref(database, `registrofechas/${fechaKey}`);
@@ -1268,7 +1297,6 @@ const Facturasemitidas = () => {
 
     await set(newRef, {
       timestamp: Date.now(),
-      // opcional si no lo necesitas dentro del objeto, pues ya caerá bajo la rama correcta:
       fecha: fechaKey,
       numerodefactura: invoiceId,
       anombrede: "",
@@ -1280,6 +1308,99 @@ const Facturasemitidas = () => {
       diasdemora: null,
       factura: true,
     }).catch(console.error);
+  };
+
+  // Función para cancelar factura (igual que en Hojadefechas)
+  const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
+    const { isConfirmed } = await Swal.fire({
+      title: "¿Cancelar Factura?",
+      text: `¿Estás seguro de que deseas cancelar la factura ${numeroFactura}? Esto borrará todos los datos de facturación y el número quedará disponible para reutilización.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, Cancelar",
+      cancelButtonText: "No",
+      confirmButtonColor: "#d33",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      // 1) Limpiar los campos de facturación (campos "F")
+      const fromData = origin === "data";
+      const path = fromData
+        ? `data/${registroId}`
+        : `registrofechas/${fecha}/${registroId}`;
+      const facturaRef = ref(database, path);
+
+      await update(facturaRef, {
+        // Mantener datos base del servicio
+        // Limpiar solo campos de facturación (F)
+        item: null,
+        descripcion: null,
+        qty: null,
+        rate: null,
+        amount: null,
+        billTo: null,
+        personalizado: null,
+        factura: false, // Cambiar a false
+        numerodefactura: null, // Limpiar número
+        fechaEmision: null,
+      });
+
+      // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
+      if (numeroFactura) {
+        const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+        const newAvailableRef = push(numerosDisponiblesRef);
+        await set(newAvailableRef, {
+          numeroFactura: numeroFactura,
+          fechaCancelacion: Date.now(),
+        });
+      }
+
+      // 3) Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId
+          ? {
+              ...r,
+              item: null,
+              descripcion: null,
+              qty: null,
+              rate: null,
+              amount: null,
+              billTo: null,
+              personalizado: null,
+              factura: false,
+              numerodefactura: null,
+              fechaEmision: null,
+            }
+          : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Factura Cancelada",
+        text: `La factura ${numeroFactura} ha sido cancelada. El número quedará disponible para reutilización.`,
+        timer: 2000,
+      });
+    } catch (error) {
+      console.error("Error cancelando factura:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Hubo un error al cancelar la factura.",
+      });
+    }
   };
 
   // Reloj interno
@@ -1589,6 +1710,7 @@ const Facturasemitidas = () => {
                 <th>amount</th>
                 <th>Fecha de pago</th>
                 <th>Pago</th>
+                <th>Cancelar</th>
               </tr>
             </thead>
             <tbody>
@@ -1854,6 +1976,38 @@ const Facturasemitidas = () => {
                             cursor: "pointer",
                           }}
                         />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {r.factura && r.numerodefactura ? (
+                          <button
+                            onClick={() =>
+                              cancelInvoice(
+                                fecha,
+                                r.id,
+                                r.numerodefactura,
+                                r.origin
+                              )
+                            }
+                            className="delete-button"
+                            style={{
+                              border: "1px solid #ff3300",
+                              backgroundColor: "transparent",
+                              cursor: "pointer",
+                              color: "black",
+                              fontWeight: "normal",
+                              marginLeft: "0",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                            }}
+                            title={`Cancelar factura ${r.numerodefactura}`}
+                          >
+                            Cancelar Factura
+                          </button>
+                        ) : (
+                          <span style={{ color: "#ccc", fontSize: "12px" }}>
+                            Sin factura
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

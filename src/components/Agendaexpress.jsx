@@ -297,7 +297,7 @@ const AgendaExpress = () => {
           <NumInput
             label="Cúbicos"
             value={data.cubicos}
-            min={1}
+            min={0}
             max={50}
             onChange={(v) => update("cubicos", v)}
             accent={accent}
