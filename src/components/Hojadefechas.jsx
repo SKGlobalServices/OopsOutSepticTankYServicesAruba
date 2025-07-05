@@ -615,6 +615,41 @@ const Hojadefechas = () => {
       return;
     }
 
+    // 5.1) Campo especial: "pago" - manejar fecha de pago automáticamente
+    if (field === "pago") {
+      let updates = { [field]: safeValue };
+      
+      // Si se marca como "Pago", establecer fecha actual
+      if (safeValue === "Pago") {
+        const today = new Date();
+        const fechaPago = today.toISOString().split('T')[0]; // formato YYYY-MM-DD
+        updates.fechapago = fechaPago;
+      } else {
+        // Si se desmarca o cambia a otro estado, limpiar fecha de pago
+        updates.fechapago = "";
+      }
+
+      // Actualizar en Firebase
+      update(dbRefItem, updates).catch(console.error);
+
+      // Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId ? { ...r, ...updates } : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+      return;
+    }
+
     // 6) Cualquier otro campo → sólo actualizamos ese campo
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
     const updater = (r) =>
@@ -687,8 +722,7 @@ const Hojadefechas = () => {
         Servicio: registro.servicio || "",
         Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        Pago: registro.pago === "Pago" ? "Sí" : "No",
-        "Forma De Pago": registro.formadepago || "",
+        Pago: registro.pago || "",
         Banco: registro.banco || "",
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
@@ -1895,6 +1929,7 @@ const Hojadefechas = () => {
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Pago</th>
+                <th>Fecha de Pago</th>
                 <th>Forma De Pago</th>
                 <th>Banco</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Notas</th>
@@ -2065,6 +2100,27 @@ const Hojadefechas = () => {
                           <option value="Pendiente">Pendiente</option>
                           <option value="Pendiente Fin De Mes">-</option>
                         </select>
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          value={registro.fechapago || ""}
+                          disabled={registro.pago !== "Pago"}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "fechapago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                          style={{
+                            width: "12ch",
+                            opacity: registro.pago !== "Pago" ? 0.5 : 1,
+                            cursor: registro.pago !== "Pago" ? "not-allowed" : "auto"
+                          }}
+                        />
                       </td>
                       <td>
                         <select
@@ -2382,3 +2438,4 @@ const Hojadefechas = () => {
 };
 
 export default Hojadefechas;
+
