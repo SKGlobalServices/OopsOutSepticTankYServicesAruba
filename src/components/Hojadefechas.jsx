@@ -1164,6 +1164,7 @@ const Hojadefechas = () => {
     }
 
     const base = selectedData[0];
+    const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
 
     // 2) Calcular número de factura estimado
     let invoiceIdEstimado;
@@ -1418,6 +1419,10 @@ const Hojadefechas = () => {
             origin === "data"
               ? `data/${r.id}`
               : `registrofechas/${r.fecha}/${r.id}`;
+          
+          // Asegurar que pago tenga un valor válido
+          const pagoValue = r.pago || "Debe"; // Usar "Debe" como valor por defecto
+          
           return update(ref(database, path), {
             item: res.item,
             descripcion: res.description,
@@ -1426,7 +1431,7 @@ const Hojadefechas = () => {
             amount: res.amount,
             billTo: billToValue,
             timestamp: Date.now(),
-            pago: r.pago === "Pago",
+            pago: pagoValue, // Usar el valor validado
             factura: true,
             numerodefactura: invoiceIdFinal,
           });
@@ -1439,7 +1444,7 @@ const Hojadefechas = () => {
         totalAmount: totalAmount,
         billToValue,
         numeroFactura: invoiceIdFinal,
-        pagoStatus: base.pago,
+        pagoStatus: pagoStatus,
         agoDate: base.fechapago,
         item: res.item,
         description: res.description,
@@ -1454,7 +1459,7 @@ const Hojadefechas = () => {
         totalAmount: totalAmount,
         billToValue,
         numeroFactura: invoiceIdFinal,
-        pagoStatus: base.pago,
+        pagoStatus: pagoStatus,
         pagoDate: base.fechapago,
         item: res.item,
         description: res.description,

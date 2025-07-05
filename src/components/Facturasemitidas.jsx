@@ -451,8 +451,11 @@ const Facturasemitidas = () => {
     )
       return false;
 
-    // 14) Multi-select: Pago
-    if (filters.pago.length > 0 && !filters.pago.includes(r.pago)) return false;
+    // 14) Multi-select: Pago  
+    if (filters.pago.length > 0) {
+      const pagoValue = r.pago === "Pago" || r.pago === true; // Normalizar: "Pago" = true, otros = false
+      if (!filters.pago.includes(pagoValue)) return false;
+    }
 
     return true;
   });
@@ -668,8 +671,8 @@ const Facturasemitidas = () => {
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  const calculateDaysDelay = (timestamp, isPaid) => {
-    if (isPaid) return 0; // Si está pagada, no hay mora
+  const calculateDaysDelay = (timestamp, pagoStatus) => {
+    if (pagoStatus === "Pago") return 0; // Si está pagada, no hay mora
     const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
     return Math.max(0, days);
   };
@@ -685,6 +688,8 @@ const Facturasemitidas = () => {
 
   // 1) La función que actualiza Firebase y el estado local (PAGO)
   const handlePagoToggle = (fecha, id, origin, checked) => {
+    const newPagoValue = checked ? "Pago" : "Debe";
+    
     Swal.fire({
       title: checked
         ? "¿Deseas marcar esta factura como pagada?"
@@ -701,12 +706,12 @@ const Facturasemitidas = () => {
         origin === "data" ? `data/${id}` : `registrofechas/${fecha}/${id}`;
       const itemRef = ref(database, path);
 
-      update(itemRef, { pago: checked })
+      update(itemRef, { pago: newPagoValue })
         .then(() => {
           // ACTUALIZO estado local según el origen
           if (origin === "data") {
             setDataBranch((prev) =>
-              prev.map((r) => (r.id === id ? { ...r, pago: checked } : r))
+              prev.map((r) => (r.id === id ? { ...r, pago: newPagoValue } : r))
             );
           } else {
             setDataRegistroFechas((prev) =>
@@ -716,7 +721,7 @@ const Facturasemitidas = () => {
                   : {
                       ...group,
                       registros: group.registros.map((r) =>
-                        r.id === id ? { ...r, pago: checked } : r
+                        r.id === id ? { ...r, pago: newPagoValue } : r
                       ),
                     }
               )
@@ -1057,7 +1062,7 @@ const Facturasemitidas = () => {
     const allRecs = filteredData.flatMap((g) => g.registros);
     const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
     const base = selectedData[0];
-    const pagoStatus = base.pago ? "Pago" : "Debe";
+    const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
 
     // 4) Calcular Bill To
     let billToValue = "";
@@ -1304,7 +1309,7 @@ const Facturasemitidas = () => {
       servicio: "",
       cubicos: 0,
       valor: 0,
-      pago: false,
+      pago: "Debe",
       diasdemora: null,
       factura: true,
     }).catch(console.error);
@@ -1961,7 +1966,7 @@ const Facturasemitidas = () => {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
-                          checked={r.pago}
+                          checked={r.pago === "Pago"}
                           onChange={(e) =>
                             handlePagoToggle(
                               fecha,
