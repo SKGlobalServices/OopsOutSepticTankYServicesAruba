@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
+import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
 import servicioHoyIcon from "../assets/img/servicioHoyIcon.jpg";
 import servicioMananaIcon from "../assets/img/servicioMananaIcon.jpg";
+import informeEfectivoIcon from "../assets/img/informeEfectivoIcon.jpg";
 import logoutIcon from "../assets/img/logoutIcon.jpg";
 import barraIcon from "../assets/img/barra_icon.jpg";
 
@@ -112,6 +114,17 @@ const Slidebaruser = () => {
           />
           <span>Servicios de Mañana</span>
         </button>
+        <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/informedeefectivousuario")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe de Efectivo"
+              />
+              <span>Informe De Efectivo</span>
+            </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
           <span>Logout</span>
@@ -142,6 +155,16 @@ const Slidebaruser = () => {
           className="icon-image-servicioManana"
           src={servicioMananaIcon}
           alt="Servicios De Mañana"
+        />
+      </button>
+      <button
+        className="icon-button-informeEfectivo"
+        onClick={() => navigate("/informedeefectivousuario")}
+      >
+        <img
+          className="icon-image-informeEfectivo"
+          src={informeEfectivoIcon}
+          alt="informedeefectivo"
         />
       </button>
       <button className="icon-button-logout" onClick={handleLogout}>

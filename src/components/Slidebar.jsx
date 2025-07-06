@@ -12,7 +12,6 @@ import reprogramacionIcon2 from "../assets/img/reprogramacionIcon2.png";
 import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
 import configuracionUsuariosIcon2 from "../assets/img/configuracionUsuariosIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
-
 import agendarIcon from "../assets/img/agendarIcon.jpg";
 import servicioHoyIcon from "../assets/img/servicioHoyIcon.jpg";
 import servicioMananaIcon from "../assets/img/servicioMananaIcon.jpg";

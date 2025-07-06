@@ -7,6 +7,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import agendamientosfuturos from "../assets/img/agendamientosfuturos_icon.png";
 import Select from "react-select";
 import Clock from "./Clock";
+import * as XLSX from "xlsx";
 
 const Reprogramacionautomatica = () => {
   const [data, setData] = useState([]);
@@ -133,7 +134,7 @@ const Reprogramacionautomatica = () => {
         }
       }
     });
-    
+
     // 2) Ahora generar los periódicos (excluyendo los one-offs)
     const periodicItems = data.filter(
       ([, item]) => item.activo && !item.solounavez
@@ -186,7 +187,7 @@ const Reprogramacionautomatica = () => {
   // 4) Modal con la lista completa (hasta 100)
   const showFutureAppointments = () => {
     const preds = computePredictedTransfers();
-    if (preds.length === 0) {
+    if (!preds.length) {
       return Swal.fire({
         icon: "info",
         title: "Sin registros",
@@ -194,25 +195,232 @@ const Reprogramacionautomatica = () => {
       });
     }
 
-    const listHtml = preds
-      .map(
-        (p) => `
-      <li style="margin-bottom:0.5em;">
-        <strong>${p.direccion}</strong> — ${p.servicio} — ${p.fecha}
-        <br/><small>${p.regla}</small>
-      </li>
-    `
-      )
-      .join("");
+    // 1) extraemos opciones únicas
+    const uniqueDirs = Array.from(
+      new Set(preds.map((p) => p.direccion))
+    ).sort();
+    const uniqueSrv = Array.from(new Set(preds.map((p) => p.servicio))).sort();
+
+    // 2) generamos <option> para los datalists
+    const dirOptions = uniqueDirs.map((d) => `<option value="${d}">`).join("");
+    const srvOptions = uniqueSrv.map((s) => `<option value="${s}">`).join("");
+
+    // 3) sección de filtros con CSS inline
+    const filterSection = `
+  <style>
+    #filter-section {
+      display: none;
+      background: #fafafa;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      margin-bottom: 1em;
+    }
+    /* Cada campo ocupa toda la anchura y tiene espacio abajo */
+    #filter-section .filter-field {
+      display: flex;
+      flex-direction: column;
+    }
+    #filter-section .filter-field label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #444;
+    }
+    #filter-section .filter-field input.swal2-input {
+      height: 2.4em;
+      padding: 0 0.75em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #filter-section button#apply-filters {
+      height: 2em;
+      padding: 0 1em;
+      background: #556ee6;
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 14px
+    }
+    #filter-section button#apply-filters:hover {
+      background: #4254b5;
+    }
+      #filter-section button#reset-filters {
+      height: 2em;
+      padding: 0 1em;
+      background:rgb(230, 85, 85);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 14px
+    }
+    #filter-section button#reset-filters:hover {
+      background:rgb(190, 74, 74);
+    }
+  </style>
+
+<div id="filter-section" style="display:none;">
+  <div class="filter-row">
+    <div class="filter-field">
+      <label for="filt-direccion">Dirección</label>
+      <input id="filt-direccion" class="swal2-input" list="filt-direccion-list" placeholder="Filtrar…" />
+      <datalist id="filt-direccion-list">${dirOptions}</datalist>
+    </div>
+
+    <div class="filter-field">
+      <label for="filt-servicio">Servicio</label>
+      <input id="filt-servicio" class="swal2-input" list="filt-servicio-list" placeholder="Filtrar…" />
+      <datalist id="filt-servicio-list">${srvOptions}</datalist>
+    </div>
+
+    <button id="apply-filters" class="swal2-confirm swal2-styled">
+      Aplicar
+    </button>
+    <button id="reset-filters" class="swal2-confirm" swal2-styled">Descartar</button>
+  </div>
+</div>
+`;
+
+    const renderList = (items) => `
+    <ul style="padding-left:1em; margin:0;">
+      ${items
+        .map(
+          (p) => `
+        <li style="margin-bottom:0.5em;">
+          <strong>${p.direccion}</strong> — ${p.servicio} — ${p.fecha}
+          <br/><small>${p.regla}</small>
+        </li>
+      `
+        )
+        .join("")}
+    </ul>
+  `;
 
     Swal.fire({
       title: "Agendamientos Futuros",
+      width: 650,
       html: `
-      <div style="max-height:400px;overflow:auto;text-align:left;margin:0 1em;">
-        <ul style="padding-left:1em;margin:0;">${listHtml}</ul>
+    <style>
+      /* Estilos comunes para ambos botones */
+      #toggle-filters,
+      #export-btn {
+        padding: 0.6em 1.2em;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        border: 1px solid #ccc;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s;
+        margin-right: 0.5em;
+      }
+      /* Botón “Filtros” neutro */
+      #toggle-filters {
+        background: #ffffff;
+        color: #444;
+      }
+      #toggle-filters:hover {
+        background: #f5f5f5;
+        border-color: #999;
+      }
+      /* Botón “Exportar Excel” primario */
+      #export-btn {
+        background: #556ee6;
+        color: #fff;
+        border-color: #556ee6;
+      }
+      #export-btn:hover {
+        background: #4254b5;
+        border-color: #4254b5;
+      }
+        /* Botón “Aplicar” dentro de los filtros */
+      #apply-filters {
+        background: #556ee6;        /* mismo color principal */
+        color: #fff;
+        border-color: #556ee6;
+        /* lo llevamos al final del flex con auto-margin */
+        margin-left: auto;
+      }
+      #apply-filters:hover {
+        background: #4254b5;
+        border-color: #4254b5;
+      }
+    </style>
+
+    <div style="text-align:center; margin-bottom:1em;">
+      <!-- fijarse en la comilla cerrada justo después de 0.5em; -->
+ <button
+   id="toggle-filters"
+   class="swal2-styled"
+   style="margin-right:0.5em;"
+ >
+   Filtros
+ </button>
+      <button id="export-btn" class="swal2-styled">Exportar Excel</button>
+    </div>
+      ${filterSection}
+      <div id="list-container" style="max-height:300px;overflow:auto;text-align:left;margin:0 1em;">
+        ${renderList(preds)}
       </div>
     `,
-      width: 600,
+      showConfirmButton: false,
+      didOpen: () => {
+        const listContainer = document.getElementById("list-container");
+        const filtroSec = document.getElementById("filter-section");
+
+        // Toggle sección de filtros
+        document
+          .getElementById("toggle-filters")
+          .addEventListener("click", () => {
+            filtroSec.style.display =
+              filtroSec.style.display === "none" ? "block" : "none";
+          });
+
+        // Aplicar filtros usando los selects
+        document
+          .getElementById("apply-filters")
+          .addEventListener("click", () => {
+            const dirVal = document.getElementById("filt-direccion").value;
+            const srvVal = document.getElementById("filt-servicio").value;
+            const filtered = preds.filter(
+              (p) =>
+                (!dirVal || p.direccion === dirVal) &&
+                (!srvVal || p.servicio === srvVal)
+            );
+            listContainer.innerHTML = renderList(filtered);
+          });
+
+        document
+          .getElementById("reset-filters")
+          .addEventListener("click", () => {
+            document.getElementById("filt-direccion").value = "";
+            document.getElementById("filt-servicio").value = "";
+            listContainer.innerHTML = renderList(preds);
+          });
+
+        // Exportar a Excel...
+        document.getElementById("export-btn").addEventListener("click", () => {
+          const tableData = [];
+          listContainer.querySelectorAll("li").forEach((li) => {
+            const txt = li.textContent.split("—").map((s) => s.trim());
+            tableData.push({
+              Dirección: txt[0],
+              Servicio: txt[1],
+              "Fecha Y Condicion": txt[2],
+            });
+          });
+          const ws = XLSX.utils.json_to_sheet(tableData);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Agendamientos");
+          XLSX.writeFile(wb, "agendamientos_futuros.xlsx");
+        });
+      },
     });
   };
 

@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
@@ -16,6 +15,7 @@ import Informedeefectivo from "./components/Informedeefectivo.jsx"
 import Agendadeldiausuario from "./components/Agendadeldiausuario.jsx"
 import Agendamañanausuario from "./components/Agendamañanausuario.jsx"
 import Agendadinamicacontador from "./components/Agendadinamicacontador.jsx"
+import Informedeefectivousuario from "./components/Informedeefectivousuario.jsx";
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
@@ -32,6 +32,7 @@ root.render(
       <Route path="/reprogramacionautomatica" element={<Reprogramacionautomatica />} />
       <Route path="/usuarios" element={<Usuarios />} />
       <Route path="/informedeefectivo" element={<Informedeefectivo />} />
+      <Route path="/informedeefectivousuario" element={<Informedeefectivousuario />} />
       <Route path="/agendadeldiausuario" element={<Agendadeldiausuario />} />
       <Route path="/agendamañanausuario" element={<Agendamañanausuario />} />
       <Route path="/agendadinamicacontador" element={<Agendadinamicacontador />} />
