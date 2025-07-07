@@ -69,6 +69,13 @@ const Facturasemitidas = () => {
     });
   };
 
+  
+  const calculateDaysDelay = (timestamp, pagoStatus) => {
+    if (pagoStatus === "Pago") return 0;
+    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
+    return Math.max(0, days);
+  };
+
   const [invoiceConfig, setInvoiceConfig] = useState({
     companyName: "",
     city: "",
@@ -98,6 +105,7 @@ const Facturasemitidas = () => {
     rateMax: "",
     amountMin: "",
     amountMax: "",
+    fechaPago: [null, null],
   });
 
   // Cargar datos de la rama "registrofechas"
@@ -202,7 +210,7 @@ const Facturasemitidas = () => {
     return unsubscribe;
   }, []);
 
-  // ② Carga desde Firebase (“configuraciondefactura”)
+  // ② Carga desde Firebase ("configuraciondefactura")
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
@@ -390,11 +398,14 @@ const Facturasemitidas = () => {
       return false;
 
     // 6) Días de Mora
-    if (filters.diasdemora.length > 0) {
+     if (filters.diasdemora.length > 0) {
       const dias = calculateDaysDelay(r.timestamp, r.pago);
-      const matchDias = filters.diasdemora.some((v) =>
-        v === "10+" ? dias >= 10 : dias === +v
-      );
+      const matchDias = filters.diasdemora.some((valorFiltro) => {
+        if (valorFiltro === "10+") {
+          return dias >= 10;
+        }
+        return dias === parseInt(valorFiltro, 10);
+      });
       if (!matchDias) return false;
     }
 
@@ -455,6 +466,15 @@ const Facturasemitidas = () => {
     if (filters.pago.length > 0) {
       const pagoValue = r.pago === "Pago" || r.pago === true; // Normalizar: "Pago" = true, otros = false
       if (!filters.pago.includes(pagoValue)) return false;
+    }
+
+    // 15) Filtrar por Fecha de Pago (r.fechapago formato "YYYY-MM-DD")
+    const [pagoStart, pagoEnd] = filters.fechaPago;
+    if (pagoStart && pagoEnd) {
+      if (!r.fechapago) return false;
+      const [y, m, d] = r.fechapago.split("-");
+      const fechaPago = new Date(+y, m - 1, +d);
+      if (fechaPago < pagoStart || fechaPago > pagoEnd) return false;
     }
 
     return true;
@@ -671,12 +691,6 @@ const Facturasemitidas = () => {
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  const calculateDaysDelay = (timestamp, pagoStatus) => {
-    if (pagoStatus === "Pago") return 0; // Si está pagada, no hay mora
-    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
-    return Math.max(0, days);
-  };
-
   /**
    * Maneja cambios de campo en Firebase y sincroniza estado local,
    * incluyendo recálculo de amount si cambian qty o rate.
@@ -736,6 +750,7 @@ const Facturasemitidas = () => {
   // Manejo del DatePicker para rango de fechas
   const [showEmisionPicker, setShowEmisionPicker] = useState(false);
   const [showServicioPicker, setShowServicioPicker] = useState(false);
+  const [showPagoPicker, setShowPagoPicker] = useState(false);
 
   const handleEmisionChange = (dates) => {
     const [start, end] = dates;
@@ -771,6 +786,35 @@ const Facturasemitidas = () => {
     setFilters((prev) => ({
       ...prev,
       fechaServicio: [
+        start
+          ? new Date(
+              start.getFullYear(),
+              start.getMonth(),
+              start.getDate(),
+              0,
+              0,
+              0
+            )
+          : null,
+        end
+          ? new Date(
+              end.getFullYear(),
+              end.getMonth(),
+              end.getDate(),
+              23,
+              59,
+              59
+            )
+          : null,
+      ],
+    }));
+  };
+
+  const handlePagoChange = (dates) => {
+    const [start, end] = dates;
+    setFilters((prev) => ({
+      ...prev,
+      fechaPago: [
         start
           ? new Date(
               start.getFullYear(),
@@ -840,7 +884,7 @@ const Facturasemitidas = () => {
     Swal.fire({
       title: "Configuración de la factura",
       html:
-        // Campo para “Nombre de la empresa”
+        // Campo para "Nombre de la empresa"
         `<input
          id="swal-company"
          type="text"
@@ -849,7 +893,7 @@ const Facturasemitidas = () => {
          placeholder="Nombre de la empresa"
          value="${invoiceConfig.companyName || ""}"
        >` +
-        // Campo para “Direccion”
+        // Campo para "Direccion"
         `<input
          id="swal-address"
          type="text"
@@ -858,7 +902,7 @@ const Facturasemitidas = () => {
          placeholder="Dirección"
          value="${invoiceConfig.address || ""}"
        >` +
-        // Campo para “País”
+        // Campo para "País"
         `<input
          id="swal-country"
          type="text"
@@ -867,7 +911,7 @@ const Facturasemitidas = () => {
          placeholder="País"
          value="${invoiceConfig.country || ""}"
        >` +
-        // Campo para “Ciudad”
+        // Campo para "Ciudad"
         `<input
          id="swal-city"
          type="text"
@@ -876,7 +920,7 @@ const Facturasemitidas = () => {
          placeholder="Ciudad"
          value="${invoiceConfig.city || ""}"
        >` +
-        // Campo para “Código Postal”
+        // Campo para "Código Postal"
         `<input
          id="swal-postal"
          type="text"
@@ -885,7 +929,7 @@ const Facturasemitidas = () => {
          placeholder="Código Postal"
          value="${invoiceConfig.postalCode || ""}"
        >` +
-        // Campo para “Teléfono”
+        // Campo para "Teléfono"
         `<input
          id="swal-phone"
          type="text"
@@ -894,7 +938,7 @@ const Facturasemitidas = () => {
          placeholder="Teléfono"
          value="${invoiceConfig.phone || ""}"
        >` +
-        // Campo para “Correo electrónico”
+        // Campo para "Correo electrónico"
         `<input
          id="swal-email"
          type="email"
@@ -903,14 +947,14 @@ const Facturasemitidas = () => {
          placeholder="Correo electrónico"
          value="${invoiceConfig.email || ""}"
        >` +
-        // Campo para “Bank Info”
+        // Campo para "Bank Info"
         `<textarea
          id="swal-bank"
          class="swal2-textarea"
          style="width: 80%;"
          placeholder="Bank Info"
        >${invoiceConfig.bankInfo || ""}</textarea>` +
-        // Campo para “Pie de página”
+        // Campo para "Pie de página"
         `<textarea
          id="swal-footer"
          class="swal2-textarea"
@@ -1289,7 +1333,7 @@ const Facturasemitidas = () => {
       await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
     }
 
-    // 3) Calcular la clave “hoy” con guiones
+    // 3) Calcular la clave "hoy" con guiones
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -1497,6 +1541,29 @@ const Facturasemitidas = () => {
           />
         )}
 
+        <label></label>
+        <button
+          type="button"
+          className="filter-button"
+          onClick={() => setShowPagoPicker((v) => !v)}
+          style={{ display: "block", margin: "0.5rem 0" }}
+        >
+          {showPagoPicker
+            ? "Ocultar selector"
+            : "Filtrar Por Fecha De Pago"}
+        </button>
+        {showPagoPicker && (
+          <DatePicker
+            selectsRange
+            inline
+            isClearable
+            startDate={filters.fechaPago[0]}
+            endDate={filters.fechaPago[1]}
+            onChange={handlePagoChange}
+            placeholderText="Desde – Hasta"
+          />
+        )}
+
         <label>A Nombre De</label>
         <Select
           isClearable
@@ -1661,6 +1728,7 @@ const Facturasemitidas = () => {
             setFilters({
               fechaEmision: [null, null],
               fechaServicio: [null, null],
+              fechaPago: [null, null],
               direccion: [],
               numerodefactura: [],
               anombrede: [],

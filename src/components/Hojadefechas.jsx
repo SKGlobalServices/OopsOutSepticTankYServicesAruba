@@ -69,6 +69,8 @@ const Hojadefechas = () => {
     factura: "",
     fechaInicio: null,
     fechaFin: null,
+    fechaPagoInicio: null,
+    fechaPagoFin: null,
   });
 
   // Cargar datos de la rama "registrofechas"
@@ -407,6 +409,19 @@ const Hojadefechas = () => {
         .includes(filters.descripcion.toLowerCase())
     )
       return false;
+
+    // 4) Filtrar por Fecha de Pago
+    if (filters.fechaPagoInicio && filters.fechaPagoFin) {
+      if (!registro.fechapago) return false; // Si no tiene fecha de pago, no cumple el filtro
+      const [y, m, d] = registro.fechapago.split("-");
+      const fechaPago = new Date(y, m - 1, d);
+      if (
+        fechaPago < filters.fechaPagoInicio ||
+        fechaPago > filters.fechaPagoFin
+      )
+        return false;
+    }
+
     return true;
   });
 
@@ -801,6 +816,7 @@ const Hojadefechas = () => {
 
   // Manejo del DatePicker para rango de fechas
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPagoDatePicker, setShowPagoDatePicker] = useState(false);
   const handleDateRangeChange = (dates) => {
     const [start, end] = dates;
     setFilters((prev) => ({
@@ -1747,7 +1763,7 @@ const Hojadefechas = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        <label>Rango de Fechas</label>
+        <label>Rango de Fechas de Servicio</label>
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"
@@ -1762,6 +1778,25 @@ const Hojadefechas = () => {
             onChange={handleDateRangeChange}
             startDate={filters.fechaInicio}
             endDate={filters.fechaFin}
+            selectsRange
+            inline
+          />
+        )}
+        <label>Rango de Fechas de Pago</label>
+        <button
+          onClick={() => setShowPagoDatePicker(!showPagoDatePicker)}
+          className="filter-button"
+        >
+          {showPagoDatePicker
+            ? "Ocultar selector de fechas"
+            : "Filtrar por fecha de pago"}
+        </button>
+        {showPagoDatePicker && (
+          <DatePicker
+            selected={filters.fechaPagoInicio}
+            onChange={handlePagoDateRangeChange}
+            startDate={filters.fechaPagoInicio}
+            endDate={filters.fechaPagoFin}
             selectsRange
             inline
           />
@@ -1899,6 +1934,8 @@ const Hojadefechas = () => {
               factura: "",
               fechaInicio: null,
               fechaFin: null,
+              fechaPagoInicio: null,
+              fechaPagoFin: null,
             })
           }
         >
@@ -2116,7 +2153,7 @@ const Hojadefechas = () => {
                             )
                           }
                           style={{
-                            width: "12ch",
+                            width: "16ch",
                             opacity: registro.pago !== "Pago" ? 0.5 : 1,
                             cursor: registro.pago !== "Pago" ? "not-allowed" : "auto"
                           }}
