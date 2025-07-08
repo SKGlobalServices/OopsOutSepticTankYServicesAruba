@@ -89,7 +89,7 @@ const Facturasemitidas = () => {
 
   const [filters, setFilters] = useState({
     direccion: [],
-    numerodefactura: [],
+    numerodefactura: "",
     anombrede: [],
     diasdemora: [],
     fechaEmision: [null, null],
@@ -376,10 +376,10 @@ const Facturasemitidas = () => {
       if (fechaSrv < srvStart || fechaSrv > srvEnd) return false;
     }
 
-    // 3) Multi-select: número de factura
+    // 3) Subcadena: número de factura
     if (
-      filters.numerodefactura.length > 0 &&
-      !filters.numerodefactura.includes(r.numerodefactura)
+      filters.numerodefactura &&
+      !r.numerodefactura?.toString().includes(filters.numerodefactura)
     )
       return false;
 
@@ -1564,6 +1564,16 @@ const Facturasemitidas = () => {
           />
         )}
 
+        <label>Número de Factura</label>
+        <input
+          type="text"
+          placeholder="Buscar por N° de factura"
+          value={filters.numerodefactura}
+          onChange={(e) =>
+            setFilters({ ...filters, numerodefactura: e.target.value })
+          }
+        />
+
         <label>A Nombre De</label>
         <Select
           isClearable
@@ -1730,7 +1740,7 @@ const Facturasemitidas = () => {
               fechaServicio: [null, null],
               fechaPago: [null, null],
               direccion: [],
-              numerodefactura: [],
+              numerodefactura: "",
               anombrede: [],
               diasdemora: [],
               factura: "true",

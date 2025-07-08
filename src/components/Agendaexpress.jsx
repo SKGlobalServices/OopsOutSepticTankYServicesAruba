@@ -16,6 +16,175 @@ const RUTA = {
 };
 const vibrate = (ms = 35) => navigator.vibrate && navigator.vibrate(ms);
 
+/* ─────────────────────  Componentes del Formulario  ───────────────────── */
+
+const AutoInput = ({
+  fieldKey,
+  label,
+  value,
+  onChange,
+  lista,
+  accent,
+  onEnter,
+  onEsc,
+}) => {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const filtered = lista.filter((v) =>
+    v.toLowerCase().includes(value.toLowerCase())
+  );
+
+  return (
+    <div className="autoField" style={{ position: "relative" }}>
+      <input
+        id={fieldKey}
+        placeholder={label}
+        value={value}
+        autoFocus
+        style={{ "--accent": accent }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setShowDropdown(true);
+        }}
+        onFocus={() => setShowDropdown(true)}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onEnter();
+          if (e.key === "Escape") onEsc();
+        }}
+      />
+      {showDropdown && filtered.length > 0 && (
+        <ul
+          className="dropdown-list"
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            maxHeight: "150px",
+            overflowY: "auto",
+            background: "#222",
+            color: "white",
+            border: "1px solid var(--accent)",
+            zIndex: 9999,
+          }}
+        >
+          {filtered.map((item, i) => (
+            <li
+              key={i}
+              style={{
+                padding: "10px",
+                cursor: "pointer",
+                borderBottom: "1px solid #444",
+              }}
+              onMouseDown={() => {
+                onChange(item);
+                onEnter();
+              }}
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+const NumInput = ({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  accent,
+  onEnter,
+  onEsc,
+}) => {
+  const inputRef = React.useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="autoField">
+      <input
+        ref={inputRef}
+        type="number"
+        placeholder={label}
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        style={{ "--accent": accent }}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onEnter();
+          if (e.key === "Escape") onEsc();
+        }}
+      />
+    </div>
+  );
+};
+
+const TextArea = ({ label, value, onChange, accent, onEnter, onEsc }) => {
+  const textAreaRef = React.useRef(null);
+  const [hasFocused, setHasFocused] = useState(false);
+  const [temp, setTemp] = useState(value);
+
+  useEffect(() => {
+    if (!hasFocused) {
+      textAreaRef.current?.focus();
+      setHasFocused(true);
+      // Colocar el cursor al final al iniciar
+      textAreaRef.current.selectionStart = textAreaRef.current.value.length;
+      textAreaRef.current.selectionEnd = textAreaRef.current.value.length;
+    }
+  }, [hasFocused]);
+
+  // Cada vez que se actualice `value`, actualizar `temp` también
+  useEffect(() => {
+    setTemp(value);
+  }, [value]);
+
+  const guardarYColocarCursor = () => {
+    onChange(temp);
+
+    // Timeout para esperar al render y colocar el cursor al final
+    setTimeout(() => {
+      if (textAreaRef.current) {
+        const length = textAreaRef.current.value.length;
+        textAreaRef.current.selectionStart = length;
+        textAreaRef.current.selectionEnd = length;
+        textAreaRef.current.focus();
+      }
+    }, 0);
+  };
+
+  return (
+    <div className="autoField">
+      <textarea
+        ref={textAreaRef}
+        rows={3}
+        placeholder={label}
+        value={temp}
+        style={{ "--accent": accent }}
+        onChange={(e) => setTemp(e.target.value)}
+        onBlur={guardarYColocarCursor}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && e.ctrlKey) {
+            guardarYColocarCursor();
+            onEnter();
+          }
+          if (e.key === "Escape") onEsc();
+        }}
+      />
+      <small>Ctrl + Enter para confirmar</small>
+    </div>
+  );
+};
+
 const AgendaExpress = () => {
   /* ---------- estados ---------- */
   const [fase, setFase] = useState("seleccion");
@@ -92,174 +261,6 @@ const AgendaExpress = () => {
 
     const campo = campos[step];
     const props = { accent, onEnter: next, onEsc: prev };
-
-    /* ---------- Aquí redefinimos AutoInput, NumInput y TextArea ---------- */
-    const AutoInput = ({
-      fieldKey,
-      label,
-      value,
-      onChange,
-      lista,
-      accent,
-      onEnter,
-      onEsc,
-    }) => {
-      const [showDropdown, setShowDropdown] = useState(false);
-      const filtered = lista.filter((v) =>
-        v.toLowerCase().includes(value.toLowerCase())
-      );
-
-      return (
-        <div className="autoField" style={{ position: "relative" }}>
-          <input
-            id={fieldKey}
-            placeholder={label}
-            value={value}
-            autoFocus
-            style={{ "--accent": accent }}
-            onChange={(e) => {
-              onChange(e.target.value);
-              setShowDropdown(true);
-            }}
-            onFocus={() => setShowDropdown(true)}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onEnter();
-              if (e.key === "Escape") onEsc();
-            }}
-          />
-          {showDropdown && filtered.length > 0 && (
-            <ul
-              className="dropdown-list"
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                maxHeight: "150px",
-                overflowY: "auto",
-                background: "#222",
-                color: "white",
-                border: "1px solid var(--accent)",
-                zIndex: 9999,
-              }}
-            >
-              {filtered.map((item, i) => (
-                <li
-                  key={i}
-                  style={{
-                    padding: "10px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #444",
-                  }}
-                  onMouseDown={() => {
-                    onChange(item);
-                    onEnter();
-                  }}
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      );
-    };
-
-    const NumInput = ({
-      label,
-      value,
-      onChange,
-      min,
-      max,
-      step = 1,
-      accent,
-      onEnter,
-      onEsc,
-    }) => {
-      const inputRef = React.useRef(null);
-
-      useEffect(() => {
-        inputRef.current?.focus();
-      }, []);
-
-      return (
-        <div className="autoField">
-          <input
-            ref={inputRef}
-            type="number"
-            placeholder={label}
-            value={value}
-            min={min}
-            max={max}
-            step={step}
-            style={{ "--accent": accent }}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onEnter();
-              if (e.key === "Escape") onEsc();
-            }}
-          />
-        </div>
-      );
-    };
-
-    const TextArea = ({ label, value, onChange, accent, onEnter, onEsc }) => {
-      const textAreaRef = React.useRef(null);
-      const [hasFocused, setHasFocused] = useState(false);
-      const [temp, setTemp] = useState(value);
-
-      useEffect(() => {
-        if (!hasFocused) {
-          textAreaRef.current?.focus();
-          setHasFocused(true);
-          // Colocar el cursor al final al iniciar
-          textAreaRef.current.selectionStart = textAreaRef.current.value.length;
-          textAreaRef.current.selectionEnd = textAreaRef.current.value.length;
-        }
-      }, [hasFocused]);
-
-      // Cada vez que se actualice `value`, actualizar `temp` también
-      useEffect(() => {
-        setTemp(value);
-      }, [value]);
-
-      const guardarYColocarCursor = () => {
-        onChange(temp);
-
-        // Timeout para esperar al render y colocar el cursor al final
-        setTimeout(() => {
-          if (textAreaRef.current) {
-            const length = textAreaRef.current.value.length;
-            textAreaRef.current.selectionStart = length;
-            textAreaRef.current.selectionEnd = length;
-            textAreaRef.current.focus();
-          }
-        }, 0);
-      };
-
-      return (
-        <div className="autoField">
-          <textarea
-            ref={textAreaRef}
-            rows={3}
-            placeholder={label}
-            value={temp}
-            style={{ "--accent": accent }}
-            onChange={(e) => setTemp(e.target.value)}
-            onBlur={guardarYColocarCursor}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) {
-                guardarYColocarCursor();
-                onEnter();
-              }
-              if (e.key === "Escape") onEsc();
-            }}
-          />
-          <small>Ctrl + Enter para confirmar</small>
-        </div>
-      );
-    };
 
     /* ---------- Ahora asignamos el UI correspondiente a cada paso ---------- */
     const fieldUI = useMemo(() => {
