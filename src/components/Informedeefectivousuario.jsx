@@ -12,7 +12,7 @@ import {
 } from "firebase/database";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import Slidebar from "./Slidebar";
+import Slidebaruser from "./Slidebaruser";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
@@ -31,7 +31,7 @@ const formatDateWithHyphen = (date) => {
   return `${day}-${month}-${year}`;
 };
 
-const Informedeefectivo = () => {
+const Informedeefectivousuario = () => {
   const [registroFechasData, setRegistroFechasData] = useState([]);
   const [dataData, setDataData] = useState([]);
   const [dataInformedeefectivoData, setInformedeefectivoData] = useState([]);
@@ -46,12 +46,16 @@ const Informedeefectivo = () => {
   const [loadedInformeEfectivo, setLoadedInformeEfectivo] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
-
-  // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(200);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const filterSlidebarRef = useRef(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [lastAddedId, setLastAddedId] = useState(null);
+  const [editingRows, setEditingRows] = useState({});
+  const loggedUser = JSON.parse(localStorage.getItem("user"));
+  const myUserId = loggedUser?.id;
 
-  // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
     direccion: [],
@@ -59,13 +63,6 @@ const Informedeefectivo = () => {
     fechaInicio: null,
     fechaFin: null,
   });
-  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
-  const filterSlidebarRef = useRef(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  // Estados para edición y último id agregado
-  const [lastAddedId, setLastAddedId] = useState(null);
-  const [editingRows, setEditingRows] = useState({});
 
   // Alternar modo edición
   const toggleEditRow = (id) => {
@@ -279,54 +276,61 @@ const Informedeefectivo = () => {
   }, []);
 
   // --- DEFINICIÓN DE displayedRecords ---
-  // Se calculan a partir de dataInformedeefectivoData, mostrando tanto los registros sincronizados
-  // como los agregados manualmente y aplicando los filtros.
   const displayedRecords = useMemo(() => {
-    const filteredRecords = dataInformedeefectivoData.filter(
-      (record) => record.fecha && record.fecha !== "Sin Fecha"
+    // 1) Solo registros hechos por el usuario actual y con fecha válida
+    const base = dataInformedeefectivoData.filter(
+      (record) =>
+        record.realizadopor === myUserId &&
+        record.fecha &&
+        record.fecha !== "Sin Fecha"
     );
-    const filtered = filteredRecords.filter((record) => {
+
+    // 2) Filtrar por rango de fechas (si está activo)
+    const byDate = base.filter((record) => {
       if (filters.fechaInicio && filters.fechaFin) {
         const [day, month, year] = record.fecha.split("-");
         const itemDate = new Date(year, month - 1, day);
-        if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
+        if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin) {
           return false;
+        }
       }
+      return true;
+    });
 
-      // Filtro para "realizadopor" con soporte para vacíos
-      if (filters.realizadopor.length > 0) {
-        const matchRealizado = filters.realizadopor.some((filterValue) => {
-          if (filterValue === "__EMPTY__") {
-            return !record.realizadopor || record.realizadopor.trim() === "";
-          }
-          return record.realizadopor === filterValue;
-        });
-        if (!matchRealizado) return false;
-      }
-
-      // Filtro para "direccion" con soporte para vacíos
+    // 3) Filtrar por dirección (soporte para vacío)
+    const byDireccion = byDate.filter((record) => {
       if (filters.direccion.length > 0) {
-        const matchDireccion = filters.direccion.some((filterValue) => {
+        return filters.direccion.some((filterValue) => {
           if (filterValue === "__EMPTY__") {
             return !record.direccion || record.direccion.trim() === "";
           }
           return record.direccion === filterValue;
         });
-        if (!matchDireccion) return false;
       }
-
-      if (filters.metododepago && record.metododepago !== filters.metododepago)
-        return false;
       return true;
     });
-    return filtered.sort((a, b) => {
-      const [dayA, monthA, yearA] = a.fecha.split("-");
-      const [dayB, monthB, yearB] = b.fecha.split("-");
-      const dateA = new Date(yearA, monthA - 1, dayA);
-      const dateB = new Date(yearB, monthB - 1, dayB);
+
+    // 4) Filtrar por método de pago
+    const byMetodo = byDireccion.filter((record) => {
+      // Si quieres que siempre sea “efectivo”, omite este filtro o compara directamente:
+      if (
+        filters.metododepago &&
+        record.metododepago !== filters.metododepago
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    // 5) Ordenar descendentemente por fecha
+    return byMetodo.sort((a, b) => {
+      const [dA, mA, yA] = a.fecha.split("-");
+      const [dB, mB, yB] = b.fecha.split("-");
+      const dateA = new Date(parseInt(yA), parseInt(mA) - 1, parseInt(dA));
+      const dateB = new Date(parseInt(yB), parseInt(mB) - 1, parseInt(dB));
       return dateB - dateA;
     });
-  }, [dataInformedeefectivoData, filters]);
+  }, [dataInformedeefectivoData, filters, myUserId]);
 
   // --- CALCULAR EL SALDO ACUMULADO ---
   // Se ordenan de forma ascendente para calcular el saldo acumulado, luego se invierte el arreglo para la tabla.
@@ -675,8 +679,8 @@ const Informedeefectivo = () => {
         const userName = getUserName(userId) || "Desconocido";
         return `
         <tr>
-          <td style="border: 1px solid #ddd; padding: 8px;">${userName}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${total.toFixed(
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${userName}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${total.toFixed(
             2
           )}</td>
         </tr>
@@ -688,18 +692,12 @@ const Informedeefectivo = () => {
       <table style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr>
-            <th style="border: 1px solid #ddd; padding: 8px;">Trabajador</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">Total Efectivo</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Trabajador</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Total Efectivo</th>
           </tr>
         </thead>
         <tbody>
           ${tableRows}
-          <tr>
-            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</th>
-            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">${overallTotal.toFixed(
-              2
-            )}</th>
-          </tr>
         </tbody>
       </table>
     `;
@@ -766,27 +764,6 @@ const Informedeefectivo = () => {
       document.removeEventListener("mousedown", handleClickOutsideFilter);
   }, []);
 
-  // FUNCION DE AGREGAR DATOS:
-  // Se agrega directamente a la rama "informedeefectivo" (con el origen "informedeefectivo")
-  const addData = async (realizadopor, direccion, metododepago, efectivo) => {
-    // Se escribe a la rama "data" en vez de "informedeefectivo"
-    const dbRef = ref(database, "informedeefectivo");
-    const newDataRef = push(dbRef);
-    const currentFecha = formatDateWithHyphen(new Date());
-    const newData = {
-      realizadopor: realizadopor, // aquí guardas la ID
-      fecha: currentFecha,
-      metododepago,
-      efectivo,
-      timestamp: Date.now(),
-      origin: "informedeefectivo",
-    };
-    await set(newDataRef, newData).catch((error) => {
-      console.error("Error adding data: ", error);
-    });
-    setLastAddedId(newDataRef.key);
-  };
-
   const getMetodoPagoColor = (metododepago) => {
     switch (metododepago) {
       case "efectivo":
@@ -828,7 +805,7 @@ const Informedeefectivo = () => {
 
   return (
     <div className="homepage-container">
-      <Slidebar />
+      <Slidebaruser />
 
       {/* Filtros */}
       <div
@@ -865,29 +842,6 @@ const Informedeefectivo = () => {
             inline
           />
         )}
-        <label>Realizado Por</label>
-        <Select
-          isClearable
-          isMulti
-          options={[
-            { value: "__EMPTY__", label: "🚫 Vacío" },
-            ...users.map((u) => ({ value: u.id, label: u.name })),
-          ]}
-          placeholder="Usuario(s)..."
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              realizadopor: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-          value={filters.realizadopor.map((id) => ({
-            value: id,
-            label:
-              id === "__EMPTY__"
-                ? "🚫 Vacío"
-                : users.find((u) => u.id === id)?.name || id,
-          }))}
-        />
         <label>Dirección/Nota</label>
         <Select
           isClearable
@@ -950,7 +904,6 @@ const Informedeefectivo = () => {
                 <th>Método De Pago</th>
                 <th>Efectivo</th>
                 <th>Saldo</th>
-                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1005,28 +958,10 @@ const Informedeefectivo = () => {
                         )}
                       </td>
 
-                      <td>
-                        <select
-                          value={registro.realizadopor || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              registro.fecha,
-                              registro.id,
-                              "realizadopor",
-                              e.target.value,
-                              registro.origin
-                            )
-                          }
-                          disabled={!isEditable}
-                        >
-                          <option value=""></option>
-                          {users.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name}
-                            </option>
-                          ))}
-                        </select>
+                      <td style={{ textAlign: "center" }}>
+                        {getUserName(registro.realizadopor)}
                       </td>
+
                       <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
@@ -1105,52 +1040,6 @@ const Informedeefectivo = () => {
                           ? registro.saldo.toFixed(2)
                           : "0.00"}
                       </td>
-                      <td style={{ minWidth: "28ch" }}>
-                        {registro.origin === "informedeefectivo" && (
-                          <>
-                            <button
-                              style={{}}
-                              onClick={() => toggleEditRow(registro.id)}
-                              className={`edit-button ${
-                                isEditable ? "editable" : "not-editable"
-                              }`}
-                            >
-                              {isEditable ? "✔" : "Editar"}
-                            </button>
-                            <button
-                              className="edit-button"
-                              style={{
-                                marginLeft: "5px",
-                                backgroundColor: "red",
-                                color: "white",
-                              }}
-                              onClick={() => {
-                                Swal.fire({
-                                  title: "¿Eliminar registro?",
-                                  text: "Esta acción no se puede deshacer.",
-                                  icon: "warning",
-                                  showCancelButton: true,
-                                  confirmButtonText: "Sí, eliminar",
-                                  cancelButtonText: "Cancelar",
-                                }).then((result) => {
-                                  if (result.isConfirmed) {
-                                    remove(
-                                      ref(
-                                        database,
-                                        `informedeefectivo/${registro.id}`
-                                      )
-                                    ).catch((err) =>
-                                      console.error("Error al eliminar:", err)
-                                    );
-                                  }
-                                });
-                              }}
-                            >
-                              Borrar
-                            </button>
-                          </>
-                        )}
-                      </td>
                     </tr>
                   );
                 })
@@ -1162,26 +1051,33 @@ const Informedeefectivo = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Controles de paginación */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          marginBottom: "1rem",
-          padding: "0.5rem",
-          background: "#f5f5f5",
-          borderRadius: "4px"
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1rem",
+            padding: "0.5rem",
+            background: "#f5f5f5",
+            borderRadius: "4px",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <span>
-              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de{" "}
+              {totalItems} registros
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
               <label>Mostrar:</label>
-              <select 
-                value={itemsPerPage} 
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
                 style={{ padding: "0.25rem" }}
               >
                 <option value={50}>50</option>
@@ -1192,18 +1088,18 @@ const Informedeefectivo = () => {
               <span>por página</span>
             </div>
           </div>
-          
+
           {/* Controles de navegación */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <button 
-              onClick={goToFirstPage} 
+            <button
+              onClick={goToFirstPage}
               disabled={currentPage === 1}
               style={{ padding: "0.25rem 0.5rem" }}
             >
               ««
             </button>
-            <button 
-              onClick={goToPreviousPage} 
+            <button
+              onClick={goToPreviousPage}
               disabled={currentPage === 1}
               style={{ padding: "0.25rem 0.5rem" }}
             >
@@ -1212,15 +1108,15 @@ const Informedeefectivo = () => {
             <span style={{ margin: "0 1rem" }}>
               Página {currentPage} de {totalPages}
             </span>
-            <button 
-              onClick={goToNextPage} 
+            <button
+              onClick={goToNextPage}
               disabled={currentPage === totalPages}
               style={{ padding: "0.25rem 0.5rem" }}
             >
               »
             </button>
-            <button 
-              onClick={goToLastPage} 
+            <button
+              onClick={goToLastPage}
               disabled={currentPage === totalPages}
               style={{ padding: "0.25rem 0.5rem" }}
             >
@@ -1249,14 +1145,8 @@ const Informedeefectivo = () => {
       <button className="generate-button2" onClick={generatePDF}>
         <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
       </button>
-      <button
-        className="create-table-button"
-        onClick={() => addData("", "", "efectivo", "")}
-      >
-        +
-      </button>
     </div>
   );
 };
 
-export default Informedeefectivo;
+export default Informedeefectivousuario;

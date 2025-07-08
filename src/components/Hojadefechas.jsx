@@ -49,6 +49,10 @@ const Hojadefechas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
+
   // Estado de filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -65,6 +69,8 @@ const Hojadefechas = () => {
     factura: "",
     fechaInicio: null,
     fechaFin: null,
+    fechaPagoInicio: null,
+    fechaPagoFin: null,
   });
 
   // Cargar datos de la rama "registrofechas"
@@ -403,6 +409,19 @@ const Hojadefechas = () => {
         .includes(filters.descripcion.toLowerCase())
     )
       return false;
+
+    // 4) Filtrar por Fecha de Pago
+    if (filters.fechaPagoInicio && filters.fechaPagoFin) {
+      if (!registro.fechapago) return false; // Si no tiene fecha de pago, no cumple el filtro
+      const [y, m, d] = registro.fechapago.split("-");
+      const fechaPago = new Date(y, m - 1, d);
+      if (
+        fechaPago < filters.fechaPagoInicio ||
+        fechaPago > filters.fechaPagoFin
+      )
+        return false;
+    }
+
     return true;
   });
 
@@ -419,7 +438,54 @@ const Hojadefechas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
-  // A partir de aquí utiliza filteredData para mapear tu tabla…
+  // Cálculos de paginación
+  const allRecords = filteredData.flatMap(group => group.registros);
+  const totalItems = allRecords.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageRecords = allRecords.slice(startIndex, endIndex);
+
+  // Reagrupar los registros paginados por fecha
+  const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
+    (acc[r.fecha] = acc[r.fecha] || []).push(r);
+    return acc;
+  }, {});
+  const paginatedData = Object.entries(paginatedGrouped)
+    .map(([fecha, registros]) => ({ fecha, registros }))
+    .sort((a, b) => {
+      const [d1, m1, y1] = a.fecha.split("-");
+      const [d2, m2, y2] = b.fecha.split("-");
+      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+    });
+
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setSelectedRows({}); // Limpiar selección al cambiar página
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+    setSelectedRows({}); // Limpiar selección
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRows({});
+  }, [filters]);
+
+  // A partir de aquí utiliza paginatedData para mapear tu tabla…
 
   const handleRowSelection = (fecha, registroId, checked) => {
     const key = `${fecha}_${registroId}`;
@@ -564,6 +630,41 @@ const Hojadefechas = () => {
       return;
     }
 
+    // 5.1) Campo especial: "pago" - manejar fecha de pago automáticamente
+    if (field === "pago") {
+      let updates = { [field]: safeValue };
+      
+      // Si se marca como "Pago", establecer fecha actual
+      if (safeValue === "Pago") {
+        const today = new Date();
+        const fechaPago = today.toISOString().split('T')[0]; // formato YYYY-MM-DD
+        updates.fechapago = fechaPago;
+      } else {
+        // Si se desmarca o cambia a otro estado, limpiar fecha de pago
+        updates.fechapago = "";
+      }
+
+      // Actualizar en Firebase
+      update(dbRefItem, updates).catch(console.error);
+
+      // Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId ? { ...r, ...updates } : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+      return;
+    }
+
     // 6) Cualquier otro campo → sólo actualizamos ese campo
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
     const updater = (r) =>
@@ -636,8 +737,7 @@ const Hojadefechas = () => {
         Servicio: registro.servicio || "",
         Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        Pago: registro.pago === "Pago" ? "Sí" : "No",
-        "Forma De Pago": registro.formadepago || "",
+        Pago: registro.pago || "",
         Banco: registro.banco || "",
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
@@ -716,6 +816,7 @@ const Hojadefechas = () => {
 
   // Manejo del DatePicker para rango de fechas
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPagoDatePicker, setShowPagoDatePicker] = useState(false);
   const handleDateRangeChange = (dates) => {
     const [start, end] = dates;
     setFilters((prev) => ({
@@ -899,7 +1000,7 @@ const Hojadefechas = () => {
     footer: "",
   });
 
-  // ② Carga desde Firebase (“configuraciondefactura”)
+  // ② Carga desde Firebase ("configuraciondefactura")
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
@@ -926,7 +1027,7 @@ const Hojadefechas = () => {
     billToValue,
     numeroFactura,
     pagoStatus,
-    // pagoDate,
+    pagoDate,
   }) => {
     // Validar que invoiceConfig tenga datos
     if (!invoiceConfig.companyName) {
@@ -1079,6 +1180,12 @@ const Hojadefechas = () => {
       ctx.fillStyle = "green";
       ctx.fillText("PAID", 0, 0);
 
+      const fechaPagoDisplay = pagoDate || today.toLocaleDateString();
+      ctx.globalAlpha = 0.4;
+      ctx.font = "5px Arial";
+      ctx.fillStyle = "green";
+      ctx.fillText(fechaPagoDisplay, 0, 10);
+
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
 
@@ -1183,22 +1290,22 @@ const Hojadefechas = () => {
         `<hr style="color:transparent;"/>` +
         `<label>Bill To:</label>` +
         `<select id="bill-to-type" class="swal2-select" style="width:75%;">
-         <option value="" disabled selected>Elija...</option>
+         <option value="" disabled>Elija...</option>
          <option value="anombrede">A Nombre De</option>
-         <option value="direccion">Dirección</option>
+         <option value="direccion" selected>Dirección</option>
          <option value="personalizado">Personalizado</option>
        </select>` +
         `<input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />` +
         `<hr/>` +
         `<label>Item:</label>` +
         `<select id="swal-item" class="swal2-select" style="width:75%;">
-         <option value="" disabled selected>Seleccione...</option>
+         <option value="" disabled>Seleccione...</option>
          ${Object.keys(ITEM_RATES)
-           .map((i) => `<option value="${i}">${i}</option>`)
+           .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
            .join("\n")}
        </select>` +
         `<textarea id="swal-description" class="swal2-textarea" placeholder="Descripción del servicio" style="width:60%;min-height:80px;resize:vertical;"></textarea>` +
-        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" />` +
+        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" value="1" />` +
         `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
         `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
       focusConfirm: false,
@@ -1258,6 +1365,13 @@ const Hojadefechas = () => {
         const qtyInp = document.getElementById("swal-qty");
         const rateInp = document.getElementById("swal-rate");
         const amtInp = document.getElementById("swal-amount");
+        
+        // Calcular automáticamente al abrir el modal con valores por defecto
+        const defaultRate = ITEM_RATES["Septic Tank"] ?? 0;
+        rateInp.value = defaultRate.toFixed(2);
+        const calculatedAmount = defaultRate * (parseFloat(qtyInp.value) || 0);
+        amtInp.value = formatCurrency(calculatedAmount);
+        
         itemSel.addEventListener("change", (e) => {
           const defaultRate = ITEM_RATES[e.target.value] ?? 0;
           rateInp.value = defaultRate.toFixed(2);
@@ -1364,8 +1478,8 @@ const Hojadefechas = () => {
           
           // Asegurar que pago tenga un valor válido
           const pagoValue = r.pago || "Debe"; // Usar "Debe" como valor por defecto
-          
-          return update(ref(database, path), {
+
+          const updateData = {
             item: res.item,
             descripcion: res.description,
             qty: res.qty,
@@ -1376,7 +1490,13 @@ const Hojadefechas = () => {
             pago: pagoValue, // Usar el valor validado
             factura: true,
             numerodefactura: invoiceIdFinal,
-          });
+          };
+
+          if (res.billToType === "personalizado") {
+            updateData.personalizado = res.customValue;
+          }
+          
+          return update(ref(database, path), updateData);
         })
       );
       await emitirFacturasSeleccionadas();
@@ -1387,7 +1507,7 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
-        agoDate: base.fechapago,
+        pagoDate: base.fechapago,
         item: res.item,
         description: res.description,
         qty: res.qty,
@@ -1529,7 +1649,10 @@ const Hojadefechas = () => {
 
     // 2) Para cada registro seleccionado solo actualiza el campo factura
     for (const key of seleccionadas) {
-      const [fecha, registroId] = key.split("_");
+      const splitIndex = key.indexOf('_');
+      const fecha = key.substring(0, splitIndex);
+      const registroId = key.substring(splitIndex + 1);
+      
       // Determina si viene de data o de registrofechas
       const origin = dataBranch.some((r) => r.id === registroId)
         ? "data"
@@ -1655,7 +1778,7 @@ const Hojadefechas = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        <label>Rango de Fechas</label>
+        <label>Rango de Fechas de Servicio</label>
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"
@@ -1670,6 +1793,25 @@ const Hojadefechas = () => {
             onChange={handleDateRangeChange}
             startDate={filters.fechaInicio}
             endDate={filters.fechaFin}
+            selectsRange
+            inline
+          />
+        )}
+        <label>Rango de Fechas de Pago</label>
+        <button
+          onClick={() => setShowPagoDatePicker(!showPagoDatePicker)}
+          className="filter-button"
+        >
+          {showPagoDatePicker
+            ? "Ocultar selector de fechas"
+            : "Filtrar por fecha de pago"}
+        </button>
+        {showPagoDatePicker && (
+          <DatePicker
+            selected={filters.fechaPagoInicio}
+            onChange={handlePagoDateRangeChange}
+            startDate={filters.fechaPagoInicio}
+            endDate={filters.fechaPagoFin}
             selectsRange
             inline
           />
@@ -1807,6 +1949,8 @@ const Hojadefechas = () => {
               factura: "",
               fechaInicio: null,
               fechaFin: null,
+              fechaPagoInicio: null,
+              fechaPagoFin: null,
             })
           }
         >
@@ -1837,6 +1981,7 @@ const Hojadefechas = () => {
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Pago</th>
+                <th>Fecha de Pago</th>
                 <th>Forma De Pago</th>
                 <th>Banco</th>
                 <th style={{ backgroundColor: "#6200ffb4" }}>Notas</th>
@@ -1849,7 +1994,7 @@ const Hojadefechas = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((item) => (
+              {paginatedData.map((item) => (
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
@@ -1924,13 +2069,6 @@ const Hojadefechas = () => {
                             }
                             list={`direccion-options-${registro.id}`}
                           />
-                          {/* <datalist id={`direccion-options-${registro.id}`}>
-                              {clients.map((client, index) => (
-                                <option key={index} value={client.direccion}>
-                                  {client.direccion}
-                                </option>
-                              ))}
-                            </datalist> */}
                         </div>
                       </td>
                       <td>
@@ -2014,6 +2152,27 @@ const Hojadefechas = () => {
                           <option value="Pendiente">Pendiente</option>
                           <option value="Pendiente Fin De Mes">-</option>
                         </select>
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          value={registro.fechapago || ""}
+                          disabled={registro.pago !== "Pago"}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              item.fecha,
+                              registro.id,
+                              "fechapago",
+                              e.target.value,
+                              registro.origin
+                            )
+                          }
+                          style={{
+                            width: "16ch",
+                            opacity: registro.pago !== "Pago" ? 0.5 : 1,
+                            cursor: registro.pago !== "Pago" ? "not-allowed" : "auto"
+                          }}
+                        />
                       </td>
                       <td>
                         <select
@@ -2230,24 +2389,88 @@ const Hojadefechas = () => {
               ))}
             </tbody>
           </table>
+      </div>
+      <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
         </div>
-        <div
-          className="button-container"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
-          }}
+      </div>
+      <div
+        className="button-container"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <button
+          style={{ backgroundColor: "#5271ff" }}
+          onClick={TotalServiciosPorTrabajador}
+          className="filter-button"
         >
-          <button
-            style={{ backgroundColor: "#5271ff" }}
-            onClick={TotalServiciosPorTrabajador}
-            className="filter-button"
-          >
-            Servicios Por Trabajador
-          </button>
-        </div>
+          Servicios Por Trabajador
+        </button>
       </div>
       <button
         className="generate-button3"
@@ -2267,3 +2490,4 @@ const Hojadefechas = () => {
 };
 
 export default Hojadefechas;
+

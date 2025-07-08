@@ -53,6 +53,11 @@ const Facturasemitidas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
   const [editingRate, setEditingRate] = useState({});
+  const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
+
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(200);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -63,6 +68,13 @@ const Facturasemitidas = () => {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  };
+
+  
+  const calculateDaysDelay = (timestamp, pagoStatus) => {
+    if (pagoStatus === "Pago") return 0;
+    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
+    return Math.max(0, days);
   };
 
   const [invoiceConfig, setInvoiceConfig] = useState({
@@ -78,7 +90,7 @@ const Facturasemitidas = () => {
 
   const [filters, setFilters] = useState({
     direccion: [],
-    numerodefactura: [],
+    numerodefactura: "",
     anombrede: [],
     diasdemora: [],
     fechaEmision: [null, null],
@@ -94,6 +106,7 @@ const Facturasemitidas = () => {
     rateMax: "",
     amountMin: "",
     amountMax: "",
+    fechaPago: [null, null],
   });
 
   // Cargar datos de la rama "registrofechas"
@@ -198,7 +211,7 @@ const Facturasemitidas = () => {
     return unsubscribe;
   }, []);
 
-  // ② Carga desde Firebase (“configuraciondefactura”)
+  // ② Carga desde Firebase ("configuraciondefactura")
   useEffect(() => {
     const configRef = ref(database, "configuraciondefactura");
     return onValue(configRef, (snap) => {
@@ -227,105 +240,31 @@ const Facturasemitidas = () => {
     label: u.name,
   }));
 
-  const anombredeOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.anombrede).filter(Boolean)
+  const anombredeOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.anombrede).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v }))
+  ];
 
-  const direccionOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.direccion).filter(Boolean)
+  const direccionOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.direccion).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a.localeCompare(b))
-    .map((v) => ({ value: v, label: v }));
-
-  const servicioOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.servicio).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const cubicosOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.cubicos).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
-
-  const valorOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.valor).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
-
-  const pagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.pago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const formadePagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.formadepago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const BancoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.banco).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const metododepagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.metododepago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const efectivoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.efectivo).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }))
+  ]
 
   // ————————
   // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
@@ -364,33 +303,44 @@ const Facturasemitidas = () => {
       if (fechaSrv < srvStart || fechaSrv > srvEnd) return false;
     }
 
-    // 3) Multi-select: número de factura
+    // 3) Subcadena: número de factura
     if (
-      filters.numerodefactura.length > 0 &&
-      !filters.numerodefactura.includes(r.numerodefactura)
+      filters.numerodefactura &&
+      !r.numerodefactura?.toString().includes(filters.numerodefactura)
     )
       return false;
 
     // 4) Multi-select: A Nombre De
-    if (
-      filters.anombrede.length > 0 &&
-      !filters.anombrede.includes(r.anombrede)
-    )
-      return false;
+    if (filters.anombrede.length > 0) {
+      const matchAnombrede = filters.anombrede.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.anombrede || r.anombrede === "";
+        }
+        return r.anombrede === valorFiltro;
+      });
+      if (!matchAnombrede) return false;
+    }
 
     // 5) Multi-select: Dirección
-    if (
-      filters.direccion.length > 0 &&
-      !filters.direccion.includes(r.direccion)
-    )
-      return false;
+    if (filters.direccion.length > 0) {
+      const matchDireccion = filters.direccion.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.direccion || r.direccion === "";
+        }
+        return r.direccion === valorFiltro;
+      });
+      if (!matchDireccion) return false;
+    }
 
     // 6) Días de Mora
-    if (filters.diasdemora.length > 0) {
+     if (filters.diasdemora.length > 0) {
       const dias = calculateDaysDelay(r.timestamp, r.pago);
-      const matchDias = filters.diasdemora.some((v) =>
-        v === "10+" ? dias >= 10 : dias === +v
-      );
+      const matchDias = filters.diasdemora.some((valorFiltro) => {
+        if (valorFiltro === "10+") {
+          return dias >= 10;
+        }
+        return dias === parseInt(valorFiltro, 10);
+      });
       if (!matchDias) return false;
     }
 
@@ -399,7 +349,15 @@ const Facturasemitidas = () => {
       return false;
 
     // 8) Multi-select: Item
-    if (filters.item.length > 0 && !filters.item.includes(r.item)) return false;
+    if (filters.item.length > 0) {
+      const matchItem = filters.item.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.item || r.item === "";
+        }
+        return r.item === valorFiltro;
+      });
+      if (!matchItem) return false;
+    }
 
     // 9) Subcadena: Descripción
     if (
@@ -453,15 +411,72 @@ const Facturasemitidas = () => {
       if (!filters.pago.includes(pagoValue)) return false;
     }
 
+    // 15) Filtrar por Fecha de Pago (r.fechapago formato "YYYY-MM-DD")
+    const [pagoStart, pagoEnd] = filters.fechaPago;
+    if (pagoStart && pagoEnd) {
+      if (!r.fechapago) return false;
+      const [y, m, d] = r.fechapago.split("-");
+      const fechaPago = new Date(+y, m - 1, +d);
+      if (fechaPago < pagoStart || fechaPago > pagoEnd) return false;
+    }
+
     return true;
   });
 
-  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA
-  const grouped = filtrados.reduce((acc, r) => {
+  // 2b) ORDENA el array plano según la configuración
+  const sortedRecords = [...filtrados].sort((a, b) => {
+    if (sortConfig.key === 'numerodefactura') {
+      const numA = a.numerodefactura || '';
+      const numB = b.numerodefactura || '';
+      if (sortConfig.direction === 'asc') {
+        return numA.localeCompare(numB, undefined, { numeric: true });
+      }
+      return numB.localeCompare(numA, undefined, { numeric: true });
+    }
+    // Orden por defecto (fecha)
+    const [d1, m1, y1] = a.fecha.split("-");
+    const [d2, m2, y2] = b.fecha.split("-");
+    const dateA = new Date(y1, m1 - 1, d1);
+    const dateB = new Date(y2, m2 - 1, d2);
+    return dateB - dateA; // Descendente por defecto
+  });
+
+  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA (si no se ordena por factura)
+  const grouped = sortedRecords.reduce((acc, r) => {
+    const key = sortConfig.key === 'numerodefactura' ? r.id : r.fecha;
+    (acc[key] = acc[key] || []).push(r);
+    return acc;
+  }, {});
+
+  const filteredData = Object.entries(grouped)
+    .map(([key, registros]) => ({
+      fecha: sortConfig.key === 'numerodefactura' ? registros[0].fecha : key,
+      registros,
+    }))
+    .sort((a, b) => {
+      if (sortConfig.key === 'numerodefactura') {
+        // La ordenación principal ya se hizo en sortedRecords
+        return 0;
+      }
+      const [d1, m1, y1] = a.fecha.split("-");
+      const [d2, m2, y2] = b.fecha.split("-");
+      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+    });
+
+  // Cálculos de paginación
+  const allRecords = filteredData.flatMap(group => group.registros);
+  const totalItems = allRecords.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageRecords = allRecords.slice(startIndex, endIndex);
+
+  // Reagrupar los registros paginados por fecha
+  const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
     (acc[r.fecha] = acc[r.fecha] || []).push(r);
     return acc;
   }, {});
-  const filteredData = Object.entries(grouped)
+  const paginatedData = Object.entries(paginatedGrouped)
     .map(([fecha, registros]) => ({ fecha, registros }))
     .sort((a, b) => {
       const [d1, m1, y1] = a.fecha.split("-");
@@ -469,7 +484,33 @@ const Facturasemitidas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
-  // A partir de aquí utiliza filteredData para mapear tu tabla…
+  // Funciones de navegación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setSelectedRows([]); // Limpiar selección al cambiar página
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Función para cambiar tamaño de página
+  const handleItemsPerPageChange = (newSize) => {
+    setItemsPerPage(newSize);
+    setCurrentPage(1); // Resetear a página 1
+    setSelectedRows([]); // Limpiar selección
+  };
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRows([]);
+  }, [filters]);
+
+  // A partir de aquí utiliza paginatedData para mapear tu tabla…
 
   const handleRowSelection = (fecha, registroId, checked) => {
     const key = `${fecha}_${registroId}`;
@@ -620,12 +661,6 @@ const Facturasemitidas = () => {
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  const calculateDaysDelay = (timestamp, pagoStatus) => {
-    if (pagoStatus === "Pago") return 0; // Si está pagada, no hay mora
-    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
-    return Math.max(0, days);
-  };
-
   /**
    * Maneja cambios de campo en Firebase y sincroniza estado local,
    * incluyendo recálculo de amount si cambian qty o rate.
@@ -685,6 +720,7 @@ const Facturasemitidas = () => {
   // Manejo del DatePicker para rango de fechas
   const [showEmisionPicker, setShowEmisionPicker] = useState(false);
   const [showServicioPicker, setShowServicioPicker] = useState(false);
+  const [showPagoPicker, setShowPagoPicker] = useState(false);
 
   const handleEmisionChange = (dates) => {
     const [start, end] = dates;
@@ -720,6 +756,35 @@ const Facturasemitidas = () => {
     setFilters((prev) => ({
       ...prev,
       fechaServicio: [
+        start
+          ? new Date(
+              start.getFullYear(),
+              start.getMonth(),
+              start.getDate(),
+              0,
+              0,
+              0
+            )
+          : null,
+        end
+          ? new Date(
+              end.getFullYear(),
+              end.getMonth(),
+              end.getDate(),
+              23,
+              59,
+              59
+            )
+          : null,
+      ],
+    }));
+  };
+
+  const handlePagoChange = (dates) => {
+    const [start, end] = dates;
+    setFilters((prev) => ({
+      ...prev,
+      fechaPago: [
         start
           ? new Date(
               start.getFullYear(),
@@ -789,7 +854,7 @@ const Facturasemitidas = () => {
     Swal.fire({
       title: "Configuración de la factura",
       html:
-        // Campo para “Nombre de la empresa”
+        // Campo para "Nombre de la empresa"
         `<input
          id="swal-company"
          type="text"
@@ -798,7 +863,7 @@ const Facturasemitidas = () => {
          placeholder="Nombre de la empresa"
          value="${invoiceConfig.companyName || ""}"
        >` +
-        // Campo para “Direccion”
+        // Campo para "Direccion"
         `<input
          id="swal-address"
          type="text"
@@ -807,7 +872,7 @@ const Facturasemitidas = () => {
          placeholder="Dirección"
          value="${invoiceConfig.address || ""}"
        >` +
-        // Campo para “País”
+        // Campo para "País"
         `<input
          id="swal-country"
          type="text"
@@ -816,7 +881,7 @@ const Facturasemitidas = () => {
          placeholder="País"
          value="${invoiceConfig.country || ""}"
        >` +
-        // Campo para “Ciudad”
+        // Campo para "Ciudad"
         `<input
          id="swal-city"
          type="text"
@@ -825,7 +890,7 @@ const Facturasemitidas = () => {
          placeholder="Ciudad"
          value="${invoiceConfig.city || ""}"
        >` +
-        // Campo para “Código Postal”
+        // Campo para "Código Postal"
         `<input
          id="swal-postal"
          type="text"
@@ -834,7 +899,7 @@ const Facturasemitidas = () => {
          placeholder="Código Postal"
          value="${invoiceConfig.postalCode || ""}"
        >` +
-        // Campo para “Teléfono”
+        // Campo para "Teléfono"
         `<input
          id="swal-phone"
          type="text"
@@ -843,7 +908,7 @@ const Facturasemitidas = () => {
          placeholder="Teléfono"
          value="${invoiceConfig.phone || ""}"
        >` +
-        // Campo para “Correo electrónico”
+        // Campo para "Correo electrónico"
         `<input
          id="swal-email"
          type="email"
@@ -852,14 +917,14 @@ const Facturasemitidas = () => {
          placeholder="Correo electrónico"
          value="${invoiceConfig.email || ""}"
        >` +
-        // Campo para “Bank Info”
+        // Campo para "Bank Info"
         `<textarea
          id="swal-bank"
          class="swal2-textarea"
          style="width: 80%;"
          placeholder="Bank Info"
        >${invoiceConfig.bankInfo || ""}</textarea>` +
-        // Campo para “Pie de página”
+        // Campo para "Pie de página"
         `<textarea
          id="swal-footer"
          class="swal2-textarea"
@@ -909,6 +974,16 @@ const Facturasemitidas = () => {
           showConfirmButton: false,
         });
       }
+    });
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        if (prev.direction === 'desc') return { key: 'fecha', direction: 'desc' }; // Volver a default
+        return { key, direction: 'desc' };
+      }
+      return { key, direction: 'asc' };
     });
   };
 
@@ -1200,21 +1275,50 @@ const Facturasemitidas = () => {
   };
 
   const addEmptyInvoice = async () => {
-    // Generar el número de factura completo
-    const contadorRef = ref(database, "contadorFactura");
-    const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-    const numerodefactura = tx.snapshot.val();
+    // 1. Revisar si hay números disponibles en facturasDisponibles
+    const availableNumsRef = ref(database, "facturasDisponibles");
+    let invoiceId = null;
+    let usedAvailableKey = null;
+    let numerodefactura = null;
 
-    // Formatear YYMM + secuencia 5 dígitos
+    const availableSnapshot = await new Promise((resolve) => {
+      onValue(availableNumsRef, resolve, { onlyOnce: true });
+    });
+
+    if (availableSnapshot.exists()) {
+      // Hay números disponibles, usar el menor
+      const availableData = availableSnapshot.val();
+      const sortedAvailable = Object.entries(availableData).sort(
+        ([, a], [, b]) => a.numeroFactura.localeCompare(b.numeroFactura)
+      );
+      const [key, numeroData] = sortedAvailable[0];
+      invoiceId = numeroData.numeroFactura;
+      usedAvailableKey = key;
+      numerodefactura = parseInt(invoiceId.slice(-5));
+    } else {
+      // No hay números disponibles, generar nuevo
+      const contadorRef = ref(database, "contadorFactura");
+      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+      numerodefactura = tx.snapshot.val();
+      // Formatear YYMM + secuencia 5 dígitos
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const seq = String(numerodefactura).padStart(5, "0");
+      invoiceId = `${yy}${mm}${seq}`;
+    }
+
+    // Si se usó un número disponible, eliminarlo de la lista
+    if (usedAvailableKey) {
+      await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
+    }
+
+    // 3) Calcular la clave "hoy" con guiones
     const today = new Date();
-    const yy = String(today.getFullYear()).slice(-2);
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const seq = String(numerodefactura).padStart(5, "0");
-    const invoiceId = `${yy}${mm}${seq}`;
-
-    // 3) Calcular la clave “hoy” con guiones
     const dd = String(today.getDate()).padStart(2, "0");
-    const fechaKey = `${dd}-${mm}-${today.getFullYear()}`;
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    const fechaKey = `${dd}-${mm}-${yyyy}`;
 
     // 4) Hacer push dentro de registrofechas/<fechaKey> en lugar de la raíz
     const groupRef = ref(database, `registrofechas/${fechaKey}`);
@@ -1222,7 +1326,6 @@ const Facturasemitidas = () => {
 
     await set(newRef, {
       timestamp: Date.now(),
-      // opcional si no lo necesitas dentro del objeto, pues ya caerá bajo la rama correcta:
       fecha: fechaKey,
       numerodefactura: invoiceId,
       anombrede: "",
@@ -1234,6 +1337,99 @@ const Facturasemitidas = () => {
       diasdemora: null,
       factura: true,
     }).catch(console.error);
+  };
+
+  // Función para cancelar factura (igual que en Hojadefechas)
+  const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
+    const { isConfirmed } = await Swal.fire({
+      title: "¿Cancelar Factura?",
+      text: `¿Estás seguro de que deseas cancelar la factura ${numeroFactura}? Esto borrará todos los datos de facturación y el número quedará disponible para reutilización.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, Cancelar",
+      cancelButtonText: "No",
+      confirmButtonColor: "#d33",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      // 1) Limpiar los campos de facturación (campos "F")
+      const fromData = origin === "data";
+      const path = fromData
+        ? `data/${registroId}`
+        : `registrofechas/${fecha}/${registroId}`;
+      const facturaRef = ref(database, path);
+
+      await update(facturaRef, {
+        // Mantener datos base del servicio
+        // Limpiar solo campos de facturación (F)
+        item: null,
+        descripcion: null,
+        qty: null,
+        rate: null,
+        amount: null,
+        billTo: null,
+        personalizado: null,
+        factura: false, // Cambiar a false
+        numerodefactura: null, // Limpiar número
+        fechaEmision: null,
+      });
+
+      // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
+      if (numeroFactura) {
+        const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+        const newAvailableRef = push(numerosDisponiblesRef);
+        await set(newAvailableRef, {
+          numeroFactura: numeroFactura,
+          fechaCancelacion: Date.now(),
+        });
+      }
+
+      // 3) Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId
+          ? {
+              ...r,
+              item: null,
+              descripcion: null,
+              qty: null,
+              rate: null,
+              amount: null,
+              billTo: null,
+              personalizado: null,
+              factura: false,
+              numerodefactura: null,
+              fechaEmision: null,
+            }
+          : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Factura Cancelada",
+        text: `La factura ${numeroFactura} ha sido cancelada. El número quedará disponible para reutilización.`,
+        timer: 2000,
+      });
+    } catch (error) {
+      console.error("Error cancelando factura:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Hubo un error al cancelar la factura.",
+      });
+    }
   };
 
   // Reloj interno
@@ -1324,6 +1520,39 @@ const Facturasemitidas = () => {
             placeholderText="Desde – Hasta"
           />
         )}
+
+        <label></label>
+        <button
+          type="button"
+          className="filter-button"
+          onClick={() => setShowPagoPicker((v) => !v)}
+          style={{ display: "block", margin: "0.5rem 0" }}
+        >
+          {showPagoPicker
+            ? "Ocultar selector"
+            : "Filtrar Por Fecha De Pago"}
+        </button>
+        {showPagoPicker && (
+          <DatePicker
+            selectsRange
+            inline
+            isClearable
+            startDate={filters.fechaPago[0]}
+            endDate={filters.fechaPago[1]}
+            onChange={handlePagoChange}
+            placeholderText="Desde – Hasta"
+          />
+        )}
+
+        <label>Número de Factura</label>
+        <input
+          type="text"
+          placeholder="Buscar por N° de factura"
+          value={filters.numerodefactura}
+          onChange={(e) =>
+            setFilters({ ...filters, numerodefactura: e.target.value })
+          }
+        />
 
         <label>A Nombre De</label>
         <Select
@@ -1489,8 +1718,9 @@ const Facturasemitidas = () => {
             setFilters({
               fechaEmision: [null, null],
               fechaServicio: [null, null],
+              fechaPago: [null, null],
               direccion: [],
-              numerodefactura: [],
+              numerodefactura: "",
               anombrede: [],
               diasdemora: [],
               factura: "true",
@@ -1531,7 +1761,16 @@ const Facturasemitidas = () => {
                 <th>Seleccionar</th>
                 <th>Fecha Emisión</th>
                 <th>Fecha Servicio</th>
-                <th>Factura</th>
+                <th>
+                  <button 
+                    onClick={() => handleSort('numerodefactura')} 
+                    className="sort-button"
+                    title="Ordenar por N° de Factura"
+                  >
+                    Factura 
+                    {sortConfig.key === 'numerodefactura' && (sortConfig.direction === 'asc' ? ' ▲' : ' ▼')}
+                  </button>
+                </th>
                 <th>A Nombre De</th>
                 <th>Personalizado</th>
                 <th className="direccion-fixed-th">Dirección</th>
@@ -1543,10 +1782,11 @@ const Facturasemitidas = () => {
                 <th>amount</th>
                 <th>Fecha de pago</th>
                 <th>Pago</th>
+                <th>Cancelar</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map(({ fecha, registros }) => (
+              {paginatedData.map(({ fecha, registros }) => (
                 <React.Fragment key={fecha}>
                   {registros.map((r) => (
                     <tr key={`${r.origin}_${fecha}_${r.id}`}>
@@ -1728,7 +1968,6 @@ const Facturasemitidas = () => {
                           inputMode="decimal"
                           pattern="[0-9]*([.][0-9]{0,2})?"
                           style={{ width: "10ch", textAlign: "center" }}
-                          // Mostramos el valor en edición o, si no, el rate formateado
                           value={
                             editingRate[r.id] != null
                               ? editingRate[r.id]
@@ -1737,21 +1976,17 @@ const Facturasemitidas = () => {
                               : ""
                           }
                           onFocus={() => {
-                            // Precargamos el valor formateado al entrar el foco
                             setEditingRate((prev) => ({
                               ...prev,
                               [r.id]: r.rate != null ? r.rate.toFixed(2) : "",
                             }));
                           }}
                           onChange={(e) => {
-                            // Solo admitimos dígitos y punto
                             const raw = e.target.value.replace(/[^0-9.]/g, "");
-                            // Actualizamos el estado crudo para mantener cursor
                             setEditingRate((prev) => ({
                               ...prev,
                               [r.id]: raw,
                             }));
-                            // Y guardamos inmediatamente en Firebase / estado local
                             handleFieldChange(
                               fecha,
                               r.id,
@@ -1761,7 +1996,6 @@ const Facturasemitidas = () => {
                             );
                           }}
                           onBlur={() => {
-                            // Al salir, limpiamos el estado de edición para volver a formatear
                             setEditingRate((prev) => {
                               const next = { ...prev };
                               delete next[r.id];
@@ -1770,7 +2004,6 @@ const Facturasemitidas = () => {
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                              // evitamos comportamientos indeseados y volvemos a seleccionar todo
                               e.preventDefault();
                               e.target.select();
                             }
@@ -1816,12 +2049,108 @@ const Facturasemitidas = () => {
                           }}
                         />
                       </td>
+                      <td style={{ textAlign: "center" }}>
+                        {r.factura && r.numerodefactura ? (
+                          <button
+                            onClick={() =>
+                              cancelInvoice(
+                                fecha,
+                                r.id,
+                                r.numerodefactura,
+                                r.origin
+                              )
+                            }
+                            className="delete-button"
+                            style={{
+                              border: "1px solid #ff3300",
+                              backgroundColor: "transparent",
+                              cursor: "pointer",
+                              color: "black",
+                              fontWeight: "normal",
+                              marginLeft: "0",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                            }}
+                            title={`Cancelar factura ${r.numerodefactura}`}
+                          >
+                            Cancelar Factura
+                          </button>
+                        ) : (
+                          <span style={{ color: "#ccc", fontSize: "12px" }}>
+                            Sin factura
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </React.Fragment>
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: "1rem",
+          padding: "0.5rem",
+          background: "#f5f5f5",
+          borderRadius: "4px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} clientes
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label>Mostrar:</label>
+              <select 
+                value={itemsPerPage} 
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                style={{ padding: "0.25rem" }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+          
+          {/* Controles de navegación */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button 
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              ««
+            </button>
+            <button 
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              «
+            </button>
+            <span style={{ margin: "0 1rem" }}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »
+            </button>
+            <button 
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              style={{ padding: "0.25rem 0.5rem" }}
+            >
+              »»
+            </button>
+          </div>
         </div>
         <div
           style={{
