@@ -3638,3 +3638,154 @@ h1,
   justify-content: center;
   margin-top: 0.8rem;
 }
+
+/* Estilos para controles de paginación responsive */
+/* Estilos para controles de paginación responsive */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  /* Agregar margen derecho para evitar colisión con botones flotantes */
+  /* margin-right: 80px; */
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pagination-controls button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 32px;
+  height: 32px;
+}
+
+.pagination-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-controls span {
+  margin: 0 0.5rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.items-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.items-per-page select {
+  padding: 0.25rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* Estilos para móviles */
+@media (max-width: 768px) {
+  .pagination-container {
+    padding: 0.3rem;
+    /* Reducir margen derecho en móviles */
+  }
+  
+  .pagination-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+  
+  .pagination-controls {
+    gap: 0.3rem;
+  }
+  
+  .pagination-controls button {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    min-width: 28px;
+    height: 28px;
+  }
+  
+  .pagination-controls span {
+    font-size: 0.8rem;
+    margin: 0 0.2rem;
+  }
+  
+  .items-per-page {
+    font-size: 0.8rem;
+  }
+  
+  .items-per-page select {
+    font-size: 0.8rem;
+    padding: 0.2rem;
+  }
+}
+
+/* Para pantallas muy pequeñas */
+@media (max-width: 480px) {
+  .pagination-container {
+    padding: 0.2rem;
+    /* Ajustar margen para móviles pequeños */
+    /* Reducir margen inferior para dar más espacio */
+    margin-bottom: 80px;
+  }
+  
+  .pagination-info {
+    font-size: 0.7rem;
+  }
+  
+  .pagination-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .pagination-controls button {
+    padding: 0.15rem 0.3rem;
+    font-size: 0.7rem;
+    min-width: 24px;
+    height: 24px;
+  }
+  
+  .pagination-controls span {
+    font-size: 0.7rem;
+    margin: 0 0.1rem;
+  }
+  
+  .items-per-page {
+    font-size: 0.7rem;
+  }
+  
+  .items-per-page select {
+    font-size: 0.7rem;
+    padding: 0.15rem;
+  }
+}
+
+/* Para pantallas horizontales en móviles */
+@media (max-width: 1000px) and (orientation: landscape) {
+  .pagination-container {
+    margin-bottom: 60px;
+  }
+}
