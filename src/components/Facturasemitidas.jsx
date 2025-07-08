@@ -53,6 +53,7 @@ const Facturasemitidas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
   const [editingRate, setEditingRate] = useState({});
+  const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -239,105 +240,31 @@ const Facturasemitidas = () => {
     label: u.name,
   }));
 
-  const anombredeOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.anombrede).filter(Boolean)
+  const anombredeOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.anombrede).filter(Boolean)
+        )
       )
     )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
+      .sort()
+      .map((v) => ({ value: v, label: v }))
+  ];
 
-  const direccionOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.direccion).filter(Boolean)
+  const direccionOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.direccion).filter(Boolean)
+        )
       )
     )
-  )
-    .sort((a, b) => a.localeCompare(b))
-    .map((v) => ({ value: v, label: v }));
-
-  const servicioOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.servicio).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const cubicosOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.cubicos).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
-
-  const valorOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.valor).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
-
-  const pagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.pago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const formadePagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.formadepago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const BancoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.banco).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const metododepagoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.metododepago).filter(Boolean)
-      )
-    )
-  )
-    .sort()
-    .map((v) => ({ value: v, label: v }));
-
-  const efectivoOptions = Array.from(
-    new Set(
-      allRegistros.flatMap((item) =>
-        item.registros.map((r) => r.efectivo).filter(Boolean)
-      )
-    )
-  )
-    .sort((a, b) => a - b)
-    .map((v) => ({ value: v.toString(), label: v.toString() }));
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }))
+  ]
 
   // ————————
   // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
@@ -384,18 +311,26 @@ const Facturasemitidas = () => {
       return false;
 
     // 4) Multi-select: A Nombre De
-    if (
-      filters.anombrede.length > 0 &&
-      !filters.anombrede.includes(r.anombrede)
-    )
-      return false;
+    if (filters.anombrede.length > 0) {
+      const matchAnombrede = filters.anombrede.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.anombrede || r.anombrede === "";
+        }
+        return r.anombrede === valorFiltro;
+      });
+      if (!matchAnombrede) return false;
+    }
 
     // 5) Multi-select: Dirección
-    if (
-      filters.direccion.length > 0 &&
-      !filters.direccion.includes(r.direccion)
-    )
-      return false;
+    if (filters.direccion.length > 0) {
+      const matchDireccion = filters.direccion.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.direccion || r.direccion === "";
+        }
+        return r.direccion === valorFiltro;
+      });
+      if (!matchDireccion) return false;
+    }
 
     // 6) Días de Mora
      if (filters.diasdemora.length > 0) {
@@ -414,7 +349,15 @@ const Facturasemitidas = () => {
       return false;
 
     // 8) Multi-select: Item
-    if (filters.item.length > 0 && !filters.item.includes(r.item)) return false;
+    if (filters.item.length > 0) {
+      const matchItem = filters.item.some((valorFiltro) => {
+        if (valorFiltro === "__EMPTY__") {
+          return !r.item || r.item === "";
+        }
+        return r.item === valorFiltro;
+      });
+      if (!matchItem) return false;
+    }
 
     // 9) Subcadena: Descripción
     if (
@@ -480,14 +423,41 @@ const Facturasemitidas = () => {
     return true;
   });
 
-  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA
-  const grouped = filtrados.reduce((acc, r) => {
-    (acc[r.fecha] = acc[r.fecha] || []).push(r);
+  // 2b) ORDENA el array plano según la configuración
+  const sortedRecords = [...filtrados].sort((a, b) => {
+    if (sortConfig.key === 'numerodefactura') {
+      const numA = a.numerodefactura || '';
+      const numB = b.numerodefactura || '';
+      if (sortConfig.direction === 'asc') {
+        return numA.localeCompare(numB, undefined, { numeric: true });
+      }
+      return numB.localeCompare(numA, undefined, { numeric: true });
+    }
+    // Orden por defecto (fecha)
+    const [d1, m1, y1] = a.fecha.split("-");
+    const [d2, m2, y2] = b.fecha.split("-");
+    const dateA = new Date(y1, m1 - 1, d1);
+    const dateB = new Date(y2, m2 - 1, d2);
+    return dateB - dateA; // Descendente por defecto
+  });
+
+  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA (si no se ordena por factura)
+  const grouped = sortedRecords.reduce((acc, r) => {
+    const key = sortConfig.key === 'numerodefactura' ? r.id : r.fecha;
+    (acc[key] = acc[key] || []).push(r);
     return acc;
   }, {});
+
   const filteredData = Object.entries(grouped)
-    .map(([fecha, registros]) => ({ fecha, registros }))
+    .map(([key, registros]) => ({
+      fecha: sortConfig.key === 'numerodefactura' ? registros[0].fecha : key,
+      registros,
+    }))
     .sort((a, b) => {
+      if (sortConfig.key === 'numerodefactura') {
+        // La ordenación principal ya se hizo en sortedRecords
+        return 0;
+      }
       const [d1, m1, y1] = a.fecha.split("-");
       const [d2, m2, y2] = b.fecha.split("-");
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
@@ -1004,6 +974,16 @@ const Facturasemitidas = () => {
           showConfirmButton: false,
         });
       }
+    });
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        if (prev.direction === 'desc') return { key: 'fecha', direction: 'desc' }; // Volver a default
+        return { key, direction: 'desc' };
+      }
+      return { key, direction: 'asc' };
     });
   };
 
@@ -1781,7 +1761,16 @@ const Facturasemitidas = () => {
                 <th>Seleccionar</th>
                 <th>Fecha Emisión</th>
                 <th>Fecha Servicio</th>
-                <th>Factura</th>
+                <th>
+                  <button 
+                    onClick={() => handleSort('numerodefactura')} 
+                    className="sort-button"
+                    title="Ordenar por N° de Factura"
+                  >
+                    Factura 
+                    {sortConfig.key === 'numerodefactura' && (sortConfig.direction === 'asc' ? ' ▲' : ' ▼')}
+                  </button>
+                </th>
                 <th>A Nombre De</th>
                 <th>Personalizado</th>
                 <th className="direccion-fixed-th">Dirección</th>
