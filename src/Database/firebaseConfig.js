@@ -4,6 +4,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Importar autenti
 import { getFirestore } from "firebase/firestore"; // Importar Firestore
 
 const firebaseConfig = {
+
   apiKey: "AIzaSyBl3hSY_JN75LnLrEaNNyZP8Xud9PzwDc4",
   authDomain: "oops-out-septic-tank-5f92a.firebaseapp.com",
   databaseURL: "https://oops-out-septic-tank-5f92a-default-rtdb.firebaseio.com",
