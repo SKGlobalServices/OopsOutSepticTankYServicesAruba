@@ -641,7 +641,9 @@ const Hojadefechas = () => {
         updates.fechapago = fechaPago;
       } else {
         // Si se desmarca o cambia a otro estado, limpiar fecha de pago
-        updates.fechapago = "";
+        if (safeValue !== "Pago") {
+          updates.fechapago = "";
+        }
       }
 
       // Actualizar en Firebase
@@ -1030,11 +1032,6 @@ const Hojadefechas = () => {
     pagoDate,
   }) => {
     // Validar que invoiceConfig tenga datos
-    if (!invoiceConfig.companyName) {
-      console.warn("Configuración de factura no cargada completamente");
-      // Esperar un poco más para que se cargue la configuración
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
 
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
@@ -1649,9 +1646,9 @@ const Hojadefechas = () => {
 
     // 2) Para cada registro seleccionado solo actualiza el campo factura
     for (const key of seleccionadas) {
-      const splitIndex = key.indexOf('_');
-      const fecha = key.substring(0, splitIndex);
-      const registroId = key.substring(splitIndex + 1);
+      const lastUnderscoreIndex = key.lastIndexOf('_');
+      const fecha = key.substring(0, lastUnderscoreIndex);
+      const registroId = key.substring(lastUnderscoreIndex + 1);
       
       // Determina si viene de data o de registrofechas
       const origin = dataBranch.some((r) => r.id === registroId)
