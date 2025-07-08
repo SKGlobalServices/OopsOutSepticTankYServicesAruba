@@ -1027,7 +1027,7 @@ const Hojadefechas = () => {
     billToValue,
     numeroFactura,
     pagoStatus,
-    // pagoDate,
+    pagoDate,
   }) => {
     // Validar que invoiceConfig tenga datos
     if (!invoiceConfig.companyName) {
@@ -1179,6 +1179,12 @@ const Hojadefechas = () => {
       ctx.font = "16px Arial";
       ctx.fillStyle = "green";
       ctx.fillText("PAID", 0, 0);
+
+      const fechaPagoDisplay = pagoDate || today.toLocaleDateString();
+      ctx.globalAlpha = 0.4;
+      ctx.font = "5px Arial";
+      ctx.fillStyle = "green";
+      ctx.fillText(fechaPagoDisplay, 0, 10);
 
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
@@ -1472,8 +1478,8 @@ const Hojadefechas = () => {
           
           // Asegurar que pago tenga un valor válido
           const pagoValue = r.pago || "Debe"; // Usar "Debe" como valor por defecto
-          
-          return update(ref(database, path), {
+
+          const updateData = {
             item: res.item,
             descripcion: res.description,
             qty: res.qty,
@@ -1484,7 +1490,13 @@ const Hojadefechas = () => {
             pago: pagoValue, // Usar el valor validado
             factura: true,
             numerodefactura: invoiceIdFinal,
-          });
+          };
+
+          if (res.billToType === "personalizado") {
+            updateData.personalizado = res.customValue;
+          }
+          
+          return update(ref(database, path), updateData);
         })
       );
       await emitirFacturasSeleccionadas();
@@ -1495,7 +1507,7 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
-        agoDate: base.fechapago,
+        pagoDate: base.fechapago,
         item: res.item,
         description: res.description,
         qty: res.qty,
@@ -1637,7 +1649,10 @@ const Hojadefechas = () => {
 
     // 2) Para cada registro seleccionado solo actualiza el campo factura
     for (const key of seleccionadas) {
-      const [fecha, registroId] = key.split("_");
+      const splitIndex = key.indexOf('_');
+      const fecha = key.substring(0, splitIndex);
+      const registroId = key.substring(splitIndex + 1);
+      
       // Determina si viene de data o de registrofechas
       const origin = dataBranch.some((r) => r.id === registroId)
         ? "data"
