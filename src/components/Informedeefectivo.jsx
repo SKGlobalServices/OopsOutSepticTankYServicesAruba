@@ -49,7 +49,7 @@ const Informedeefectivo = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(200);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   // Estados para filtros
   const [filters, setFilters] = useState({

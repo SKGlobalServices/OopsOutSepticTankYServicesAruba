@@ -2064,7 +2064,7 @@ button.delete-button:hover {
     margin: 5px 0;
     padding-bottom: 20px;
     box-sizing: border-box;
-    min-height: calc(100vh - 149px);
+    min-height: calc(90vh - 200px);
   }
 
   .current-date {
@@ -2993,7 +2993,8 @@ button.delete-button:hover {
 
 /* Botón principal con animación */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 10px #007bff;
   }
   50% {
@@ -3026,7 +3027,6 @@ button.delete-button:hover {
   border-color: #007bff;
   color: #007bff;
 }
-
 
 /* ==========  “Pocket mode”  ≤ 480 px  ========= */
 @keyframes scrollBG_mob {
@@ -3156,10 +3156,8 @@ button.delete-button:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 
- /* 🎨 Color plano corporativo (sin neón) */
-color: #007bff; /* Azul oficial del sistema Agenda Express */
-
-
+  /* 🎨 Color plano corporativo (sin neón) */
+  color: #007bff; /* Azul oficial del sistema Agenda Express */
 
   position: relative;
 }
@@ -3580,8 +3578,6 @@ h1,
   font-family: inherit;
 }
 
-
-
 /*AGENDA*/
 .agendaEX .dropdown-list {
   position: absolute;
@@ -3598,7 +3594,6 @@ h1,
   font-family: "Segoe UI", sans-serif;
   color: #ffffff;
   border-radius: 25px; /* ✔️ Bordes redondeados para todo el menú */
-
 }
 
 .agendaEX .dropdown-list li {
@@ -3628,7 +3623,6 @@ h1,
   background-color: var(--accent, #002853);
   border-radius: 10px;
 }
-
 
 /* 🔧 Asegura que los botones se mantengan horizontales siempre */
 .turboBtns {
@@ -3710,33 +3704,33 @@ h1,
     padding: 0.3rem;
     /* Reducir margen derecho en móviles */
   }
-  
+
   .pagination-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;
   }
-  
+
   .pagination-controls {
     gap: 0.3rem;
   }
-  
+
   .pagination-controls button {
     padding: 0.2rem 0.4rem;
     font-size: 0.8rem;
     min-width: 28px;
     height: 28px;
   }
-  
+
   .pagination-controls span {
     font-size: 0.8rem;
     margin: 0 0.2rem;
   }
-  
+
   .items-per-page {
     font-size: 0.8rem;
   }
-  
+
   .items-per-page select {
     font-size: 0.8rem;
     padding: 0.2rem;
@@ -3749,34 +3743,34 @@ h1,
     padding: 0.2rem;
     /* Ajustar margen para móviles pequeños */
     /* Reducir margen inferior para dar más espacio */
-    margin-bottom: 80px;
+    margin-bottom: 0px;
   }
-  
+
   .pagination-info {
     font-size: 0.7rem;
   }
-  
+
   .pagination-controls {
     justify-content: space-between;
     width: 100%;
   }
-  
+
   .pagination-controls button {
     padding: 0.15rem 0.3rem;
     font-size: 0.7rem;
     min-width: 24px;
     height: 24px;
   }
-  
+
   .pagination-controls span {
     font-size: 0.7rem;
     margin: 0 0.1rem;
   }
-  
+
   .items-per-page {
     font-size: 0.7rem;
   }
-  
+
   .items-per-page select {
     font-size: 0.7rem;
     padding: 0.15rem;

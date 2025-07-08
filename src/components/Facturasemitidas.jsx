@@ -57,7 +57,7 @@ const Facturasemitidas = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(200);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);

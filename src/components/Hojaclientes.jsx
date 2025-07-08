@@ -20,7 +20,7 @@ const Clientes = () => {
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(200);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   
   // Ahora filter incluye anombrede
   const [filter, setFilter] = useState({
