@@ -1646,9 +1646,9 @@ const Hojadefechas = () => {
 
     // 2) Para cada registro seleccionado solo actualiza el campo factura
     for (const key of seleccionadas) {
-      const lastUnderscoreIndex = key.lastIndexOf('_');
-      const fecha = key.substring(0, lastUnderscoreIndex);
-      const registroId = key.substring(lastUnderscoreIndex + 1);
+      const indexOfFirstUnderscore = key.indexOf('_');
+      const fecha = key.substring(0, indexOfFirstUnderscore);
+      const registroId = key.substring(indexOfFirstUnderscore + 1);
       
       // Determina si viene de data o de registrofechas
       const origin = dataBranch.some((r) => r.id === registroId)
