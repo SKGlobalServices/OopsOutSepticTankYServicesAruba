@@ -1415,44 +1415,8 @@ const Hojadefechas = () => {
     // 6) Calcular totalAmount sumando los campos 'amount' de los registros seleccionados
     const totalAmount = res.amount * selectedData.length;
 
-    // 7) Incrementar contador en Firebase y obtener número
-    let numeroFactura;
-    let invoiceIdFinal;
+    // 7) Preguntar si queremos emitir antes de generar el PDF
 
-    // Verificar si hay números disponibles para reutilizar
-    const numerosDisponiblesRef = ref(database, "facturasDisponibles");
-    const numerosSnapshot = await new Promise((resolve) => {
-      onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
-    });
-
-    if (numerosSnapshot.exists()) {
-      // Hay números disponibles, usar el menor
-      const numerosData = numerosSnapshot.val();
-      const sortedNumeros = Object.entries(numerosData).sort(([, a], [, b]) =>
-        a.numeroFactura.localeCompare(b.numeroFactura)
-      );
-      const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
-
-      invoiceIdFinal = numeroData.numeroFactura;
-      numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
-
-      // Eliminar de números disponibles
-      await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
-    } else {
-      // No hay números disponibles, generar nuevo
-      const contadorRef = ref(database, "contadorFactura");
-      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-      numeroFactura = tx.snapshot.val();
-
-      // Formatear YYMM + secuencia 5 dígitos para nuevo número
-      const today = new Date();
-      const yy = String(today.getFullYear()).slice(-2);
-      const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const seq = String(numeroFactura).padStart(5, "0");
-      invoiceIdFinal = `${yy}${mm}${seq}`;
-    }
-
-    // 8) Preguntar si queremos emitir antes de generar el PDF
     const { isConfirmed, isDenied } = await Swal.fire({
       title: "¿Deseas emitir las facturas?",
       icon: "question",
@@ -1461,7 +1425,46 @@ const Hojadefechas = () => {
       denyButtonText: "No",
     });
 
+    //  Incrementar contador en Firebase y obtener número
+    
+
     if (isConfirmed) {
+
+      let numeroFactura;
+      let invoiceIdFinal;
+
+      // Verificar si hay números disponibles para reutilizar
+      const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+      const numerosSnapshot = await new Promise((resolve) => {
+        onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
+      });
+
+      if (numerosSnapshot.exists()) {
+        // Hay números disponibles, usar el menor
+        const numerosData = numerosSnapshot.val();
+        const sortedNumeros = Object.entries(numerosData).sort(([, a], [, b]) =>
+          a.numeroFactura.localeCompare(b.numeroFactura)
+        );
+        const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
+
+        invoiceIdFinal = numeroData.numeroFactura;
+        numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
+
+        // Eliminar de números disponibles
+        await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
+      } else {
+        // No hay números disponibles, generar nuevo
+        const contadorRef = ref(database, "contadorFactura");
+        const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+        numeroFactura = tx.snapshot.val();
+
+        // Formatear YYMM + secuencia 5 dígitos para nuevo número
+        const today = new Date();
+        const yy = String(today.getFullYear()).slice(-2);
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const seq = String(numeroFactura).padStart(5, "0");
+        invoiceIdFinal = `${yy}${mm}${seq}`;
+      }    
       // Actualiza cada registro en su ruta original
       await Promise.all(
         selectedData.map((r) => {
@@ -1512,20 +1515,7 @@ const Hojadefechas = () => {
         amount: res.amount,
       });
     } else if (isDenied) {
-      // 8b) Si el usuario dice No → generar el PDF sin emitir
-      await generarPDFconDatos({
-        filas,
-        totalAmount: totalAmount,
-        billToValue,
-        numeroFactura: invoiceIdFinal,
-        pagoStatus: pagoStatus,
-        pagoDate: base.fechapago,
-        item: res.item,
-        description: res.description,
-        qty: res.qty,
-        rate: res.rate,
-        amount: res.amount,
-      });
+      Swal.fire("Cancelado", "La emisión de la factura fue cancelada.", "info");
     }
   };
 
