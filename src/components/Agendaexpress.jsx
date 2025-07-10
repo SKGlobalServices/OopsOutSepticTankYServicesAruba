@@ -28,13 +28,27 @@ const AutoInput = ({
   onEnter,
   onEsc,
 }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(true);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const filtered = lista.filter((v) =>
     v.toLowerCase().includes(value.toLowerCase())
   );
 
   return (
-    <div className="autoField" style={{ position: "relative" }}>
+    <div className="autoField" style={{ position: "relative" }} ref={dropdownRef}>
       <input
         id={fieldKey}
         placeholder={label}
@@ -46,7 +60,6 @@ const AutoInput = ({
           setShowDropdown(true);
         }}
         onFocus={() => setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
         onKeyDown={(e) => {
           if (e.key === "Enter") onEnter();
           if (e.key === "Escape") onEsc();
