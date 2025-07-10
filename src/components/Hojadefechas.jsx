@@ -1294,17 +1294,22 @@ const Hojadefechas = () => {
        </select>` +
         `<input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />` +
         `<hr/>` +
-        `<label>Item:</label>` +
-        `<select id="swal-item" class="swal2-select" style="width:75%;">
-         <option value="" disabled>Seleccione...</option>
-         ${Object.keys(ITEM_RATES)
-           .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
-           .join("\n")}
-       </select>` +
-        `<textarea id="swal-description" class="swal2-textarea" placeholder="Descripción del servicio" style="width:60%;min-height:80px;resize:vertical;"></textarea>` +
-        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" value="1" />` +
-        `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
-        `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
+        `<label style="font-weight:bold; display:block; margin-bottom:10px;">Agregar Items:</label>` +
+        `<div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 15px;">
+           <select id="swal-item-select" class="swal2-select" style="flex: 1;">
+             <option value="" disabled selected>Seleccione un item...</option>
+             ${Object.keys(ITEM_RATES)
+               .map((i) => `<option value="${i}">${i}</option>`)
+               .join("")}
+           </select>
+           <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
+         </div>` +
+        `<hr/>` +
+        `<label style="font-weight:bold; display:block; margin-bottom:10px;">Items Agregados:</label>` +
+        `<div id="added-items-summary" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;"></div>` +
+        `<div style="text-align: right; font-weight: bold; font-size: 1.2em; margin-top: 10px;">
+          Total: <span id="invoice-total">AWG 0.00</span>
+         </div>`,
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -1313,17 +1318,14 @@ const Hojadefechas = () => {
         const customValue = document
           .getElementById("bill-to-custom")
           .value.trim();
-        const item = document.getElementById("swal-item").value;
-        const description = document
-          .getElementById("swal-description")
-          .value.trim();
-        const qty = parseFloat(document.getElementById("swal-qty").value) || 0;
-        const rate =
-          parseFloat(document.getElementById("swal-rate").value) || 0;
-        const amount =
-          parseFloat(
-            document.getElementById("swal-amount").value.replace(/[^\d.-]/g, "")
-          ) || 0;
+
+        // Los items se recogen de la variable 'addedItems' que está en el scope de didOpen
+        if (!window.addedItems || window.addedItems.length === 0) {
+          Swal.showValidationMessage(
+            "Debe agregar al menos un item a la factura."
+          );
+          return false;
+        }
 
         // Validaciones básicas
         if (!fechaEmision)
@@ -1334,22 +1336,17 @@ const Hojadefechas = () => {
           Swal.showValidationMessage(
             "Ingrese texto personalizado para Bill To"
           );
-        if (!item) Swal.showValidationMessage("Seleccione un item");
-        if (qty <= 0) Swal.showValidationMessage("Qty debe ser mayor que 0");
         return {
           fechaEmision,
           facturaNumero: invoiceIdEstimado,
           billToType,
           customValue,
-          item,
-          description,
-          qty,
-          rate,
-          amount,
+          items: window.addedItems,
         };
       },
       didOpen: () => {
-        // Mostrar input personalizado si corresponde
+        window.addedItems = []; // Almacenar items en un scope más accesible
+
         const sel = document.getElementById("bill-to-type");
         const inp = document.getElementById("bill-to-custom");
         sel.addEventListener("change", (e) => {
@@ -1357,33 +1354,161 @@ const Hojadefechas = () => {
             e.target.value === "personalizado" ? "block" : "none";
         });
 
-        // Cálculo automático de Rate -> Amount
-        const itemSel = document.getElementById("swal-item");
-        const qtyInp = document.getElementById("swal-qty");
-        const rateInp = document.getElementById("swal-rate");
-        const amtInp = document.getElementById("swal-amount");
-        
-        // Calcular automáticamente al abrir el modal con valores por defecto
-        const defaultRate = ITEM_RATES["Septic Tank"] ?? 0;
-        rateInp.value = defaultRate.toFixed(2);
-        const calculatedAmount = defaultRate * (parseFloat(qtyInp.value) || 0);
-        amtInp.value = formatCurrency(calculatedAmount);
-        
-        itemSel.addEventListener("change", (e) => {
-          const defaultRate = ITEM_RATES[e.target.value] ?? 0;
-          rateInp.value = defaultRate.toFixed(2);
-          const calculatedAmount =
-            defaultRate * (parseFloat(qtyInp.value) || 0);
-          amtInp.value = formatCurrency(calculatedAmount);
-        });
-        [qtyInp, rateInp].forEach((field) =>
-          field.addEventListener("input", () => {
-            const q = parseFloat(qtyInp.value) || 0;
-            const r = parseFloat(rateInp.value) || 0;
-            const calculatedAmount = q * r;
-            amtInp.value = formatCurrency(calculatedAmount);
-          })
+        const summaryContainer = document.getElementById(
+          "added-items-summary"
         );
+        const totalEl = document.getElementById("invoice-total");
+
+        const updateTotal = () => {
+          const total = window.addedItems.reduce(
+            (sum, item) => sum + item.amount,
+            0
+          );
+          totalEl.textContent = `AWG ${formatCurrency(total)}`;
+        };
+
+        const renderSummary = () => {
+          summaryContainer.innerHTML = "";
+          if (window.addedItems.length === 0) {
+            summaryContainer.innerHTML =
+              '<p style="color: #888; text-align:center;">No hay items todavía.</p>';
+          } else {
+            window.addedItems.forEach((item, index) => {
+              const itemDiv = document.createElement("div");
+              itemDiv.style.cssText =
+                "display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee;";
+              itemDiv.innerHTML = `
+                        <span><strong>${item.item}</strong> (x${
+                item.qty
+              }) - ${formatCurrency(item.amount)}</span>
+                        <div>
+                          <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
+                          <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
+                        </div>
+                    `;
+              summaryContainer.appendChild(itemDiv);
+            });
+          }
+          updateTotal();
+        };
+
+        summaryContainer.addEventListener("click", (e) => {
+          if (e.target.classList.contains("remove-summary-item")) {
+            const indexToRemove = parseInt(
+              e.target.getAttribute("data-index"),
+              10
+            );
+            window.addedItems.splice(indexToRemove, 1);
+            renderSummary();
+          }
+          if (e.target.classList.contains("edit-summary-item")) {
+            const indexToEdit = parseInt(
+              e.target.getAttribute("data-index"),
+              10
+            );
+            const itemToEdit = window.addedItems[indexToEdit];
+
+            showCustomItemModal(
+              itemToEdit.item,
+              (newDetails) => {
+                const updatedItem = {
+                  ...itemToEdit,
+                  description: newDetails.description,
+                  qty: newDetails.qty,
+                  rate: newDetails.rate,
+                  amount: newDetails.qty * newDetails.rate,
+                };
+                window.addedItems[indexToEdit] = updatedItem;
+                renderSummary();
+              },
+              itemToEdit // Pass existing details
+            );
+          }
+        });
+
+        const showCustomItemModal = (itemType, callback, existingDetails = null) => {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'custom-modal-overlay';
+            modalOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center;';
+            
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = 'background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);';
+
+            modalContent.innerHTML = `
+                <h3 style="margin-top:0; margin-bottom: 20px; text-align:center;">Detalles para ${itemType}</h3>
+                <textarea id="custom-item-description" class="swal2-textarea" placeholder="Descripción del servicio" style="display:block; width:95%; min-height: 80px; margin-bottom: 10px;"></textarea>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <input id="custom-item-qty" type="number" class="swal2-input" placeholder="Qty" value="1" min="1">
+                  <input id="custom-item-rate" type="number" class="swal2-input" placeholder="Rate" value="${(ITEM_RATES[itemType] || 0).toFixed(2)}" min="0" step="0.01">
+                </div>
+                <div style="text-align: right; margin-top: 25px;">
+                  <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
+                  <button type="button" id="save-custom-item" class="swal2-confirm swal2-styled">Guardar</button>
+                </div>
+            `;
+
+            modalOverlay.appendChild(modalContent);
+            document.body.appendChild(modalOverlay);
+
+            if (existingDetails) {
+                document.getElementById('custom-item-description').value = existingDetails.description || '';
+                document.getElementById('custom-item-qty').value = existingDetails.qty;
+                document.getElementById('custom-item-rate').value = existingDetails.rate;
+            }
+
+            const close = () => {
+                const overlay = document.getElementById('custom-modal-overlay');
+                if (overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+
+            document.getElementById('save-custom-item').onclick = () => {
+                const details = {
+                    description: document.getElementById('custom-item-description').value,
+                    qty: parseFloat(document.getElementById('custom-item-qty').value) || 0,
+                    rate: parseFloat(document.getElementById('custom-item-rate').value) || 0,
+                };
+                if (details.qty > 0) {
+                    callback(details);
+                }
+                close();
+            };
+
+            document.getElementById('cancel-custom-item').onclick = close;
+        };
+
+
+        document
+          .getElementById("add-selected-item")
+          .addEventListener("click", () => {
+            const select = document.getElementById("swal-item-select");
+            const selectedItem = select.value;
+            if (selectedItem) {
+                showCustomItemModal(selectedItem, (itemDetails) => {
+                    window.addedItems.push({
+                        item: selectedItem,
+                        description: itemDetails.description,
+                        qty: itemDetails.qty,
+                        rate: itemDetails.rate,
+                        amount: itemDetails.qty * itemDetails.rate,
+                    });
+                    renderSummary();
+                });
+              select.value = ""; // Reset dropdown
+            } else {
+              Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "info",
+                title: "Por favor, seleccione un item del menú.",
+                showConfirmButton: false,
+                timer: 2000,
+              });
+            }
+          });
+
+        renderSummary(); // Render inicial
       },
     });
     if (!res) return; // Usuario canceló
@@ -1403,17 +1528,17 @@ const Hojadefechas = () => {
     }
 
     // 5) Preparar filas con los datos ingresados en el modal
-    const filas = selectedData.map((r) => [
-      r.fecha,
-      res.item,
-      res.description,
-      res.qty,
-      res.rate,
-      formatCurrency(res.amount),
+    const filas = res.items.map(item => [
+      base.fecha, // Assuming date is the same for all items in one invoice
+      item.item,
+      item.description,
+      item.qty,
+      item.rate.toFixed(2),
+      formatCurrency(item.amount),
     ]);
 
-    // 6) Calcular totalAmount sumando los campos 'amount' de los registros seleccionados
-    const totalAmount = res.amount * selectedData.length;
+    // 6) Calcular totalAmount sumando los campos 'amount' de los items
+    const totalAmount = res.items.reduce((sum, item) => sum + item.amount, 0);
 
     // 7) Preguntar si queremos emitir antes de generar el PDF
 
@@ -1479,12 +1604,18 @@ const Hojadefechas = () => {
           // Asegurar que pago tenga un valor válido
           const pagoValue = r.pago || "Debe"; // Usar "Debe" como valor por defecto
 
+          // Create a summary for the main fields based on the new items array
+          const mainItem = res.items[0];
+          const description = res.items.map(i => i.description).filter(Boolean).join('; ');
+          const combinedItemName = res.items.map(i => i.item).join(' + ');
+
           const updateData = {
-            item: res.item,
-            descripcion: res.description,
-            qty: res.qty,
-            rate: res.rate,
-            amount: res.amount,
+            // Store the first item's details in the main record fields
+            item: combinedItemName,
+            descripcion: description, // or a summary
+            qty: 1,
+            rate: totalAmount,
+            amount: totalAmount, // Store the total amount of the invoice
             billTo: billToValue,
             timestamp: Date.now(),
             pago: pagoValue, // Usar el valor validado
@@ -1508,11 +1639,7 @@ const Hojadefechas = () => {
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
         pagoDate: base.fechapago,
-        item: res.item,
-        description: res.description,
-        qty: res.qty,
-        rate: res.rate,
-        amount: res.amount,
+        // The individual item details are now in 'filas'
       });
     } else if (isDenied) {
       Swal.fire("Cancelado", "La emisión de la factura fue cancelada.", "info");
@@ -1554,6 +1681,7 @@ const Hojadefechas = () => {
         factura: false, // Cambiar a false
         numerodefactura: null, // Limpiar número
         fechaEmision: null,
+        invoiceItems: null, // Limpiar los items de la factura
       });
 
       // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
@@ -1581,6 +1709,7 @@ const Hojadefechas = () => {
               factura: false,
               numerodefactura: null,
               fechaEmision: null,
+              invoiceItems: null,
             }
           : r;
 
