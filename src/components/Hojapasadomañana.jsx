@@ -1050,9 +1050,17 @@ const Hojapasadomañana = () => {
                         <button
                           className="delete-button"
                           onClick={() => {
+                            const servicio = item.servicio || "No especificado";
+                            const direccion = item.direccion || "No especificada";
                             Swal.fire({
                               title: "¿Estás seguro de borrar este servicio?",
-                              text: "Esta acción no se puede deshacer",
+                              html: `
+                                <div>Esta acción no se puede deshacer.</div>
+                                <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
+                                  <strong>Dirección:</strong> ${direccion}<br>
+                                  <strong>Servicio:</strong> ${servicio}
+                                </div>
+                              `,
                               icon: "warning",
                               showCancelButton: true,
                               confirmButtonColor: "#d33",

@@ -1549,7 +1549,13 @@ const Reprogramacionautomatica = () => {
                         onClick={() => {
                           Swal.fire({
                             title: "¿Estás seguro de borrar este servicio?",
-                            text: "Esta acción no se puede deshacer",
+                             html: `
+                                <div>Esta acción no se puede deshacer.</div>
+                                <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
+                                  <strong>Dirección:</strong> ${item.direccion || "N/A"}<br>
+                                  <strong>Servicio:</strong> ${item.servicio || "N/A"}
+                                </div>
+                              `,
                             icon: "warning",
                             showCancelButton: true,
                             confirmButtonColor: "#d33",
