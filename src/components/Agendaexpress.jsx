@@ -28,8 +28,9 @@ const AutoInput = ({
   onEnter,
   onEsc,
 }) => {
-  const [showDropdown, setShowDropdown] = useState(true);
+  const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -43,6 +44,11 @@ const AutoInput = ({
     };
   }, []);
 
+   useEffect(() => {
+    inputRef.current?.focus();
+    setShowDropdown(true);
+  }, [fieldKey]);
+
   const filtered = lista.filter((v) =>
     v.toLowerCase().includes(value.toLowerCase())
   );
@@ -50,6 +56,7 @@ const AutoInput = ({
   return (
     <div className="autoField" style={{ position: "relative" }} ref={dropdownRef}>
       <input
+        ref={inputRef}
         id={fieldKey}
         placeholder={label}
         value={value}
