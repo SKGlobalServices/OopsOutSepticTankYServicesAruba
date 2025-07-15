@@ -2462,6 +2462,8 @@ const Hojadefechas = () => {
           justifyContent: "space-between",
           alignItems: "center",
           width: "100%",
+          marginBottom:"0",
+          marginTop:"5px"
         }}
       >
         <button

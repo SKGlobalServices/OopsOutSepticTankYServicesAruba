@@ -272,7 +272,7 @@ const Slidebar = () => {
                 src={logoutIcon2}
                 alt="Logout"
               />
-              <span>Logout</span>
+              <span>Cerrar Sesión</span>
             </button>
           </div>
         </details>

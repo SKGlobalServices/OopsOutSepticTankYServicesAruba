@@ -81,7 +81,7 @@ const Slidebarcontador = () => {
         </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
-          <span>Logout</span>
+          <span>Cerrar Sesión</span>
         </button>
       </div>
 
