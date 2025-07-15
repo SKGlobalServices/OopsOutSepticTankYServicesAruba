@@ -14,6 +14,19 @@ const formatCurrency = (amount) => {
   });
 };
 
+// Mapeo estático de items a sus rates
+const ITEM_RATES = {
+  "Septic Tank": 80.0,
+  "Pipes Cleaning": 125.0,
+  Services: 0.0,
+  "Grease Trap": 135.0,
+  "Grease Trap & Pipe Cleanings": 135.0,
+  "Septic Tank & Grease Trap": 135.0,
+  "Dow Temporal": 25.0,
+  "Water Truck": 160.0,
+  Pool: 0.0,
+};
+
 const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   const [facturaData, setFacturaData] = useState(null);
   const [serviciosAsociados, setServiciosAsociados] = useState([]);
@@ -21,6 +34,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   const [editMode, setEditMode] = useState(false);
   const [invoiceConfig, setInvoiceConfig] = useState({});
   const [users, setUsers] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Cargar configuración de factura
   useEffect(() => {
@@ -123,14 +137,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       await update(facturaRef, { [field]: value });
       
       setFacturaData(prev => ({ ...prev, [field]: value }));
+      setHasUnsavedChanges(false);
       
-      Swal.fire({
-        icon: "success",
-        title: "Actualizado",
-        text: "Campo actualizado correctamente",
-        timer: 1500,
-        showConfirmButton: false
-      });
     } catch (error) {
       console.error("Error actualizando factura:", error);
       Swal.fire({
@@ -138,6 +146,185 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         title: "Error",
         text: "No se pudo actualizar el campo"
       });
+    }
+  };
+
+  // Función para actualizar un item de la factura
+  const updateFacturaItem = async (itemKey, field, value) => {
+    if (!numeroFactura) return;
+    
+    try {
+      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
+      await update(facturaRef, { [field]: value });
+      
+      setFacturaData(prev => ({
+        ...prev,
+        invoiceItems: {
+          ...prev.invoiceItems,
+          [itemKey]: {
+            ...prev.invoiceItems[itemKey],
+            [field]: value
+          }
+        }
+      }));
+      
+      // Recalcular el total de la factura
+      const updatedItems = {
+        ...facturaData.invoiceItems,
+        [itemKey]: {
+          ...facturaData.invoiceItems[itemKey],
+          [field]: value
+        }
+      };
+      
+      const newTotal = Object.values(updatedItems).reduce((sum, item) => sum + (item.amount || 0), 0);
+      const newDeuda = Math.max(0, newTotal - (facturaData.payment || 0));
+      
+      // Actualizar total y deuda en Firebase
+      await update(ref(database, `facturas/${numeroFactura}`), {
+        totalAmount: newTotal,
+        deuda: newDeuda
+      });
+      
+      setFacturaData(prev => ({
+        ...prev,
+        totalAmount: newTotal,
+        deuda: newDeuda
+      }));
+      
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Error actualizando item:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo actualizar el item"
+      });
+    }
+  };
+
+  // Función para manejar cambio de item y actualizar rate automáticamente
+  const handleItemChange = async (itemKey, newItem) => {
+    const newRate = ITEM_RATES[newItem] || 0;
+    const currentQty = facturaData.invoiceItems[itemKey]?.qty || 0;
+    const newAmount = currentQty * newRate;
+    
+    try {
+      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
+      await update(facturaRef, { 
+        item: newItem,
+        rate: newRate,
+        amount: newAmount
+      });
+      
+      // Actualizar estado local
+      setFacturaData(prev => ({
+        ...prev,
+        invoiceItems: {
+          ...prev.invoiceItems,
+          [itemKey]: {
+            ...prev.invoiceItems[itemKey],
+            item: newItem,
+            rate: newRate,
+            amount: newAmount
+          }
+        }
+      }));
+      
+      // Recalcular totales
+      const updatedItems = {
+        ...facturaData.invoiceItems,
+        [itemKey]: {
+          ...facturaData.invoiceItems[itemKey],
+          item: newItem,
+          rate: newRate,
+          amount: newAmount
+        }
+      };
+      
+      const newTotal = Object.values(updatedItems).reduce((sum, item) => sum + (item.amount || 0), 0);
+      const newDeuda = Math.max(0, newTotal - (facturaData.payment || 0));
+      
+      await update(ref(database, `facturas/${numeroFactura}`), {
+        totalAmount: newTotal,
+        deuda: newDeuda
+      });
+      
+      setFacturaData(prev => ({
+        ...prev,
+        totalAmount: newTotal,
+        deuda: newDeuda
+      }));
+      
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Error actualizando item:", error);
+    }
+  };
+
+  // Función para recalcular amount cuando cambie qty (en tiempo real)
+  const handleQtyChange = (itemKey, newQty) => {
+    const currentRate = facturaData.invoiceItems[itemKey]?.rate || 0;
+    const newAmount = newQty * currentRate;
+    
+    // Actualizar estado local inmediatamente para feedback visual
+    setFacturaData(prev => ({
+      ...prev,
+      invoiceItems: {
+        ...prev.invoiceItems,
+        [itemKey]: {
+          ...prev.invoiceItems[itemKey],
+          qty: newQty,
+          amount: newAmount
+        }
+      }
+    }));
+    
+    // Recalcular totales inmediatamente
+    const updatedItems = {
+      ...facturaData.invoiceItems,
+      [itemKey]: {
+        ...facturaData.invoiceItems[itemKey],
+        qty: newQty,
+        amount: newAmount
+      }
+    };
+    
+    const newTotal = Object.values(updatedItems).reduce((sum, item) => sum + (item.amount || 0), 0);
+    const newDeuda = Math.max(0, newTotal - (facturaData.payment || 0));
+    
+    setFacturaData(prev => ({
+      ...prev,
+      totalAmount: newTotal,
+      deuda: newDeuda
+    }));
+    
+    setHasUnsavedChanges(true);
+  };
+
+  // Función para guardar qty en Firebase (al hacer blur)
+  const saveQtyToFirebase = async (itemKey, qty) => {
+    const currentRate = facturaData.invoiceItems[itemKey]?.rate || 0;
+    const newAmount = qty * currentRate;
+    
+    try {
+      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
+      await update(facturaRef, { 
+        qty: qty,
+        amount: newAmount
+      });
+      
+      await update(ref(database, `facturas/${numeroFactura}`), {
+        totalAmount: facturaData.totalAmount,
+        deuda: facturaData.deuda
+      });
+      
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Error guardando qty:", error);
     }
   };
 
@@ -162,17 +349,36 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
     }
   };
 
-  // Función para registrar abono y actualizar deuda automáticamente
-  const registrarAbono = async (montoDirecto = null) => {
-    let montoAbono = montoDirecto;
+  // Función simplificada para registrar payment
+  const registrarPayment = async (montoDirecto = null) => {
+    if (!facturaData || !numeroFactura) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo cargar la información de la factura"
+      });
+      return;
+    }
+
+    if (facturaData.deuda <= 0) {
+      Swal.fire({
+        icon: "info",
+        title: "Factura ya pagada",
+        text: "Esta factura ya está completamente pagada"
+      });
+      return;
+    }
+
+    let montoPayment = montoDirecto;
     
+    // Si no viene un monto directo, preguntar al usuario
     if (!montoDirecto) {
       const result = await Swal.fire({
-        title: "Registrar Abono",
+        title: "Registrar Payment",
         html: `
           <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Monto del abono (AWG)</label>
-            <input id="monto-abono" type="number" class="swal2-input" placeholder="0.00" min="0" step="0.01" style="margin: 0; width: 80%;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Monto del payment (AWG)</label>
+            <input id="monto-payment" type="number" class="swal2-input" placeholder="0.00" min="0" step="0.01" style="margin: 0; width: 80%;">
           </div>
           <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
@@ -180,8 +386,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
               <span style="font-weight: bold; color: #dc3545;">AWG ${formatCurrency(facturaData.deuda)}</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-              <span>Abonos totales:</span>
-              <span style="color: #28a745;">AWG ${formatCurrency(facturaData.abonos || 0)}</span>
+              <span>Payments totales:</span>
+              <span style="color: #28a745;">AWG ${formatCurrency(facturaData.payment || 0)}</span>
             </div>
           </div>
           <div style="display: flex; gap: 10px;">
@@ -190,10 +396,10 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
           </div>
         `,
         showCancelButton: true,
-        confirmButtonText: "Registrar",
+        confirmButtonText: "Registrar Payment",
         cancelButtonText: "Cancelar",
         didOpen: () => {
-          const montoInput = document.getElementById('monto-abono');
+          const montoInput = document.getElementById('monto-payment');
           const pagoTotalBtn = document.getElementById('pago-total');
           const mitadBtn = document.getElementById('mitad');
           
@@ -208,13 +414,13 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
           montoInput.focus();
         },
         preConfirm: () => {
-          const value = document.getElementById('monto-abono').value;
+          const value = document.getElementById('monto-payment').value;
           if (!value || parseFloat(value) <= 0) {
             Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
             return false;
           }
           if (parseFloat(value) > facturaData.deuda) {
-            Swal.showValidationMessage("El abono no puede ser mayor que la deuda actual");
+            Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
             return false;
           }
           return parseFloat(value);
@@ -222,43 +428,49 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       });
       
       if (!result.isConfirmed) return;
-      montoAbono = result.value;
+      montoPayment = result.value;
     }
 
-    const abono = parseFloat(montoAbono);
-    const nuevosAbonos = (facturaData.abonos || 0) + abono;
-    const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosAbonos);
-    const facturaCompletamentePagada = nuevaDeuda === 0;
-    
     try {
-      // Actualizar la factura
+      const payment = parseFloat(montoPayment);
+      const nuevosPayments = (facturaData.payment || 0) + payment;
+      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
+      const facturaCompletamentePagada = nuevaDeuda === 0;
+      
+      console.log(`Registrando payment: AWG ${payment}`);
+      console.log(`Payments actuales: AWG ${facturaData.payment || 0}`);
+      console.log(`Nuevos payments: AWG ${nuevosPayments}`);
+      console.log(`Nueva deuda: AWG ${nuevaDeuda}`);
+      
+      // Actualizar la factura en Firebase
       const facturaRef = ref(database, `facturas/${numeroFactura}`);
-      const facturaUpdates = {
-        abonos: parseFloat(nuevosAbonos.toFixed(2)),
+      const updates = {
+        payment: parseFloat(nuevosPayments.toFixed(2)),
         deuda: parseFloat(nuevaDeuda.toFixed(2))
       };
 
-      // Si está completamente pagada, actualizar el estado en la factura también
+      // Si está completamente pagada, actualizar estado
       if (facturaCompletamentePagada) {
-        facturaUpdates.pago = "Pago";
-        facturaUpdates.fechapago = new Date().toISOString().split('T')[0];
+        updates.pago = "Pago";
+        updates.fechapago = new Date().toISOString().split('T')[0];
       }
 
-      await update(facturaRef, facturaUpdates);
-
-      // Si está completamente pagada, actualizar todos los servicios asociados
-      if (facturaCompletamentePagada) {
-        await actualizarEstadoPagoServicios("Pago");
-      }
+      await update(facturaRef, updates);
+      console.log("✅ Factura actualizada en Firebase");
 
       // Actualizar estado local
       setFacturaData(prev => ({
         ...prev,
-        abonos: nuevosAbonos,
+        payment: nuevosPayments,
         deuda: nuevaDeuda,
         pago: facturaCompletamentePagada ? "Pago" : prev.pago,
         fechapago: facturaCompletamentePagada ? new Date().toISOString().split('T')[0] : prev.fechapago
       }));
+
+      // Si está completamente pagada, actualizar servicios asociados
+      if (facturaCompletamentePagada) {
+        await actualizarEstadoPagoServicios("Pago");
+      }
 
       // Mostrar mensaje de éxito
       if (facturaCompletamentePagada) {
@@ -267,9 +479,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
           title: "¡Factura Pagada Completamente!",
           html: `
             <div style="text-align: center;">
-              <p>Se registró un abono de <strong>AWG ${formatCurrency(abono)}</strong></p>
+              <p>Se registró un payment de <strong>AWG ${formatCurrency(payment)}</strong></p>
               <p style="color: #28a745; font-weight: bold;">✅ La factura ha sido marcada como PAGADA</p>
-              <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados automáticamente</p>
+              <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
             </div>
           `,
           timer: 3000
@@ -277,17 +489,62 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       } else {
         Swal.fire({
           icon: "success",
-          title: "Abono Registrado",
-          text: `Se registró un abono de AWG ${formatCurrency(abono)}. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          title: "Payment Registrado",
+          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
           timer: 2000
         });
       }
     } catch (error) {
-      console.error("Error registrando abono:", error);
+      console.error("Error registrando payment:", error);
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "No se pudo registrar el abono"
+        text: "No se pudo registrar el payment. Inténtelo nuevamente."
+      });
+    }
+  };
+
+  // Función para guardar todos los cambios pendientes
+  const guardarCambios = async () => {
+    if (!hasUnsavedChanges) {
+      Swal.fire({
+        icon: "info",
+        title: "No hay cambios",
+        text: "No hay cambios pendientes para guardar",
+        timer: 1500
+      });
+      return;
+    }
+
+    try {
+      Swal.fire({
+        title: "Guardando...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Actualizar factura completa en Firebase
+      const facturaRef = ref(database, `facturas/${numeroFactura}`);
+      await update(facturaRef, facturaData);
+      
+      setHasUnsavedChanges(false);
+      setEditMode(false);
+      
+      Swal.fire({
+        icon: "success",
+        title: "Cambios Guardados",
+        text: "Todos los cambios han sido guardados correctamente",
+        timer: 2000
+      });
+      
+    } catch (error) {
+      console.error("Error guardando cambios:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudieron guardar los cambios"
       });
     }
   };
@@ -300,6 +557,12 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   const formatDate = (timestamp) => {
     if (!timestamp) return "No disponible";
     return new Date(timestamp).toLocaleDateString();
+  };
+
+  // Función para manejar cambios en campos de texto
+  const handleFieldChange = (field, value) => {
+    setFacturaData(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
   };
 
   if (loading) {
@@ -415,20 +678,65 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 )}
               </div>
             )}
+            {hasUnsavedChanges && (
+              <div style={{
+                fontSize: "12px",
+                color: "#ffc107",
+                fontWeight: "bold",
+                marginTop: "4px"
+              }}>
+                ⚠️ Cambios sin guardar
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
+            {editMode && (
+              <button 
+                onClick={guardarCambios}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: hasUnsavedChanges ? "#28a745" : "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: hasUnsavedChanges ? "pointer" : "not-allowed",
+                  fontWeight: "bold"
+                }}
+                disabled={!hasUnsavedChanges}
+              >
+                {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
+              </button>
+            )}
             <button 
-              onClick={() => setEditMode(!editMode)}
+              onClick={() => {
+                if (hasUnsavedChanges) {
+                  Swal.fire({
+                    title: "¿Descartar cambios?",
+                    text: "Tienes cambios sin guardar. ¿Deseas descartarlos?",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Sí, descartar",
+                    cancelButtonText: "Cancelar"
+                  }).then((result) => {
+                    if (result.isConfirmed) {
+                      setEditMode(!editMode);
+                      setHasUnsavedChanges(false);
+                    }
+                  });
+                } else {
+                  setEditMode(!editMode);
+                }
+              }}
               style={{
                 padding: "8px 16px",
-                backgroundColor: editMode ? "#6c757d" : "#28a745",
+                backgroundColor: editMode ? "#6c757d" : "#007bff",
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
                 cursor: "pointer"
               }}
             >
-              {editMode ? "Ver" : "Editar"}
+              {editMode ? "Cancelar" : "Editar"}
             </button>
             <button 
               onClick={onClose}
@@ -471,7 +779,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   <input
                     type="text"
                     value={facturaData.billTo || ""}
-                    onChange={(e) => setFacturaData(prev => ({ ...prev, billTo: e.target.value }))}
+                    onChange={(e) => handleFieldChange("billTo", e.target.value)}
                     onBlur={(e) => updateFacturaField("billTo", e.target.value)}
                     style={{
                       width: "100%",
@@ -525,9 +833,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Abonos:</span>
+                  <span>Payments:</span>
                   <span style={{ color: "#28a745" }}>
-                    AWG {formatCurrency(facturaData.abonos || 0)}
+                    AWG {formatCurrency(facturaData.payment || 0)}
                   </span>
                 </div>
                 
@@ -549,11 +857,11 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 </div>
               </div>
               
-              {/* Botones de abono */}
+              {/* Botones de payment */}
               {(facturaData.deuda || 0) > 0 ? (
                 <div style={{ marginTop: "15px", display: "grid", gap: "8px" }}>
                   <button
-                    onClick={registrarAbono}
+                    onClick={() => registrarPayment()}
                     style={{
                       width: "100%",
                       padding: "10px",
@@ -565,12 +873,12 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                       fontWeight: "bold"
                     }}
                   >
-                    Registrar Abono
+                    Registrar Payment
                   </button>
                   
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                     <button
-                      onClick={() => registrarAbono(facturaData.deuda / 2)}
+                      onClick={() => registrarPayment(facturaData.deuda / 2)}
                       style={{
                         padding: "8px",
                         backgroundColor: "#17a2b8",
@@ -584,7 +892,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                       50% (AWG {formatCurrency(facturaData.deuda / 2)})
                     </button>
                     <button
-                      onClick={() => registrarAbono(facturaData.deuda)}
+                      onClick={() => registrarPayment(facturaData.deuda)}
                       style={{
                         padding: "8px",
                         backgroundColor: "#28a745",
@@ -636,22 +944,107 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.values(facturaData.invoiceItems).map((item, index) => (
-                    <tr key={index}>
+                  {Object.entries(facturaData.invoiceItems).map(([key, item]) => (
+                    <tr key={key}>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
-                        {item.item || "N/A"}
+                        {editMode ? (
+                          <select
+                            value={item.item || ""}
+                            onChange={(e) => handleItemChange(key, e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "4px",
+                              border: "1px solid #ccc",
+                              borderRadius: "3px"
+                            }}
+                          >
+                            <option value="">Seleccione un item...</option>
+                            {Object.keys(ITEM_RATES).map((itemName) => (
+                              <option key={itemName} value={itemName}>
+                                {itemName}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          item.item || "N/A"
+                        )}
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
-                        {item.descripcion || "Sin descripción"}
+                        {editMode ? (
+                          <textarea
+                            value={item.descripcion || ""}
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              setFacturaData(prev => ({
+                                ...prev,
+                                invoiceItems: {
+                                  ...prev.invoiceItems,
+                                  [key]: { ...prev.invoiceItems[key], descripcion: newValue }
+                                }
+                              }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            onBlur={(e) => updateFacturaItem(key, "descripcion", e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "4px",
+                              border: "1px solid #ccc",
+                              borderRadius: "3px",
+                              minHeight: "60px",
+                              resize: "vertical"
+                            }}
+                          />
+                        ) : (
+                          item.descripcion || "Sin descripción"
+                        )}
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "center" }}>
-                        {item.qty || 0}
+                        {editMode ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={item.qty || ""}
+                            onChange={(e) => {
+                              const newQty = parseFloat(e.target.value) || 0;
+                              handleQtyChange(key, newQty);
+                            }}
+                            onBlur={(e) => {
+                              const newQty = parseFloat(e.target.value) || 0;
+                              saveQtyToFirebase(key, newQty);
+                            }}
+                            style={{
+                              width: "60px",
+                              padding: "4px",
+                              border: "1px solid #ccc",
+                              borderRadius: "3px",
+                              textAlign: "center"
+                            }}
+                          />
+                        ) : (
+                          item.qty || 0
+                        )}
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>
-                        AWG {formatCurrency(item.rate || 0)}
+                        <div style={{
+                          padding: "4px",
+                          backgroundColor: editMode ? "#f8f9fa" : "transparent",
+                          borderRadius: "3px",
+                          color: editMode ? "#6c757d" : "inherit",
+                          fontStyle: editMode ? "italic" : "normal"
+                        }}>
+                          AWG {formatCurrency(item.rate || 0)}
+                          {editMode && (
+                            <div style={{ fontSize: "10px", marginTop: "2px" }}>
+                              (Rate fijo)
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>
-                        AWG {formatCurrency(item.amount || 0)}
+                        <span style={{ fontWeight: "bold" }}>
+                          AWG {formatCurrency(item.amount || 0)}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -684,7 +1077,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "left" }}>Servicio</th>
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "center" }}>Cúbicos</th>
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>Valor</th>
-                    <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>Abono</th>
+                    <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>Payment</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -712,7 +1105,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                         AWG {formatCurrency(servicio.valor || 0)}
                       </td>
                       <td style={{ padding: "6px", border: "1px solid #dee2e6", textAlign: "right", fontSize: "12px" }}>
-                        AWG {formatCurrency(servicio.abono || 0)}
+                        AWG {formatCurrency(servicio.payment || 0)}
                       </td>
                     </tr>
                   ))}

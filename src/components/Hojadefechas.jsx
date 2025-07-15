@@ -73,7 +73,7 @@ const Hojadefechas = () => {
     formadepago: [],
     metododepago: [],
     efectivo: [],
-    abono: [],
+    payment: [],
     numerodefactura: "",
     factura: "",
     fechaInicio: null,
@@ -352,12 +352,12 @@ const Hojadefechas = () => {
       .map((v) => ({ value: v.toString(), label: v.toString() })),
   ];
 
-  const abonoOptions = [
+  const paymentOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
       new Set(
         allRegistros.flatMap((item) =>
-          item.registros.map((r) => r.abono).filter(Boolean)
+          item.registros.map((r) => r.payment).filter(Boolean)
         )
       )
     )
@@ -431,7 +431,7 @@ const Hojadefechas = () => {
     if (!match(filters.banco, "banco")) return false;
     if (!match(filters.metododepago, "metododepago")) return false;
     if (!match(filters.efectivo, "efectivo", true)) return false;
-    if (!match(filters.abono, "abono", true)) return false;
+    if (!match(filters.payment, "payment", true)) return false;
 
     // Filtro por número de factura (subcadena)
     if (
@@ -507,23 +507,23 @@ const Hojadefechas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
-  // Función para obtener abonos de la factura
-  const getAbonosFactura = (registro) => {
-    // Si el registro no tiene factura asociada, usar el abono individual
+  // Función para obtener payment de la factura
+  const getPaymentFactura = (registro) => {
+    // Si el registro no tiene factura asociada, usar el payment individual
     if (!registro.numerodefactura && !registro.referenciaFactura) {
-      return registro.abono || 0;
+      return registro.payment || 0;
     }
     
     // Buscar la factura correspondiente
     const numeroFactura = registro.numerodefactura || registro.referenciaFactura;
     const factura = facturas[numeroFactura];
     
-    if (factura && factura.abonos !== undefined) {
-      return factura.abonos;
+    if (factura && factura.payment !== undefined) {
+      return factura.payment;
     }
     
-    // Si no se encuentra la factura, usar el abono individual como fallback
-    return registro.abono || 0;
+    // Si no se encuentra la factura, usar el payment individual como fallback
+    return registro.payment || 0;
   };
 
   // Funciones de navegación
@@ -799,8 +799,8 @@ const Hojadefechas = () => {
     setShowFacturaModal(false);
   };
 
-  // Función para abono rápido desde la tabla
-  const abonoRapido = async (numeroFactura) => {
+  // Función para payment rápido desde la tabla
+  const paymentRapido = async (numeroFactura) => {
     if (!numeroFactura) {
       Swal.fire({
         icon: "warning",
@@ -836,8 +836,8 @@ const Hojadefechas = () => {
       return;
     }
 
-    const { value: montoAbono } = await Swal.fire({
-      title: "Abono Rápido",
+    const { value: montoPayment } = await Swal.fire({
+      title: "Payment Rápido",
       html: `
         <div style="text-align: left; margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -849,8 +849,8 @@ const Hojadefechas = () => {
             <span>AWG ${formatCurrency(facturaData.totalAmount)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span><strong>Abonos:</strong></span>
-            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.abonos || 0)}</span>
+            <span><strong>Payments:</strong></span>
+            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.payment || 0)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
             <span><strong>Deuda:</strong></span>
@@ -858,7 +858,7 @@ const Hojadefechas = () => {
           </div>
         </div>
         <div style="margin-bottom: 10px;">
-          <input id="monto-abono-rapido" type="number" class="swal2-input" placeholder="Monto del abono" min="0" step="0.01" style="margin: 0;">
+          <input id="monto-payment-rapido" type="number" class="swal2-input" placeholder="Monto del payment" min="0" step="0.01" style="margin: 0;">
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <button type="button" id="mitad-rapido" class="swal2-confirm swal2-styled" style="background-color: #17a2b8;">50%</button>
@@ -866,10 +866,10 @@ const Hojadefechas = () => {
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: "Registrar Abono",
+      confirmButtonText: "Registrar Payment",
       cancelButtonText: "Cancelar",
       didOpen: () => {
-        const montoInput = document.getElementById('monto-abono-rapido');
+        const montoInput = document.getElementById('monto-payment-rapido');
         const mitadBtn = document.getElementById('mitad-rapido');
         const totalBtn = document.getElementById('total-rapido');
         
@@ -884,30 +884,30 @@ const Hojadefechas = () => {
         montoInput.focus();
       },
       preConfirm: () => {
-        const value = document.getElementById('monto-abono-rapido').value;
+        const value = document.getElementById('monto-payment-rapido').value;
         if (!value || parseFloat(value) <= 0) {
           Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
           return false;
         }
         if (parseFloat(value) > facturaData.deuda) {
-          Swal.showValidationMessage("El abono no puede ser mayor que la deuda actual");
+          Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
           return false;
         }
         return parseFloat(value);
       }
     });
 
-    if (!montoAbono) return;
+    if (!montoPayment) return;
 
     try {
-      const abono = parseFloat(montoAbono);
-      const nuevosAbonos = (facturaData.abonos || 0) + abono;
-      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosAbonos);
+      const payment = parseFloat(montoPayment);
+      const nuevosPayments = (facturaData.payment || 0) + payment;
+      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
       const facturaCompletamentePagada = nuevaDeuda === 0;
       
       // Actualizar la factura
       const facturaUpdates = {
-        abonos: parseFloat(nuevosAbonos.toFixed(2)),
+        payment: parseFloat(nuevosPayments.toFixed(2)),
         deuda: parseFloat(nuevaDeuda.toFixed(2))
       };
 
@@ -972,7 +972,7 @@ const Hojadefechas = () => {
           title: "¡Factura Pagada Completamente!",
           html: `
             <div style="text-align: center;">
-              <p>Se registró un abono de <strong>AWG ${formatCurrency(abono)}</strong></p>
+              <p>Se registró un payment de <strong>AWG ${formatCurrency(payment)}</strong></p>
               <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
               <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
             </div>
@@ -982,17 +982,17 @@ const Hojadefechas = () => {
       } else {
         Swal.fire({
           icon: "success",
-          title: "Abono Registrado",
-          text: `Abono de AWG ${formatCurrency(abono)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          title: "Payment Registrado",
+          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
           timer: 2000
         });
       }
     } catch (error) {
-      console.error("Error registrando abono:", error);
+      console.error("Error registrando payment:", error);
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "No se pudo registrar el abono"
+        text: "No se pudo registrar el payment"
       });
     }
   };
@@ -1020,7 +1020,7 @@ const Hojadefechas = () => {
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
         Efectivo: registro.efectivo || "",
-        Abono: registro.abono || "",
+        Payment: registro.payment || "",
         "N° Factura": registro.numerodefactura || "",
         Factura: registro.factura ? "Sí" : "No",
       }))
@@ -1043,7 +1043,7 @@ const Hojadefechas = () => {
       "Notas",
       "Método De Pago",
       "Efectivo",
-      "Abono",
+      "Payment",
       "N° Factura",
       "Factura",
     ];
@@ -1889,9 +1889,9 @@ const Hojadefechas = () => {
       }
 
       // ✅ CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
-      // Calcular abonos totales de todos los registros seleccionados
-      const abonosTotales = selectedData.reduce((sum, registro) => {
-        return sum + (parseFloat(registro.abono) || 0);
+      // Calcular payments totales de todos los registros seleccionados
+      const paymentsTotales = selectedData.reduce((sum, registro) => {
+        return sum + (parseFloat(registro.payment) || 0);
       }, 0);
       
       const facturaData = {
@@ -1900,8 +1900,8 @@ const Hojadefechas = () => {
         billTo: billToValue,
         invoiceItems: invoiceItems,
         totalAmount: totalAmount,
-        abonos: abonosTotales, // ✅ Suma de abonos de todos los registros
-        deuda: totalAmount - abonosTotales, // ✅ Deuda = Total - Abonos
+        payment: paymentsTotales, // ✅ Suma de payments de todos los registros
+        deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
         pago: pagoStatus,
         fechapago: base.fechapago || null
         // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
@@ -2296,14 +2296,14 @@ const Hojadefechas = () => {
           placeholder="Monto(s)..."
         />
         
-        <label>Abono</label>
+        <label>Payment</label>
         <Select
           isClearable
           isMulti
-          options={abonoOptions}
-          value={filters.abono}
-          onChange={(opts) => setFilters({ ...filters, abono: opts || [] })}
-          placeholder="Monto(s) de abono..."
+          options={paymentOptions}
+          value={filters.payment}
+          onChange={(opts) => setFilters({ ...filters, payment: opts || [] })}
+          placeholder="Monto(s) de payment..."
         />
 
         <label>N° de Factura</label>
@@ -2346,7 +2346,7 @@ const Hojadefechas = () => {
               banco: [],
               metododepago: [],
               efectivo: [],
-              abono: [],
+              payment: [],
               numerodefactura: "",
               factura: "",
               fechaInicio: null,
@@ -2392,8 +2392,8 @@ const Hojadefechas = () => {
                 <th>Emitir</th>
                 <th>Factura</th>
                 <th>N° Factura</th>
-                <th>Abono</th>
-                <th>Abono Rápido</th>
+                <th>Payment</th>
+                <th>Payment Rápido</th>
                 <th>Pago</th>
                 <th>Cancelar</th>
               </tr>
@@ -2778,7 +2778,7 @@ const Hojadefechas = () => {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
-                          value={getAbonosFactura(registro) || ""}
+                          value={getPaymentFactura(registro) || ""}
                           readOnly
                           style={{
                             width: "10ch",
@@ -2792,7 +2792,7 @@ const Hojadefechas = () => {
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
-                            onClick={() => abonoRapido(registro.numerodefactura)}
+                            onClick={() => paymentRapido(registro.numerodefactura)}
                             style={{
                               padding: "4px 8px",
                               backgroundColor: "#28a745",
@@ -2803,9 +2803,9 @@ const Hojadefechas = () => {
                               fontSize: "11px",
                               fontWeight: "bold"
                             }}
-                            title={`Abono rápido para factura ${registro.numerodefactura}`}
+                            title={`Payment rápido para factura ${registro.numerodefactura}`}
                           >
-                            Abono
+                            Payment
                           </button>
                         ) : (
                           <span style={{ 

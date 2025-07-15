@@ -20,6 +20,14 @@ import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 import FacturaViewEdit from "./FacturaViewEdit";
 
+// Función auxiliar para formatear números con formato 0,000.00
+const formatCurrency = (amount) => {
+  return Number(amount || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 const ITEM_RATES = {
   "Septic Tank": 80.0,
   "Pipes Cleaning": 125.0,
@@ -769,6 +777,204 @@ const Facturasemitidas = () => {
   const closeFacturaModal = () => {
     setSelectedFactura(null);
     setShowFacturaModal(false);
+  };
+
+  // Función para payment rápido desde la tabla
+  const paymentRapido = async (numeroFactura) => {
+    if (!numeroFactura) {
+      Swal.fire({
+        icon: "warning",
+        title: "Sin factura",
+        text: "Este registro no tiene una factura asociada"
+      });
+      return;
+    }
+
+    // Obtener datos de la factura
+    const facturaRef = ref(database, `facturas/${numeroFactura}`);
+    const facturaSnapshot = await new Promise((resolve) => {
+      onValue(facturaRef, resolve, { onlyOnce: true });
+    });
+
+    if (!facturaSnapshot.exists()) {
+      Swal.fire({
+        icon: "error",
+        title: "Factura no encontrada",
+        text: "No se pudo encontrar la información de la factura"
+      });
+      return;
+    }
+
+    const facturaData = facturaSnapshot.val();
+    
+    if (facturaData.deuda <= 0) {
+      Swal.fire({
+        icon: "info",
+        title: "Factura ya pagada",
+        text: "Esta factura ya está completamente pagada"
+      });
+      return;
+    }
+
+    const { value: montoPayment } = await Swal.fire({
+      title: "Payment Rápido",
+      html: `
+        <div style="text-align: left; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Factura:</strong></span>
+            <span style="color: #2196F3; font-weight: bold;">#${numeroFactura}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Total:</strong></span>
+            <span>AWG ${formatCurrency(facturaData.totalAmount)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Payments:</strong></span>
+            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.payment || 0)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
+            <span><strong>Deuda:</strong></span>
+            <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(facturaData.deuda)}</span>
+          </div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <input id="monto-payment-rapido" type="number" class="swal2-input" placeholder="Monto del payment" min="0" step="0.01" style="margin: 0;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" id="mitad-rapido" class="swal2-confirm swal2-styled" style="background-color: #17a2b8;">50%</button>
+          <button type="button" id="total-rapido" class="swal2-confirm swal2-styled" style="background-color: #28a745;">Total</button>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Registrar Payment",
+      cancelButtonText: "Cancelar",
+      didOpen: () => {
+        const montoInput = document.getElementById('monto-payment-rapido');
+        const mitadBtn = document.getElementById('mitad-rapido');
+        const totalBtn = document.getElementById('total-rapido');
+        
+        mitadBtn.onclick = () => {
+          montoInput.value = (facturaData.deuda / 2).toFixed(2);
+        };
+        
+        totalBtn.onclick = () => {
+          montoInput.value = facturaData.deuda.toFixed(2);
+        };
+        
+        montoInput.focus();
+      },
+      preConfirm: () => {
+        const value = document.getElementById('monto-payment-rapido').value;
+        if (!value || parseFloat(value) <= 0) {
+          Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
+          return false;
+        }
+        if (parseFloat(value) > facturaData.deuda) {
+          Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
+          return false;
+        }
+        return parseFloat(value);
+      }
+    });
+
+    if (!montoPayment) return;
+
+    try {
+      const payment = parseFloat(montoPayment);
+      const nuevosPayments = (facturaData.payment || 0) + payment;
+      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
+      const facturaCompletamentePagada = nuevaDeuda === 0;
+      
+      // Actualizar la factura
+      const facturaUpdates = {
+        payment: parseFloat(nuevosPayments.toFixed(2)),
+        deuda: parseFloat(nuevaDeuda.toFixed(2))
+      };
+
+      if (facturaCompletamentePagada) {
+        facturaUpdates.pago = "Pago";
+        facturaUpdates.fechapago = new Date().toISOString().split('T')[0];
+      }
+
+      await update(facturaRef, facturaUpdates);
+
+      // Si está completamente pagada, actualizar todos los servicios asociados
+      if (facturaCompletamentePagada) {
+        // Buscar servicios asociados y actualizarlos
+        const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+          new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+          new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+        ]);
+
+        const serviciosAsociados = [];
+        
+        // Buscar en data
+        if (dataSnapshot.exists()) {
+          const dataVal = dataSnapshot.val();
+          Object.entries(dataVal).forEach(([id, registro]) => {
+            if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+              serviciosAsociados.push({ id, origin: "data" });
+            }
+          });
+        }
+        
+        // Buscar en registrofechas
+        if (registroFechasSnapshot.exists()) {
+          const registroVal = registroFechasSnapshot.val();
+          Object.entries(registroVal).forEach(([fecha, registros]) => {
+            Object.entries(registros).forEach(([id, registro]) => {
+              if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+                serviciosAsociados.push({ id, fecha, origin: "registrofechas" });
+              }
+            });
+          });
+        }
+
+        // Actualizar todos los servicios
+        const updatePromises = serviciosAsociados.map(servicio => {
+          const path = servicio.origin === "data" 
+            ? `data/${servicio.id}` 
+            : `registrofechas/${servicio.fecha}/${servicio.id}`;
+          
+          return update(ref(database, path), { 
+            pago: "Pago",
+            fechapago: new Date().toISOString().split('T')[0]
+          });
+        });
+
+        await Promise.all(updatePromises);
+      }
+
+      // Mostrar mensaje de éxito
+      if (facturaCompletamentePagada) {
+        Swal.fire({
+          icon: "success",
+          title: "¡Factura Pagada Completamente!",
+          html: `
+            <div style="text-align: center;">
+              <p>Se registró un payment de <strong>AWG ${formatCurrency(payment)}</strong></p>
+              <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
+              <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
+            </div>
+          `,
+          timer: 3000
+        });
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "Payment Registrado",
+          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          timer: 2000
+        });
+      }
+    } catch (error) {
+      console.error("Error registrando payment:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo registrar el payment"
+      });
+    }
   };
 
   
@@ -1586,6 +1792,7 @@ const Facturasemitidas = () => {
                 <th>Fecha de pago</th>
                 <th>Pago</th>
                 <th>Ver/Editar</th>
+                <th>Payment Rápido</th>
                 <th>Cancelar</th>
               </tr>
             </thead>
@@ -1737,6 +1944,34 @@ const Facturasemitidas = () => {
                         >
                           Ver/Editar
                         </button>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {r.numerodefactura && r.pago !== "Pago" ? (
+                          <button
+                            onClick={() => paymentRapido(r.numerodefactura)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#007bff",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "11px",
+                              fontWeight: "bold"
+                            }}
+                            title={`Payment rápido para factura ${r.numerodefactura}`}
+                          >
+                            Payment
+                          </button>
+                        ) : (
+                          <span style={{ 
+                            color: "#ccc", 
+                            fontSize: "11px",
+                            fontStyle: "italic"
+                          }}>
+                            {r.pago === "Pago" ? "Pagada" : "Sin factura"}
+                          </span>
+                        )}
                       </td>
                       <td style={{ textAlign: "center" }}>
                         {r.factura && r.numerodefactura ? (
