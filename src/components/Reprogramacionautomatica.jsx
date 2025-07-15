@@ -181,6 +181,7 @@ const Reprogramacionautomatica = () => {
         servicio: e.servicio,
         fecha: e.date.toLocaleDateString(),
         regla: e.regla,
+        date: e.date,
       }));
   };
 
@@ -214,16 +215,28 @@ const Reprogramacionautomatica = () => {
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       margin-bottom: 1em;
+      padding: 1rem;
     }
-    /* Cada campo ocupa toda la anchura y tiene espacio abajo */
+    
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
     #filter-section .filter-field {
       display: flex;
       flex-direction: column;
+      flex: 1;
+      min-width: 140px;
     }
+
     #filter-section .filter-field label {
       font-size: 0.85rem;
       font-weight: 600;
       color: #444;
+      margin-bottom: 0.25rem;
     }
     #filter-section .filter-field input.swal2-input {
       height: 2.4em;
@@ -231,8 +244,9 @@ const Reprogramacionautomatica = () => {
       border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 0.95rem;
-      margin-left: auto;
-      margin-right: auto;
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
     }
     #filter-section button#apply-filters {
       height: 2em;
@@ -278,6 +292,16 @@ const Reprogramacionautomatica = () => {
       <label for="filt-servicio">Servicio</label>
       <input id="filt-servicio" class="swal2-input" list="filt-servicio-list" placeholder="Filtrar…" />
       <datalist id="filt-servicio-list">${srvOptions}</datalist>
+    </div>
+
+    <div class="filter-field">
+      <label for="filt-fecha-inicio">Desde</label>
+      <input id="filt-fecha-inicio" type="date" class="swal2-input" />
+    </div>
+
+    <div class="filter-field">
+      <label for="filt-fecha-fin">Hasta</label>
+      <input id="filt-fecha-fin" type="date" class="swal2-input" />
     </div>
 
     <button id="apply-filters" class="swal2-confirm swal2-styled">
@@ -388,10 +412,33 @@ const Reprogramacionautomatica = () => {
           .addEventListener("click", () => {
             const dirVal = document.getElementById("filt-direccion").value;
             const srvVal = document.getElementById("filt-servicio").value;
+            const fechaInicioVal = document.getElementById("filt-fecha-inicio").value;
+            const fechaFinVal = document.getElementById("filt-fecha-fin").value;
+
             const filtered = preds.filter(
-              (p) =>
-                (!dirVal || p.direccion === dirVal) &&
-                (!srvVal || p.servicio === srvVal)
+              (p) => {
+                const matchDir = !dirVal || p.direccion === dirVal;
+                const matchSrv = !srvVal || p.servicio === srvVal;
+                
+                let matchDate = true;
+                if (fechaInicioVal || fechaFinVal) {
+                    const eventDate = p.date;
+                    if (fechaInicioVal) {
+                        const startDate = new Date(fechaInicioVal + "T00:00:00");
+                        if (eventDate < startDate) {
+                            matchDate = false;
+                        }
+                    }
+                    if (matchDate && fechaFinVal) {
+                        const endDate = new Date(fechaFinVal + "T23:59:59");
+                        if (eventDate > endDate) {
+                            matchDate = false;
+                        }
+                    }
+                }
+
+                return matchDir && matchSrv && matchDate;
+              }
             );
             listContainer.innerHTML = renderList(filtered);
           });
@@ -401,6 +448,8 @@ const Reprogramacionautomatica = () => {
           .addEventListener("click", () => {
             document.getElementById("filt-direccion").value = "";
             document.getElementById("filt-servicio").value = "";
+            document.getElementById("filt-fecha-inicio").value = "";
+            document.getElementById("filt-fecha-fin").value = "";
             listContainer.innerHTML = renderList(preds);
           });
 
@@ -1500,7 +1549,13 @@ const Reprogramacionautomatica = () => {
                         onClick={() => {
                           Swal.fire({
                             title: "¿Estás seguro de borrar este servicio?",
-                            text: "Esta acción no se puede deshacer",
+                             html: `
+                                <div>Esta acción no se puede deshacer.</div>
+                                <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
+                                  <strong>Dirección:</strong> ${item.direccion || "N/A"}<br>
+                                  <strong>Servicio:</strong> ${item.servicio || "N/A"}
+                                </div>
+                              `,
                             icon: "warning",
                             showCancelButton: true,
                             confirmButtonColor: "#d33",

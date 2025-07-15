@@ -21,6 +21,7 @@ import excel_icon from "../assets/img/excel_icon.jpg";
 import guardarfactura from "../assets/img/guardarfactura_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
+import FacturaViewEdit from "./FacturaViewEdit";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -42,6 +43,8 @@ const Hojadefechas = () => {
   const [todos, setTodos] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [facturas, setFacturas] = useState({});
+  const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const [selectedRows, setSelectedRows] = useState({});
@@ -49,9 +52,13 @@ const Hojadefechas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
+  // Estado para el modal de vista/edición de factura
+  const [selectedFactura, setSelectedFactura] = useState(null);
+  const [showFacturaModal, setShowFacturaModal] = useState(false);
+
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(200);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   // Estado de filtros
   const [filters, setFilters] = useState({
@@ -66,6 +73,8 @@ const Hojadefechas = () => {
     formadepago: [],
     metododepago: [],
     efectivo: [],
+    payment: [],
+    numerodefactura: "",
     factura: "",
     fechaInicio: null,
     fechaFin: null,
@@ -173,12 +182,28 @@ const Hojadefechas = () => {
     return unsubscribe;
   }, []);
 
+  // Cargar facturas
+  useEffect(() => {
+    const dbRef = ref(database, "facturas");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setFacturas(snapshot.val());
+        setLoadedFacturas(true);
+      } else {
+        setFacturas({});
+        setLoadedFacturas(true);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Cuando todas las fuentes de datos estén listas, oculta el loader
   useEffect(() => {
-    if (loadedData && loadedRegistro && loadedUsers && loadedClients) {
+    if (loadedData && loadedRegistro && loadedUsers && loadedClients && loadedFacturas) {
       setLoading(false);
     }
-  }, [loadedData, loadedRegistro, loadedUsers, loadedClients]);
+  }, [loadedData, loadedRegistro, loadedUsers, loadedClients, loadedFacturas]);
 
   // Opciones para filtros (se combinan ambos registros)
   const allRegistros = [
@@ -327,6 +352,19 @@ const Hojadefechas = () => {
       .map((v) => ({ value: v.toString(), label: v.toString() })),
   ];
 
+  const paymentOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(
+      new Set(
+        allRegistros.flatMap((item) =>
+          item.registros.map((r) => r.payment).filter(Boolean)
+        )
+      )
+    )
+      .sort((a, b) => a - b)
+      .map((v) => ({ value: v.toString(), label: formatCurrency(v) })),
+  ];
+
   // ————————
   // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
   useEffect(() => {
@@ -393,6 +431,16 @@ const Hojadefechas = () => {
     if (!match(filters.banco, "banco")) return false;
     if (!match(filters.metododepago, "metododepago")) return false;
     if (!match(filters.efectivo, "efectivo", true)) return false;
+    if (!match(filters.payment, "payment", true)) return false;
+
+    // Filtro por número de factura (subcadena)
+    if (
+      filters.numerodefactura &&
+      !(registro.numerodefactura || "")
+        .toLowerCase()
+        .includes(filters.numerodefactura.toLowerCase())
+    )
+      return false;
 
     // 2) Factura sí/no
     if (
@@ -458,6 +506,25 @@ const Hojadefechas = () => {
       const [d2, m2, y2] = b.fecha.split("-");
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
+
+  // Función para obtener payment de la factura
+  const getPaymentFactura = (registro) => {
+    // Si el registro no tiene factura asociada, usar el payment individual
+    if (!registro.numerodefactura && !registro.referenciaFactura) {
+      return registro.payment || 0;
+    }
+    
+    // Buscar la factura correspondiente
+    const numeroFactura = registro.numerodefactura || registro.referenciaFactura;
+    const factura = facturas[numeroFactura];
+    
+    if (factura && factura.payment !== undefined) {
+      return factura.payment;
+    }
+    
+    // Si no se encuentra la factura, usar el payment individual como fallback
+    return registro.payment || 0;
+  };
 
   // Funciones de navegación
   const goToPage = (page) => {
@@ -641,7 +708,9 @@ const Hojadefechas = () => {
         updates.fechapago = fechaPago;
       } else {
         // Si se desmarca o cambia a otro estado, limpiar fecha de pago
-        updates.fechapago = "";
+        if (safeValue !== "Pago") {
+          updates.fechapago = "";
+        }
       }
 
       // Actualizar en Firebase
@@ -719,6 +788,215 @@ const Hojadefechas = () => {
     return found ? found.name : "";
   };
 
+  // Función para abrir el modal de vista/edición de factura
+  const openFacturaModal = (numeroFactura) => {
+    setSelectedFactura(numeroFactura);
+    setShowFacturaModal(true);
+  };
+
+  const closeFacturaModal = () => {
+    setSelectedFactura(null);
+    setShowFacturaModal(false);
+  };
+
+  // Función para payment rápido desde la tabla
+  const paymentRapido = async (numeroFactura) => {
+    if (!numeroFactura) {
+      Swal.fire({
+        icon: "warning",
+        title: "Sin factura",
+        text: "Este registro no tiene una factura asociada"
+      });
+      return;
+    }
+
+    // Obtener datos de la factura
+    const facturaRef = ref(database, `facturas/${numeroFactura}`);
+    const facturaSnapshot = await new Promise((resolve) => {
+      onValue(facturaRef, resolve, { onlyOnce: true });
+    });
+
+    if (!facturaSnapshot.exists()) {
+      Swal.fire({
+        icon: "error",
+        title: "Factura no encontrada",
+        text: "No se pudo encontrar la información de la factura"
+      });
+      return;
+    }
+
+    const facturaData = facturaSnapshot.val();
+    
+    if (facturaData.deuda <= 0) {
+      Swal.fire({
+        icon: "info",
+        title: "Factura ya pagada",
+        text: "Esta factura ya está completamente pagada"
+      });
+      return;
+    }
+
+    const { value: montoPayment } = await Swal.fire({
+      title: "Payment Rápido",
+      html: `
+        <div style="text-align: left; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Factura:</strong></span>
+            <span style="color: #2196F3; font-weight: bold;">#${numeroFactura}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Total:</strong></span>
+            <span>AWG ${formatCurrency(facturaData.totalAmount)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Payments:</strong></span>
+            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.payment || 0)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
+            <span><strong>Deuda:</strong></span>
+            <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(facturaData.deuda)}</span>
+          </div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <input id="monto-payment-rapido" type="number" class="swal2-input" placeholder="Monto del payment" min="0" step="0.01" style="margin: 0;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" id="mitad-rapido" class="swal2-confirm swal2-styled" style="background-color: #17a2b8;">50%</button>
+          <button type="button" id="total-rapido" class="swal2-confirm swal2-styled" style="background-color: #28a745;">Total</button>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Registrar Payment",
+      cancelButtonText: "Cancelar",
+      didOpen: () => {
+        const montoInput = document.getElementById('monto-payment-rapido');
+        const mitadBtn = document.getElementById('mitad-rapido');
+        const totalBtn = document.getElementById('total-rapido');
+        
+        mitadBtn.onclick = () => {
+          montoInput.value = (facturaData.deuda / 2).toFixed(2);
+        };
+        
+        totalBtn.onclick = () => {
+          montoInput.value = facturaData.deuda.toFixed(2);
+        };
+        
+        montoInput.focus();
+      },
+      preConfirm: () => {
+        const value = document.getElementById('monto-payment-rapido').value;
+        if (!value || parseFloat(value) <= 0) {
+          Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
+          return false;
+        }
+        if (parseFloat(value) > facturaData.deuda) {
+          Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
+          return false;
+        }
+        return parseFloat(value);
+      }
+    });
+
+    if (!montoPayment) return;
+
+    try {
+      const payment = parseFloat(montoPayment);
+      const nuevosPayments = (facturaData.payment || 0) + payment;
+      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
+      const facturaCompletamentePagada = nuevaDeuda === 0;
+      
+      // Actualizar la factura
+      const facturaUpdates = {
+        payment: parseFloat(nuevosPayments.toFixed(2)),
+        deuda: parseFloat(nuevaDeuda.toFixed(2))
+      };
+
+      if (facturaCompletamentePagada) {
+        facturaUpdates.pago = "Pago";
+        facturaUpdates.fechapago = new Date().toISOString().split('T')[0];
+      }
+
+      await update(facturaRef, facturaUpdates);
+
+      // Si está completamente pagada, actualizar todos los servicios asociados
+      if (facturaCompletamentePagada) {
+        // Buscar servicios asociados y actualizarlos
+        const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+          new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+          new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+        ]);
+
+        const serviciosAsociados = [];
+        
+        // Buscar en data
+        if (dataSnapshot.exists()) {
+          const dataVal = dataSnapshot.val();
+          Object.entries(dataVal).forEach(([id, registro]) => {
+            if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+              serviciosAsociados.push({ id, origin: "data" });
+            }
+          });
+        }
+        
+        // Buscar en registrofechas
+        if (registroFechasSnapshot.exists()) {
+          const registroVal = registroFechasSnapshot.val();
+          Object.entries(registroVal).forEach(([fecha, registros]) => {
+            Object.entries(registros).forEach(([id, registro]) => {
+              if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+                serviciosAsociados.push({ id, fecha, origin: "registrofechas" });
+              }
+            });
+          });
+        }
+
+        // Actualizar todos los servicios
+        const updatePromises = serviciosAsociados.map(servicio => {
+          const path = servicio.origin === "data" 
+            ? `data/${servicio.id}` 
+            : `registrofechas/${servicio.fecha}/${servicio.id}`;
+          
+          return update(ref(database, path), { 
+            pago: "Pago",
+            fechapago: new Date().toISOString().split('T')[0]
+          });
+        });
+
+        await Promise.all(updatePromises);
+      }
+
+      // Mostrar mensaje de éxito
+      if (facturaCompletamentePagada) {
+        Swal.fire({
+          icon: "success",
+          title: "¡Factura Pagada Completamente!",
+          html: `
+            <div style="text-align: center;">
+              <p>Se registró un payment de <strong>AWG ${formatCurrency(payment)}</strong></p>
+              <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
+              <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
+            </div>
+          `,
+          timer: 3000
+        });
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "Payment Registrado",
+          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          timer: 2000
+        });
+      }
+    } catch (error) {
+      console.error("Error registrando payment:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo registrar el payment"
+      });
+    }
+  };
+
   // Función para manejar cambios en campos específicos
   const getSelectWidth = () => {
     const maxLength = Math.max(...users.map((u) => u.name.length));
@@ -742,6 +1020,8 @@ const Hojadefechas = () => {
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
         Efectivo: registro.efectivo || "",
+        Payment: registro.payment || "",
+        "N° Factura": registro.numerodefactura || "",
         Factura: registro.factura ? "Sí" : "No",
       }))
     );
@@ -763,6 +1043,8 @@ const Hojadefechas = () => {
       "Notas",
       "Método De Pago",
       "Efectivo",
+      "Payment",
+      "N° Factura",
       "Factura",
     ];
     const headerRow = worksheet.addRow(headers);
@@ -1028,13 +1310,19 @@ const Hojadefechas = () => {
     numeroFactura,
     pagoStatus,
     pagoDate,
+    fechaServicio,
+    direccion,
+    servicio,
+    cubicos
   }) => {
-    // Validar que invoiceConfig tenga datos
-    if (!invoiceConfig.companyName) {
-      console.warn("Configuración de factura no cargada completamente");
-      // Esperar un poco más para que se cargue la configuración
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+    // ✅ Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
+    console.log(`Generando PDF con datos dinámicos del primer registro:
+      - Fecha: ${fechaServicio}
+      - Dirección: ${direccion}
+      - Servicio: ${servicio}
+      - Cúbicos: ${cubicos}
+      - Bill To: ${billToValue}
+      - Nota: Estos datos no se guardan en la factura, se obtienen del primer registro seleccionado`);
 
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
@@ -1201,8 +1489,6 @@ const Hojadefechas = () => {
 
   const generateAndMaybeEmitFactura = async () => {
     // 1) Validar selección
-    // EN generateAndMaybeEmitFactura, justo antes de "const base = selectedData[0];"
-    // 1) Validar selección
     const flat = filteredData.flatMap((group) =>
       group.registros.map((r) => ({ ...r, fecha: group.fecha }))
     );
@@ -1219,6 +1505,7 @@ const Hojadefechas = () => {
       });
     }
 
+    // ✅ USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
     const base = selectedData[0];
     const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
 
@@ -1297,17 +1584,22 @@ const Hojadefechas = () => {
        </select>` +
         `<input id="bill-to-custom" class="swal2-input" placeholder="Texto personalizado" style="display:none; width:70%; margin:0.5em auto 0;" />` +
         `<hr/>` +
-        `<label>Item:</label>` +
-        `<select id="swal-item" class="swal2-select" style="width:75%;">
-         <option value="" disabled>Seleccione...</option>
-         ${Object.keys(ITEM_RATES)
-           .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
-           .join("\n")}
-       </select>` +
-        `<textarea id="swal-description" class="swal2-textarea" placeholder="Descripción del servicio" style="width:60%;min-height:80px;resize:vertical;"></textarea>` +
-        `<input id="swal-qty" type="number" min="0" class="swal2-input" placeholder="Qty" value="1" />` +
-        `<input id="swal-rate" type="number" min="0" step="0.01" class="swal2-input" placeholder="Rate" />` +
-        `<input id="swal-amount" class="swal2-input" placeholder="Amount" readonly />`,
+        `<label style="font-weight:bold; display:block; margin-bottom:10px;">Agregar Items:</label>` +
+        `<div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 15px;">
+           <select id="swal-item-select" class="swal2-select" style="flex: 1;">
+             <option value="" disabled selected>Seleccione un item...</option>
+             ${Object.keys(ITEM_RATES)
+               .map((i) => `<option value="${i}">${i}</option>`)
+               .join("")}
+           </select>
+           <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
+         </div>` +
+        `<hr/>` +
+        `<label style="font-weight:bold; display:block; margin-bottom:10px;">Items Agregados:</label>` +
+        `<div id="added-items-summary" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;"></div>` +
+        `<div style="text-align: right; font-weight: bold; font-size: 1.2em; margin-top: 10px;">
+          Total: <span id="invoice-total">AWG 0.00</span>
+         </div>`,
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -1316,17 +1608,14 @@ const Hojadefechas = () => {
         const customValue = document
           .getElementById("bill-to-custom")
           .value.trim();
-        const item = document.getElementById("swal-item").value;
-        const description = document
-          .getElementById("swal-description")
-          .value.trim();
-        const qty = parseFloat(document.getElementById("swal-qty").value) || 0;
-        const rate =
-          parseFloat(document.getElementById("swal-rate").value) || 0;
-        const amount =
-          parseFloat(
-            document.getElementById("swal-amount").value.replace(/[^\d.-]/g, "")
-          ) || 0;
+
+        // Los items se recogen de la variable 'addedItems' que está en el scope de didOpen
+        if (!window.addedItems || window.addedItems.length === 0) {
+          Swal.showValidationMessage(
+            "Debe agregar al menos un item a la factura."
+          );
+          return false;
+        }
 
         // Validaciones básicas
         if (!fechaEmision)
@@ -1337,22 +1626,17 @@ const Hojadefechas = () => {
           Swal.showValidationMessage(
             "Ingrese texto personalizado para Bill To"
           );
-        if (!item) Swal.showValidationMessage("Seleccione un item");
-        if (qty <= 0) Swal.showValidationMessage("Qty debe ser mayor que 0");
         return {
           fechaEmision,
           facturaNumero: invoiceIdEstimado,
           billToType,
           customValue,
-          item,
-          description,
-          qty,
-          rate,
-          amount,
+          items: window.addedItems,
         };
       },
       didOpen: () => {
-        // Mostrar input personalizado si corresponde
+        window.addedItems = []; // Almacenar items en un scope más accesible
+
         const sel = document.getElementById("bill-to-type");
         const inp = document.getElementById("bill-to-custom");
         sel.addEventListener("change", (e) => {
@@ -1360,38 +1644,166 @@ const Hojadefechas = () => {
             e.target.value === "personalizado" ? "block" : "none";
         });
 
-        // Cálculo automático de Rate -> Amount
-        const itemSel = document.getElementById("swal-item");
-        const qtyInp = document.getElementById("swal-qty");
-        const rateInp = document.getElementById("swal-rate");
-        const amtInp = document.getElementById("swal-amount");
-        
-        // Calcular automáticamente al abrir el modal con valores por defecto
-        const defaultRate = ITEM_RATES["Septic Tank"] ?? 0;
-        rateInp.value = defaultRate.toFixed(2);
-        const calculatedAmount = defaultRate * (parseFloat(qtyInp.value) || 0);
-        amtInp.value = formatCurrency(calculatedAmount);
-        
-        itemSel.addEventListener("change", (e) => {
-          const defaultRate = ITEM_RATES[e.target.value] ?? 0;
-          rateInp.value = defaultRate.toFixed(2);
-          const calculatedAmount =
-            defaultRate * (parseFloat(qtyInp.value) || 0);
-          amtInp.value = formatCurrency(calculatedAmount);
-        });
-        [qtyInp, rateInp].forEach((field) =>
-          field.addEventListener("input", () => {
-            const q = parseFloat(qtyInp.value) || 0;
-            const r = parseFloat(rateInp.value) || 0;
-            const calculatedAmount = q * r;
-            amtInp.value = formatCurrency(calculatedAmount);
-          })
+        const summaryContainer = document.getElementById(
+          "added-items-summary"
         );
+        const totalEl = document.getElementById("invoice-total");
+
+        const updateTotal = () => {
+          const total = window.addedItems.reduce(
+            (sum, item) => sum + item.amount,
+            0
+          );
+          totalEl.textContent = `AWG ${formatCurrency(total)}`;
+        };
+
+        const renderSummary = () => {
+          summaryContainer.innerHTML = "";
+          if (window.addedItems.length === 0) {
+            summaryContainer.innerHTML =
+              '<p style="color: #888; text-align:center;">No hay items todavía.</p>';
+          } else {
+            window.addedItems.forEach((item, index) => {
+              const itemDiv = document.createElement("div");
+              itemDiv.style.cssText =
+                "display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee;";
+              itemDiv.innerHTML = `
+                        <span><strong>${item.item}</strong> (x${
+                item.qty
+              }) - ${formatCurrency(item.amount)}</span>
+                        <div>
+                          <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
+                          <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
+                        </div>
+                    `;
+              summaryContainer.appendChild(itemDiv);
+            });
+          }
+          updateTotal();
+        };
+
+        summaryContainer.addEventListener("click", (e) => {
+          if (e.target.classList.contains("remove-summary-item")) {
+            const indexToRemove = parseInt(
+              e.target.getAttribute("data-index"),
+              10
+            );
+            window.addedItems.splice(indexToRemove, 1);
+            renderSummary();
+          }
+          if (e.target.classList.contains("edit-summary-item")) {
+            const indexToEdit = parseInt(
+              e.target.getAttribute("data-index"),
+              10
+            );
+            const itemToEdit = window.addedItems[indexToEdit];
+
+            showCustomItemModal(
+              itemToEdit.item,
+              (newDetails) => {
+                const updatedItem = {
+                  ...itemToEdit,
+                  description: newDetails.description,
+                  qty: newDetails.qty,
+                  rate: newDetails.rate,
+                  amount: newDetails.qty * newDetails.rate,
+                };
+                window.addedItems[indexToEdit] = updatedItem;
+                renderSummary();
+              },
+              itemToEdit // Pass existing details
+            );
+          }
+        });
+
+        const showCustomItemModal = (itemType, callback, existingDetails = null) => {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'custom-modal-overlay';
+            modalOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center;';
+            
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = 'background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);';
+
+            modalContent.innerHTML = `
+                <h3 style="margin-top:0; margin-bottom: 20px; text-align:center;">Detalles para ${itemType}</h3>
+                <textarea id="custom-item-description" class="swal2-textarea" placeholder="Descripción del servicio" style="display:block; width:95%; min-height: 80px; margin-bottom: 10px;"></textarea>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <input id="custom-item-qty" type="number" class="swal2-input" placeholder="Qty" value="1" min="1">
+                  <input id="custom-item-rate" type="number" class="swal2-input" placeholder="Rate" value="${(ITEM_RATES[itemType] || 0).toFixed(2)}" min="0" step="0.01">
+                </div>
+                <div style="text-align: right; margin-top: 25px;">
+                  <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
+                  <button type="button" id="save-custom-item" class="swal2-confirm swal2-styled">Guardar</button>
+                </div>
+            `;
+
+            modalOverlay.appendChild(modalContent);
+            document.body.appendChild(modalOverlay);
+
+            if (existingDetails) {
+                document.getElementById('custom-item-description').value = existingDetails.description || '';
+                document.getElementById('custom-item-qty').value = existingDetails.qty;
+                document.getElementById('custom-item-rate').value = existingDetails.rate;
+            }
+
+            const close = () => {
+                const overlay = document.getElementById('custom-modal-overlay');
+                if (overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+
+            document.getElementById('save-custom-item').onclick = () => {
+                const details = {
+                    description: document.getElementById('custom-item-description').value,
+                    qty: parseFloat(document.getElementById('custom-item-qty').value) || 0,
+                    rate: parseFloat(document.getElementById('custom-item-rate').value) || 0,
+                };
+                if (details.qty > 0) {
+                    callback(details);
+                }
+                close();
+            };
+
+            document.getElementById('cancel-custom-item').onclick = close;
+        };
+
+
+        document
+          .getElementById("add-selected-item")
+          .addEventListener("click", () => {
+            const select = document.getElementById("swal-item-select");
+            const selectedItem = select.value;
+            if (selectedItem) {
+                showCustomItemModal(selectedItem, (itemDetails) => {
+                    window.addedItems.push({
+                        item: selectedItem,
+                        description: itemDetails.description,
+                        qty: itemDetails.qty,
+                        rate: itemDetails.rate,
+                        amount: itemDetails.qty * itemDetails.rate,
+                    });
+                    renderSummary();
+                });
+              select.value = ""; // Reset dropdown
+            } else {
+              Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "info",
+                title: "Por favor, seleccione un item del menú.",
+                showConfirmButton: false,
+                timer: 2000,
+              });
+            }
+          });
+
+        renderSummary(); // Render inicial
       },
     });
     if (!res) return; // Usuario canceló
 
-    // 4) Calcular valor de Bill To
+    // 4) Calcular valor de Bill To (SOLO del primer registro)
     let billToValue = "";
     switch (res.billToType) {
       case "anombrede":
@@ -1405,55 +1817,30 @@ const Hojadefechas = () => {
         break;
     }
 
-    // 5) Preparar filas con los datos ingresados en el modal
-    const filas = selectedData.map((r) => [
-      r.fecha,
-      res.item,
-      res.description,
-      res.qty,
-      res.rate,
-      formatCurrency(res.amount),
+    // 5) Preparar filas con los datos ingresados en el modal (SOLO del primer registro para fecha)
+    const filas = res.items.map(item => [
+      base.fecha, // ✅ Solo la fecha del primer registro
+      item.item,
+      item.description,
+      item.qty,
+      item.rate.toFixed(2),
+      formatCurrency(item.amount),
     ]);
 
-    // 6) Calcular totalAmount sumando los campos 'amount' de los registros seleccionados
-    const totalAmount = res.amount * selectedData.length;
+    // 6) Calcular totalAmount sumando los campos 'amount' de los items
+    const totalAmount = res.items.reduce((sum, item) => sum + item.amount, 0);
 
-    // 7) Incrementar contador en Firebase y obtener número
-    let numeroFactura;
-    let invoiceIdFinal;
-
-    // Verificar si hay números disponibles para reutilizar
-    const numerosDisponiblesRef = ref(database, "facturasDisponibles");
-    const numerosSnapshot = await new Promise((resolve) => {
-      onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
+    // 7) Preparar invoiceItems para el nuevo nodo factura
+    const invoiceItems = {};
+    res.items.forEach((item, index) => {
+      invoiceItems[index + 1] = {
+        item: item.item,
+        descripcion: item.description,
+        qty: item.qty,
+        rate: item.rate,
+        amount: item.amount
+      };
     });
-
-    if (numerosSnapshot.exists()) {
-      // Hay números disponibles, usar el menor
-      const numerosData = numerosSnapshot.val();
-      const sortedNumeros = Object.entries(numerosData).sort(([, a], [, b]) =>
-        a.numeroFactura.localeCompare(b.numeroFactura)
-      );
-      const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
-
-      invoiceIdFinal = numeroData.numeroFactura;
-      numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
-
-      // Eliminar de números disponibles
-      await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
-    } else {
-      // No hay números disponibles, generar nuevo
-      const contadorRef = ref(database, "contadorFactura");
-      const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
-      numeroFactura = tx.snapshot.val();
-
-      // Formatear YYMM + secuencia 5 dígitos para nuevo número
-      const today = new Date();
-      const yy = String(today.getFullYear()).slice(-2);
-      const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const seq = String(numeroFactura).padStart(5, "0");
-      invoiceIdFinal = `${yy}${mm}${seq}`;
-    }
 
     // 8) Preguntar si queremos emitir antes de generar el PDF
     const { isConfirmed, isDenied } = await Swal.fire({
@@ -1465,7 +1852,65 @@ const Hojadefechas = () => {
     });
 
     if (isConfirmed) {
-      // Actualiza cada registro en su ruta original
+      let numeroFactura;
+      let invoiceIdFinal;
+
+      // Verificar si hay números disponibles para reutilizar
+      const numerosDisponiblesRef = ref(database, "facturasDisponibles");
+      const numerosSnapshot = await new Promise((resolve) => {
+        onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
+      });
+
+      if (numerosSnapshot.exists()) {
+        // Hay números disponibles, usar el menor
+        const numerosData = numerosSnapshot.val();
+        const sortedNumeros = Object.entries(numerosData).sort(([, a], [, b]) =>
+          a.numeroFactura.localeCompare(b.numeroFactura)
+        );
+        const [keyToDelete, numeroData] = sortedNumeros[0]; // Tomar el menor
+
+        invoiceIdFinal = numeroData.numeroFactura;
+        numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
+
+        // Eliminar de números disponibles
+        await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
+      } else {
+        // No hay números disponibles, generar nuevo
+        const contadorRef = ref(database, "contadorFactura");
+        const tx = await runTransaction(contadorRef, (curr) => (curr || 0) + 1);
+        numeroFactura = tx.snapshot.val();
+
+        // Formatear YYMM + secuencia 5 dígitos para nuevo número
+        const today = new Date();
+        const yy = String(today.getFullYear()).slice(-2);
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const seq = String(numeroFactura).padStart(5, "0");
+        invoiceIdFinal = `${yy}${mm}${seq}`;
+      }
+
+      // ✅ CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
+      // Calcular payments totales de todos los registros seleccionados
+      const paymentsTotales = selectedData.reduce((sum, registro) => {
+        return sum + (parseFloat(registro.payment) || 0);
+      }, 0);
+      
+      const facturaData = {
+        numerodefactura: invoiceIdFinal,
+        timestamp: Date.now(),
+        billTo: billToValue,
+        invoiceItems: invoiceItems,
+        totalAmount: totalAmount,
+        payment: paymentsTotales, // ✅ Suma de payments de todos los registros
+        deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
+        pago: pagoStatus,
+        fechapago: base.fechapago || null
+        // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
+      };
+
+      // Guardar la factura en el nuevo nodo
+      await set(ref(database, `facturas/${invoiceIdFinal}`), facturaData);
+    
+      // ✅ ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
       await Promise.all(
         selectedData.map((r) => {
           const origin = dataBranch.some((x) => x.id === r.id)
@@ -1476,31 +1921,20 @@ const Hojadefechas = () => {
               ? `data/${r.id}`
               : `registrofechas/${r.fecha}/${r.id}`;
           
-          // Asegurar que pago tenga un valor válido
-          const pagoValue = r.pago || "Debe"; // Usar "Debe" como valor por defecto
-
+          // Solo agregar la referencia a la factura y marcar como emitida
           const updateData = {
-            item: res.item,
-            descripcion: res.description,
-            qty: res.qty,
-            rate: res.rate,
-            amount: res.amount,
-            billTo: billToValue,
-            timestamp: Date.now(),
-            pago: pagoValue, // Usar el valor validado
             factura: true,
             numerodefactura: invoiceIdFinal,
+            referenciaFactura: invoiceIdFinal, // ✅ Nueva referencia
+            timestamp: Date.now()
           };
-
-          if (res.billToType === "personalizado") {
-            updateData.personalizado = res.customValue;
-          }
           
           return update(ref(database, path), updateData);
         })
       );
       await emitirFacturasSeleccionadas();
-      // 9a) Cuando terminen de emitir, generar el PDF
+      
+      // 9a) Cuando terminen de emitir, generar el PDF con datos del primer registro
       await generarPDFconDatos({
         filas,
         totalAmount: totalAmount,
@@ -1508,27 +1942,14 @@ const Hojadefechas = () => {
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
         pagoDate: base.fechapago,
-        item: res.item,
-        description: res.description,
-        qty: res.qty,
-        rate: res.rate,
-        amount: res.amount,
+        // ✅ Datos adicionales del primer registro para el PDF
+        fechaServicio: base.fecha,
+        direccion: base.direccion,
+        servicio: base.servicio,
+        cubicos: base.cubicos
       });
     } else if (isDenied) {
-      // 8b) Si el usuario dice No → generar el PDF sin emitir
-      await generarPDFconDatos({
-        filas,
-        totalAmount: totalAmount,
-        billToValue,
-        numeroFactura: invoiceIdFinal,
-        pagoStatus: pagoStatus,
-        pagoDate: base.fechapago,
-        item: res.item,
-        description: res.description,
-        qty: res.qty,
-        rate: res.rate,
-        amount: res.amount,
-      });
+      Swal.fire("Cancelado", "La emisión de la factura fue cancelada.", "info");
     }
   };
 
@@ -1547,7 +1968,12 @@ const Hojadefechas = () => {
     if (!isConfirmed) return;
 
     try {
-      // 1) Limpiar los campos de facturación (campos "F")
+      // 1) ✅ ELIMINAR EL NODO FACTURA COMPLETO
+      if (numeroFactura) {
+        await set(ref(database, `facturas/${numeroFactura}`), null);
+      }
+
+      // 2) Limpiar los campos de facturación en el registro
       const fromData = origin === "data";
       const path = fromData
         ? `data/${registroId}`
@@ -1556,20 +1982,14 @@ const Hojadefechas = () => {
 
       await update(facturaRef, {
         // Mantener datos base del servicio
-        // Limpiar solo campos de facturación (F)
-        item: null,
-        descripcion: null,
-        qty: null,
-        rate: null,
-        amount: null,
-        billTo: null,
-        personalizado: null,
+        // Limpiar solo campos de facturación
         factura: false, // Cambiar a false
         numerodefactura: null, // Limpiar número
-        fechaEmision: null,
+        referenciaFactura: null, // ✅ Limpiar nueva referencia
+        // No tocamos item, descripcion, qty, rate, amount del registro original
       });
 
-      // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
+      // 3) Agregar el número de factura a la lista de números disponibles para reutilizar
       if (numeroFactura) {
         const numerosDisponiblesRef = ref(database, "facturasDisponibles");
         const newAvailableRef = push(numerosDisponiblesRef);
@@ -1579,21 +1999,15 @@ const Hojadefechas = () => {
         });
       }
 
-      // 3) Actualizar estado local
+      // 4) Actualizar estado local
       const updater = (r) =>
         r.id === registroId
           ? {
               ...r,
-              item: null,
-              descripcion: null,
-              qty: null,
-              rate: null,
-              amount: null,
-              billTo: null,
-              personalizado: null,
               factura: false,
               numerodefactura: null,
-              fechaEmision: null,
+              referenciaFactura: null,
+              // ✅ Mantener los datos originales del servicio
             }
           : r;
 
@@ -1626,57 +2040,17 @@ const Hojadefechas = () => {
   };
 
   const emitirFacturasSeleccionadas = async () => {
-    // 1) Recoge las claves (fecha_id) de los registros seleccionados
-    const seleccionadas = Object.entries(selectedRows)
-      .filter(([_, sel]) => sel)
-      .map(([key]) => key);
-
-    if (!seleccionadas.length) {
-      return Swal.fire({
-        title: "No hay registros seleccionados",
-        text: "Selecciona al menos un registro para emitir facturas.",
-        icon: "warning",
-        confirmButtonText: "Aceptar",
-      });
-    }
-
-    Swal.fire({
-      title: "Emitiendo facturas...",
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    // 2) Para cada registro seleccionado solo actualiza el campo factura
-    for (const key of seleccionadas) {
-      const splitIndex = key.indexOf('_');
-      const fecha = key.substring(0, splitIndex);
-      const registroId = key.substring(splitIndex + 1);
-      
-      // Determina si viene de data o de registrofechas
-      const origin = dataBranch.some((r) => r.id === registroId)
-        ? "data"
-        : "registrofechas";
-      const path =
-        origin === "data"
-          ? `data/${registroId}`
-          : `registrofechas/${fecha}/${registroId}`;
-
-      // Actualiza solo el campo factura
-      await update(ref(database, path), { factura: true });
-      // Opcional: refleja el cambio en el estado local
-      handleFieldChange(fecha, registroId, "factura", true, origin);
-    }
-
-    // 3) Limpia la selección y cierra el loading
-    setSelectedRows({});
-    Swal.close();
+    // ✅ Esta función ahora solo muestra confirmación ya que la emisión se hace arriba
     Swal.fire({
       icon: "success",
-      title: "Facturas emitidas correctamente",
-      text: "Todas las facturas seleccionadas han sido emitidas.",
+      title: "Factura emitida correctamente",
+      text: "La factura se ha creado exitosamente en el sistema.",
       confirmButtonText: "Genial",
+      timer: 2000
     });
+    
+    // Limpiar selección después de emitir
+    setSelectedRows({});
   };
 
   const TotalServiciosPorTrabajador = () => {
@@ -1921,6 +2295,32 @@ const Hojadefechas = () => {
           onChange={(opts) => setFilters({ ...filters, efectivo: opts || [] })}
           placeholder="Monto(s)..."
         />
+        
+        <label>Payment</label>
+        <Select
+          isClearable
+          isMulti
+          options={paymentOptions}
+          value={filters.payment}
+          onChange={(opts) => setFilters({ ...filters, payment: opts || [] })}
+          placeholder="Monto(s) de payment..."
+        />
+
+        <label>N° de Factura</label>
+        <input
+          type="text"
+          placeholder="Buscar número de factura..."
+          value={filters.numerodefactura}
+          onChange={(e) =>
+            setFilters({ ...filters, numerodefactura: e.target.value })
+          }
+          style={{ 
+            padding: "8px", 
+            borderRadius: "4px", 
+            border: "1px solid #ccc",
+            width: "100%"
+          }}
+        />
 
         <label>Factura</label>
         <select
@@ -1946,6 +2346,8 @@ const Hojadefechas = () => {
               banco: [],
               metododepago: [],
               efectivo: [],
+              payment: [],
+              numerodefactura: "",
               factura: "",
               fechaInicio: null,
               fechaFin: null,
@@ -1989,6 +2391,9 @@ const Hojadefechas = () => {
                 <th style={{ backgroundColor: "#6200ffb4" }}>Efectivo</th>
                 <th>Emitir</th>
                 <th>Factura</th>
+                <th>N° Factura</th>
+                <th>Payment</th>
+                <th>Payment Rápido</th>
                 <th>Pago</th>
                 <th>Cancelar</th>
               </tr>
@@ -2338,6 +2743,80 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+                      <td style={{ textAlign: "center" }}>
+                        {registro.numerodefactura ? (
+                          <button
+                            onClick={() => openFacturaModal(registro.numerodefactura)}
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              color: "#2196F3",
+                              cursor: "pointer",
+                              padding: "2px 6px",
+                              backgroundColor: "#e3f2fd",
+                              borderRadius: "4px",
+                              border: "1px solid #2196F3",
+                              textDecoration: "underline"
+                            }}
+                            title={`Ver/Editar Factura N° ${registro.numerodefactura}`}
+                          >
+                            {registro.numerodefactura}
+                          </button>
+                        ) : (
+                          <span style={{ 
+                            color: "#ccc", 
+                            fontSize: "11px",
+                            fontStyle: "italic"
+                          }}>
+                            Sin N°
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={getPaymentFactura(registro) || ""}
+                          readOnly
+                          style={{
+                            width: "10ch",
+                            textAlign: "center",
+                            backgroundColor: "#f8f9fa",
+                            cursor: "not-allowed",
+                            color: "#6c757d"
+                          }}
+                        />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {registro.numerodefactura ? (
+                          <button
+                            onClick={() => paymentRapido(registro.numerodefactura)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#28a745",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "11px",
+                              fontWeight: "bold"
+                            }}
+                            title={`Payment rápido para factura ${registro.numerodefactura}`}
+                          >
+                            Payment
+                          </button>
+                        ) : (
+                          <span style={{ 
+                            color: "#ccc", 
+                            fontSize: "11px",
+                            fontStyle: "italic"
+                          }}>
+                            Sin factura
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <input
                           type="checkbox"
@@ -2390,70 +2869,61 @@ const Hojadefechas = () => {
             </tbody>
           </table>
       </div>
-      <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          marginBottom: "1rem",
-          padding: "0.5rem",
-          background: "#f5f5f5",
-          borderRadius: "4px"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span>
-              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <label>Mostrar:</label>
-              <select 
-                value={itemsPerPage} 
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                style={{ padding: "0.25rem" }}
-              >
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-                <option value={500}>500</option>
-              </select>
-              <span>por página</span>
-            </div>
-          </div>
-          
-          {/* Controles de navegación */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <button 
-              onClick={goToFirstPage} 
-              disabled={currentPage === 1}
-              style={{ padding: "0.25rem 0.5rem" }}
+      <div className="pagination-container">
+        <div className="pagination-info">
+          <span>
+            Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
+          </span>
+          <div className="items-per-page">
+            <label>Mostrar:</label>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
             >
-              ««
-            </button>
-            <button 
-              onClick={goToPreviousPage} 
-              disabled={currentPage === 1}
-              style={{ padding: "0.25rem 0.5rem" }}
-            >
-              «
-            </button>
-            <span style={{ margin: "0 1rem" }}>
-              Página {currentPage} de {totalPages}
-            </span>
-            <button 
-              onClick={goToNextPage} 
-              disabled={currentPage === totalPages}
-              style={{ padding: "0.25rem 0.5rem" }}
-            >
-              »
-            </button>
-            <button 
-              onClick={goToLastPage} 
-              disabled={currentPage === totalPages}
-              style={{ padding: "0.25rem 0.5rem" }}
-            >
-              »»
-            </button>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+              <option value={500}>500</option>
+            </select>
+            <span>por página</span>
           </div>
         </div>
+        
+        {/* Controles de navegación */}
+        <div className="pagination-controls">
+          <button 
+            onClick={goToFirstPage} 
+            disabled={currentPage === 1}
+            title="Primera página"
+          >
+            ««
+          </button>
+          <button 
+            onClick={goToPreviousPage} 
+            disabled={currentPage === 1}
+            title="Página anterior"
+          >
+            «
+          </button>
+          <span>
+            Página {currentPage} de {totalPages}
+          </span>
+          <button 
+            onClick={goToNextPage} 
+            disabled={currentPage === totalPages}
+            title="Página siguiente"
+          >
+            »
+          </button>
+          <button 
+            onClick={goToLastPage} 
+            disabled={currentPage === totalPages}
+            title="Última página"
+          >
+            »»
+          </button>
+        </div>
+      </div>
       </div>
       <div
         className="button-container"
@@ -2487,6 +2957,14 @@ const Hojadefechas = () => {
       <button className="generate-button2" onClick={generateXLSX}>
         <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
       </button>
+
+      {/* Modal de Vista/Edición de Factura */}
+      {showFacturaModal && selectedFactura && (
+        <FacturaViewEdit
+          numeroFactura={selectedFactura}
+          onClose={closeFacturaModal}
+        />
+      )}
     </div>
   );
 };

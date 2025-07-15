@@ -29,13 +29,34 @@ const AutoInput = ({
   onEsc,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+   useEffect(() => {
+    inputRef.current?.focus();
+    setShowDropdown(true);
+  }, [fieldKey]);
+
   const filtered = lista.filter((v) =>
     v.toLowerCase().includes(value.toLowerCase())
   );
 
   return (
-    <div className="autoField" style={{ position: "relative" }}>
+    <div className="autoField" style={{ position: "relative" }} ref={dropdownRef}>
       <input
+        ref={inputRef}
         id={fieldKey}
         placeholder={label}
         value={value}
@@ -46,7 +67,6 @@ const AutoInput = ({
           setShowDropdown(true);
         }}
         onFocus={() => setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
         onKeyDown={(e) => {
           if (e.key === "Enter") onEnter();
           if (e.key === "Escape") onEsc();
@@ -253,11 +273,14 @@ const AgendaExpress = () => {
 
     // Cuando cambie la dirección, carga automáticamente 'cubicos'
     useEffect(() => {
-      const cli = clients.find((c) => c.direccion === data.direccion);
-      if (cli && cli.cubicos != null) {
-        setData((d) => ({ ...d, cubicos: cli.cubicos }));
-      }
-    }, [data.direccion, clients]);
+  const cli = clients.find((c) => c.direccion === data.direccion);
+  if (cli && cli.cubicos != null) {
+    setData((d) => ({ ...d, cubicos: cli.cubicos }));
+  } else if (data.direccion.trim() !== "") {
+    // Si no encuentra el cliente pero hay una dirección, poner cubicos en 0
+    setData((d) => ({ ...d, cubicos: 0 }));
+  }
+}, [data.direccion, clients]);
 
     const campo = campos[step];
     const props = { accent, onEnter: next, onEsc: prev };
