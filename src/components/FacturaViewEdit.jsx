@@ -329,8 +329,10 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   };
 
   // Función para actualizar estado de pago de todos los servicios asociados
-  const actualizarEstadoPagoServicios = async (estadoPago) => {
+  const actualizarEstadoPagoServicios = async (estadoPago, fechaPago = null) => {
     try {
+      const fechaPagoFinal = fechaPago || (estadoPago === "Pago" ? new Date().toISOString().split('T')[0] : null);
+      
       const updatePromises = serviciosAsociados.map(async (servicio) => {
         const path = servicio.origin === "data" 
           ? `data/${servicio.id}` 
@@ -338,7 +340,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         
         return update(ref(database, path), { 
           pago: estadoPago,
-          fechapago: estadoPago === "Pago" ? new Date().toISOString().split('T')[0] : null
+          fechapago: fechaPagoFinal
         });
       });
 
@@ -450,9 +452,10 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       };
 
       // Si está completamente pagada, actualizar estado
+      const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split('T')[0];
       if (facturaCompletamentePagada) {
         updates.pago = "Pago";
-        updates.fechapago = new Date().toISOString().split('T')[0];
+        updates.fechapago = fechaPagoFinal;
       }
 
       await update(facturaRef, updates);
@@ -464,12 +467,12 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         payment: nuevosPayments,
         deuda: nuevaDeuda,
         pago: facturaCompletamentePagada ? "Pago" : prev.pago,
-        fechapago: facturaCompletamentePagada ? new Date().toISOString().split('T')[0] : prev.fechapago
+        fechapago: facturaCompletamentePagada ? fechaPagoFinal : prev.fechapago
       }));
 
       // Si está completamente pagada, actualizar servicios asociados
       if (facturaCompletamentePagada) {
-        await actualizarEstadoPagoServicios("Pago");
+        await actualizarEstadoPagoServicios("Pago", fechaPagoFinal);
       }
 
       // Mostrar mensaje de éxito
@@ -790,6 +793,32 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   />
                 ) : (
                   <span>{facturaData.billTo || "No especificado"}</span>
+                )}
+              </div>
+              <div>
+                <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
+                  Fecha de Pago:
+                </label>
+                {editMode ? (
+                  <input
+                    type="date"
+                    value={facturaData.fechapago || ""}
+                    onChange={(e) => handleFieldChange("fechapago", e.target.value)}
+                    onBlur={(e) => updateFacturaField("fechapago", e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "5px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px"
+                    }}
+                  />
+                ) : (
+                  <span>
+                    {facturaData.fechapago 
+                      ? new Date(facturaData.fechapago).toLocaleDateString()
+                      : "No especificada"
+                    }
+                  </span>
                 )}
               </div>
             </div>

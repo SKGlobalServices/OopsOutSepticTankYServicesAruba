@@ -470,8 +470,13 @@ const Hojadefechas = () => {
 
     // 4) Filtrar por Fecha de Pago
     if (filters.fechaPagoInicio && filters.fechaPagoFin) {
-      if (!registro.fechapago) return false; // Si no tiene fecha de pago, no cumple el filtro
-      const [y, m, d] = registro.fechapago.split("-");
+      // Usar fecha de pago de la factura si está ligado a una factura, sino usar la fecha del servicio
+      const fechaPagoStr = registro.numerodefactura 
+        ? facturas[registro.numerodefactura]?.fechapago
+        : registro.fechapago;
+      
+      if (!fechaPagoStr) return false; // Si no tiene fecha de pago, no cumple el filtro
+      const [y, m, d] = fechaPagoStr.split("-");
       const fechaPago = new Date(y, m - 1, d);
       if (
         fechaPago < filters.fechaPagoInicio ||
@@ -710,9 +715,155 @@ const Hojadefechas = () => {
 
     // 5.1) Campo especial: "pago" - manejar fecha de pago automáticamente
     if (field === "pago") {
+      // Obtener el registro para verificar si tiene factura asociada
+      const registro = fromData
+        ? dataBranch.find((r) => r.id === registroId) || {}
+        : dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === registroId) || {};
+
+      // Si tiene factura asociada, actualizar la factura
+      if (registro.numerodefactura) {
+        const handleFacturaPago = async () => {
+          try {
+            const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+            
+            if (safeValue === "Pago") {
+              // Marcar como pagada: payment = totalAmount, deuda = 0
+              const facturaSnapshot = await new Promise((resolve) => {
+                onValue(facturaRef, resolve, { onlyOnce: true });
+              });
+              
+              if (facturaSnapshot.exists()) {
+                const facturaData = facturaSnapshot.val();
+                const fechaPagoFinal = new Date().toISOString().split('T')[0];
+                
+                await update(facturaRef, {
+                  payment: facturaData.totalAmount,
+                  deuda: 0,
+                  pago: "Pago",
+                  fechapago: fechaPagoFinal
+                });
+
+                // Actualizar todos los servicios asociados a esta factura
+                const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+                  new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+                  new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+                ]);
+
+                const serviciosAsociados = [];
+                
+                // Buscar en data
+                if (dataSnapshot.exists()) {
+                  const dataVal = dataSnapshot.val();
+                  Object.entries(dataVal).forEach(([serviceId, reg]) => {
+                    if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                      serviciosAsociados.push({ id: serviceId, origin: "data" });
+                    }
+                  });
+                }
+                
+                // Buscar en registrofechas
+                if (registroFechasSnapshot.exists()) {
+                  const registroVal = registroFechasSnapshot.val();
+                  Object.entries(registroVal).forEach(([fechaReg, registros]) => {
+                    Object.entries(registros).forEach(([serviceId, reg]) => {
+                      if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                        serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
+                      }
+                    });
+                  });
+                }
+
+                // Actualizar todos los servicios
+                const updatePromises = serviciosAsociados.map(servicio => {
+                  const path = servicio.origin === "data" 
+                    ? `data/${servicio.id}` 
+                    : `registrofechas/${servicio.fecha}/${servicio.id}`;
+                  
+                  return update(ref(database, path), { 
+                    pago: "Pago",
+                    fechapago: fechaPagoFinal
+                  });
+                });
+
+                await Promise.all(updatePromises);
+                console.log(`✅ Factura ${registro.numerodefactura} marcada como PAGADA`);
+              }
+            } else {
+              // Desmarcar como pagada: payment = 0, deuda = totalAmount
+              const facturaSnapshot = await new Promise((resolve) => {
+                onValue(facturaRef, resolve, { onlyOnce: true });
+              });
+              
+              if (facturaSnapshot.exists()) {
+                const facturaData = facturaSnapshot.val();
+                
+                await update(facturaRef, {
+                  payment: 0,
+                  deuda: facturaData.totalAmount,
+                  pago: "Debe",
+                  fechapago: null
+                });
+
+                // Actualizar todos los servicios asociados
+                const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+                  new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+                  new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+                ]);
+
+                const serviciosAsociados = [];
+                
+                // Buscar en data
+                if (dataSnapshot.exists()) {
+                  const dataVal = dataSnapshot.val();
+                  Object.entries(dataVal).forEach(([serviceId, reg]) => {
+                    if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                      serviciosAsociados.push({ id: serviceId, origin: "data" });
+                    }
+                  });
+                }
+                
+                // Buscar en registrofechas
+                if (registroFechasSnapshot.exists()) {
+                  const registroVal = registroFechasSnapshot.val();
+                  Object.entries(registroVal).forEach(([fechaReg, registros]) => {
+                    Object.entries(registros).forEach(([serviceId, reg]) => {
+                      if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                        serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
+                      }
+                    });
+                  });
+                }
+
+                // Actualizar todos los servicios
+                const updatePromises = serviciosAsociados.map(servicio => {
+                  const path = servicio.origin === "data" 
+                    ? `data/${servicio.id}` 
+                    : `registrofechas/${servicio.fecha}/${servicio.id}`;
+                  
+                  return update(ref(database, path), { 
+                    pago: safeValue,
+                    fechapago: null
+                  });
+                });
+
+                await Promise.all(updatePromises);
+                console.log(`✅ Factura ${registro.numerodefactura} marcada como DEBE`);
+              }
+            }
+          } catch (error) {
+            console.error("Error actualizando pago de factura:", error);
+          }
+        };
+
+        handleFacturaPago();
+        return;
+      }
+
+      // Si no tiene factura, actualizar solo el servicio individual
       let updates = { [field]: safeValue };
 
-      // Si se marca como "Pago", establecer fecha actual
       if (safeValue === "Pago") {
         const today = new Date();
         const fechaPago = today.toISOString().split("T")[0]; // formato YYYY-MM-DD
@@ -744,7 +895,74 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 6) Cualquier otro campo → sólo actualizamos ese campo
+    // 6) Campo especial: fechapago_factura - actualizar fecha de pago en la factura
+    if (field === "fechapago_factura") {
+      const registro = fromData
+        ? dataBranch.find((r) => r.id === registroId) || {}
+        : dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === registroId) || {};
+
+      if (registro.numerodefactura) {
+        // Actualizar la fecha de pago en la factura
+        const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+        update(facturaRef, { fechapago: safeValue }).catch(console.error);
+        
+        // Actualizar todos los servicios asociados a esta factura
+        const actualizarServiciosAsociados = async () => {
+          try {
+            // Buscar todos los servicios asociados a esta factura
+            const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+            ]);
+
+            const serviciosAsociados = [];
+            
+            // Buscar en data
+            if (dataSnapshot.exists()) {
+              const dataVal = dataSnapshot.val();
+              Object.entries(dataVal).forEach(([id, reg]) => {
+                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                  serviciosAsociados.push({ id, origin: "data" });
+                }
+              });
+            }
+            
+            // Buscar en registrofechas
+            if (registroFechasSnapshot.exists()) {
+              const registroVal = registroFechasSnapshot.val();
+              Object.entries(registroVal).forEach(([fechaReg, registros]) => {
+                Object.entries(registros).forEach(([id, reg]) => {
+                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                    serviciosAsociados.push({ id, fecha: fechaReg, origin: "registrofechas" });
+                  }
+                });
+              });
+            }
+
+            // Actualizar todos los servicios
+            const updatePromises = serviciosAsociados.map(servicio => {
+              const path = servicio.origin === "data" 
+                ? `data/${servicio.id}` 
+                : `registrofechas/${servicio.fecha}/${servicio.id}`;
+              
+              return update(ref(database, path), { fechapago: safeValue });
+            });
+
+            await Promise.all(updatePromises);
+            console.log(`✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`);
+          } catch (error) {
+            console.error("Error actualizando servicios asociados:", error);
+          }
+        };
+
+        actualizarServiciosAsociados();
+      }
+      return;
+    }
+
+    // 7) Cualquier otro campo → sólo actualizamos ese campo
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
     const updater = (r) =>
       r.id === registroId ? { ...r, [field]: safeValue } : r;
@@ -927,9 +1145,10 @@ const Hojadefechas = () => {
         deuda: parseFloat(nuevaDeuda.toFixed(2)),
       };
 
+      const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split("T")[0];
       if (facturaCompletamentePagada) {
         facturaUpdates.pago = "Pago";
-        facturaUpdates.fechapago = new Date().toISOString().split("T")[0];
+        facturaUpdates.fechapago = fechaPagoFinal;
       }
 
       await update(facturaRef, facturaUpdates);
@@ -991,7 +1210,7 @@ const Hojadefechas = () => {
 
           return update(ref(database, path), {
             pago: "Pago",
-            fechapago: new Date().toISOString().split("T")[0],
+            fechapago: fechaPagoFinal,
           });
         });
 
@@ -1351,6 +1570,7 @@ const Hojadefechas = () => {
     direccion,
     servicio,
     cubicos,
+    facturaInfo,
   }) => {
     // ✅ Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
     console.log(`Generando PDF con datos dinámicos del primer registro:
@@ -1465,15 +1685,24 @@ const Hojadefechas = () => {
     // — Total —
     const afterY = pdf.lastAutoTable.finalY;
 
-    // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
-    // — Total —
-    // siempre mantenemos balance como number, y formateamos con tu helper:
-    const balance = pagoStatus === "Pago" ? 0 : totalAmount;
+    // Obtener datos de la factura para mostrar información completa
+    const hasPayment = facturaInfo && facturaInfo.payment > 0;
+    
     pdf.setFontSize(10);
-    pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
+    
+    // Mostrar información financiera
+    if (hasPayment) {
+      pdf.text(`PAYMENT: AWG ${formatCurrency(facturaInfo.payment)}`, 152, afterY + 6);
+      
+      const balance = pagoStatus === "Pago" ? 0 : (facturaInfo.deuda || 0);
+      pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 11);
+    } else {
+      const balance = pagoStatus === "Pago" ? 0 : (facturaInfo.deuda || 0);
+      pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
+    }
 
     // — Bank Info y footer —
-    const bankY = afterY + 12;
+    const bankY = afterY + 6;
     pdf.setFontSize(10).text("Bank Info:", mL, bankY);
     pdf
       .setFontSize(9)
@@ -1485,7 +1714,7 @@ const Hojadefechas = () => {
       .setFontSize(10)
       .text(footerText, (w - pdf.getTextWidth(footerText)) / 2, h - 10);
 
-    // — Marca de agua PAID, fecha de pago y PAYMENT —
+    // — Marca de agua PAID y fecha de pago —
     if (pagoStatus === "Pago") {
       const wPt = pdf.internal.pageSize.getWidth();
       const hPt = pdf.internal.pageSize.getHeight();
@@ -1513,11 +1742,6 @@ const Hojadefechas = () => {
 
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
-
-      // — PAYMENT total —
-      pdf
-        .setFontSize(10)
-        .text(`PAYMENT: AWG ${formatCurrency(totalAmount)}`, 152, afterY + 12);
     }
 
     // — Guarda el PDF —
@@ -1953,7 +2177,7 @@ const Hojadefechas = () => {
         payment: paymentsTotales, // ✅ Suma de payments de todos los registros
         deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
         pago: pagoStatus,
-        fechapago: base.fechapago || null,
+        fechapago: pagoStatus === "Pago" ? (base.fechapago || new Date().toISOString().split('T')[0]) : null,
         // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
       };
 
@@ -1997,6 +2221,7 @@ const Hojadefechas = () => {
         direccion: base.direccion,
         servicio: base.servicio,
         cubicos: base.cubicos,
+        facturaInfo: facturaData,
       });
     } else if (isDenied) {
       Swal.fire("Cancelado", "La emisión de la factura fue cancelada.", "info");
@@ -2690,13 +2915,17 @@ const Hojadefechas = () => {
                       <td>
                         <input
                           type="date"
-                          value={registro.fechapago || ""}
+                          value={
+                            registro.numerodefactura 
+                              ? facturas[registro.numerodefactura]?.fechapago || ""
+                              : registro.fechapago || ""
+                          }
                           disabled={registro.pago !== "Pago"}
                           onChange={(e) =>
                             handleFieldChange(
                               item.fecha,
                               registro.id,
-                              "fechapago",
+                              registro.numerodefactura ? "fechapago_factura" : "fechapago",
                               e.target.value,
                               registro.origin
                             )
@@ -2704,9 +2933,15 @@ const Hojadefechas = () => {
                           style={{
                             width: "16ch",
                             opacity: registro.pago !== "Pago" ? 0.5 : 1,
-                            cursor:
-                              registro.pago !== "Pago" ? "not-allowed" : "auto",
+                            cursor: registro.pago !== "Pago" ? "not-allowed" : "auto",
+                            backgroundColor: registro.numerodefactura ? "#f0f8ff" : "white",
+                            borderColor: registro.numerodefactura ? "#007bff" : "#ccc",
                           }}
+                          title={
+                            registro.numerodefactura 
+                              ? `Fecha de pago de la factura #${registro.numerodefactura}`
+                              : "Fecha de pago del servicio individual"
+                          }
                         />
                       </td>
                       <td>
