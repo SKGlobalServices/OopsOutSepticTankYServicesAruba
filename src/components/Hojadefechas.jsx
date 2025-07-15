@@ -53,6 +53,7 @@ const Hojadefechas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
   const [showSelection, setShowSelection] = useState(false);
+  const [selectedKey, setSelectedKey] = useState(null);
 
   // Estado para el modal de vista/edición de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
@@ -2103,48 +2104,85 @@ const Hojadefechas = () => {
     setSelectedRows({});
   };
 
-  const EliminarServicios = () => {
+  // 1) Función de eliminación
+  const EliminarServicio = () => {
+    // 1) Si aún no estamos en modo selección, activamos el modo
     if (!showSelection) {
-      // Paso 1: mostrar casillas
       setShowSelection(true);
       return;
     }
-    if (showSelection && selectedCount === 0) {
-      // Paso 2: si no hay nada seleccionado, ocultar casillas
+    // 2) Si estamos en modo selección pero no hay nada seleccionado, salimos
+    if (showSelection && !selectedKey) {
       setShowSelection(false);
       return;
     }
-    // Paso 3: ya hay casillas y hay elementos seleccionados → pedir confirmación
+
+    // Extraigo fecha y id del registro marcado
+    const [fecha, registroId] = selectedKey.split("_");
+    // Busco en todos los registros filtrados
+    const flatFiltered = filteredData.flatMap((g) => g.registros);
+    const reg = flatFiltered.find(
+      (r) => r.fecha === fecha && r.id === registroId
+    );
+
+    if (!reg) {
+      Swal.fire({
+        icon: "error",
+        title: "Registro no encontrado",
+        text: "El registro seleccionado ya no está disponible.",
+      });
+      setSelectedKey(null);
+      setShowSelection(false);
+      return;
+    }
+
+    // Paso A: pregunta genérica
     Swal.fire({
-      title: "¿Desea eliminar el/los registro(s) seleccionado(s)?",
-      icon: "warning",
+      title: "¿Deseas eliminar este registro?",
+      icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Elimina de Firebase y del estado local
-        Object.entries(selectedRows).forEach(([key, checked]) => {
-          if (checked) {
-            const [fecha, registroId] = key.split("_");
-            const fromData = dataBranch.some((r) => r.id === registroId);
-            const path = fromData
-              ? `data/${registroId}`
-              : `registrofechas/${fecha}/${registroId}`;
-            // elimina en Firebase
-            remove(ref(database, path)).catch(console.error);
-          }
-        });
-        // limpiar selección y ocultar casillas
-        setSelectedRows({});
-        setShowSelection(false);
-        Swal.fire(
-          "Eliminado",
-          "Los servicios seleccionados han sido eliminados.",
-          "success"
-        );
-      }
+      cancelButtonText: "No, cancelar",
+    }).then((answer) => {
+      if (!answer.isConfirmed) return;
+
+      // Paso B: tu alerta con detalles
+      Swal.fire({
+        title: "¿Estás seguro de eliminar este registro?",
+        html: `
+        <p><strong>Factura:</strong> ${reg.factura ? "Sí" : "No"}</p>
+        <p><strong>N° Factura:</strong> ${reg.numerodefactura || "–"}</p>
+        <p><strong>Estado:</strong> ${reg.pago}</p>
+        <p><strong>Dirección:</strong> ${reg.direccion}</p>
+        <p><strong>Fecha:</strong> ${reg.fecha}</p>
+      `,
+        icon: "error",
+        showCancelButton: true,
+        confirmButtonText: "Eliminar permanentemente",
+        cancelButtonText: "Cancelar",
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        // Finalmente borramos en Firebase
+        const path = dataBranch.some((x) => x.id === registroId)
+          ? `data/${registroId}`
+          : `registrofechas/${fecha}/${registroId}`;
+
+        remove(ref(database, path))
+          .then(() => {
+            Swal.fire("Eliminado", "Registro borrado.", "success");
+            setSelectedKey(null);
+            setShowSelection(false);
+          })
+          .catch(() => {
+            Swal.fire("Error", "No se pudo eliminar.", "error");
+          });
+      });
     });
+  };
+
+  const handleToggleSelection = (key) => {
+    setSelectedKey((prev) => (prev === key ? null : key));
   };
 
   const TotalServiciosPorTrabajador = () => {
@@ -2465,27 +2503,7 @@ const Hojadefechas = () => {
           <table className="service-table">
             <thead>
               <tr>
-                {showSelection && (
-                  <th style={{ width: "3ch", textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setSelectAll(checked);
-                        // marca o desmarca todas las filas filtradas
-                        const newSel = {};
-                        filteredData
-                          .flatMap((g) => g.registros)
-                          .forEach((r) => {
-                            newSel[`${r.fecha}_${r.id}`] = checked;
-                          });
-                        setSelectedRows(newSel);
-                      }}
-                    />
-                  </th>
-                )}
-
+                {showSelection && <th></th>}
                 <th>Fecha</th>
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
@@ -2515,23 +2533,26 @@ const Hojadefechas = () => {
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
                       {showSelection && (
-                        <td style={{ textAlign: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={
-                              !!selectedRows[`${item.fecha}_${registro.id}`]
-                            }
-                            onChange={(e) =>
-                              handleRowSelection(
-                                item.fecha,
-                                registro.id,
-                                e.target.checked
-                              )
-                            }
-                            disabled={registro.factura === true}
-                          />
+                        <td>
+                          {(() => {
+                            const key = `${item.fecha}_${registro.id}`;
+                            return (
+                              <input
+                                type="checkbox"
+                                checked={selectedKey === key}
+                                onChange={() => handleToggleSelection(key)}
+                                disabled={!!selectedKey && selectedKey !== key}
+                                style={{
+                                  width: "3ch",
+                                  height: "3ch",
+                                  margin: "0 8px",
+                                }}
+                              />
+                            );
+                          })()}
                         </td>
                       )}
+
                       <td
                         style={{
                           minWidth: window.innerWidth < 768 ? "55px" : "80px",
@@ -3085,15 +3106,15 @@ const Hojadefechas = () => {
           Servicios Por Trabajador
         </button>
         <button
-          style={{ backgroundColor: "#ff5252ff" }}
-          onClick={EliminarServicios}
+          style={{ backgroundColor: "#ff5252" }}
+          onClick={EliminarServicio}
           className="filter-button"
         >
           {!showSelection
-            ? "Eliminar Servicios"
-            : selectedCount > 0
-            ? "Eliminar servicios"
-            : "Ocultar casillas de selección"}
+            ? "Eliminar Servicio"
+            : selectedKey
+            ? "Eliminar Servicio"
+            : "Ocultar casillas"}
         </button>
       </div>
 
