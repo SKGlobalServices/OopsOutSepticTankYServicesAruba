@@ -18,6 +18,7 @@ import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
+import FacturaViewEdit from "./FacturaViewEdit";
 
 const ITEM_RATES = {
   "Septic Tank": 80.0,
@@ -54,6 +55,10 @@ const Facturasemitidas = () => {
   const filterSlidebarRef = useRef(null);
   const [editingRate, setEditingRate] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
+  
+  // Estado para el modal de vista/edición de factura
+  const [selectedFactura, setSelectedFactura] = useState(null);
+  const [showFacturaModal, setShowFacturaModal] = useState(false);
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,15 +102,7 @@ const Facturasemitidas = () => {
     fechaServicio: [null, null],
     factura: "true",
     pago: [],
-    item: [],
-    descripcion: "",
     personalizado: "",
-    qtyMin: "",
-    qtyMax: "",
-    rateMin: "",
-    rateMax: "",
-    amountMin: "",
-    amountMax: "",
     fechaPago: [null, null],
   });
 
@@ -348,25 +345,7 @@ const Facturasemitidas = () => {
     if (filters.factura !== "" && r.factura !== (filters.factura === "true"))
       return false;
 
-    // 8) Multi-select: Item
-    if (filters.item.length > 0) {
-      const matchItem = filters.item.some((valorFiltro) => {
-        if (valorFiltro === "__EMPTY__") {
-          return !r.item || r.item === "";
-        }
-        return r.item === valorFiltro;
-      });
-      if (!matchItem) return false;
-    }
-
-    // 9) Subcadena: Descripción
-    if (
-      filters.descripcion &&
-      !r.descripcion?.toLowerCase().includes(filters.descripcion.toLowerCase())
-    )
-      return false;
-
-    // 10) Subcadena: Personalizado
+    // 8) Subcadena: Personalizado
     if (
       filters.personalizado &&
       !r.personalizado
@@ -375,43 +354,13 @@ const Facturasemitidas = () => {
     )
       return false;
 
-    // 11) Rangos numéricos: qty
-    if (filters.qtyMin && (r.qty == null || r.qty < parseFloat(filters.qtyMin)))
-      return false;
-    if (filters.qtyMax && (r.qty == null || r.qty > parseFloat(filters.qtyMax)))
-      return false;
-
-    // 12) Rangos numéricos: rate
-    if (
-      filters.rateMin &&
-      (r.rate == null || r.rate < parseFloat(filters.rateMin))
-    )
-      return false;
-    if (
-      filters.rateMax &&
-      (r.rate == null || r.rate > parseFloat(filters.rateMax))
-    )
-      return false;
-
-    // 13) Rangos numéricos: amount
-    if (
-      filters.amountMin &&
-      (r.amount == null || r.amount < parseFloat(filters.amountMin))
-    )
-      return false;
-    if (
-      filters.amountMax &&
-      (r.amount == null || r.amount > parseFloat(filters.amountMax))
-    )
-      return false;
-
-    // 14) Multi-select: Pago  
+    // 9) Multi-select: Pago  
     if (filters.pago.length > 0) {
       const pagoValue = r.pago === "Pago" || r.pago === true; // Normalizar: "Pago" = true, otros = false
       if (!filters.pago.includes(pagoValue)) return false;
     }
 
-    // 15) Filtrar por Fecha de Pago (r.fechapago formato "YYYY-MM-DD")
+    // 10) Filtrar por Fecha de Pago (r.fechapago formato "YYYY-MM-DD")
     const [pagoStart, pagoEnd] = filters.fechaPago;
     if (pagoStart && pagoEnd) {
       if (!r.fechapago) return false;
@@ -556,40 +505,10 @@ const Facturasemitidas = () => {
       : `registrofechas/${fecha}/${registroId}`;
     const dbRefItem = ref(database, path);
 
-    // Si cambió item, qty o rate, recalcular amount
-    let updates = { [field]: safeValue };
+    // Actualizar campo simple
+    const updates = { [field]: safeValue };
 
-    // Obtener registro local
-    const registro = fromData
-      ? dataBranch.find((r) => r.id === registroId) || {}
-      : dataRegistroFechas
-          .find((g) => g.fecha === fecha)
-          ?.registros.find((r) => r.id === registroId) || {};
-
-    // Logic para qty y rate
-    if (field === "qty" || field === "rate") {
-      const qty =
-        field === "qty"
-          ? parseFloat(safeValue) || 0
-          : parseFloat(registro.qty) || 0;
-      const rate =
-        field === "rate"
-          ? parseFloat(safeValue) || 0
-          : parseFloat(registro.rate) || 0;
-      updates.qty = qty;
-      updates.rate = rate;
-      updates.amount = parseFloat((qty * rate).toFixed(2));
-    }
-
-    // Logic para item
-    if (field === "item") {
-      const newRate = ITEM_RATES[safeValue] ?? 0;
-      const qty = parseFloat(registro.qty) || 0;
-      updates.rate = parseFloat(newRate.toFixed(2));
-      updates.amount = parseFloat((newRate * qty).toFixed(2));
-    }
-
-    // Grabar todo en Firebase de una sola vez
+    // Grabar en Firebase
     update(dbRefItem, updates).catch(console.error);
 
     // Actualizar estado local
@@ -834,15 +753,6 @@ const Facturasemitidas = () => {
     .map((n) => ({ value: n.toString(), label: n.toString() }))
     .concat({ value: "10+", label: "10+" });
 
-  const itemOptions = React.useMemo(
-    () =>
-      Object.keys(ITEM_RATES).map((key) => ({
-        value: key,
-        label: key,
-      })),
-    []
-  );
-
   // SELECCIÓN
   const handleSelectRow = (id) => {
     setSelectedRows((prev) =>
@@ -850,6 +760,18 @@ const Facturasemitidas = () => {
     );
   };
 
+  // Función para abrir el modal de vista/edición de factura
+  const openFacturaModal = (numeroFactura) => {
+    setSelectedFactura(numeroFactura);
+    setShowFacturaModal(true);
+  };
+
+  const closeFacturaModal = () => {
+    setSelectedFactura(null);
+    setShowFacturaModal(false);
+  };
+
+  
   const openConfigModal = () => {
     Swal.fire({
       title: "Configuración de la factura",
@@ -987,29 +909,7 @@ const Facturasemitidas = () => {
     });
   };
 
-  // Función para editar descripción con Swal
-  const handleDescriptionClick = (fecha, registroId, currentDesc, origin) => {
-    Swal.fire({
-      title: "Descripción",
-      input: "textarea",
-      inputLabel: "Descripción",
-      inputValue: currentDesc || "",
-      showCancelButton: true,
-      confirmButtonText: "Guardar",
-      cancelButtonText: "Cancelar",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        handleFieldChange(
-          fecha,
-          registroId,
-          "descripcion",
-          result.value,
-          origin
-        );
-        Swal.fire("Guardado", "Descripción guardada correctamente", "success");
-      }
-    });
-  };
+
 
   // Generar factura
   const generatePDF = async () => {
@@ -1598,31 +1498,6 @@ const Facturasemitidas = () => {
           }
           value={filters.diasdemora.map((v) => ({ value: v, label: v }))}
         />
-        <label>Item</label>
-        <Select
-          isClearable
-          isMulti
-          options={itemOptions}
-          placeholder="Item(s)..."
-          value={filters.item.map((v) => ({ value: v, label: v }))}
-          onChange={(opts) =>
-            setFilters((f) => ({
-              ...f,
-              item: opts ? opts.map((o) => o.value) : [],
-            }))
-          }
-        />
-
-        <label>Descripción</label>
-        <input
-          type="text"
-          placeholder="Buscar descripción"
-          value={filters.descripcion}
-          onChange={(e) =>
-            setFilters({ ...filters, descripcion: e.target.value })
-          }
-        />
-
         <label>Personalizado</label>
         <input
           type="text"
@@ -1632,65 +1507,6 @@ const Facturasemitidas = () => {
             setFilters({ ...filters, personalizado: e.target.value })
           }
         />
-
-        {/* QTY */}
-        <label>Qty</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.qtyMin}
-            onChange={(e) => setFilters({ ...filters, qtyMin: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.qtyMax}
-            onChange={(e) => setFilters({ ...filters, qtyMax: e.target.value })}
-          />
-        </div>
-
-        {/* Rate */}
-        <label>Rate</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.rateMin}
-            onChange={(e) =>
-              setFilters({ ...filters, rateMin: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.rateMax}
-            onChange={(e) =>
-              setFilters({ ...filters, rateMax: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Amount */}
-        <label>Amount</label>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.amountMin}
-            onChange={(e) =>
-              setFilters({ ...filters, amountMin: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.amountMax}
-            onChange={(e) =>
-              setFilters({ ...filters, amountMax: e.target.value })
-            }
-          />
-        </div>
 
         <label>Pago</label>
         <Select
@@ -1725,15 +1541,7 @@ const Facturasemitidas = () => {
               diasdemora: [],
               factura: "true",
               pago: [],
-              item: [],
-              descripcion: "",
               personalizado: "",
-              qtyMin: "",
-              qtyMax: "",
-              rateMin: "",
-              rateMax: "",
-              amountMin: "",
-              amountMax: "",
             })
           }
           className="discard-filter-button"
@@ -1775,13 +1583,9 @@ const Facturasemitidas = () => {
                 <th>Personalizado</th>
                 <th className="direccion-fixed-th">Dirección</th>
                 <th>Días de Mora</th>
-                <th>Item</th>
-                <th>Descripción</th>
-                <th>qty</th>
-                <th>rate</th>
-                <th>amount</th>
                 <th>Fecha de pago</th>
                 <th>Pago</th>
+                <th>Ver/Editar</th>
                 <th>Cancelar</th>
               </tr>
             </thead>
@@ -1807,7 +1611,21 @@ const Facturasemitidas = () => {
                       </td>
                       <td style={{ textAlign: "center" }}>{fecha}</td>
                       <td style={{ textAlign: "center" }}>
-                        {r.numerodefactura}
+                        <button
+                          onClick={() => openFacturaModal(r.numerodefactura)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#2196F3",
+                            textDecoration: "underline",
+                            cursor: "pointer",
+                            fontSize: "inherit",
+                            fontWeight: "bold"
+                          }}
+                          title="Ver/Editar factura"
+                        >
+                          {r.numerodefactura}
+                        </button>
                       </td>
                       <td>
                         <input
@@ -1870,152 +1688,6 @@ const Facturasemitidas = () => {
                         {calculateDaysDelay(r.timestamp, r.pago)}
                       </td>
                       <td>
-                        <select
-                          value={r.item || ""}
-                          style={{ width: "28ch" }}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "item",
-                              e.target.value,
-                              r.origin
-                            )
-                          }
-                        >
-                          <option value=""></option>
-                          <option value="Septic Tank">Septic Tank</option>
-                          <option value="Pipes Cleaning">Pipes Cleaning</option>
-                          <option value="Services">Services</option>
-                          <option value="Grease Trap">Grease Trap</option>
-                          <option value="Grease Trap & Pipe Cleanings">
-                            Grease Trap & Pipe Cleanings
-                          </option>
-                          <option value="Septic Tank & Grease Trap">
-                            Septic Tank & Grease Trap
-                          </option>
-                          <option value="Dow Temporal">Dow Temporal</option>
-                          <option value="Water Truck">Water Truck</option>
-                          <option value="Pool">Pool</option>
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          style={{
-                            border: "none",
-                            backgroundColor: "transparent",
-                            borderRadius: "0.25em",
-                            color: "black",
-                            padding: "0.2em 0.5em",
-                            cursor: "pointer",
-                            fontSize: "1em",
-                            maxWidth: "20ch",
-                            textAlign: "left",
-                            width: "100%",
-                          }}
-                          onClick={() =>
-                            handleDescriptionClick(
-                              fecha,
-                              r.id,
-                              r.descripcion,
-                              r.origin
-                            )
-                          }
-                        >
-                          {r.descripcion ? (
-                            <p
-                              style={{
-                                margin: 0,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                flex: 1,
-                              }}
-                            >
-                              {r.descripcion}
-                            </p>
-                          ) : (
-                            <span
-                              style={{
-                                width: "100%",
-                                display: "inline-block",
-                              }}
-                            />
-                          )}
-                        </button>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="1"
-                          min="0"
-                          style={{ width: "6ch", textAlign: "center" }}
-                          value={r.qty || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "qty",
-                              e.target.value,
-                              r.origin
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          pattern="[0-9]*([.][0-9]{0,2})?"
-                          style={{ width: "10ch", textAlign: "center" }}
-                          value={
-                            editingRate[r.id] != null
-                              ? editingRate[r.id]
-                              : r.rate != null
-                              ? r.rate.toFixed(2)
-                              : ""
-                          }
-                          onFocus={() => {
-                            setEditingRate((prev) => ({
-                              ...prev,
-                              [r.id]: r.rate != null ? r.rate.toFixed(2) : "",
-                            }));
-                          }}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, "");
-                            setEditingRate((prev) => ({
-                              ...prev,
-                              [r.id]: raw,
-                            }));
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "rate",
-                              raw,
-                              r.origin
-                            );
-                          }}
-                          onBlur={() => {
-                            setEditingRate((prev) => {
-                              const next = { ...prev };
-                              delete next[r.id];
-                              return next;
-                            });
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              e.target.select();
-                            }
-                          }}
-                        />
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        {r.amount != null
-                          ? (parseFloat(r.amount) || 0).toFixed(2)
-                          : "0.00"}
-                      </td>
-                      <td>
                         <input
                           type="date"
                           value={r.fechapago || ""}
@@ -2048,6 +1720,23 @@ const Facturasemitidas = () => {
                             cursor: "pointer",
                           }}
                         />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          onClick={() => openFacturaModal(r.numerodefactura)}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: "#28a745",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px"
+                          }}
+                          title="Ver/Editar factura"
+                        >
+                          Ver/Editar
+                        </button>
                       </td>
                       <td style={{ textAlign: "center" }}>
                         {r.factura && r.numerodefactura ? (
@@ -2192,6 +1881,14 @@ const Facturasemitidas = () => {
           </button>
         </div>
       </div>
+
+      {/* Modal de Vista/Edición de Factura */}
+      {showFacturaModal && selectedFactura && (
+        <FacturaViewEdit
+          numeroFactura={selectedFactura}
+          onClose={closeFacturaModal}
+        />
+      )}
     </div>
   );
 };

@@ -43,6 +43,8 @@ const Hojadefechas = () => {
   const [todos, setTodos] = useState([]);
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [facturas, setFacturas] = useState({});
+  const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const [selectedRows, setSelectedRows] = useState({});
@@ -180,12 +182,28 @@ const Hojadefechas = () => {
     return unsubscribe;
   }, []);
 
+  // Cargar facturas
+  useEffect(() => {
+    const dbRef = ref(database, "facturas");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setFacturas(snapshot.val());
+        setLoadedFacturas(true);
+      } else {
+        setFacturas({});
+        setLoadedFacturas(true);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Cuando todas las fuentes de datos estén listas, oculta el loader
   useEffect(() => {
-    if (loadedData && loadedRegistro && loadedUsers && loadedClients) {
+    if (loadedData && loadedRegistro && loadedUsers && loadedClients && loadedFacturas) {
       setLoading(false);
     }
-  }, [loadedData, loadedRegistro, loadedUsers, loadedClients]);
+  }, [loadedData, loadedRegistro, loadedUsers, loadedClients, loadedFacturas]);
 
   // Opciones para filtros (se combinan ambos registros)
   const allRegistros = [
@@ -489,6 +507,25 @@ const Hojadefechas = () => {
       return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
     });
 
+  // Función para obtener abonos de la factura
+  const getAbonosFactura = (registro) => {
+    // Si el registro no tiene factura asociada, usar el abono individual
+    if (!registro.numerodefactura && !registro.referenciaFactura) {
+      return registro.abono || 0;
+    }
+    
+    // Buscar la factura correspondiente
+    const numeroFactura = registro.numerodefactura || registro.referenciaFactura;
+    const factura = facturas[numeroFactura];
+    
+    if (factura && factura.abonos !== undefined) {
+      return factura.abonos;
+    }
+    
+    // Si no se encuentra la factura, usar el abono individual como fallback
+    return registro.abono || 0;
+  };
+
   // Funciones de navegación
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages) {
@@ -760,6 +797,204 @@ const Hojadefechas = () => {
   const closeFacturaModal = () => {
     setSelectedFactura(null);
     setShowFacturaModal(false);
+  };
+
+  // Función para abono rápido desde la tabla
+  const abonoRapido = async (numeroFactura) => {
+    if (!numeroFactura) {
+      Swal.fire({
+        icon: "warning",
+        title: "Sin factura",
+        text: "Este registro no tiene una factura asociada"
+      });
+      return;
+    }
+
+    // Obtener datos de la factura
+    const facturaRef = ref(database, `facturas/${numeroFactura}`);
+    const facturaSnapshot = await new Promise((resolve) => {
+      onValue(facturaRef, resolve, { onlyOnce: true });
+    });
+
+    if (!facturaSnapshot.exists()) {
+      Swal.fire({
+        icon: "error",
+        title: "Factura no encontrada",
+        text: "No se pudo encontrar la información de la factura"
+      });
+      return;
+    }
+
+    const facturaData = facturaSnapshot.val();
+    
+    if (facturaData.deuda <= 0) {
+      Swal.fire({
+        icon: "info",
+        title: "Factura ya pagada",
+        text: "Esta factura ya está completamente pagada"
+      });
+      return;
+    }
+
+    const { value: montoAbono } = await Swal.fire({
+      title: "Abono Rápido",
+      html: `
+        <div style="text-align: left; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Factura:</strong></span>
+            <span style="color: #2196F3; font-weight: bold;">#${numeroFactura}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Total:</strong></span>
+            <span>AWG ${formatCurrency(facturaData.totalAmount)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span><strong>Abonos:</strong></span>
+            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.abonos || 0)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
+            <span><strong>Deuda:</strong></span>
+            <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(facturaData.deuda)}</span>
+          </div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <input id="monto-abono-rapido" type="number" class="swal2-input" placeholder="Monto del abono" min="0" step="0.01" style="margin: 0;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" id="mitad-rapido" class="swal2-confirm swal2-styled" style="background-color: #17a2b8;">50%</button>
+          <button type="button" id="total-rapido" class="swal2-confirm swal2-styled" style="background-color: #28a745;">Total</button>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Registrar Abono",
+      cancelButtonText: "Cancelar",
+      didOpen: () => {
+        const montoInput = document.getElementById('monto-abono-rapido');
+        const mitadBtn = document.getElementById('mitad-rapido');
+        const totalBtn = document.getElementById('total-rapido');
+        
+        mitadBtn.onclick = () => {
+          montoInput.value = (facturaData.deuda / 2).toFixed(2);
+        };
+        
+        totalBtn.onclick = () => {
+          montoInput.value = facturaData.deuda.toFixed(2);
+        };
+        
+        montoInput.focus();
+      },
+      preConfirm: () => {
+        const value = document.getElementById('monto-abono-rapido').value;
+        if (!value || parseFloat(value) <= 0) {
+          Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
+          return false;
+        }
+        if (parseFloat(value) > facturaData.deuda) {
+          Swal.showValidationMessage("El abono no puede ser mayor que la deuda actual");
+          return false;
+        }
+        return parseFloat(value);
+      }
+    });
+
+    if (!montoAbono) return;
+
+    try {
+      const abono = parseFloat(montoAbono);
+      const nuevosAbonos = (facturaData.abonos || 0) + abono;
+      const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosAbonos);
+      const facturaCompletamentePagada = nuevaDeuda === 0;
+      
+      // Actualizar la factura
+      const facturaUpdates = {
+        abonos: parseFloat(nuevosAbonos.toFixed(2)),
+        deuda: parseFloat(nuevaDeuda.toFixed(2))
+      };
+
+      if (facturaCompletamentePagada) {
+        facturaUpdates.pago = "Pago";
+        facturaUpdates.fechapago = new Date().toISOString().split('T')[0];
+      }
+
+      await update(facturaRef, facturaUpdates);
+
+      // Si está completamente pagada, actualizar todos los servicios asociados
+      if (facturaCompletamentePagada) {
+        // Buscar servicios asociados y actualizarlos
+        const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+          new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+          new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+        ]);
+
+        const serviciosAsociados = [];
+        
+        // Buscar en data
+        if (dataSnapshot.exists()) {
+          const dataVal = dataSnapshot.val();
+          Object.entries(dataVal).forEach(([id, registro]) => {
+            if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+              serviciosAsociados.push({ id, origin: "data" });
+            }
+          });
+        }
+        
+        // Buscar en registrofechas
+        if (registroFechasSnapshot.exists()) {
+          const registroVal = registroFechasSnapshot.val();
+          Object.entries(registroVal).forEach(([fecha, registros]) => {
+            Object.entries(registros).forEach(([id, registro]) => {
+              if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+                serviciosAsociados.push({ id, fecha, origin: "registrofechas" });
+              }
+            });
+          });
+        }
+
+        // Actualizar todos los servicios
+        const updatePromises = serviciosAsociados.map(servicio => {
+          const path = servicio.origin === "data" 
+            ? `data/${servicio.id}` 
+            : `registrofechas/${servicio.fecha}/${servicio.id}`;
+          
+          return update(ref(database, path), { 
+            pago: "Pago",
+            fechapago: new Date().toISOString().split('T')[0]
+          });
+        });
+
+        await Promise.all(updatePromises);
+      }
+
+      // Mostrar mensaje de éxito
+      if (facturaCompletamentePagada) {
+        Swal.fire({
+          icon: "success",
+          title: "¡Factura Pagada Completamente!",
+          html: `
+            <div style="text-align: center;">
+              <p>Se registró un abono de <strong>AWG ${formatCurrency(abono)}</strong></p>
+              <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
+              <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
+            </div>
+          `,
+          timer: 3000
+        });
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "Abono Registrado",
+          text: `Abono de AWG ${formatCurrency(abono)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          timer: 2000
+        });
+      }
+    } catch (error) {
+      console.error("Error registrando abono:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo registrar el abono"
+      });
+    }
   };
 
   // Función para manejar cambios en campos específicos
@@ -2158,6 +2393,7 @@ const Hojadefechas = () => {
                 <th>Factura</th>
                 <th>N° Factura</th>
                 <th>Abono</th>
+                <th>Abono Rápido</th>
                 <th>Pago</th>
                 <th>Cancelar</th>
               </tr>
@@ -2542,21 +2778,44 @@ const Hojadefechas = () => {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
-                          value={registro.abono || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "abono",
-                              parseFloat(e.target.value) || 0,
-                              registro.origin
-                            )
-                          }
+                          value={getAbonosFactura(registro) || ""}
+                          readOnly
                           style={{
                             width: "10ch",
                             textAlign: "center",
+                            backgroundColor: "#f8f9fa",
+                            cursor: "not-allowed",
+                            color: "#6c757d"
                           }}
                         />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {registro.numerodefactura ? (
+                          <button
+                            onClick={() => abonoRapido(registro.numerodefactura)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "#28a745",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "11px",
+                              fontWeight: "bold"
+                            }}
+                            title={`Abono rápido para factura ${registro.numerodefactura}`}
+                          >
+                            Abono
+                          </button>
+                        ) : (
+                          <span style={{ 
+                            color: "#ccc", 
+                            fontSize: "11px",
+                            fontStyle: "italic"
+                          }}>
+                            Sin factura
+                          </span>
+                        )}
                       </td>
                       <td>
                         <input
