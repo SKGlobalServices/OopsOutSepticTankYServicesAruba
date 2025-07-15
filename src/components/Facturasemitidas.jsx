@@ -62,8 +62,11 @@ const Facturasemitidas = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
   const [editingRate, setEditingRate] = useState({});
-  const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
-  
+  const [sortConfig, setSortConfig] = useState({
+    key: "fecha",
+    direction: "desc",
+  });
+
   // Estado para el modal de vista/edición de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
   const [showFacturaModal, setShowFacturaModal] = useState(false);
@@ -83,7 +86,6 @@ const Facturasemitidas = () => {
     });
   };
 
-  
   const calculateDaysDelay = (timestamp, pagoStatus) => {
     if (pagoStatus === "Pago") return 0;
     const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
@@ -255,7 +257,7 @@ const Facturasemitidas = () => {
       )
     )
       .sort()
-      .map((v) => ({ value: v, label: v }))
+      .map((v) => ({ value: v, label: v })),
   ];
 
   const direccionOptions = [
@@ -268,8 +270,8 @@ const Facturasemitidas = () => {
       )
     )
       .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }))
-  ]
+      .map((v) => ({ value: v, label: v })),
+  ];
 
   // ————————
   // 1) APLANA TODOS LOS REGISTROS EN UN ARRAY PLANO
@@ -338,7 +340,7 @@ const Facturasemitidas = () => {
     }
 
     // 6) Días de Mora
-     if (filters.diasdemora.length > 0) {
+    if (filters.diasdemora.length > 0) {
       const dias = calculateDaysDelay(r.timestamp, r.pago);
       const matchDias = filters.diasdemora.some((valorFiltro) => {
         if (valorFiltro === "10+") {
@@ -362,7 +364,7 @@ const Facturasemitidas = () => {
     )
       return false;
 
-    // 9) Multi-select: Pago  
+    // 9) Multi-select: Pago
     if (filters.pago.length > 0) {
       const pagoValue = r.pago === "Pago" || r.pago === true; // Normalizar: "Pago" = true, otros = false
       if (!filters.pago.includes(pagoValue)) return false;
@@ -382,10 +384,10 @@ const Facturasemitidas = () => {
 
   // 2b) ORDENA el array plano según la configuración
   const sortedRecords = [...filtrados].sort((a, b) => {
-    if (sortConfig.key === 'numerodefactura') {
-      const numA = a.numerodefactura || '';
-      const numB = b.numerodefactura || '';
-      if (sortConfig.direction === 'asc') {
+    if (sortConfig.key === "numerodefactura") {
+      const numA = a.numerodefactura || "";
+      const numB = b.numerodefactura || "";
+      if (sortConfig.direction === "asc") {
         return numA.localeCompare(numB, undefined, { numeric: true });
       }
       return numB.localeCompare(numA, undefined, { numeric: true });
@@ -400,18 +402,18 @@ const Facturasemitidas = () => {
 
   // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA (si no se ordena por factura)
   const grouped = sortedRecords.reduce((acc, r) => {
-    const key = sortConfig.key === 'numerodefactura' ? r.id : r.fecha;
+    const key = sortConfig.key === "numerodefactura" ? r.id : r.fecha;
     (acc[key] = acc[key] || []).push(r);
     return acc;
   }, {});
 
   const filteredData = Object.entries(grouped)
     .map(([key, registros]) => ({
-      fecha: sortConfig.key === 'numerodefactura' ? registros[0].fecha : key,
+      fecha: sortConfig.key === "numerodefactura" ? registros[0].fecha : key,
       registros,
     }))
     .sort((a, b) => {
-      if (sortConfig.key === 'numerodefactura') {
+      if (sortConfig.key === "numerodefactura") {
         // La ordenación principal ya se hizo en sortedRecords
         return 0;
       }
@@ -421,7 +423,7 @@ const Facturasemitidas = () => {
     });
 
   // Cálculos de paginación
-  const allRecords = filteredData.flatMap(group => group.registros);
+  const allRecords = filteredData.flatMap((group) => group.registros);
   const totalItems = allRecords.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -600,7 +602,7 @@ const Facturasemitidas = () => {
   // 1) La función que actualiza Firebase y el estado local (PAGO)
   const handlePagoToggle = (fecha, id, origin, checked) => {
     const newPagoValue = checked ? "Pago" : "Debe";
-    
+
     Swal.fire({
       title: checked
         ? "¿Deseas marcar esta factura como pagada?"
@@ -791,7 +793,7 @@ const Facturasemitidas = () => {
       Swal.fire({
         icon: "warning",
         title: "Sin factura",
-        text: "Este registro no tiene una factura asociada"
+        text: "Este registro no tiene una factura asociada",
       });
       return;
     }
@@ -806,18 +808,18 @@ const Facturasemitidas = () => {
       Swal.fire({
         icon: "error",
         title: "Factura no encontrada",
-        text: "No se pudo encontrar la información de la factura"
+        text: "No se pudo encontrar la información de la factura",
       });
       return;
     }
 
     const facturaData = facturaSnapshot.val();
-    
+
     if (facturaData.deuda <= 0) {
       Swal.fire({
         icon: "info",
         title: "Factura ya pagada",
-        text: "Esta factura ya está completamente pagada"
+        text: "Esta factura ya está completamente pagada",
       });
       return;
     }
@@ -836,11 +838,15 @@ const Facturasemitidas = () => {
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span><strong>Payments:</strong></span>
-            <span style="color: #28a745;">AWG ${formatCurrency(facturaData.payment || 0)}</span>
+            <span style="color: #28a745;">AWG ${formatCurrency(
+              facturaData.payment || 0
+            )}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
             <span><strong>Deuda:</strong></span>
-            <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(facturaData.deuda)}</span>
+            <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(
+              facturaData.deuda
+            )}</span>
           </div>
         </div>
         <div style="margin-bottom: 10px;">
@@ -855,32 +861,34 @@ const Facturasemitidas = () => {
       confirmButtonText: "Registrar Payment",
       cancelButtonText: "Cancelar",
       didOpen: () => {
-        const montoInput = document.getElementById('monto-payment-rapido');
-        const mitadBtn = document.getElementById('mitad-rapido');
-        const totalBtn = document.getElementById('total-rapido');
-        
+        const montoInput = document.getElementById("monto-payment-rapido");
+        const mitadBtn = document.getElementById("mitad-rapido");
+        const totalBtn = document.getElementById("total-rapido");
+
         mitadBtn.onclick = () => {
           montoInput.value = (facturaData.deuda / 2).toFixed(2);
         };
-        
+
         totalBtn.onclick = () => {
           montoInput.value = facturaData.deuda.toFixed(2);
         };
-        
+
         montoInput.focus();
       },
       preConfirm: () => {
-        const value = document.getElementById('monto-payment-rapido').value;
+        const value = document.getElementById("monto-payment-rapido").value;
         if (!value || parseFloat(value) <= 0) {
           Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
           return false;
         }
         if (parseFloat(value) > facturaData.deuda) {
-          Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
+          Swal.showValidationMessage(
+            "El payment no puede ser mayor que la deuda actual"
+          );
           return false;
         }
         return parseFloat(value);
-      }
+      },
     });
 
     if (!montoPayment) return;
@@ -890,16 +898,16 @@ const Facturasemitidas = () => {
       const nuevosPayments = (facturaData.payment || 0) + payment;
       const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
       const facturaCompletamentePagada = nuevaDeuda === 0;
-      
+
       // Actualizar la factura
       const facturaUpdates = {
         payment: parseFloat(nuevosPayments.toFixed(2)),
-        deuda: parseFloat(nuevaDeuda.toFixed(2))
+        deuda: parseFloat(nuevaDeuda.toFixed(2)),
       };
 
       if (facturaCompletamentePagada) {
         facturaUpdates.pago = "Pago";
-        facturaUpdates.fechapago = new Date().toISOString().split('T')[0];
+        facturaUpdates.fechapago = new Date().toISOString().split("T")[0];
       }
 
       await update(facturaRef, facturaUpdates);
@@ -908,43 +916,60 @@ const Facturasemitidas = () => {
       if (facturaCompletamentePagada) {
         // Buscar servicios asociados y actualizarlos
         const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-          new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-          new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+          new Promise((resolve) =>
+            onValue(ref(database, "data"), resolve, { onlyOnce: true })
+          ),
+          new Promise((resolve) =>
+            onValue(ref(database, "registrofechas"), resolve, {
+              onlyOnce: true,
+            })
+          ),
         ]);
 
         const serviciosAsociados = [];
-        
+
         // Buscar en data
         if (dataSnapshot.exists()) {
           const dataVal = dataSnapshot.val();
           Object.entries(dataVal).forEach(([id, registro]) => {
-            if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+            if (
+              registro.referenciaFactura === numeroFactura ||
+              registro.numerodefactura === numeroFactura
+            ) {
               serviciosAsociados.push({ id, origin: "data" });
             }
           });
         }
-        
+
         // Buscar en registrofechas
         if (registroFechasSnapshot.exists()) {
           const registroVal = registroFechasSnapshot.val();
           Object.entries(registroVal).forEach(([fecha, registros]) => {
             Object.entries(registros).forEach(([id, registro]) => {
-              if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
-                serviciosAsociados.push({ id, fecha, origin: "registrofechas" });
+              if (
+                registro.referenciaFactura === numeroFactura ||
+                registro.numerodefactura === numeroFactura
+              ) {
+                serviciosAsociados.push({
+                  id,
+                  fecha,
+                  origin: "registrofechas",
+                });
               }
             });
           });
         }
 
         // Actualizar todos los servicios
-        const updatePromises = serviciosAsociados.map(servicio => {
-          const path = servicio.origin === "data" 
-            ? `data/${servicio.id}` 
-            : `registrofechas/${servicio.fecha}/${servicio.id}`;
-          
-          return update(ref(database, path), { 
+        const updatePromises = serviciosAsociados.map((servicio) => {
+          const path =
+            servicio.origin === "data"
+              ? `data/${servicio.id}`
+              : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
+          return update(ref(database, path), {
             pago: "Pago",
-            fechapago: new Date().toISOString().split('T')[0]
+            fechapago: new Date().toISOString().split("T")[0],
           });
         });
 
@@ -958,19 +983,23 @@ const Facturasemitidas = () => {
           title: "¡Factura Pagada Completamente!",
           html: `
             <div style="text-align: center;">
-              <p>Se registró un payment de <strong>AWG ${formatCurrency(payment)}</strong></p>
+              <p>Se registró un payment de <strong>AWG ${formatCurrency(
+                payment
+              )}</strong></p>
               <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
               <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
             </div>
           `,
-          timer: 3000
+          timer: 3000,
         });
       } else {
         Swal.fire({
           icon: "success",
           title: "Payment Registrado",
-          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
-          timer: 2000
+          text: `Payment de AWG ${formatCurrency(
+            payment
+          )} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
+          timer: 2000,
         });
       }
     } catch (error) {
@@ -978,12 +1007,11 @@ const Facturasemitidas = () => {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "No se pudo registrar el payment"
+        text: "No se pudo registrar el payment",
       });
     }
   };
 
-  
   const openConfigModal = () => {
     Swal.fire({
       title: "Configuración de la factura",
@@ -1112,16 +1140,15 @@ const Facturasemitidas = () => {
   };
 
   const handleSort = (key) => {
-    setSortConfig(prev => {
+    setSortConfig((prev) => {
       if (prev.key === key) {
-        if (prev.direction === 'desc') return { key: 'fecha', direction: 'desc' }; // Volver a default
-        return { key, direction: 'desc' };
+        if (prev.direction === "desc")
+          return { key: "fecha", direction: "desc" }; // Volver a default
+        return { key, direction: "desc" };
       }
-      return { key, direction: 'asc' };
+      return { key, direction: "asc" };
     });
   };
-
-
 
   // Generar factura usando datos de la factura asociada
   const generatePDF = async () => {
@@ -1138,11 +1165,11 @@ const Facturasemitidas = () => {
     // 2) Obtener datos seleccionados y usar el PRIMER registro seleccionado como base
     const allRecs = filteredData.flatMap((g) => g.registros);
     const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
-    
+
     // ✅ Usar el primer ID de selectedRows (mantiene orden de selección)
     const firstSelectedId = selectedRows[0];
     const base = allRecs.find((r) => r.id === firstSelectedId);
-    
+
     if (!base) {
       return Swal.fire({
         title: "Error",
@@ -1220,7 +1247,7 @@ const Facturasemitidas = () => {
         });
       },
     });
-    
+
     if (!billToResult) return; // canceló o no pasó validación
 
     // 5) Calcular Bill To
@@ -1289,7 +1316,7 @@ const Facturasemitidas = () => {
       const pdf = new jsPDF("p", "mm", "a4");
       const mL = 10,
         mT = 10;
-      
+
       // Obtener logo en base64 y sus dimensiones originales
       const logo = await getBase64ImageFromUrl(logotipo);
       const img = new Image();
@@ -1305,12 +1332,16 @@ const Facturasemitidas = () => {
 
       // — Información de la empresa —
       const textX = mL + logoWidth + 5;
-      pdf.setFontSize(16).text(invoiceConfig.companyName || "Company Name", textX, mT + 5);
+      pdf
+        .setFontSize(16)
+        .text(invoiceConfig.companyName || "Company Name", textX, mT + 5);
       pdf
         .setFontSize(10)
         .text(`Address: ${invoiceConfig.address || "Address"}`, textX, mT + 11)
         .text(
-          `${invoiceConfig.city || "City"}, ${invoiceConfig.country || "Country"}, ${invoiceConfig.postalCode || "Postal Code"}`,
+          `${invoiceConfig.city || "City"}, ${
+            invoiceConfig.country || "Country"
+          }, ${invoiceConfig.postalCode || "Postal Code"}`,
           textX,
           mT + 16
         )
@@ -1322,7 +1353,11 @@ const Facturasemitidas = () => {
       pdf
         .setFontSize(12)
         .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
-        .text(`DATE: ${new Date(facturaData.timestamp).toLocaleDateString()}`, 152, mT + 40);
+        .text(
+          `DATE: ${new Date(facturaData.timestamp).toLocaleDateString()}`,
+          152,
+          mT + 40
+        );
 
       // — Bill To —
       const yBill = mT + logoHeight + 21;
@@ -1380,7 +1415,8 @@ const Facturasemitidas = () => {
       // — Total y balance —
       const afterY = pdf.lastAutoTable.finalY;
       // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
-      const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || totalAmount;
+      const balance =
+        pagoStatus === "Pago" ? 0 : facturaData.deuda || totalAmount;
       pdf.setFontSize(10);
       pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
 
@@ -1389,7 +1425,11 @@ const Facturasemitidas = () => {
       pdf.setFontSize(10).text("Bank Info:", mL, bankY);
       pdf
         .setFontSize(9)
-        .text(pdf.splitTextToSize(invoiceConfig.bankInfo || "Bank Info", 80), mL, bankY + 6);
+        .text(
+          pdf.splitTextToSize(invoiceConfig.bankInfo || "Bank Info", 80),
+          mL,
+          bankY + 6
+        );
       const footerText = (invoiceConfig.footer || "").replace(/\r?\n/g, " ");
       const w = pdf.internal.pageSize.getWidth();
       const h = pdf.internal.pageSize.getHeight();
@@ -1417,7 +1457,8 @@ const Facturasemitidas = () => {
         ctx.fillStyle = "green";
         ctx.fillText("PAID", 0, 0);
 
-        const fechaPagoDisplay = base.fechapago || facturaData.fechapago || today.toLocaleDateString();
+        const fechaPagoDisplay =
+          base.fechapago || facturaData.fechapago || today.toLocaleDateString();
         ctx.globalAlpha = 0.4;
         ctx.font = "5px Arial";
         ctx.fillStyle = "green";
@@ -1429,7 +1470,11 @@ const Facturasemitidas = () => {
         // — PAYMENT total —
         pdf
           .setFontSize(10)
-          .text(`PAYMENT: AWG ${formatCurrency(facturaData.payment || 0)}`, 152, afterY + 12);
+          .text(
+            `PAYMENT: AWG ${formatCurrency(facturaData.payment || 0)}`,
+            152,
+            afterY + 12
+          );
       }
 
       // — Guarda el PDF —
@@ -1440,9 +1485,8 @@ const Facturasemitidas = () => {
         icon: "success",
         title: "PDF Generado",
         text: `La factura #${invoiceId} se ha generado correctamente.`,
-        timer: 2000
+        timer: 2000,
       });
-
     } catch (error) {
       console.error("Error generando PDF:", error);
       Swal.fire({
@@ -1707,9 +1751,7 @@ const Facturasemitidas = () => {
           onClick={() => setShowPagoPicker((v) => !v)}
           style={{ display: "block", margin: "0.5rem 0" }}
         >
-          {showPagoPicker
-            ? "Ocultar selector"
-            : "Filtrar Por Fecha De Pago"}
+          {showPagoPicker ? "Ocultar selector" : "Filtrar Por Fecha De Pago"}
         </button>
         {showPagoPicker && (
           <DatePicker
@@ -1849,13 +1891,14 @@ const Facturasemitidas = () => {
                 <th>Fecha Emisión</th>
                 <th>Fecha Servicio</th>
                 <th>
-                  <button 
-                    onClick={() => handleSort('numerodefactura')} 
+                  <button
+                    onClick={() => handleSort("numerodefactura")}
                     className="sort-button"
                     title="Ordenar por N° de Factura"
                   >
-                    Factura 
-                    {sortConfig.key === 'numerodefactura' && (sortConfig.direction === 'asc' ? ' ▲' : ' ▼')}
+                    Factura
+                    {sortConfig.key === "numerodefactura" &&
+                      (sortConfig.direction === "asc" ? " ▲" : " ▼")}
                   </button>
                 </th>
                 <th>A Nombre De</th>
@@ -1900,7 +1943,7 @@ const Facturasemitidas = () => {
                             textDecoration: "underline",
                             cursor: "pointer",
                             fontSize: "inherit",
-                            fontWeight: "bold"
+                            fontWeight: "bold",
                           }}
                           title="Ver/Editar factura"
                         >
@@ -1957,11 +2000,6 @@ const Facturasemitidas = () => {
                               )
                             }
                           />
-                          <datalist id={`dirs-${r.id}`}>
-                            {clients.map((c) => (
-                              <option key={c.id} value={c.direccion} />
-                            ))}
-                          </datalist>
                         </div>
                       </td>
                       <td style={{ textAlign: "center", width: "6ch" }}>
@@ -2011,7 +2049,7 @@ const Facturasemitidas = () => {
                             border: "none",
                             borderRadius: "4px",
                             cursor: "pointer",
-                            fontSize: "12px"
+                            fontSize: "12px",
                           }}
                           title="Ver/Editar factura"
                         >
@@ -2030,18 +2068,20 @@ const Facturasemitidas = () => {
                               borderRadius: "4px",
                               cursor: "pointer",
                               fontSize: "11px",
-                              fontWeight: "bold"
+                              fontWeight: "bold",
                             }}
                             title={`Payment rápido para factura ${r.numerodefactura}`}
                           >
                             Payment
                           </button>
                         ) : (
-                          <span style={{ 
-                            color: "#ccc", 
-                            fontSize: "11px",
-                            fontStyle: "italic"
-                          }}>
+                          <span
+                            style={{
+                              color: "#ccc",
+                              fontSize: "11px",
+                              fontStyle: "italic",
+                            }}
+                          >
                             {r.pago === "Pago" ? "Pagada" : "Sin factura"}
                           </span>
                         )}
@@ -2086,60 +2126,63 @@ const Facturasemitidas = () => {
           </table>
         </div>
         <div className="pagination-container">
-        <div className="pagination-info">
-          <span>
-            Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
-          </span>
-          <div className="items-per-page">
-            <label>Mostrar:</label>
-            <select 
-              value={itemsPerPage} 
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+          <div className="pagination-info">
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de{" "}
+              {totalItems} registros
+            </span>
+            <div className="items-per-page">
+              <label>Mostrar:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+
+          {/* Controles de navegación */}
+          <div className="pagination-controls">
+            <button
+              onClick={goToFirstPage}
+              disabled={currentPage === 1}
+              title="Primera página"
             >
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={200}>200</option>
-              <option value={500}>500</option>
-            </select>
-            <span>por página</span>
+              ««
+            </button>
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              «
+            </button>
+            <span>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              »
+            </button>
+            <button
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              title="Última página"
+            >
+              »»
+            </button>
           </div>
         </div>
-        
-        {/* Controles de navegación */}
-        <div className="pagination-controls">
-          <button 
-            onClick={goToFirstPage} 
-            disabled={currentPage === 1}
-            title="Primera página"
-          >
-            ««
-          </button>
-          <button 
-            onClick={goToPreviousPage} 
-            disabled={currentPage === 1}
-            title="Página anterior"
-          >
-            «
-          </button>
-          <span>
-            Página {currentPage} de {totalPages}
-          </span>
-          <button 
-            onClick={goToNextPage} 
-            disabled={currentPage === totalPages}
-            title="Página siguiente"
-          >
-            »
-          </button>
-          <button 
-            onClick={goToLastPage} 
-            disabled={currentPage === totalPages}
-            title="Última página"
-          >
-            »»
-          </button>
-        </div>
-      </div>
         <div
           style={{
             textAlign: "right",
