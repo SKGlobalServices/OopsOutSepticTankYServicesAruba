@@ -761,11 +761,17 @@ const Facturasemitidas = () => {
     .map((n) => ({ value: n.toString(), label: n.toString() }))
     .concat({ value: "10+", label: "10+" });
 
-  // SELECCIÓN
+  // SELECCIÓN - Mantener orden de selección
   const handleSelectRow = (id) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedRows((prev) => {
+      if (prev.includes(id)) {
+        // Si ya está seleccionado, quitarlo
+        return prev.filter((x) => x !== id);
+      } else {
+        // Si no está seleccionado, agregarlo al final (mantiene orden)
+        return [...prev, id];
+      }
+    });
   };
 
   // Función para abrir el modal de vista/edición de factura
@@ -1117,7 +1123,7 @@ const Facturasemitidas = () => {
 
 
 
-  // Generar factura
+  // Generar factura usando datos de la factura asociada
   const generatePDF = async () => {
     // 1) Validar selección
     if (selectedRows.length === 0) {
@@ -1129,19 +1135,49 @@ const Facturasemitidas = () => {
       });
     }
 
+    // 2) Obtener datos seleccionados y usar el PRIMER registro seleccionado como base
+    const allRecs = filteredData.flatMap((g) => g.registros);
+    const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
+    
+    // ✅ Usar el primer ID de selectedRows (mantiene orden de selección)
+    const firstSelectedId = selectedRows[0];
+    const base = allRecs.find((r) => r.id === firstSelectedId);
+    
+    if (!base) {
+      return Swal.fire({
+        title: "Error",
+        text: "No se pudo encontrar el primer registro seleccionado.",
+        icon: "error",
+        confirmButtonText: "Aceptar",
+      });
+    }
+
+    console.log("Usando registro base:", base);
+
+    // 3) Validar que la factura existe
+    if (!base.numerodefactura) {
+      return Swal.fire({
+        title: "Sin factura asociada",
+        text: "El primer registro seleccionado no tiene una factura asociada.",
+        icon: "warning",
+        confirmButtonText: "Aceptar",
+      });
+    }
+
+    // 4) Preguntar por el Bill To
     const { value: billToResult } = await Swal.fire({
       title: "Bill To:",
       html: `
-    <select id="bill-to-type" class="swal2-select" style="width:75%;">
-      <option value="" disabled selected>Elija…</option>
-      <option value="anombrede">A Nombre De</option>
-      <option value="direccion">Dirección</option>
-      <option value="personalizado">Personalizado</option>
-    </select>
-    <input id="bill-to-custom" class="swal2-input"
-           placeholder="Texto personalizado"
-           style="display:none; width:70%; margin:0.5em auto 0;"
-    />`,
+        <select id="bill-to-type" class="swal2-select" style="width:75%;">
+          <option value="" disabled selected>Elija…</option>
+          <option value="anombrede">A Nombre De</option>
+          <option value="direccion">Dirección</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
+        <input id="bill-to-custom" class="swal2-input"
+               placeholder="Texto personalizado"
+               style="display:none; width:70%; margin:0.5em auto 0;"
+        />`,
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -1162,9 +1198,7 @@ const Facturasemitidas = () => {
           direccion: "Dirección",
         };
 
-        // buscamos el registro "base" dentro de filteredData en lugar de facturas
-        const allRecs = filteredData.flatMap((g) => g.registros);
-        const base = allRecs.find((r) => selectedRows.includes(r.id));
+        // Validar que hay datos para el tipo seleccionado
         if (
           (type === "anombrede" && !base?.anombrede) ||
           (type === "direccion" && !base?.direccion)
@@ -1186,15 +1220,10 @@ const Facturasemitidas = () => {
         });
       },
     });
+    
     if (!billToResult) return; // canceló o no pasó validación
 
-    // 3) Extraer datos seleccionados desde filteredData
-    const allRecs = filteredData.flatMap((g) => g.registros);
-    const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
-    const base = selectedData[0];
-    const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
-
-    // 4) Calcular Bill To
+    // 5) Calcular Bill To
     let billToValue = "";
     switch (billToResult.billToType) {
       case "anombrede":
@@ -1208,176 +1237,220 @@ const Facturasemitidas = () => {
         break;
     }
 
-    // 5) Preparar filas y total
-    const filas = selectedData.map((r) => [
-      r.fecha,
-      r.item || "",
-      r.descripcion || "",
-      r.qty != null ? r.qty.toString() : "",
-      r.rate != null ? (parseFloat(r.rate) || 0).toFixed(2) : "",
-      r.amount != null ? (parseFloat(r.amount) || 0).toFixed(2) : "",
-    ]);
+    try {
+      // 6) Obtener datos de la factura desde el nodo /facturas/
+      const facturaRef = ref(database, `facturas/${base.numerodefactura}`);
+      const facturaSnapshot = await new Promise((resolve) => {
+        onValue(facturaRef, resolve, { onlyOnce: true });
+      });
 
-    const totalAmount = filas.reduce(
-      (sum, row) => sum + parseFloat(row[5] || 0),
-      0
-    );
-    // 6) Incrementar contador y obtener número de factura
-    // const contadorRef = ref(database, "contadorFactura");
+      if (!facturaSnapshot.exists()) {
+        return Swal.fire({
+          title: "Factura no encontrada",
+          text: `No se encontró la factura #${base.numerodefactura}`,
+          icon: "error",
+          confirmButtonText: "Aceptar",
+        });
+      }
 
-    // 6a) Formatear YYMM + secuencia 5 dígitos
-    const today = new Date();
-    const invoiceId = base.numerodefactura; // "25060001"
+      const facturaData = facturaSnapshot.val();
+      console.log("Datos de la factura obtenidos:", facturaData);
 
-    // 7) Generar PDF
-    const pdf = new jsPDF("p", "mm", "a4");
-    const mL = 10,
-      mT = 10,
-      logoSize = 28;
-    // Obtener logo en base64 y sus dimensiones originales
-    const logo = await getBase64ImageFromUrl(logotipo);
-    const img = new Image();
-    img.src = logo;
-    await new Promise((r) => (img.onload = r));
+      // 7) Usar datos del primer registro para información básica
+      const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
 
-    // Ajustar altura fija y calcular ancho proporcional
-    const logoHeight = 18; // por ejemplo 18 mm de alto
-    const logoWidth = (img.width / img.height) * logoHeight;
+      // 8) Preparar filas usando los items de la factura
+      const filas = [];
+      if (facturaData.invoiceItems) {
+        Object.entries(facturaData.invoiceItems).forEach(([key, item]) => {
+          filas.push([
+            base.fecha, // Fecha del servicio (del primer registro)
+            item.item || "",
+            item.descripcion || "",
+            item.qty != null ? item.qty.toString() : "",
+            item.rate != null ? (parseFloat(item.rate) || 0).toFixed(2) : "",
+            item.amount != null ? formatCurrency(item.amount) : "",
+          ]);
+        });
+      } else {
+        // Si no hay items en la factura, mostrar mensaje
+        return Swal.fire({
+          title: "Factura sin items",
+          text: "La factura no tiene items para mostrar.",
+          icon: "warning",
+          confirmButtonText: "Aceptar",
+        });
+      }
 
-    // Insertar logo
-    pdf.addImage(logo, "PNG", mL, mT, logoWidth, logoHeight);
+      const totalAmount = facturaData.totalAmount || 0;
+      const invoiceId = base.numerodefactura;
 
-    // — Empresa —
-    const textX = mL + logoSize * 2.5 + 5;
-    pdf.setFontSize(16).text(invoiceConfig.companyName, textX, mT + 5);
-    pdf
-      .setFontSize(10)
-      .text(`Address: ${invoiceConfig.address}`, textX, mT + 11)
-      .text(
-        `${invoiceConfig.city}, ${invoiceConfig.country}, ${invoiceConfig.postalCode}`,
-        textX,
-        mT + 16
-      )
-      .text(`Tel: ${invoiceConfig.phone}`, textX, mT + 21)
-      .text(`Email: ${invoiceConfig.email}`, textX, mT + 26);
+      // 9) Generar PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const mL = 10,
+        mT = 10;
+      
+      // Obtener logo en base64 y sus dimensiones originales
+      const logo = await getBase64ImageFromUrl(logotipo);
+      const img = new Image();
+      img.src = logo;
+      await new Promise((r) => (img.onload = r));
 
-    // — Número y fecha —
-    pdf
-      .setFontSize(12)
-      .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
-      .text(`DATE: ${today.toLocaleDateString()}`, 152, mT + 40);
+      // Ajustar altura fija y calcular ancho proporcional
+      const logoHeight = 18; // por ejemplo 18 mm de alto
+      const logoWidth = (img.width / img.height) * logoHeight;
 
-    // — Bill To —
-    const yBill = mT + logoHeight + 21;
-    pdf.setFontSize(12).text("BILL TO:", mL, yBill);
+      // Insertar logo
+      pdf.addImage(logo, "PNG", mL, mT, logoWidth, logoHeight);
 
-    const labelW = pdf.getTextWidth("BILL TO:");
-    pdf.setFontSize(10).text(billToValue, mL + labelW + 5, yBill);
-
-    // — Tabla de ítems —
-    autoTable(pdf, {
-      head: [["DATE", "ITEM", "Descripción", "QTY", "RATE", "AMOUNT"]],
-      body: filas,
-      startY: yBill + 8,
-      margin: { left: mL, right: 10 },
-      theme: "grid",
-      headStyles: { fillColor: [0, 164, 189], textColor: 255 },
-      styles: {
-        fontSize: 9,
-        overflow: "linebreak",
-      },
-      columnStyles: {
-        0: {
-          // DATE
-          cellWidth: 20,
-          halign: "left",
-        },
-        1: {
-          // ITEM
-          cellWidth: 48,
-          halign: "left",
-        },
-        2: {
-          // Descripción
-          cellWidth: 75,
-          overflow: "linebreak",
-        },
-        3: {
-          // QTY
-          cellWidth: 12,
-          halign: "center",
-        },
-        4: {
-          // RATE
-          cellWidth: 15,
-          halign: "right",
-        },
-        5: {
-          // AMOUNT
-          cellWidth: 20,
-          halign: "right",
-        },
-      },
-    });
-
-    // — Total y balance —
-    const afterY = pdf.lastAutoTable.finalY;
-    // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
-    const balance = pagoStatus === "Pago" ? 0 : totalAmount;
-    pdf
-      .setFontSize(10)
-      .text(`BALANCE DUE: AWG${balance.toFixed(2)}`, 152, afterY + 6);
-
-    // — Bank Info y footer —
-    const bankY = afterY + 6;
-    pdf.text("Bank Info:", mL, bankY);
-    pdf
-      .setFontSize(9)
-      .text(pdf.splitTextToSize(invoiceConfig.bankInfo, 80), mL, bankY + 6);
-    const footerText = (invoiceConfig.footer || "").replace(/\r?\n/g, " ");
-    const w = pdf.internal.pageSize.getWidth();
-    const h = pdf.internal.pageSize.getHeight();
-    pdf
-      .setFontSize(10)
-      .text(footerText, (w - pdf.getTextWidth(footerText)) / 2, h - 10);
-
-    // — Marca de agua PAID, fecha de pago y PAYMENT —
-    if (pagoStatus === "Pago") {
-      const wPt = pdf.internal.pageSize.getWidth();
-      const hPt = pdf.internal.pageSize.getHeight();
-      const SCALE = 3;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.floor(wPt * SCALE);
-      canvas.height = Math.floor(hPt * SCALE);
-      const ctx = canvas.getContext("2d");
-
-      ctx.scale(SCALE, SCALE);
-      ctx.translate(wPt / 2, hPt / 2);
-      ctx.rotate(Math.PI / 6);
-      ctx.globalAlpha = 0.3;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "16px Arial";
-      ctx.fillStyle = "green";
-      ctx.fillText("PAID", 0, 0);
-
-      const pagoDate = base.fechapago || today.toLocaleDateString();
-      ctx.globalAlpha = 0.4;
-      ctx.font = "5px Arial";
-      ctx.fillStyle = "green";
-      ctx.fillText(pagoDate, 0, 10);
-
-      const imgData = canvas.toDataURL("image/png");
-      pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
-
-      // — PAYMENT total —
+      // — Información de la empresa —
+      const textX = mL + logoWidth + 5;
+      pdf.setFontSize(16).text(invoiceConfig.companyName || "Company Name", textX, mT + 5);
       pdf
         .setFontSize(10)
-        .text(`PAYMENT: AWG${totalAmount.toFixed(2)}`, 152, afterY + 12);
-    }
+        .text(`Address: ${invoiceConfig.address || "Address"}`, textX, mT + 11)
+        .text(
+          `${invoiceConfig.city || "City"}, ${invoiceConfig.country || "Country"}, ${invoiceConfig.postalCode || "Postal Code"}`,
+          textX,
+          mT + 16
+        )
+        .text(`Tel: ${invoiceConfig.phone || "Phone"}`, textX, mT + 21)
+        .text(`Email: ${invoiceConfig.email || "Email"}`, textX, mT + 26);
 
-    // — Guarda el PDF —
-    pdf.save(`Invoice-${invoiceId}.pdf`);
+      // — Número y fecha —
+      const today = new Date();
+      pdf
+        .setFontSize(12)
+        .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
+        .text(`DATE: ${new Date(facturaData.timestamp).toLocaleDateString()}`, 152, mT + 40);
+
+      // — Bill To —
+      const yBill = mT + logoHeight + 21;
+      pdf.setFontSize(12).text("BILL TO:", mL, yBill);
+
+      const labelW = pdf.getTextWidth("BILL TO:");
+      pdf.setFontSize(10).text(billToValue, mL + labelW + 5, yBill);
+
+      // — Tabla de ítems —
+      autoTable(pdf, {
+        head: [["DATE", "ITEM", "Descripción", "QTY", "RATE", "AMOUNT"]],
+        body: filas,
+        startY: yBill + 8,
+        margin: { left: mL, right: 10 },
+        theme: "grid",
+        headStyles: { fillColor: [0, 164, 189], textColor: 255 },
+        styles: {
+          fontSize: 9,
+          overflow: "linebreak",
+        },
+        columnStyles: {
+          0: {
+            // DATE
+            cellWidth: 20,
+            halign: "left",
+          },
+          1: {
+            // ITEM
+            cellWidth: 48,
+            halign: "left",
+          },
+          2: {
+            // Descripción
+            cellWidth: 75,
+            overflow: "linebreak",
+          },
+          3: {
+            // QTY
+            cellWidth: 12,
+            halign: "center",
+          },
+          4: {
+            // RATE
+            cellWidth: 15,
+            halign: "right",
+          },
+          5: {
+            // AMOUNT
+            cellWidth: 20,
+            halign: "right",
+          },
+        },
+      });
+
+      // — Total y balance —
+      const afterY = pdf.lastAutoTable.finalY;
+      // BALANCE DUE únicamente se pone en 0 si pagoStatus === "Pago"
+      const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || totalAmount;
+      pdf.setFontSize(10);
+      pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
+
+      // — Bank Info y footer —
+      const bankY = afterY + 12;
+      pdf.setFontSize(10).text("Bank Info:", mL, bankY);
+      pdf
+        .setFontSize(9)
+        .text(pdf.splitTextToSize(invoiceConfig.bankInfo || "Bank Info", 80), mL, bankY + 6);
+      const footerText = (invoiceConfig.footer || "").replace(/\r?\n/g, " ");
+      const w = pdf.internal.pageSize.getWidth();
+      const h = pdf.internal.pageSize.getHeight();
+      pdf
+        .setFontSize(10)
+        .text(footerText, (w - pdf.getTextWidth(footerText)) / 2, h - 10);
+
+      // — Marca de agua PAID, fecha de pago y PAYMENT —
+      if (pagoStatus === "Pago") {
+        const wPt = pdf.internal.pageSize.getWidth();
+        const hPt = pdf.internal.pageSize.getHeight();
+        const SCALE = 3;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(wPt * SCALE);
+        canvas.height = Math.floor(hPt * SCALE);
+        const ctx = canvas.getContext("2d");
+
+        ctx.scale(SCALE, SCALE);
+        ctx.translate(wPt / 2, hPt / 2);
+        ctx.rotate(Math.PI / 6);
+        ctx.globalAlpha = 0.3;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "green";
+        ctx.fillText("PAID", 0, 0);
+
+        const fechaPagoDisplay = base.fechapago || facturaData.fechapago || today.toLocaleDateString();
+        ctx.globalAlpha = 0.4;
+        ctx.font = "5px Arial";
+        ctx.fillStyle = "green";
+        ctx.fillText(fechaPagoDisplay, 0, 10);
+
+        const imgData = canvas.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
+
+        // — PAYMENT total —
+        pdf
+          .setFontSize(10)
+          .text(`PAYMENT: AWG ${formatCurrency(facturaData.payment || 0)}`, 152, afterY + 12);
+      }
+
+      // — Guarda el PDF —
+      pdf.save(`Invoice-${invoiceId}.pdf`);
+
+      // Mostrar mensaje de éxito
+      Swal.fire({
+        icon: "success",
+        title: "PDF Generado",
+        text: `La factura #${invoiceId} se ha generado correctamente.`,
+        timer: 2000
+      });
+
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo generar el PDF de la factura. Inténtelo nuevamente.",
+      });
+    }
   };
 
   const addEmptyInvoice = async () => {
