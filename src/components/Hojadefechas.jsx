@@ -54,6 +54,7 @@ const Hojadefechas = () => {
   const filterSlidebarRef = useRef(null);
   const [showSelection, setShowSelection] = useState(false);
   const [selectedKey, setSelectedKey] = useState(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Estado para el modal de vista/edición de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
@@ -1273,18 +1274,23 @@ const Hojadefechas = () => {
         Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
         Pago: registro.pago || "",
+        "Fecha de Pago": registro.numerodefactura 
+          ? facturas[registro.numerodefactura]?.fechapago || ""
+          : registro.fechapago || "",
+        "Forma De Pago": registro.formadepago || "",
         Banco: registro.banco || "",
         Notas: registro.notas || "",
         "Método De Pago": registro.metododepago || "",
         Efectivo: registro.efectivo || "",
-        Payment: registro.payment || "",
-        "N° Factura": registro.numerodefactura || "",
         Factura: registro.factura ? "Sí" : "No",
+        "N° Factura": registro.numerodefactura || "",
+        Payment: formatCurrency(getPaymentFactura(registro)),
+        "Días de Mora": calculateDaysDelay ? calculateDaysDelay(registro.timestamp, registro.pago) : "",
       }))
     );
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Data");
+    const worksheet = workbook.addWorksheet("Servicios");
 
     const headers = [
       "Fecha",
@@ -1295,14 +1301,16 @@ const Hojadefechas = () => {
       "Cúbicos",
       "Valor",
       "Pago",
+      "Fecha de Pago",
       "Forma De Pago",
       "Banco",
       "Notas",
       "Método De Pago",
       "Efectivo",
-      "Payment",
-      "N° Factura",
       "Factura",
+      "N° Factura",
+      "Payment",
+      "Días de Mora",
     ];
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
@@ -1327,7 +1335,26 @@ const Hojadefechas = () => {
     };
 
     // ajustar anchos
-    worksheet.columns = headers.map(() => ({ width: 15 }));
+    worksheet.columns = [
+      { width: 12 }, // Fecha
+      { width: 20 }, // Realizado Por
+      { width: 20 }, // A Nombre De
+      { width: 30 }, // Dirección
+      { width: 18 }, // Servicio
+      { width: 12 }, // Cúbicos
+      { width: 12 }, // Valor
+      { width: 16 }, // Pago
+      { width: 16 }, // Fecha de Pago
+      { width: 18 }, // Forma De Pago
+      { width: 25 }, // Banco
+      { width: 20 }, // Notas
+      { width: 18 }, // Método De Pago
+      { width: 12 }, // Efectivo
+      { width: 10 }, // Factura
+      { width: 16 }, // N° Factura
+      { width: 15 }, // Payment
+      { width: 15 }, // Días de Mora
+    ];
 
     exportData.forEach((rowData) => {
       const row = worksheet.addRow(Object.values(rowData));
@@ -1348,7 +1375,7 @@ const Hojadefechas = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Servicios.xlsx";
+    a.download = "Agenda_Dinamica.xlsx";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2479,6 +2506,17 @@ const Hojadefechas = () => {
     });
   };
 
+  // Reloj interno para calcular días de mora
+  useEffect(() => {
+    setCurrentTime(Date.now());
+
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 24 * 60 * 60 * 1000); // Actualiza cada 24 horas
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Early return: mientras loading sea true, muestra el spinner
   if (loading) {
     return (
@@ -2487,6 +2525,13 @@ const Hojadefechas = () => {
       </div>
     );
   }
+
+  // Función para calcular días de mora
+  const calculateDaysDelay = (timestamp, pagoStatus) => {
+    if (pagoStatus === "Pago") return 0;
+    const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
+    return Math.max(0, days);
+  };
 
   return (
     <div className="homepage-container">

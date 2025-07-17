@@ -10,12 +10,14 @@ import {
 } from "firebase/database";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import autoTable from "jspdf-autotable";
 import Slidebar from "./Slidebar";
 import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
+import excel_icon from "../assets/img/excel_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 import FacturaViewEdit from "./FacturaViewEdit";
@@ -1405,6 +1407,116 @@ const Facturasemitidas = () => {
       }
       return { key, direction: "asc" };
     });
+  };
+
+  // EXPORTAR XLSX
+  const generateXLSX = async () => {
+    const exportData = filteredData.flatMap((item) =>
+      item.registros.map((registro) => ({
+        "Fecha Emisión": formatDate(registro.timestamp),
+        "Fecha Servicio": item.fecha,
+        "N° Factura": registro.numerodefactura || "",
+        "A Nombre De": registro.anombrede || "",
+        "Personalizado": registro.personalizado || "",
+        "Dirección": registro.direccion || "",
+        "Días de Mora": calculateDaysDelay(registro.timestamp, registro.pago),
+        "Fecha de Pago": registro.numerodefactura 
+          ? facturasData[registro.numerodefactura]?.fechapago || ""
+          : registro.fechapago || "",
+        "Estado Pago": registro.pago || "",
+        "Valor Total": registro.valor || "",
+        "Payment": formatCurrency(
+          registro.numerodefactura && facturasData[registro.numerodefactura]
+            ? facturasData[registro.numerodefactura].payment || 0
+            : 0
+        ),
+        "Deuda": registro.numerodefactura && facturasData[registro.numerodefactura]
+          ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
+          : "",
+        "Factura Emitida": registro.factura ? "Sí" : "No",
+      }))
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Facturas Emitidas");
+
+    const headers = [
+      "Fecha Emisión",
+      "Fecha Servicio", 
+      "N° Factura",
+      "A Nombre De",
+      "Personalizado",
+      "Dirección",
+      "Días de Mora",
+      "Fecha de Pago",
+      "Estado Pago",
+      "Valor Total",
+      "Payment",
+      "Deuda",
+      "Factura Emitida",
+    ];
+
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4F81BD" },
+      };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    // Ajustar anchos de columnas
+    worksheet.columns = [
+      { width: 14 }, // Fecha Emisión
+      { width: 14 }, // Fecha Servicio
+      { width: 12 }, // N° Factura
+      { width: 20 }, // A Nombre De
+      { width: 20 }, // Personalizado
+      { width: 30 }, // Dirección
+      { width: 12 }, // Días de Mora
+      { width: 14 }, // Fecha de Pago
+      { width: 12 }, // Estado Pago
+      { width: 12 }, // Valor Total
+      { width: 12 }, // Payment
+      { width: 12 }, // Deuda
+      { width: 12 }, // Factura Emitida
+    ];
+
+    exportData.forEach((rowData) => {
+      const row = worksheet.addRow(Object.values(rowData));
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Facturas_Emitidas.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Generar factura usando datos de la factura asociada
@@ -2880,6 +2992,11 @@ const Facturasemitidas = () => {
           </button>
         </div>
       </div>
+
+      {/* Botón flotante para exportar Excel */}
+      <button className="generate-button2" onClick={generateXLSX}>
+        <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
+      </button>
 
       {/* Modal de Vista/Edición de Factura */}
       {showFacturaModal && selectedFactura && (
