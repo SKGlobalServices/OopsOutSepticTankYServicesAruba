@@ -67,6 +67,9 @@ const Informedeefectivo = () => {
   const [lastAddedId, setLastAddedId] = useState(null);
   const [editingRows, setEditingRows] = useState({});
 
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
+
   // Alternar modo edición
   const toggleEditRow = (id) => {
     setEditingRows((prev) => ({
@@ -1033,16 +1036,24 @@ const Informedeefectivo = () => {
                             className="custom-select-input"
                             style={{ width: "18ch" }}
                             type="text"
-                            value={registro.direccion || ""}
+                            value={localValues[`${registro.id}_direccion`] ?? registro.direccion ?? ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                registro.fecha,
-                                registro.id,
-                                "direccion",
-                                e.target.value,
-                                registro.origin
-                              )
+                              setLocalValues(prev => ({
+                                ...prev,
+                                [`${registro.id}_direccion`]: e.target.value
+                              }))
                             }
+                            onBlur={(e) => {
+                              if (e.target.value !== (registro.direccion || "")) {
+                                handleFieldChange(
+                                  registro.fecha,
+                                  registro.id,
+                                  "direccion",
+                                  e.target.value,
+                                  registro.origin
+                                );
+                              }
+                            }}
                             list={`direccion-options-${registro.id}`}
                             disabled={!isEditable}
                           />
@@ -1085,16 +1096,24 @@ const Informedeefectivo = () => {
                       <td>
                         <input
                           type="number"
-                          value={registro.efectivo || ""}
+                          value={localValues[`${registro.id}_efectivo`] ?? registro.efectivo ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              registro.fecha,
-                              registro.id,
-                              "efectivo",
-                              e.target.value,
-                              registro.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${registro.id}_efectivo`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (registro.efectivo || "")) {
+                              handleFieldChange(
+                                registro.fecha,
+                                registro.id,
+                                "efectivo",
+                                e.target.value,
+                                registro.origin
+                              );
+                            }
+                          }}
                           disabled={
                             !isEditable || registro.metododepago !== "efectivo"
                           }

@@ -17,6 +17,9 @@ const Clientes = () => {
   const slidebarRef = useRef(null);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
+
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -459,14 +462,22 @@ const Clientes = () => {
                       <input
                         type="text"
                         style={{ textAlign: "center", width: "16ch" }}
-                        value={cliente.anombrede}
+                        value={localValues[`${cliente.id}_anombrede`] ?? cliente.anombrede ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(
-                            cliente.id,
-                            "anombrede",
-                            e.target.value
-                          )
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_anombrede`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (cliente.anombrede || "")) {
+                            handleFieldChange(
+                              cliente.id,
+                              "anombrede",
+                              e.target.value
+                            );
+                          }
+                        }}
                       />
                     </td>
                     <td className="direccion-fixed-td">
@@ -474,48 +485,80 @@ const Clientes = () => {
                         className="direccion-fixed-input "
                         type="text"
                         style={{ textAlign: "center", width: "18ch" }}
-                        value={cliente.direccion}
+                        value={localValues[`${cliente.id}_direccion`] ?? cliente.direccion ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(
-                            cliente.id,
-                            "direccion",
-                            e.target.value
-                          )
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_direccion`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (cliente.direccion || "")) {
+                            handleFieldChange(
+                              cliente.id,
+                              "direccion",
+                              e.target.value
+                            );
+                          }
+                        }}
                       />
                     </td>
                     <td>
                       <input
                         type="number"
                         style={{ textAlign: "center", width: "13ch" }}
-                        value={cliente.cubicos}
+                        value={localValues[`${cliente.id}_cubicos`] ?? cliente.cubicos ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(
-                            cliente.id,
-                            "cubicos",
-                            e.target.value
-                          )
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_cubicos`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (cliente.cubicos || "")) {
+                            handleFieldChange(
+                              cliente.id,
+                              "cubicos",
+                              e.target.value
+                            );
+                          }
+                        }}
                       />
                     </td>
                     <td>
                       <input
                         type="number"
                         style={{ textAlign: "center", width: "13ch" }}
-                        value={cliente.valor}
+                        value={localValues[`${cliente.id}_valor`] ?? cliente.valor ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(cliente.id, "valor", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_valor`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (cliente.valor || "")) {
+                            handleFieldChange(cliente.id, "valor", e.target.value);
+                          }
+                        }}
                       />
                     </td>
                     <td>
                       <input
                         type="email"
                         style={{ textAlign: "center", width: "35ch" }}
-                        value={cliente.email}
+                        value={localValues[`${cliente.id}_email`] ?? cliente.email ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(cliente.id, "email", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_email`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (cliente.email || "")) {
+                            handleFieldChange(cliente.id, "email", e.target.value);
+                          }
+                        }}
                       />
                     </td>
                   </tr>

@@ -88,6 +88,9 @@ const Hojadefechas = () => {
   // Número de filas marcadas
   const selectedCount = Object.values(selectedRows).filter(Boolean).length;
 
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
+
   // Cargar datos de la rama "registrofechas"
   useEffect(() => {
     const dbRef = ref(database, "registrofechas");
@@ -2617,7 +2620,7 @@ const Hojadefechas = () => {
     const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
     return Math.max(0, days);
   };
-
+  console.log("Rerender")
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -2949,16 +2952,24 @@ const Hojadefechas = () => {
                         <input
                           style={{ width: "16ch" }}
                           type="text"
-                          value={registro.anombrede || ""}
+                          value={localValues[`${registro.id}_anombrede`] ?? registro.anombrede ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "anombrede",
-                              e.target.value,
-                              registro.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${registro.id}_anombrede`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (registro.anombrede || "")) {
+                              handleFieldChange(
+                                item.fecha,
+                                registro.id,
+                                "anombrede",
+                                e.target.value,
+                                registro.origin
+                              );
+                            }
+                          }}
                         />
                       </td>
                       <td className="direccion-fixed-td">
@@ -2967,16 +2978,24 @@ const Hojadefechas = () => {
                             className="direccion-fixed-input "
                             style={{ width: "18ch" }}
                             type="text"
-                            value={registro.direccion || ""}
+                            value={localValues[`${registro.id}_direccion`] ?? registro.direccion ?? ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "direccion",
-                                e.target.value,
-                                registro.origin
-                              )
+                              setLocalValues(prev => ({
+                                ...prev,
+                                [`${registro.id}_direccion`]: e.target.value
+                              }))
                             }
+                            onBlur={(e) => {
+                              if (e.target.value !== (registro.direccion || "")) {
+                                handleFieldChange(
+                                  item.fecha,
+                                  registro.id,
+                                  "direccion",
+                                  e.target.value,
+                                  registro.origin
+                                );
+                              }
+                            }}
                             list={`direccion-options-${registro.id}`}
                           />
                         </div>
@@ -3014,32 +3033,48 @@ const Hojadefechas = () => {
                         <input
                           type="number"
                           style={{ textAlign: "center" }}
-                          value={registro.cubicos || ""}
+                          value={localValues[`${registro.id}_cubicos`] ?? registro.cubicos ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "cubicos",
-                              e.target.value,
-                              registro.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${registro.id}_cubicos`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (registro.cubicos || "")) {
+                              handleFieldChange(
+                                item.fecha,
+                                registro.id,
+                                "cubicos",
+                                e.target.value,
+                                registro.origin
+                              );
+                            }
+                          }}
                         />
                       </td>
                       <td>
                         <input
                           type="number"
                           style={{ width: "10ch" }}
-                          value={registro.valor || ""}
+                          value={localValues[`${registro.id}_valor`] ?? registro.valor ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "valor",
-                              e.target.value,
-                              registro.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${registro.id}_valor`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (registro.valor || "")) {
+                              handleFieldChange(
+                                item.fecha,
+                                registro.id,
+                                "valor",
+                                e.target.value,
+                                registro.origin
+                              );
+                            }
+                          }}
                         />
                       </td>
                       <td>
@@ -3212,16 +3247,24 @@ const Hojadefechas = () => {
                         <input
                           type="number"
                           style={{ width: "10ch" }}
-                          value={registro.efectivo || ""}
+                          value={localValues[`${registro.id}_efectivo`] ?? registro.efectivo ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "efectivo",
-                              e.target.value,
-                              registro.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${registro.id}_efectivo`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (registro.efectivo || "")) {
+                              handleFieldChange(
+                                item.fecha,
+                                registro.id,
+                                "efectivo",
+                                e.target.value,
+                                registro.origin
+                              );
+                            }
+                          }}
                           disabled={registro.metododepago !== "efectivo"}
                         />
                       </td>

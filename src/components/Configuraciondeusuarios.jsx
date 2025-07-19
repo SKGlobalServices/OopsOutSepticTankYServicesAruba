@@ -13,6 +13,9 @@ const Usuarios = () => {
   const [showPasswords, setShowPasswords] = useState({});
   const slidebarRef = useRef(null);
 
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
+
   // LOADER
   const [loading, setLoading] = useState(true);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -142,20 +145,36 @@ const Usuarios = () => {
                       <input
                         type="email"
                         style={{ width: "28ch", textAlign: "center" }}
-                        value={item.email || ""}
+                        value={localValues[`${id}_email`] ?? item.email ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(id, "email", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${id}_email`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (item.email || "")) {
+                            handleFieldChange(id, "email", e.target.value);
+                          }
+                        }}
                       />
                     </td>
                     <td>
                       <input
                         type="text"
                         style={{ width: "30ch", textAlign: "left" }}
-                        value={item.name || ""}
+                        value={localValues[`${id}_name`] ?? item.name ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(id, "name", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${id}_name`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (item.name || "")) {
+                            handleFieldChange(id, "name", e.target.value);
+                          }
+                        }}
                       />
                     </td>
                     <td>
@@ -166,10 +185,18 @@ const Usuarios = () => {
                           textAlign: "left",
                         }}
                         type={showPasswords[id] ? "text" : "password"}
-                        value={item.password || ""}
+                        value={localValues[`${id}_password`] ?? item.password ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(id, "password", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${id}_password`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (item.password || "")) {
+                            handleFieldChange(id, "password", e.target.value);
+                          }
+                        }}
                       />
                       <button
                         style={{

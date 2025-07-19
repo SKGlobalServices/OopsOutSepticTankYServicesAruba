@@ -119,6 +119,9 @@ const Facturasemitidas = () => {
     fechaPago: [null, null],
   });
 
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
+
   // Cargar datos de la rama "registrofechas"
   useEffect(() => {
     const dbRef = ref(database, "registrofechas");
@@ -2910,32 +2913,48 @@ const Facturasemitidas = () => {
                         <input
                           type="text"
                           style={{ width: "16ch" }}
-                          value={r.anombrede || ""}
+                          value={localValues[`${r.id}_anombrede`] ?? r.anombrede ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "anombrede",
-                              e.target.value,
-                              r.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${r.id}_anombrede`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (r.anombrede || "")) {
+                              handleFieldChange(
+                                fecha,
+                                r.id,
+                                "anombrede",
+                                e.target.value,
+                                r.origin
+                              );
+                            }
+                          }}
                         />
                       </td>
                       <td>
                         <input
                           type="text"
                           style={{ width: "20ch" }}
-                          value={r.personalizado || ""}
+                          value={localValues[`${r.id}_personalizado`] ?? r.personalizado ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "personalizado",
-                              e.target.value,
-                              r.origin
-                            )
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${r.id}_personalizado`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (r.personalizado || "")) {
+                              handleFieldChange(
+                                fecha,
+                                r.id,
+                                "personalizado",
+                                e.target.value,
+                                r.origin
+                              );
+                            }
+                          }}
                         />
                       </td>
                       <td className="direccion-fixed-td">
@@ -2945,16 +2964,24 @@ const Facturasemitidas = () => {
                             style={{ width: "18ch" }}
                             type="text"
                             list={`dirs-${r.id}`}
-                            value={r.direccion || ""}
+                            value={localValues[`${r.id}_direccion`] ?? r.direccion ?? ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                fecha,
-                                r.id,
-                                "direccion",
-                                e.target.value,
-                                r.origin
-                              )
+                              setLocalValues(prev => ({
+                                ...prev,
+                                [`${r.id}_direccion`]: e.target.value
+                              }))
                             }
+                            onBlur={(e) => {
+                              if (e.target.value !== (r.direccion || "")) {
+                                handleFieldChange(
+                                  fecha,
+                                  r.id,
+                                  "direccion",
+                                  e.target.value,
+                                  r.origin
+                                );
+                              }
+                            }}
                           />
                         </div>
                       </td>

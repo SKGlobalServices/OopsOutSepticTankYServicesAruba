@@ -24,6 +24,9 @@ const Reprogramacionautomatica = () => {
     mes: "",
     activo: "",
   });
+
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
@@ -1283,11 +1286,19 @@ const Reprogramacionautomatica = () => {
                           className="direccion-fixed-input "
                           type="text"
                           style={{ width: "18ch" }}
-                          value={item.direccion || ""}
+                          value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
                           list={`direccion-options-${id}`}
                           onChange={(e) =>
-                            handleFieldChange(id, "direccion", e.target.value)
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${id}_direccion`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.direccion || "")) {
+                              handleFieldChange(id, "direccion", e.target.value);
+                            }
+                          }}
                         />
                         <datalist id={`direccion-options-${id}`}>
                           {direccionOptions.map((dir, i) => (
@@ -1326,10 +1337,18 @@ const Reprogramacionautomatica = () => {
                       <input
                         type="number"
                         style={{ width: "12ch", textAlign: "center" }}
-                        value={item.cubicos}
+                        value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(id, "cubicos", e.target.value)
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${id}_cubicos`]: e.target.value
+                          }))
                         }
+                        onBlur={(e) => {
+                          if (e.target.value !== (item.cubicos || "")) {
+                            handleFieldChange(id, "cubicos", e.target.value);
+                          }
+                        }}
                       />
                     </td>
 
@@ -1338,22 +1357,24 @@ const Reprogramacionautomatica = () => {
                       <input
                         type="number"
                         style={{ width: "6ch" }}
-                        value={item.solounavez ? "" : item.rc ?? ""}
+                        value={localValues[`${id}_rc`] ?? (item.solounavez ? "" : item.rc ?? "")}
                         disabled={item.solounavez}
                         onChange={(e) => {
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${id}_rc`]: e.target.value
+                          }));
+                        }}
+                        onBlur={(e) => {
                           const rc = parseInt(e.target.value, 10) || 0;
                           const updates = { rc };
-                          // si está en “mes”, regenero leyenda mes
+                          // si está en "mes", regenero leyenda mes
                           if (item.periodo === "mes") {
-                            updates.mes = `Cada ${rc} ${
-                              rc === 1 ? "Mes" : "Meses"
-                            }`;
+                            updates.mes = `Cada ${rc} ${rc === 1 ? "Mes" : "Meses"}`;
                           }
-                          // si está en “semana”, regenero leyenda semana
+                          // si está en "semana", regenero leyenda semana
                           if (item.periodo === "semana") {
-                            updates.semana = `Cada ${rc} semana${
-                              rc > 1 ? "s" : ""
-                            }`;
+                            updates.semana = `Cada ${rc} semana${rc > 1 ? "s" : ""}`;
                           }
                           updateFields(id, updates);
                         }}

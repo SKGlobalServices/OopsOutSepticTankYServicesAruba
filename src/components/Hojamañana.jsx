@@ -37,6 +37,9 @@ const Hojamañana = () => {
     factura: "",
   });
 
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
+
   // Cargar la rama "hojamañana"
   useEffect(() => {
     const dbRef = ref(database, "hojamañana");
@@ -969,10 +972,18 @@ const Hojamañana = () => {
                         <input
                           type="text"
                           style={{ width: "16ch" }}
-                          value={item.anombrede}
+                          value={localValues[`${id}_anombrede`] ?? item.anombrede ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(id, "anombrede", e.target.value)
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${id}_anombrede`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.anombrede || "")) {
+                              handleFieldChange(id, "anombrede", e.target.value);
+                            }
+                          }}
                         />
                       </td>
                       <td className="direccion-fixed-td">
@@ -981,9 +992,12 @@ const Hojamañana = () => {
                             className="direccion-fixed-input"
                             type="text"
                             style={{ width: "20ch" }}
-                            value={item.direccion || ""}
+                            value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
                             onChange={(e) =>
-                              handleFieldChange(id, "direccion", e.target.value)
+                              setLocalValues(prev => ({
+                                ...prev,
+                                [`${id}_direccion`]: e.target.value
+                              }))
                             }
                             onFocus={(e) =>
                               e.target.setAttribute(
@@ -991,12 +1005,15 @@ const Hojamañana = () => {
                                 `direccion-options-${id}`
                               )
                             }
-                            onBlur={(e) =>
+                            onBlur={(e) => {
                               setTimeout(
                                 () => e.target.removeAttribute("list"),
                                 200
-                              )
-                            }
+                              );
+                              if (e.target.value !== (item.direccion || "")) {
+                                handleFieldChange(id, "direccion", e.target.value);
+                              }
+                            }}
                           />
                           <datalist
                             id={`direccion-options-${id}`}
@@ -1047,22 +1064,45 @@ const Hojamañana = () => {
                         <input
                           type="number"
                           style={{ width: "10ch", textAlign: "center" }}
-                          value={item.cubicos}
+                          value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(id, "cubicos", e.target.value)
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${id}_cubicos`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.cubicos || "")) {
+                              handleFieldChange(id, "cubicos", e.target.value);
+                            }
+                          }}
                         />
                       </td>
                       <td>
                         <input
                           type="number"
                           style={{ width: "10ch", textAlign: "center" }}
-                          value={item.valor}
+                          value={localValues[`${id}_valor`] ?? item.valor ?? ""}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            handleFieldChange(id, "valor", newValue);
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${id}_valor`]: newValue
+                            }));
                             if (item.metododepago === "efectivo") {
-                              handleFieldChange(id, "efectivo", newValue);
+                              setLocalValues(prev => ({
+                                ...prev,
+                                [`${id}_efectivo`]: newValue
+                              }));
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const newValue = e.target.value;
+                            if (newValue !== (item.valor || "")) {
+                              handleFieldChange(id, "valor", newValue);
+                              if (item.metododepago === "efectivo") {
+                                handleFieldChange(id, "efectivo", newValue);
+                              }
                             }
                           }}
                         />
@@ -1230,10 +1270,18 @@ const Hojamañana = () => {
                         <input
                           type="number"
                           style={{ width: "12ch", textAlign: "center" }}
-                          value={item.efectivo}
+                          value={localValues[`${id}_efectivo`] ?? item.efectivo ?? ""}
                           onChange={(e) =>
-                            handleFieldChange(id, "efectivo", e.target.value)
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${id}_efectivo`]: e.target.value
+                            }))
                           }
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.efectivo || "")) {
+                              handleFieldChange(id, "efectivo", e.target.value);
+                            }
+                          }}
                           disabled={item.metododepago !== "efectivo"}
                         />
                       </td>
