@@ -1898,9 +1898,9 @@ const Hojadefechas = () => {
         `<label style="font-weight:bold; display:block; margin-bottom:10px;">Agregar Items:</label>` +
         `<div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 15px;">
            <select id="swal-item-select" class="swal2-select" style="flex: 1;">
-             <option value="" disabled selected>Seleccione un item...</option>
+             <option value="" disabled>Seleccione un item...</option>
              ${Object.keys(ITEM_RATES)
-               .map((i) => `<option value="${i}">${i}</option>`)
+               .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
                .join("")}
            </select>
            <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
@@ -1908,6 +1908,7 @@ const Hojadefechas = () => {
         `<hr/>` +
         `<label style="font-weight:bold; display:block; margin-bottom:10px;">Items Agregados:</label>` +
         `<div id="added-items-summary" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;"></div>` +
+        `<div id="items-error-message" style="display: none; color: #d32f2f; font-size: 12px; margin-top: 5px; text-align: center; font-weight: bold;">⚠️ Debe agregar al menos un item a la factura</div>` +
         `<div style="text-align: right; font-weight: bold; font-size: 1.2em; margin-top: 10px;">
           Total: <span id="invoice-total">AWG 0.00</span>
          </div>`,
@@ -1922,8 +1923,9 @@ const Hojadefechas = () => {
 
         // Los items se recogen de la variable 'addedItems' que está en el scope de didOpen
         if (!window.addedItems || window.addedItems.length === 0) {
+          // Mostrar error pero no cerrar el modal - usar un mensaje más específico
           Swal.showValidationMessage(
-            "Debe agregar al menos un item a la factura."
+            "⚠️ Debe agregar al menos un item a la factura. Haga clic en 'Agregar Item' después de seleccionar un servicio."
           );
           return false;
         }
@@ -1968,10 +1970,18 @@ const Hojadefechas = () => {
 
         const renderSummary = () => {
           summaryContainer.innerHTML = "";
+          const errorMessage = document.getElementById("items-error-message");
+          
           if (window.addedItems.length === 0) {
             summaryContainer.innerHTML =
               '<p style="color: #888; text-align:center;">No hay items todavía.</p>';
+            if (errorMessage) {
+              errorMessage.style.display = "block";
+            }
           } else {
+            if (errorMessage) {
+              errorMessage.style.display = "none";
+            }
             window.addedItems.forEach((item, index) => {
               const itemDiv = document.createElement("div");
               itemDiv.style.cssText =
