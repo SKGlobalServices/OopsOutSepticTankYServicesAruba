@@ -536,6 +536,47 @@ const Facturasemitidas = () => {
       : `registrofechas/${fecha}/${registroId}`;
     const dbRefItem = ref(database, path);
 
+    // Campo especial: fecha - mover registro a nueva fecha
+    if (field === "fecha") {
+      const actualizarFechaServicio = async () => {
+        try {
+          // Obtener el registro completo
+          const registro = fromData
+            ? dataBranch.find((r) => r.id === registroId) || {}
+            : dataRegistroFechas
+                .find((g) => g.fecha === fecha)
+                ?.registros.find((r) => r.id === registroId) || {};
+
+          if (fromData) {
+            // Si está en data, solo actualizar la fecha
+            await update(dbRefItem, { fecha: safeValue });
+          } else {
+            // Si está en registrofechas, mover a nueva fecha
+            if (safeValue !== fecha) {
+              // Crear en nueva fecha
+              await set(ref(database, `registrofechas/${safeValue}/${registroId}`), {
+                ...registro,
+                fecha: safeValue
+              });
+              // Eliminar de fecha anterior
+              await set(ref(database, `registrofechas/${fecha}/${registroId}`), null);
+            }
+          }
+          console.log(`✅ Fecha de servicio actualizada: ${fecha} → ${safeValue}`);
+        } catch (error) {
+          console.error("Error actualizando fecha de servicio:", error);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo actualizar la fecha del servicio"
+          });
+        }
+      };
+      
+      actualizarFechaServicio();
+      return;
+    }
+
     // Campo especial: fechapago_factura - actualizar fecha de pago en la factura
     if (field === "fechapago_factura") {
       const registro = fromData
@@ -676,6 +717,27 @@ const Facturasemitidas = () => {
     return `${String(d.getDate()).padStart(2, "0")}/${String(
       d.getMonth() + 1
     ).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+
+  // Función para obtener la fecha de emisión correcta
+  const getFechaEmision = (registro) => {
+    // 1. Buscar primero en la factura
+    if (registro.numerodefactura && facturasData[registro.numerodefactura]) {
+      const factura = facturasData[registro.numerodefactura];
+      if (factura.fechaEmision) {
+        // Formatear la fecha de emisión al formato DD/MM/YYYY
+        const [year, month, day] = factura.fechaEmision.split('-');
+        return `${day}/${month}/${year}`;
+      }
+    }
+    
+    // 2. Si no está en la factura, buscar en el servicio
+    if (registro.fechaEmision) {
+      return registro.fechaEmision; // Ya está en formato DD/MM/YYYY
+    }
+    
+    // 3. Si no hay fecha de emisión específica, usar el timestamp
+    return formatDate(registro.timestamp);
   };
 
   /**
@@ -1723,7 +1785,7 @@ const Facturasemitidas = () => {
         .setFontSize(12)
         .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
         .text(
-          `DATE: ${new Date(facturaData.timestamp).toLocaleDateString()}`,
+          `DATE: ${facturaData.fechaEmision || new Date(facturaData.timestamp).toLocaleDateString()}`,
           152,
           mT + 40
         );
@@ -2257,6 +2319,7 @@ const Facturasemitidas = () => {
       const facturaData = {
         numerodefactura: invoiceIdFinal,
         timestamp: Date.now(),
+        fechaEmision: res.fechaEmision, // ✅ Guardar la fecha de emisión seleccionada
         billTo: billToValue,
         invoiceItems: invoiceItems,
         totalAmount: totalAmount,
@@ -2311,42 +2374,94 @@ const Facturasemitidas = () => {
 
   // Función para cancelar factura (igual que en Hojadefechas)
   const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
-    const { isConfirmed } = await Swal.fire({
-      title: "¿Cancelar Factura?",
-      text: `¿Estás seguro de que deseas cancelar la factura ${numeroFactura}? Esto borrará todos los datos de facturación y el número quedará disponible para reutilización.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, Cancelar",
-      cancelButtonText: "No",
-      confirmButtonColor: "#d33",
-    });
-
-    if (!isConfirmed) return;
-
     try {
-      // 1) Limpiar los campos de facturación (campos "F")
-      const fromData = origin === "data";
-      const path = fromData
-        ? `data/${registroId}`
-        : `registrofechas/${fecha}/${registroId}`;
-      const facturaRef = ref(database, path);
-
-      await update(facturaRef, {
-        // Mantener datos base del servicio
-        // Limpiar solo campos de facturación (F)
-        item: null,
-        descripcion: null,
-        qty: null,
-        rate: null,
-        amount: null,
-        billTo: null,
-        personalizado: null,
-        factura: false, // Cambiar a false
-        numerodefactura: null, // Limpiar número
-        fechaEmision: null,
+      // 1) ✅ BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
+      const serviciosRelacionados = [];
+      
+      // Buscar en dataBranch
+      dataBranch.forEach(servicio => {
+        if (servicio.numerodefactura === numeroFactura) {
+          serviciosRelacionados.push({
+            ...servicio,
+            origin: 'data',
+            path: `data/${servicio.id}`
+          });
+        }
+      });
+      
+      // Buscar en dataRegistroFechas
+      dataRegistroFechas.forEach(grupo => {
+        grupo.registros.forEach(servicio => {
+          if (servicio.numerodefactura === numeroFactura) {
+            serviciosRelacionados.push({
+              ...servicio,
+              origin: 'registrofechas',
+              path: `registrofechas/${grupo.fecha}/${servicio.id}`
+            });
+          }
+        });
       });
 
-      // 2) Agregar el número de factura a la lista de números disponibles para reutilizar
+      // 2) ✅ MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
+      const serviciosInfo = serviciosRelacionados.map(servicio => 
+        `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
+      ).join('\n');
+
+      const { isConfirmed } = await Swal.fire({
+        title: "¿Cancelar Factura?",
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Factura a cancelar:</strong> ${numeroFactura}</p>
+            <p><strong>Servicios relacionados (${serviciosRelacionados.length}):</strong></p>
+            <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+              ${serviciosInfo || 'No se encontraron servicios relacionados'}
+            </div>
+            <p style="color: #d33; font-weight: bold;">⚠️ Esta acción:</p>
+            <ul style="text-align: left; color: #d33;">
+              <li>Eliminará completamente la factura</li>
+              <li>Desvinculará ${serviciosRelacionados.length} servicios de esta factura</li>
+              <li>El número de factura quedará disponible para reutilización</li>
+            </ul>
+          </div>
+        `,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, Cancelar Factura",
+        cancelButtonText: "No, Mantener",
+        confirmButtonColor: "#d33",
+        width: "600px"
+      });
+
+      if (!isConfirmed) return;
+
+      // 3) ✅ ELIMINAR EL NODO FACTURA COMPLETO
+      if (numeroFactura) {
+        await set(ref(database, `facturas/${numeroFactura}`), null);
+      }
+
+      // 4) ✅ LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
+      const updatePromises = serviciosRelacionados.map(async (servicio) => {
+        const updateData = {
+          // Limpiar campos de facturación
+          item: null,
+          descripcion: null,
+          qty: null,
+          rate: null,
+          amount: null,
+          billTo: null,
+          personalizado: null,
+          factura: false,
+          numerodefactura: null,
+          fechaEmision: null,
+          timestamp: Date.now(),
+        };
+        
+        return update(ref(database, servicio.path), updateData);
+      });
+
+      await Promise.all(updatePromises);
+
+      // 5) ✅ AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
       if (numeroFactura) {
         const numerosDisponiblesRef = ref(database, "facturasDisponibles");
         const newAvailableRef = push(numerosDisponiblesRef);
@@ -2356,48 +2471,57 @@ const Facturasemitidas = () => {
         });
       }
 
-      // 3) Actualizar estado local
-      const updater = (r) =>
-        r.id === registroId
-          ? {
-              ...r,
-              item: null,
-              descripcion: null,
-              qty: null,
-              rate: null,
-              amount: null,
-              billTo: null,
-              personalizado: null,
-              factura: false,
-              numerodefactura: null,
-              fechaEmision: null,
-            }
-          : r;
+      // 6) ✅ ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
+      const updater = (r) => {
+        if (r.numerodefactura === numeroFactura) {
+          return {
+            ...r,
+            item: null,
+            descripcion: null,
+            qty: null,
+            rate: null,
+            amount: null,
+            billTo: null,
+            personalizado: null,
+            factura: false,
+            numerodefactura: null,
+            fechaEmision: null,
+          };
+        }
+        return r;
+      };
 
-      if (fromData) {
-        setDataBranch((prev) => prev.map(updater));
-      } else {
-        setDataRegistroFechas((prev) =>
-          prev.map((g) =>
-            g.fecha === fecha
-              ? { ...g, registros: g.registros.map(updater) }
-              : g
-          )
-        );
-      }
+      // Actualizar dataBranch
+      setDataBranch((prev) => prev.map(updater));
+      
+      // Actualizar dataRegistroFechas
+      setDataRegistroFechas((prev) =>
+        prev.map((g) => ({
+          ...g,
+          registros: g.registros.map(updater)
+        }))
+      );
 
+      // 7) ✅ MOSTRAR CONFIRMACIÓN
       Swal.fire({
         icon: "success",
-        title: "Factura Cancelada",
-        text: `La factura ${numeroFactura} ha sido cancelada. El número quedará disponible para reutilización.`,
-        timer: 2000,
+        title: "Factura Cancelada Exitosamente",
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Factura:</strong> ${numeroFactura}</p>
+            <p><strong>Servicios desvinculados:</strong> ${serviciosRelacionados.length}</p>
+            <p><strong>Estado:</strong> El número de factura quedó disponible para reutilización</p>
+          </div>
+        `,
+        timer: 3000,
+        width: "500px"
       });
     } catch (error) {
       console.error("Error cancelando factura:", error);
       Swal.fire({
         icon: "error",
-        title: "Error",
-        text: "Hubo un error al cancelar la factura.",
+        title: "Error al Cancelar Factura",
+        text: "Hubo un error al cancelar la factura. Por favor, inténtalo de nuevo.",
       });
     }
   };
@@ -2677,9 +2801,94 @@ const Facturasemitidas = () => {
                         />
                       </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        {formatDate(r.timestamp)}
+                        <input
+                          type="date"
+                          value={(() => {
+                            // 1. Buscar primero en la factura
+                            if (r.numerodefactura && facturasData[r.numerodefactura]) {
+                              const factura = facturasData[r.numerodefactura];
+                              if (factura.fechaEmision) {
+                                // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+                                if (factura.fechaEmision.includes('/')) {
+                                  const [day, month, year] = factura.fechaEmision.split('/');
+                                  return `${year}-${month}-${day}`;
+                                }
+                                // Si ya está en formato YYYY-MM-DD, usar directamente
+                                return factura.fechaEmision;
+                              }
+                            }
+                            
+                            // 2. Si no está en la factura, buscar en el servicio
+                            if (r.fechaEmision) {
+                              // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+                              if (r.fechaEmision.includes('/')) {
+                                const [day, month, year] = r.fechaEmision.split('/');
+                                return `${year}-${month}-${day}`;
+                              }
+                              // Si ya está en formato YYYY-MM-DD, usar directamente
+                              return r.fechaEmision;
+                            }
+                            
+                            // 3. Si no hay fecha de emisión específica, usar el timestamp
+                            const timestamp = new Date(r.timestamp);
+                            return timestamp.toISOString().split('T')[0];
+                          })()}
+                          onChange={(e) => {
+                            // Convertir de YYYY-MM-DD a DD/MM/YYYY para Firebase
+                            const [year, month, day] = e.target.value.split('-');
+                            const fechaFormateada = `${day}/${month}/${year}`;
+                            
+                            // Prioridad: 1. Factura, 2. Servicio
+                            if (r.numerodefactura && facturasData[r.numerodefactura]) {
+                              // Si tiene factura, guardar en la factura
+                              const facturaRef = ref(database, `facturas/${r.numerodefactura}`);
+                              update(facturaRef, { fechaEmision: fechaFormateada }).catch(console.error);
+                            } else {
+                              // Si no tiene factura, guardar en el servicio
+                              handleFieldChange(fecha, r.id, "fechaEmision", fechaFormateada, r.origin);
+                            }
+                          }}
+                          style={{
+                            width: "120px",
+                            padding: "4px",
+                            border: "1px solid #ccc",
+                            borderRadius: "3px",
+                            fontSize: "12px",
+                            textAlign: "center",
+                            backgroundColor: r.numerodefactura ? "#f0f8ff" : "white",
+                            borderColor: r.numerodefactura ? "#007bff" : "#ccc"
+                          }}
+                          title={r.numerodefactura ? "Editar fecha de emisión de la factura" : "Fecha de emisión (timestamp)"}
+                        />
                       </td>
-                      <td style={{ textAlign: "center" }}>{fecha}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="date"
+                          value={fecha ? fecha.split('-').reverse().join('-') : ''}
+                          onChange={(e) => {
+                            // Convertir de YYYY-MM-DD a DD-MM-YYYY para Firebase
+                            const [year, month, day] = e.target.value.split('-');
+                            const fechaFormateada = `${day}-${month}-${year}`;
+                            
+                            handleFieldChange(
+                              fecha,
+                              r.id,
+                              "fecha",
+                              fechaFormateada,
+                              r.origin
+                            );
+                          }}
+                          style={{
+                            width: "120px",
+                            padding: "4px",
+                            border: "1px solid #ccc",
+                            borderRadius: "3px",
+                            fontSize: "12px",
+                            textAlign: "center"
+                          }}
+                          title="Editar fecha de servicio"
+                        />
+                      </td>
                       <td style={{ textAlign: "center" }}>
                         <button
                           onClick={() => openFacturaModal(r.numerodefactura)}

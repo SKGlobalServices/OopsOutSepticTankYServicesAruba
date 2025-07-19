@@ -772,7 +772,22 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
                   Fecha de Emisión:
                 </label>
-                <span>{formatDate(facturaData.timestamp)}</span>
+                {editMode ? (
+                  <input
+                    type="date"
+                    value={facturaData.fechaEmision || new Date(facturaData.timestamp).toISOString().split('T')[0]}
+                    onChange={(e) => handleFieldChange("fechaEmision", e.target.value)}
+                    onBlur={(e) => updateFacturaField("fechaEmision", e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "5px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px"
+                    }}
+                  />
+                ) : (
+                  <span>{facturaData.fechaEmision || formatDate(facturaData.timestamp)}</span>
+                )}
               </div>
               <div>
                 <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
@@ -815,7 +830,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 ) : (
                   <span>
                     {facturaData.fechapago 
-                      ? new Date(facturaData.fechapago).toLocaleDateString()
+                      ? facturaData.fechapago
                       : "No especificada"
                     }
                   </span>
@@ -1113,7 +1128,62 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   {serviciosAsociados.map((servicio, index) => (
                     <tr key={`${servicio.origin}_${servicio.id}`}>
                       <td style={{ padding: "6px", border: "1px solid #dee2e6", fontSize: "12px" }}>
-                        {servicio.fecha}
+                        {editMode ? (
+                          <input
+                            type="date"
+                            value={servicio.fecha ? servicio.fecha.split('-').reverse().join('-') : ''}
+                            onChange={(e) => {
+                              // Convertir de DD-MM-YYYY a YYYY-MM-DD para Firebase
+                              const [day, month, year] = e.target.value.split('-');
+                              const fechaFormateada = `${day}-${month}-${year}`;
+                              
+                              // Actualizar estado local
+                              setServiciosAsociados(prev => 
+                                prev.map((s, i) => 
+                                  i === index ? { ...s, fecha: fechaFormateada } : s
+                                )
+                              );
+                              setHasUnsavedChanges(true);
+                            }}
+                            onBlur={async (e) => {
+                              // Guardar en Firebase
+                              const [day, month, year] = e.target.value.split('-');
+                              const fechaFormateada = `${day}-${month}-${year}`;
+                              
+                              try {
+                                const path = servicio.origin === "data" 
+                                  ? `data/${servicio.id}` 
+                                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+                                
+                                await update(ref(database, path), { fecha: fechaFormateada });
+                                
+                                // Si el origen es registrofechas, también mover el registro a la nueva fecha
+                                if (servicio.origin === "registrofechas" && fechaFormateada !== servicio.fecha) {
+                                  // Crear en nueva fecha
+                                  await set(ref(database, `registrofechas/${fechaFormateada}/${servicio.id}`), servicio);
+                                  // Eliminar de fecha anterior
+                                  await set(ref(database, `registrofechas/${servicio.fecha}/${servicio.id}`), null);
+                                }
+                              } catch (error) {
+                                console.error("Error actualizando fecha de servicio:", error);
+                                Swal.fire({
+                                  icon: "error",
+                                  title: "Error",
+                                  text: "No se pudo actualizar la fecha del servicio"
+                                });
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "2px",
+                              border: "1px solid #ccc",
+                              borderRadius: "3px",
+                              fontSize: "11px"
+                            }}
+                          />
+                        ) : (
+                          servicio.fecha
+                        )}
                       </td>
                       <td style={{ padding: "6px", border: "1px solid #dee2e6", fontSize: "12px" }}>
                         {getUserName(servicio.realizadopor)}

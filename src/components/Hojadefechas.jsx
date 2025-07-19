@@ -1594,6 +1594,7 @@ const Hojadefechas = () => {
     numeroFactura,
     pagoStatus,
     pagoDate,
+    fechaEmision, // ✅ Agregar parámetro fechaEmision
     fechaServicio,
     direccion,
     servicio,
@@ -1652,10 +1653,25 @@ const Hojadefechas = () => {
       .text(`Email: ${invoiceConfig.email || "Email"}`, textX, mT + 26);
 
     // — Cabecera con número y fecha —
+    console.log("Fecha de emisión para PDF:", fechaEmision); // Debug
+    
+    // Formatear fecha de emisión para el PDF
+    let fechaEmisionFormateada = today.toLocaleDateString();
+    if (fechaEmision) {
+      // Si viene en formato YYYY-MM-DD, convertir a DD/MM/YYYY
+      if (fechaEmision.includes('-')) {
+        const [year, month, day] = fechaEmision.split('-');
+        fechaEmisionFormateada = `${day}/${month}/${year}`;
+      } else {
+        // Si ya está en formato DD/MM/YYYY, usar directamente
+        fechaEmisionFormateada = fechaEmision;
+      }
+    }
+    
     pdf
       .setFontSize(12)
       .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
-      .text(`DATE: ${today.toLocaleDateString()}`, 152, mT + 40);
+      .text(`DATE: ${fechaEmisionFormateada}`, 152, mT + 40);
 
     // — Bill To —
     const yBill = mT + logoHeight + 21;
@@ -1796,7 +1812,10 @@ const Hojadefechas = () => {
 
     // ✅ USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
     const base = selectedData[0];
-    const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
+    
+    // ✅ Determinar estado de pago basado en todos los servicios seleccionados
+    const todosPagados = selectedData.every(servicio => servicio.pago === "Pago");
+    const pagoStatus = todosPagados ? "Pago" : "Debe";
 
     // 2) Calcular número de factura estimado
     let invoiceIdEstimado;
@@ -2191,21 +2210,33 @@ const Hojadefechas = () => {
       }
 
       // ✅ CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
-      // Calcular payments totales de todos los registros seleccionados
-      const paymentsTotales = selectedData.reduce((sum, registro) => {
-        return sum + (parseFloat(registro.payment) || 0);
-      }, 0);
+      // Calcular payments totales y fecha de pago basados en el estado de los servicios
+      let paymentsTotales = 0;
+      let fechaPago = null;
+      
+      if (pagoStatus === "Pago") {
+        // Si todos están pagados, el payment es igual al total y usar la fecha de pago del primer servicio pagado
+        paymentsTotales = totalAmount;
+        const primerServicioPagado = selectedData.find(servicio => servicio.pago === "Pago");
+        fechaPago = primerServicioPagado?.fechapago || new Date().toISOString().split('T')[0];
+      } else {
+        // Si no todos están pagados, calcular payments existentes
+        paymentsTotales = selectedData.reduce((sum, registro) => {
+          return sum + (parseFloat(registro.payment) || 0);
+        }, 0);
+      }
 
       const facturaData = {
         numerodefactura: invoiceIdFinal,
         timestamp: Date.now(),
+        fechaEmision: res.fechaEmision, // ✅ Guardar la fecha de emisión seleccionada
         billTo: billToValue,
         invoiceItems: invoiceItems,
         totalAmount: totalAmount,
-        payment: paymentsTotales, // ✅ Suma de payments de todos los registros
+        payment: paymentsTotales, // ✅ Payment basado en estado de servicios
         deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
         pago: pagoStatus,
-        fechapago: pagoStatus === "Pago" ? (base.fechapago || new Date().toISOString().split('T')[0]) : null,
+        fechapago: fechaPago, // ✅ Fecha de pago del primer servicio pagado
         // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
       };
 
@@ -2243,7 +2274,8 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
-        pagoDate: base.fechapago,
+        pagoDate: fechaPago, // ✅ Usar la fecha de pago calculada
+        fechaEmision: res.fechaEmision, // ✅ Pasar la fecha de emisión al PDF
         // ✅ Datos adicionales del primer registro para el PDF
         fechaServicio: base.fecha,
         direccion: base.direccion,
@@ -2258,41 +2290,86 @@ const Hojadefechas = () => {
 
   // Función para cancelar factura
   const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
-    const { isConfirmed } = await Swal.fire({
-      title: "¿Cancelar Factura?",
-      text: `¿Estás seguro de que deseas cancelar la factura ${numeroFactura}? Esto borrará todos los datos de facturación y el número quedará disponible para reutilización.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, Cancelar",
-      cancelButtonText: "No",
-      confirmButtonColor: "#d33",
-    });
-
-    if (!isConfirmed) return;
-
     try {
-      // 1) ✅ ELIMINAR EL NODO FACTURA COMPLETO
+      // 1) ✅ BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
+      const serviciosRelacionados = [];
+      
+      // Buscar en dataBranch
+      dataBranch.forEach(servicio => {
+        if (servicio.numerodefactura === numeroFactura) {
+          serviciosRelacionados.push({
+            ...servicio,
+            origin: 'data',
+            path: `data/${servicio.id}`
+          });
+        }
+      });
+      
+      // Buscar en dataRegistroFechas
+      dataRegistroFechas.forEach(grupo => {
+        grupo.registros.forEach(servicio => {
+          if (servicio.numerodefactura === numeroFactura) {
+            serviciosRelacionados.push({
+              ...servicio,
+              origin: 'registrofechas',
+              path: `registrofechas/${grupo.fecha}/${servicio.id}`
+            });
+          }
+        });
+      });
+
+      // 2) ✅ MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
+      const serviciosInfo = serviciosRelacionados.map(servicio => 
+        `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
+      ).join('\n');
+
+      const { isConfirmed } = await Swal.fire({
+        title: "¿Cancelar Factura?",
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Factura a cancelar:</strong> ${numeroFactura}</p>
+            <p><strong>Servicios relacionados (${serviciosRelacionados.length}):</strong></p>
+            <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+              ${serviciosInfo || 'No se encontraron servicios relacionados'}
+            </div>
+            <p style="color: #d33; font-weight: bold;">⚠️ Esta acción:</p>
+            <ul style="text-align: left; color: #d33;">
+              <li>Eliminará completamente la factura</li>
+              <li>Desvinculará ${serviciosRelacionados.length} servicios de esta factura</li>
+              <li>El número de factura quedará disponible para reutilización</li>
+            </ul>
+          </div>
+        `,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, Cancelar Factura",
+        cancelButtonText: "No, Mantener",
+        confirmButtonColor: "#d33",
+        width: "600px"
+      });
+
+      if (!isConfirmed) return;
+
+      // 3) ✅ ELIMINAR EL NODO FACTURA COMPLETO
       if (numeroFactura) {
         await set(ref(database, `facturas/${numeroFactura}`), null);
       }
 
-      // 2) Limpiar los campos de facturación en el registro
-      const fromData = origin === "data";
-      const path = fromData
-        ? `data/${registroId}`
-        : `registrofechas/${fecha}/${registroId}`;
-      const facturaRef = ref(database, path);
-
-      await update(facturaRef, {
-        // Mantener datos base del servicio
-        // Limpiar solo campos de facturación
-        factura: false, // Cambiar a false
-        numerodefactura: null, // Limpiar número
-        referenciaFactura: null, // ✅ Limpiar nueva referencia
-        // No tocamos item, descripcion, qty, rate, amount del registro original
+      // 4) ✅ LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
+      const updatePromises = serviciosRelacionados.map(async (servicio) => {
+        const updateData = {
+          factura: false,
+          numerodefactura: null,
+          referenciaFactura: null,
+          timestamp: Date.now(),
+        };
+        
+        return update(ref(database, servicio.path), updateData);
       });
 
-      // 3) Agregar el número de factura a la lista de números disponibles para reutilizar
+      await Promise.all(updatePromises);
+
+      // 5) ✅ AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
       if (numeroFactura) {
         const numerosDisponiblesRef = ref(database, "facturasDisponibles");
         const newAvailableRef = push(numerosDisponiblesRef);
@@ -2302,42 +2379,50 @@ const Hojadefechas = () => {
         });
       }
 
-      // 4) Actualizar estado local
-      const updater = (r) =>
-        r.id === registroId
-          ? {
-              ...r,
-              factura: false,
-              numerodefactura: null,
-              referenciaFactura: null,
-              // ✅ Mantener los datos originales del servicio
-            }
-          : r;
+      // 6) ✅ ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
+      const updater = (r) => {
+        if (r.numerodefactura === numeroFactura) {
+          return {
+            ...r,
+            factura: false,
+            numerodefactura: null,
+            referenciaFactura: null,
+          };
+        }
+        return r;
+      };
 
-      if (fromData) {
-        setDataBranch((prev) => prev.map(updater));
-      } else {
-        setDataRegistroFechas((prev) =>
-          prev.map((g) =>
-            g.fecha === fecha
-              ? { ...g, registros: g.registros.map(updater) }
-              : g
-          )
-        );
-      }
+      // Actualizar dataBranch
+      setDataBranch((prev) => prev.map(updater));
+      
+      // Actualizar dataRegistroFechas
+      setDataRegistroFechas((prev) =>
+        prev.map((g) => ({
+          ...g,
+          registros: g.registros.map(updater)
+        }))
+      );
 
+      // 7) ✅ MOSTRAR CONFIRMACIÓN
       Swal.fire({
         icon: "success",
-        title: "Factura Cancelada",
-        text: `La factura ${numeroFactura} ha sido cancelada. El número quedará disponible para reutilización.`,
-        timer: 2000,
+        title: "Factura Cancelada Exitosamente",
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Factura:</strong> ${numeroFactura}</p>
+            <p><strong>Servicios desvinculados:</strong> ${serviciosRelacionados.length}</p>
+            <p><strong>Estado:</strong> El número de factura quedó disponible para reutilización</p>
+          </div>
+        `,
+        timer: 3000,
+        width: "500px"
       });
     } catch (error) {
       console.error("Error cancelando factura:", error);
       Swal.fire({
         icon: "error",
-        title: "Error",
-        text: "Hubo un error al cancelar la factura.",
+        title: "Error al Cancelar Factura",
+        text: "Hubo un error al cancelar la factura. Por favor, inténtalo de nuevo.",
       });
     }
   };
