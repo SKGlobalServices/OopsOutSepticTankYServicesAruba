@@ -47,7 +47,7 @@ const Informedeefectivousuario = () => {
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
   const [showDatePicker, setShowDatePicker] = useState(false);

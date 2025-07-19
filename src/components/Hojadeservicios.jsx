@@ -27,7 +27,7 @@ const Homepage = () => {
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   
   const [filters, setFilters] = useState({
     realizadopor: [],
