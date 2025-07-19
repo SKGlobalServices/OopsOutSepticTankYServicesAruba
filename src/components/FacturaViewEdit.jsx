@@ -257,7 +257,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         deuda: newDeuda
       }));
       
-      setHasUnsavedChanges(false);
+      setHasUnsavedChanges(true);
       
     } catch (error) {
       console.error("Error actualizando item:", error);
@@ -507,6 +507,137 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
     }
   };
 
+  // Función para agregar un nuevo item a la factura
+  const agregarNuevoItem = async () => {
+    if (!numeroFactura) return;
+    
+    try {
+      // Contar items existentes y generar el siguiente número
+      const existingItems = facturaData.invoiceItems || {};
+      const itemKeys = Object.keys(existingItems);
+      
+      // Extraer números de las keys existentes (1, 2, 3, etc.)
+      const itemNumbers = itemKeys
+        .map(key => {
+          const match = key.match(/^(\d+)$/);
+          return match ? parseInt(match[1]) : 0;
+        })
+        .filter(num => num > 0);
+      
+      // Encontrar el siguiente número disponible
+      const nextNumber = itemNumbers.length > 0 ? Math.max(...itemNumbers) + 1 : 1;
+      const newItemKey = `${nextNumber}`;
+    
+      // Crear el nuevo item con valores por defecto
+      const nuevoItem = {
+        item: "",
+        descripcion: "",
+        qty: 1,
+        rate: 0,
+        amount: 0
+      };
+      
+      // Agregar el item a Firebase
+      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${newItemKey}`);
+      await set(facturaRef, nuevoItem);
+      
+      // Actualizar estado local
+      setFacturaData(prev => {
+        const newInvoiceItems = {
+          ...prev.invoiceItems,
+          [newItemKey]: nuevoItem
+        };
+        
+        // Recalcular totales
+        const newTotal = Object.values(newInvoiceItems).reduce((sum, item) => sum + (item.amount || 0), 0);
+        const newDeuda = Math.max(0, newTotal - (prev.payment || 0));
+        
+        return {
+          ...prev,
+          invoiceItems: newInvoiceItems,
+          totalAmount: newTotal,
+          deuda: newDeuda
+        };
+      });
+      
+      // Actualizar totales en Firebase
+      await update(ref(database, `facturas/${numeroFactura}`), {
+        totalAmount: facturaData.totalAmount,
+        deuda: facturaData.deuda
+      });
+      
+      setHasUnsavedChanges(true);
+      
+      console.log(`✅ Nuevo item agregado: ${newItemKey}`);
+      
+    } catch (error) {
+      console.error("Error agregando nuevo item:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo agregar el nuevo item"
+      });
+    }
+  };
+
+  // Función para eliminar un item de la factura
+  const eliminarItem = async (itemKey) => {
+    if (!numeroFactura) return;
+    
+    try {
+      // Confirmar eliminación
+      const result = await Swal.fire({
+        title: "¿Eliminar item?",
+        text: "Esta acción no se puede deshacer",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar"
+      });
+      
+      if (!result.isConfirmed) return;
+      
+      // Eliminar de Firebase
+      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
+      await set(facturaRef, null);
+      
+      // Actualizar estado local
+      setFacturaData(prev => {
+        const newInvoiceItems = { ...prev.invoiceItems };
+        delete newInvoiceItems[itemKey];
+        
+        // Recalcular totales
+        const newTotal = Object.values(newInvoiceItems).reduce((sum, item) => sum + (item.amount || 0), 0);
+        const newDeuda = Math.max(0, newTotal - (prev.payment || 0));
+        
+        return {
+          ...prev,
+          invoiceItems: newInvoiceItems,
+          totalAmount: newTotal,
+          deuda: newDeuda
+        };
+      });
+      
+      // Actualizar totales en Firebase
+      await update(ref(database, `facturas/${numeroFactura}`), {
+        totalAmount: facturaData.totalAmount,
+        deuda: facturaData.deuda
+      });
+      
+      setHasUnsavedChanges(true);
+      
+      console.log(`✅ Item eliminado: ${itemKey}`);
+      
+    } catch (error) {
+      console.error("Error eliminando item:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo eliminar el item"
+      });
+    }
+  };
+
   // Función para guardar todos los cambios pendientes
   const guardarCambios = async () => {
     if (!hasUnsavedChanges) {
@@ -631,39 +762,12 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   }
 
   return (
-    <div style={{ 
-      position: "fixed", 
-      top: 0, 
-      left: 0, 
-      width: "100%", 
-      height: "100%", 
-      backgroundColor: "rgba(0,0,0,0.5)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 1000,
-      overflow: "auto"
-    }}>
-      <div style={{
-        backgroundColor: "white",
-        width: "95%",
-        maxWidth: "1200px",
-        maxHeight: "90%",
-        borderRadius: "8px",
-        overflow: "auto",
-        padding: "20px"
-      }}>
+    <div className="factura-modal">
+      <div className="factura-modal-content">
         {/* Header */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-          borderBottom: "2px solid #eee",
-          paddingBottom: "10px"
-        }}>
+        <div className="factura-modal-header">
           <div>
-            <h2 style={{ margin: 0, color: "#2196F3" }}>
+            <h2 className="factura-modal-title">
               Factura #{numeroFactura}
             </h2>
             {(facturaData.deuda || 0) <= 0 && (
@@ -692,19 +796,11 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="factura-modal-buttons">
             {editMode && (
               <button 
                 onClick={guardarCambios}
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: hasUnsavedChanges ? "#28a745" : "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: hasUnsavedChanges ? "pointer" : "not-allowed",
-                  fontWeight: "bold"
-                }}
+                className={`factura-modal-btn ${hasUnsavedChanges ? 'success' : 'secondary'}`}
                 disabled={!hasUnsavedChanges}
               >
                 {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
@@ -730,27 +826,13 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                   setEditMode(!editMode);
                 }
               }}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: editMode ? "#6c757d" : "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer"
-              }}
+              className={`factura-modal-btn ${editMode ? 'secondary' : 'primary'}`}
             >
               {editMode ? "Cancelar" : "Editar"}
             </button>
             <button 
               onClick={onClose}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer"
-              }}
+              className="factura-modal-btn danger"
             >
               Cerrar
             </button>
@@ -758,18 +840,13 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         </div>
 
         {/* Información de la Factura */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          marginBottom: "20px"
-        }}>
+        <div className="factura-info-grid">
           {/* Columna izquierda */}
           <div>
             <h3 style={{ color: "#495057", marginBottom: "15px" }}>Información General</h3>
-            <div style={{ display: "grid", gap: "10px" }}>
+            <div className="factura-info-section">
               <div>
-                <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
+                <label className="factura-info-label">
                   Fecha de Emisión:
                 </label>
                 {editMode ? (
@@ -778,19 +855,14 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     value={facturaData.fechaEmision || new Date(facturaData.timestamp).toISOString().split('T')[0]}
                     onChange={(e) => handleFieldChange("fechaEmision", e.target.value)}
                     onBlur={(e) => updateFacturaField("fechaEmision", e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "5px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px"
-                    }}
+                    className="factura-info-input"
                   />
                 ) : (
                   <span>{facturaData.fechaEmision || formatDate(facturaData.timestamp)}</span>
                 )}
               </div>
               <div>
-                <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
+                <label className="factura-info-label">
                   Bill To:
                 </label>
                 {editMode ? (
@@ -811,7 +883,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 )}
               </div>
               <div>
-                <label style={{ fontWeight: "bold", display: "block", marginBottom: "5px" }}>
+                <label className="factura-info-label">
                   Fecha de Pago:
                 </label>
                 {editMode ? (
@@ -820,12 +892,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     value={facturaData.fechapago || ""}
                     onChange={(e) => handleFieldChange("fechapago", e.target.value)}
                     onBlur={(e) => updateFacturaField("fechapago", e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "5px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px"
-                    }}
+                    className="factura-info-input"
                   />
                 ) : (
                   <span>
@@ -970,7 +1037,22 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
 
         {/* Items de la Factura */}
         <div style={{ marginBottom: "20px" }}>
-          <h3 style={{ color: "#495057", marginBottom: "15px" }}>Items de la Factura</h3>
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center", 
+            marginBottom: "15px" 
+          }}>
+            <h3 style={{ color: "#495057", margin: 0 }}>Items de la Factura</h3>
+            {editMode && (
+              <button
+                onClick={agregarNuevoItem}
+                className="factura-add-item-btn"
+              >
+                + Agregar Item
+              </button>
+            )}
+          </div>
           {facturaData.invoiceItems ? (
             <div style={{ overflowX: "auto" }}>
               <table style={{ 
@@ -985,23 +1067,28 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "center" }}>Qty</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "right" }}>Rate</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "right" }}>Amount</th>
+                    {editMode && (
+                      <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "center" }}>Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(facturaData.invoiceItems).map(([key, item]) => (
+                  {Object.entries(facturaData.invoiceItems)
+                    .sort(([keyA], [keyB]) => {
+                      // Convertir keys a números para ordenar correctamente
+                      const numA = parseInt(keyA) || 0;
+                      const numB = parseInt(keyB) || 0;
+                      return numA - numB;
+                    })
+                    .map(([key, item]) => (
                     <tr key={key}>
-                      <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
-                        {editMode ? (
-                          <select
-                            value={item.item || ""}
-                            onChange={(e) => handleItemChange(key, e.target.value)}
-                            style={{
-                              width: "100%",
-                              padding: "4px",
-                              border: "1px solid #ccc",
-                              borderRadius: "3px"
-                            }}
-                          >
+                                              <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
+                          {editMode ? (
+                            <select
+                              value={item.item || ""}
+                              onChange={(e) => handleItemChange(key, e.target.value)}
+                              className="factura-info-input"
+                            >
                             <option value="">Seleccione un item...</option>
                             {Object.keys(ITEM_RATES).map((itemName) => (
                               <option key={itemName} value={itemName}>
@@ -1029,11 +1116,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                               setHasUnsavedChanges(true);
                             }}
                             onBlur={(e) => updateFacturaItem(key, "descripcion", e.target.value)}
+                            className="factura-info-input"
                             style={{
-                              width: "100%",
-                              padding: "4px",
-                              border: "1px solid #ccc",
-                              borderRadius: "3px",
                               minHeight: "60px",
                               resize: "vertical"
                             }}
@@ -1057,11 +1141,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                               const newQty = parseFloat(e.target.value) || 0;
                               saveQtyToFirebase(key, newQty);
                             }}
+                            className="factura-info-input"
                             style={{
                               width: "60px",
-                              padding: "4px",
-                              border: "1px solid #ccc",
-                              borderRadius: "3px",
                               textAlign: "center"
                             }}
                           />
@@ -1090,6 +1172,17 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                           AWG {formatCurrency(item.amount || 0)}
                         </span>
                       </td>
+                      {editMode && (
+                        <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "center" }}>
+                          <button
+                            onClick={() => eliminarItem(key)}
+                            className="factura-delete-item-btn"
+                            title="Eliminar item"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1173,11 +1266,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                                 });
                               }
                             }}
+                            className="factura-info-input"
                             style={{
-                              width: "100%",
-                              padding: "2px",
-                              border: "1px solid #ccc",
-                              borderRadius: "3px",
                               fontSize: "11px"
                             }}
                           />

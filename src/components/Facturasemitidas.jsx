@@ -541,6 +541,14 @@ const Facturasemitidas = () => {
 
     // Campo especial: fecha - mover registro a nueva fecha
     if (field === "fecha") {
+      console.log('🔄 Procesando cambio de fecha:', {
+        fecha,
+        registroId,
+        safeValue,
+        origin,
+        fromData
+      });
+      
       const actualizarFechaServicio = async () => {
         try {
           // Obtener el registro completo
@@ -550,12 +558,20 @@ const Facturasemitidas = () => {
                 .find((g) => g.fecha === fecha)
                 ?.registros.find((r) => r.id === registroId) || {};
 
+          console.log('📋 Registro encontrado:', registro);
+
           if (fromData) {
             // Si está en data, solo actualizar la fecha
+            console.log('📝 Actualizando en data:', path);
             await update(dbRefItem, { fecha: safeValue });
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
+              console.log('🔄 Moviendo registro de registrofechas:', {
+                from: fecha,
+                to: safeValue,
+                registroId
+              });
               // Crear en nueva fecha
               await set(ref(database, `registrofechas/${safeValue}/${registroId}`), {
                 ...registro,
@@ -563,11 +579,14 @@ const Facturasemitidas = () => {
               });
               // Eliminar de fecha anterior
               await set(ref(database, `registrofechas/${fecha}/${registroId}`), null);
+            } else {
+              console.log('📝 Actualizando fecha en registrofechas sin mover:', path);
+              await update(dbRefItem, { fecha: safeValue });
             }
           }
           console.log(`✅ Fecha de servicio actualizada: ${fecha} → ${safeValue}`);
         } catch (error) {
-          console.error("Error actualizando fecha de servicio:", error);
+          console.error("❌ Error actualizando fecha de servicio:", error);
           Swal.fire({
             icon: "error",
             title: "Error",
@@ -2781,6 +2800,9 @@ const Facturasemitidas = () => {
                 <th>Días de Mora</th>
                 <th>Fecha de Pago</th>
                 <th>Pago</th>
+                <th>Total Amount</th>
+                <th>Payment</th>
+                <th>Deuda</th>
                 <th>Ver/Editar</th>
                 <th>Payment Rápido</th>
                 <th>Cancelar</th>
@@ -2851,16 +2873,7 @@ const Facturasemitidas = () => {
                               handleFieldChange(fecha, r.id, "fechaEmision", fechaFormateada, r.origin);
                             }
                           }}
-                          style={{
-                            width: "120px",
-                            padding: "4px",
-                            border: "1px solid #ccc",
-                            borderRadius: "3px",
-                            fontSize: "12px",
-                            textAlign: "center",
-                            backgroundColor: r.numerodefactura ? "#f0f8ff" : "white",
-                            borderColor: r.numerodefactura ? "#007bff" : "#ccc"
-                          }}
+                          className={`fecha-emision-input ${r.numerodefactura ? 'factura' : ''}`}
                           title={r.numerodefactura ? "Editar fecha de emisión de la factura" : "Fecha de emisión (timestamp)"}
                         />
                       </td>
@@ -2869,9 +2882,28 @@ const Facturasemitidas = () => {
                           type="date"
                           value={fecha ? fecha.split('-').reverse().join('-') : ''}
                           onChange={(e) => {
+                            // Validar que el valor no esté vacío
+                            if (!e.target.value) {
+                              console.log('Valor de fecha vacío, ignorando cambio');
+                              return;
+                            }
+                            
                             // Convertir de YYYY-MM-DD a DD-MM-YYYY para Firebase
                             const [year, month, day] = e.target.value.split('-');
+                            
+                            // Validar que los componentes de fecha sean válidos
+                            if (!year || !month || !day) {
+                              console.error('Formato de fecha inválido:', e.target.value);
+                              return;
+                            }
+                            
                             const fechaFormateada = `${day}-${month}-${year}`;
+                            
+                            console.log('Cambiando fecha de servicio:', {
+                              original: fecha,
+                              nueva: fechaFormateada,
+                              inputValue: e.target.value
+                            });
                             
                             handleFieldChange(
                               fecha,
@@ -2881,29 +2913,14 @@ const Facturasemitidas = () => {
                               r.origin
                             );
                           }}
-                          style={{
-                            width: "120px",
-                            padding: "4px",
-                            border: "1px solid #ccc",
-                            borderRadius: "3px",
-                            fontSize: "12px",
-                            textAlign: "center"
-                          }}
+                          className="fecha-servicio-input"
                           title="Editar fecha de servicio"
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <button
                           onClick={() => openFacturaModal(r.numerodefactura)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#2196F3",
-                            textDecoration: "underline",
-                            cursor: "pointer",
-                            fontSize: "inherit",
-                            fontWeight: "bold",
-                          }}
+                          className="numero-factura-btn"
                           title="Ver/Editar factura"
                         >
                           {r.numerodefactura}
@@ -3035,18 +3052,28 @@ const Facturasemitidas = () => {
                           }}
                         />
                       </td>
+                      <td className="factura-amount-cell" style={{ textAlign: "center" }}>
+                        {r.numerodefactura && facturasData[r.numerodefactura] 
+                          ? formatCurrency(facturasData[r.numerodefactura].totalAmount || 0)
+                          : formatCurrency(r.valor || 0)
+                        }
+                      </td>
+                      <td className="factura-payment-cell" style={{ textAlign: "center" }}>
+                        {r.numerodefactura && facturasData[r.numerodefactura] 
+                          ? formatCurrency(facturasData[r.numerodefactura].payment || 0)
+                          : "N/A"
+                        }
+                      </td>
+                      <td className="factura-deuda-cell" style={{ textAlign: "center" }}>
+                        {r.numerodefactura && facturasData[r.numerodefactura] 
+                          ? formatCurrency(facturasData[r.numerodefactura].deuda || 0)
+                          : "N/A"
+                        }
+                      </td>
                       <td style={{ textAlign: "center" }}>
                         <button
                           onClick={() => openFacturaModal(r.numerodefactura)}
-                          style={{
-                            padding: "6px 12px",
-                            backgroundColor: "#28a745",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
+                          className="ver-editar-btn"
                           title="Ver/Editar factura"
                         >
                           Ver/Editar
@@ -3056,28 +3083,13 @@ const Facturasemitidas = () => {
                         {r.numerodefactura && r.pago !== "Pago" ? (
                           <button
                             onClick={() => paymentRapido(r.numerodefactura)}
-                            style={{
-                              padding: "4px 8px",
-                              backgroundColor: "#007bff",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "11px",
-                              fontWeight: "bold",
-                            }}
+                            className="payment-rapido-btn"
                             title={`Payment rápido para factura ${r.numerodefactura}`}
                           >
                             Payment
                           </button>
                         ) : (
-                          <span
-                            style={{
-                              color: "#ccc",
-                              fontSize: "11px",
-                              fontStyle: "italic",
-                            }}
-                          >
+                          <span className={`estado-pago-span ${r.pago === "Pago" ? "pagada" : ""}`}>
                             {r.pago === "Pago" ? "Pagada" : "Sin factura"}
                           </span>
                         )}
@@ -3093,23 +3105,13 @@ const Facturasemitidas = () => {
                                 r.origin
                               )
                             }
-                            className="delete-button"
-                            style={{
-                              border: "1px solid #ff3300",
-                              backgroundColor: "transparent",
-                              cursor: "pointer",
-                              color: "black",
-                              fontWeight: "normal",
-                              marginLeft: "0",
-                              padding: "4px 8px",
-                              borderRadius: "4px",
-                            }}
+                            className="cancelar-factura-btn"
                             title={`Cancelar factura ${r.numerodefactura}`}
                           >
                             Cancelar Factura
                           </button>
                         ) : (
-                          <span style={{ color: "#ccc", fontSize: "12px" }}>
+                          <span className="estado-pago-span">
                             Sin factura
                           </span>
                         )}

@@ -642,7 +642,7 @@ html {
 }
 
 /* ========================================= */
-/* 2) React-Select (variantes de “control” y “menu”) */
+/* 2) React-Select (variantes de "control" y "menu") */
 /* ========================================= */
 [class*="css-"][class*="-control"] {
   background-color: #2a2d38 !important;
@@ -3028,7 +3028,7 @@ button.delete-button:hover {
   color: #007bff;
 }
 
-/* ==========  “Pocket mode”  ≤ 480 px  ========= */
+/* ==========  "Pocket mode"  ≤ 480 px  ========== */
 @keyframes scrollBG_mob {
   to {
     background-position: 300% 300%;
@@ -3706,7 +3706,7 @@ h1,
     padding: 0rem;
     margin-bottom: 0.2rem;
     gap: 7rem;
-    flex-direction:column;
+    flex-direction: column;
     /* Reducir margen derecho en móviles */
   }
 
@@ -3930,5 +3930,446 @@ h1,
   .items-per-page select {
     padding: 6px 8px;
     font-size: 14px;
+  }
+}
+
+/* ─────────────────────  Clases para botones y campos de factura  ───────────────────── */
+
+/* Botón Payment Rápido */
+.payment-rapido-btn {
+  padding: 4px 8px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.payment-rapido-btn:hover {
+  background-color: #0056b3;
+}
+
+.payment-rapido-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Botón Ver/Editar */
+.ver-editar-btn {
+  padding: 6px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.ver-editar-btn:hover {
+  background-color: #218838;
+}
+
+/* Botón Cancelar Factura */
+.cancelar-factura-btn {
+  border: 1px solid #ff3300;
+  background-color: transparent;
+  cursor: pointer;
+  color: black;
+  font-weight: normal;
+  margin-left: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.cancelar-factura-btn:hover {
+  background-color: #ff3300;
+  color: white;
+}
+
+/* Campo de fecha de emisión */
+.fecha-emision-input {
+  width: 120px;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.fecha-emision-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.fecha-emision-input.factura {
+  background-color: #f0f8ff;
+  border-color: #007bff;
+}
+
+/* Campo de fecha de servicio */
+.fecha-servicio-input {
+  width: 120px;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.fecha-servicio-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+/* Estilos específicos para el campo de fecha en Hojadefechas */
+.fecha-servicio-input[style*="border: none"] {
+  border: 1px solid transparent !important;
+  background: transparent !important;
+}
+
+.fecha-servicio-input[style*="border: none"]:hover {
+  border: 1px solid #007bff !important;
+  background: rgba(0, 123, 255, 0.1) !important;
+}
+
+.fecha-servicio-input[style*="border: none"]:focus {
+  border: 1px solid #007bff !important;
+  background: white !important;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Estilos para las columnas de facturación */
+.factura-amount-cell {
+  background-color: #f8f9fa;
+  border-left: 3px solid #28a745;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.factura-payment-cell {
+  background-color: #f8f9fa;
+  border-left: 3px solid #007bff;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.factura-deuda-cell {
+  background-color: #f8f9fa;
+  border-left: 3px solid #dc3545;
+  font-weight: bold;
+  color: #dc3545;
+}
+
+/* Estilos para botones de items de factura */
+.factura-add-item-btn {
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.factura-add-item-btn:hover {
+  background-color: #218838;
+}
+
+.factura-delete-item-btn {
+  padding: 4px 8px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.factura-delete-item-btn:hover {
+  background-color: #c82333;
+}
+
+/* Campo de número de factura */
+.numero-factura-btn {
+  background: none;
+  border: none;
+  color: #2196f3;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: bold;
+  transition: color 0.2s ease;
+}
+
+.numero-factura-btn:hover {
+  color: #1976d2;
+}
+
+/* Estado de pago */
+.estado-pago-span {
+  color: #ccc;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.estado-pago-span.pagada {
+  color: #28a745;
+  font-weight: bold;
+}
+
+/* Modal de factura responsive */
+.factura-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  overflow: auto;
+}
+
+.factura-modal-content {
+  background-color: white;
+  width: 95%;
+  max-width: 1200px;
+  max-height: 90%;
+  border-radius: 8px;
+  overflow: auto;
+  padding: 20px;
+}
+
+.factura-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+.factura-modal-title {
+  margin: 0;
+  color: #2196f3;
+}
+
+.factura-modal-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.factura-modal-btn {
+  padding: 8px 16px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.factura-modal-btn.primary {
+  background-color: #007bff;
+}
+
+.factura-modal-btn.primary:hover {
+  background-color: #0056b3;
+}
+
+.factura-modal-btn.success {
+  background-color: #28a745;
+}
+
+.factura-modal-btn.success:hover {
+  background-color: #218838;
+}
+
+.factura-modal-btn.danger {
+  background-color: #dc3545;
+  margin-top: 0;
+}
+
+.factura-modal-btn.danger:hover {
+  background-color: #c82333;
+}
+
+.factura-modal-btn.secondary {
+  background-color: #6c757d;
+}
+
+.factura-modal-btn.secondary:hover {
+  background-color: #545b62;
+}
+
+.factura-modal-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Grid responsive para información de factura */
+.factura-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.factura-info-section {
+  display: grid;
+  gap: 10px;
+}
+
+.factura-info-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.factura-info-input {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.2s ease;
+}
+
+.factura-info-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .factura-modal-content {
+    width: 98%;
+    padding: 15px;
+  }
+
+  .factura-modal-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .factura-modal-buttons {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .factura-modal-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .factura-info-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .fecha-emision-input,
+  .fecha-servicio-input {
+    width: 100px;
+    font-size: 11px;
+  }
+
+  .payment-rapido-btn {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+
+  .ver-editar-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .cancelar-factura-btn {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .factura-modal-content {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding: 10px;
+  }
+
+  .factura-modal-header {
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+  }
+
+  .factura-modal-title {
+    font-size: 18px;
+  }
+
+  .factura-modal-buttons {
+    gap: 3px;
+  }
+
+  .factura-modal-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .fecha-emision-input,
+  .fecha-servicio-input {
+    width: 90px;
+    font-size: 10px;
+  }
+
+  .payment-rapido-btn {
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .ver-editar-btn {
+    padding: 3px 6px;
+    font-size: 7px;
+  }
+
+  .cancelar-factura-btn {
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+}
+
+.sort-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-right: 5px;
+  margin-left: 5px;
+
+  @media (max-width: 768px) {
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1px 2px;
+    font-size: 8px;
   }
 }
