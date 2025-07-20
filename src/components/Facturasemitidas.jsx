@@ -321,14 +321,6 @@ const Facturasemitidas = () => {
       if (fechaEmi < emiStart || fechaEmi > emiEnd) return false;
     }
 
-    // 2) Filtrar por Fecha de Servicio (r.fecha formato "DD-MM-YYYY")
-    const [srvStart, srvEnd] = filters.fechaServicio;
-    if (srvStart && srvEnd) {
-      const [d, m, y] = r.fecha.split("-");
-      const fechaSrv = new Date(+y, m - 1, +d);
-      if (fechaSrv < srvStart || fechaSrv > srvEnd) return false;
-    }
-
     // 3) Subcadena: número de factura
     if (
       filters.numerodefactura &&
@@ -990,7 +982,7 @@ const Facturasemitidas = () => {
 
   // Manejo del DatePicker para rango de fechas
   const [showEmisionPicker, setShowEmisionPicker] = useState(false);
-  const [showServicioPicker, setShowServicioPicker] = useState(false);
+
   const [showPagoPicker, setShowPagoPicker] = useState(false);
 
   const handleEmisionChange = (dates) => {
@@ -1022,34 +1014,7 @@ const Facturasemitidas = () => {
     }));
   };
 
-  const handleServicioChange = (dates) => {
-    const [start, end] = dates;
-    setFilters((prev) => ({
-      ...prev,
-      fechaServicio: [
-        start
-          ? new Date(
-              start.getFullYear(),
-              start.getMonth(),
-              start.getDate(),
-              0,
-              0,
-              0
-            )
-          : null,
-        end
-          ? new Date(
-              end.getFullYear(),
-              end.getMonth(),
-              end.getDate(),
-              23,
-              59,
-              59
-            )
-          : null,
-      ],
-    }));
-  };
+
 
   const handlePagoChange = (dates) => {
     const [start, end] = dates;
@@ -1498,7 +1463,7 @@ const Facturasemitidas = () => {
     const exportData = filteredData.flatMap((item) =>
       item.registros.map((registro) => ({
         "Fecha Emisión": formatDate(registro.timestamp),
-        "Fecha Servicio": item.fecha,
+
         "N° Factura": registro.numerodefactura || "",
         "A Nombre De": registro.anombrede || "",
         "Personalizado": registro.personalizado || "",
@@ -1526,7 +1491,6 @@ const Facturasemitidas = () => {
 
     const headers = [
       "Fecha Emisión",
-      "Fecha Servicio", 
       "N° Factura",
       "A Nombre De",
       "Personalizado",
@@ -1565,7 +1529,7 @@ const Facturasemitidas = () => {
     // Ajustar anchos de columnas
     worksheet.columns = [
       { width: 14 }, // Fecha Emisión
-      { width: 14 }, // Fecha Servicio
+      
       { width: 12 }, // N° Factura
       { width: 20 }, // A Nombre De
       { width: 20 }, // Personalizado
@@ -1631,8 +1595,6 @@ const Facturasemitidas = () => {
         confirmButtonText: "Aceptar",
       });
     }
-
-    console.log("Usando registro base:", base);
 
     // 3) Validar que la factura existe
     if (!base.numerodefactura) {
@@ -1734,7 +1696,6 @@ const Facturasemitidas = () => {
       }
 
       const facturaData = facturaSnapshot.val();
-      console.log("Datos de la factura obtenidos:", facturaData);
 
       // 7) Usar datos del primer registro para información básica
       const pagoStatus = base.pago === "Pago" ? "Pago" : "Debe";
@@ -1744,7 +1705,7 @@ const Facturasemitidas = () => {
       if (facturaData.invoiceItems) {
         Object.entries(facturaData.invoiceItems).forEach(([key, item]) => {
           filas.push([
-            base.fecha, // Fecha del servicio (del primer registro)
+            item.fechaServicioItem || base.fecha, 
             item.item || "",
             item.descripcion || "",
             item.qty != null ? item.qty.toString() : "",
@@ -2047,8 +2008,8 @@ const Facturasemitidas = () => {
            <select id="swal-item-select" class="swal2-select" style="flex: 1;">
              <option value="" disabled selected>Seleccione un item...</option>
              ${Object.keys(ITEM_RATES)
-               .map((i) => `<option value="${i}">${i}</option>`)
-               .join("")}
+              .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
+              .join("")}
            </select>
            <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
          </div>` +
@@ -2135,7 +2096,7 @@ const Facturasemitidas = () => {
               itemDiv.innerHTML = `
                         <span><strong>${item.item}</strong> (x${
                 item.qty
-              }) - ${formatCurrency(item.amount)}</span>
+              }) - ${formatCurrency(item.amount)}<br><small style="color: #666;">Fecha: ${item.fechaServicioItem || 'No especificada'}</small></span>
                         <div>
                           <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
                           <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
@@ -2172,6 +2133,7 @@ const Facturasemitidas = () => {
                   qty: newDetails.qty,
                   rate: newDetails.rate,
                   amount: newDetails.qty * newDetails.rate,
+                  fechaServicioItem: newDetails.fechaServicioItem,
                 };
                 window.addedItems[indexToEdit] = updatedItem;
                 renderSummary();
@@ -2198,11 +2160,15 @@ const Facturasemitidas = () => {
           modalContent.innerHTML = `
                 <h3 style="margin-top:0; margin-bottom: 20px; text-align:center;">Detalles para ${itemType}</h3>
                 <textarea id="custom-item-description" class="swal2-textarea" placeholder="Descripción del servicio" style="display:block; width:95%; min-height: 80px; margin-bottom: 10px;"></textarea>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom: 10px;">
                   <input id="custom-item-qty" type="number" class="swal2-input" placeholder="Qty" value="1" min="1">
                   <input id="custom-item-rate" type="number" class="swal2-input" placeholder="Rate" value="${(
                     ITEM_RATES[itemType] || 0
                   ).toFixed(2)}" min="0" step="0.01">
+                </div>
+                <div style="margin-bottom: 10px;">
+                  <label style="display:block; margin-bottom: 5px; font-weight: bold;">Fecha de Servicio:</label>
+                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${today.toISOString().split("T")[0]}" style="width:100%;">
                 </div>
                 <div style="text-align: right; margin-top: 25px;">
                   <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
@@ -2220,6 +2186,9 @@ const Facturasemitidas = () => {
               existingDetails.qty;
             document.getElementById("custom-item-rate").value =
               existingDetails.rate;
+            if (existingDetails.fechaServicioItem) {
+              document.getElementById("custom-item-fecha-servicio").value = existingDetails.fechaServicioItem;
+            }
           }
 
           const close = () => {
@@ -2239,6 +2208,7 @@ const Facturasemitidas = () => {
               rate:
                 parseFloat(document.getElementById("custom-item-rate").value) ||
                 0,
+              fechaServicioItem: document.getElementById("custom-item-fecha-servicio").value,
             };
             if (details.qty > 0) {
               callback(details);
@@ -2262,6 +2232,7 @@ const Facturasemitidas = () => {
                   qty: itemDetails.qty,
                   rate: itemDetails.rate,
                   amount: itemDetails.qty * itemDetails.rate,
+                  fechaServicioItem: itemDetails.fechaServicioItem,
                 });
                 renderSummary();
               });
@@ -2334,6 +2305,7 @@ const Facturasemitidas = () => {
           qty: item.qty,
           rate: item.rate,
           amount: item.amount,
+          fechaServicioItem: item.fechaServicioItem,
         };
       });
 
@@ -2615,27 +2587,7 @@ const Facturasemitidas = () => {
         )}
 
         <label></label>
-        <button
-          type="button"
-          className="filter-button"
-          onClick={() => setShowServicioPicker((v) => !v)}
-          style={{ display: "block", margin: "0.5rem 0" }}
-        >
-          {showServicioPicker
-            ? "Ocultar selector"
-            : "Filtrar Por Fecha De Servicio"}
-        </button>
-        {showServicioPicker && (
-          <DatePicker
-            selectsRange
-            inline
-            isClearable
-            startDate={filters.fechaServicio[0]}
-            endDate={filters.fechaServicio[1]}
-            onChange={handleServicioChange}
-            placeholderText="Desde – Hasta"
-          />
-        )}
+
 
         <label></label>
         <button
@@ -2747,7 +2699,6 @@ const Facturasemitidas = () => {
           onClick={() =>
             setFilters({
               fechaEmision: [null, null],
-              fechaServicio: [null, null],
               fechaPago: [null, null],
               direccion: [],
               numerodefactura: "",
@@ -2782,7 +2733,6 @@ const Facturasemitidas = () => {
               <tr>
                 <th>Seleccionar</th>
                 <th>Fecha Emisión</th>
-                <th>Fecha Servicio</th>
                 <th>
                   <button
                     onClick={() => handleSort("numerodefactura")}
@@ -2875,46 +2825,6 @@ const Facturasemitidas = () => {
                           }}
                           className={`fecha-emision-input ${r.numerodefactura ? 'factura' : ''}`}
                           title={r.numerodefactura ? "Editar fecha de emisión de la factura" : "Fecha de emisión (timestamp)"}
-                        />
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="date"
-                          value={fecha ? fecha.split('-').reverse().join('-') : ''}
-                          onChange={(e) => {
-                            // Validar que el valor no esté vacío
-                            if (!e.target.value) {
-                              console.log('Valor de fecha vacío, ignorando cambio');
-                              return;
-                            }
-                            
-                            // Convertir de YYYY-MM-DD a DD-MM-YYYY para Firebase
-                            const [year, month, day] = e.target.value.split('-');
-                            
-                            // Validar que los componentes de fecha sean válidos
-                            if (!year || !month || !day) {
-                              console.error('Formato de fecha inválido:', e.target.value);
-                              return;
-                            }
-                            
-                            const fechaFormateada = `${day}-${month}-${year}`;
-                            
-                            console.log('Cambiando fecha de servicio:', {
-                              original: fecha,
-                              nueva: fechaFormateada,
-                              inputValue: e.target.value
-                            });
-                            
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              "fecha",
-                              fechaFormateada,
-                              r.origin
-                            );
-                          }}
-                          className="fecha-servicio-input"
-                          title="Editar fecha de servicio"
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>

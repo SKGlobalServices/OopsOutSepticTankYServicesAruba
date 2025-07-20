@@ -534,7 +534,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         descripcion: "",
         qty: 1,
         rate: 0,
-        amount: 0
+        amount: 0,
+        fechaServicioItem: ""
       };
       
       // Agregar el item a Firebase
@@ -1062,11 +1063,13 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
               }}>
                 <thead>
                   <tr style={{ backgroundColor: "#f8f9fa" }}>
+                    <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "center" }}>Fecha</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "left" }}>Item</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "left" }}>Descripción</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "center" }}>Qty</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "right" }}>Rate</th>
                     <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "right" }}>Amount</th>
+                    
                     {editMode && (
                       <th style={{ padding: "10px", border: "1px solid #dee2e6", textAlign: "center" }}>Acciones</th>
                     )}
@@ -1082,7 +1085,33 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     })
                     .map(([key, item]) => (
                     <tr key={key}>
-                                              <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
+                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "center" }}>
+                        {editMode ? (
+                          <input
+                            type="date"
+                            value={item.fechaServicioItem || ""}
+                            onChange={(e) => {
+                              const newFecha = e.target.value;
+                              setFacturaData(prev => ({
+                                ...prev,
+                                invoiceItems: {
+                                  ...prev.invoiceItems,
+                                  [key]: { ...prev.invoiceItems[key], fechaServicioItem: newFecha }
+                                }
+                              }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            onBlur={(e) => updateFacturaItem(key, "fechaServicioItem", e.target.value)}
+                            className="factura-info-input"
+                            style={{
+                              fontSize: "11px"
+                            }}
+                          />
+                        ) : (
+                          item.fechaServicioItem || "No especificada"
+                        )}
+                      </td>
+                      <td style={{ padding: "8px", border: "1px solid #dee2e6" }}>
                           {editMode ? (
                             <select
                               value={item.item || ""}
