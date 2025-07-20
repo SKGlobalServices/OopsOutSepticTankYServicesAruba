@@ -3284,7 +3284,7 @@ button.delete-button:hover {
   }
 }
 
-/*  Tu bloque mobile (≤ 480 px) permanece igual y sigue centrado. */
+/*  Tu bloque mobile (≤ 480 px) permanece igual y sigue centrado. */
 
 /*   ≤ 480 px ─── Versión *mobile*  (centrado) */
 @media (max-width: 480px) {
@@ -4372,4 +4372,36 @@ h1,
     padding: 1px 2px;
     font-size: 8px;
   }
+}
+
+/* Estilos para fila activa donde el usuario está trabajando */
+.active-row {
+  border: 1px solid #666 !important;
+  box-shadow: 0 0 8px rgba(102, 102, 102, 0.3) !important;
+  background-color: rgba(102, 102, 102, 0.05) !important;
+}
+
+.active-row td {
+  border-color: #666 !important;
+}
+
+.active-row:hover {
+  border-color: #888 !important;
+  box-shadow: 0 0 12px rgba(102, 102, 102, 0.4) !important;
+}
+
+/* Estilos para indicar que una fila está siendo editada */
+.editing-row {
+  border: 1px solid #666 !important;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3) !important;
+  background-color: rgba(0, 123, 255, 0.05) !important;
+}
+
+.editing-row td {
+  border-color: #666 !important;
+}
+
+.editing-row:hover {
+  border-color: #0056b3 !important;
+  box-shadow: 0 0 12px rgba(0, 123, 255, 0.4) !important;
 }

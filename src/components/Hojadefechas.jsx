@@ -90,6 +90,10 @@ const Hojadefechas = () => {
 
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
+  
+  // Estados para fila activa donde el usuario está trabajando
+  const [activeRow, setActiveRow] = useState(null);
+  const [editingRow, setEditingRow] = useState(null);
 
   // Cargar datos de la rama "registrofechas"
   useEffect(() => {
@@ -1079,6 +1083,15 @@ const Hojadefechas = () => {
   const getUserName = (userId) => {
     const found = users.find((u) => u.id === userId);
     return found ? found.name : "";
+  };
+
+  // Funciones para manejar la fila activa donde el usuario está trabajando
+  const handleRowEdit = (rowId) => {
+    setActiveRow(rowId);
+  };
+
+  const handleRowEditEnd = () => {
+    setActiveRow(null);
   };
 
   // Función para abrir el modal de vista/edición de factura
@@ -2986,7 +2999,10 @@ const Hojadefechas = () => {
               {paginatedData.map((item) => (
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
-                    <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
+                    <tr 
+                      key={`${registro.origin}_${item.fecha}_${registro.id}`}
+                      className={`${activeRow === registro.id ? 'active-row' : ''}`}
+                    >
                       {showSelection && (
                         <td>
                           {(() => {
@@ -3078,6 +3094,8 @@ const Hojadefechas = () => {
                               registro.origin
                             )
                           }
+                          onFocus={() => handleRowEdit(registro.id)}
+                          onBlur={handleRowEditEnd}
                           style={{
                             width: "fit-content",
                             minWidth: "16ch",
@@ -3105,7 +3123,9 @@ const Hojadefechas = () => {
                               [`${registro.id}_anombrede`]: e.target.value
                             }))
                           }
+                          onFocus={() => handleRowEdit(registro.id)}
                           onBlur={(e) => {
+                            handleRowEditEnd();
                             if (e.target.value !== (registro.anombrede || "")) {
                               handleFieldChange(
                                 item.fecha,
@@ -3131,7 +3151,9 @@ const Hojadefechas = () => {
                                 [`${registro.id}_direccion`]: e.target.value
                               }))
                             }
+                            onFocus={() => handleRowEdit(registro.id)}
                             onBlur={(e) => {
+                              handleRowEditEnd();
                               if (e.target.value !== (registro.direccion || "")) {
                                 handleFieldChange(
                                   item.fecha,
@@ -3186,7 +3208,9 @@ const Hojadefechas = () => {
                               [`${registro.id}_cubicos`]: e.target.value
                             }))
                           }
+                          onFocus={() => handleRowEdit(registro.id)}
                           onBlur={(e) => {
+                            handleRowEditEnd();
                             if (e.target.value !== (registro.cubicos || "")) {
                               handleFieldChange(
                                 item.fecha,
@@ -3491,9 +3515,7 @@ const Hojadefechas = () => {
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
-                            onClick={() =>
-                              paymentRapido(registro.numerodefactura)
-                            }
+                            onClick={() => paymentRapido(registro.numerodefactura)}
                             className="payment-rapido-btn"
                             title={`Payment rápido para factura ${registro.numerodefactura}`}
                           >

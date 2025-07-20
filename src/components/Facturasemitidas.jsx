@@ -121,6 +121,9 @@ const Facturasemitidas = () => {
 
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
+  
+  // Estados para fila activa donde el usuario está trabajando
+  const [activeRow, setActiveRow] = useState(null);
 
   // Cargar datos de la rama "registrofechas"
   useEffect(() => {
@@ -1081,6 +1084,15 @@ const Facturasemitidas = () => {
         return [...prev, id];
       }
     });
+  };
+
+  // Funciones para manejar la fila activa donde el usuario está trabajando
+  const handleRowEdit = (rowId) => {
+    setActiveRow(rowId);
+  };
+
+  const handleRowEditEnd = () => {
+    setActiveRow(null);
   };
 
   // Función para abrir el modal de vista/edición de factura
@@ -2762,7 +2774,10 @@ const Facturasemitidas = () => {
               {paginatedData.map(({ fecha, registros }) => (
                 <React.Fragment key={fecha}>
                   {registros.map((r) => (
-                    <tr key={`${r.origin}_${fecha}_${r.id}`}>
+                    <tr 
+                      key={`${r.origin}_${fecha}_${r.id}`}
+                      className={`${activeRow === r.id ? 'active-row' : ''}`}
+                    >
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
@@ -2847,7 +2862,9 @@ const Facturasemitidas = () => {
                               [`${r.id}_anombrede`]: e.target.value
                             }))
                           }
+                          onFocus={() => handleRowEdit(r.id)}
                           onBlur={(e) => {
+                            handleRowEditEnd();
                             if (e.target.value !== (r.anombrede || "")) {
                               handleFieldChange(
                                 fecha,
@@ -2898,7 +2915,9 @@ const Facturasemitidas = () => {
                                 [`${r.id}_direccion`]: e.target.value
                               }))
                             }
+                            onFocus={() => handleRowEdit(r.id)}
                             onBlur={(e) => {
+                              handleRowEditEnd();
                               if (e.target.value !== (r.direccion || "")) {
                                 handleFieldChange(
                                   fecha,
