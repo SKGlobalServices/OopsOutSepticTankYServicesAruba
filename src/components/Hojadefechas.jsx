@@ -1666,12 +1666,12 @@ const Hojadefechas = () => {
   }) => {
     // ✅ Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
     console.log(`Generando PDF con datos dinámicos del primer registro:
-      - Fecha: ${fechaServicio}
+      - Fecha base: ${fechaServicio}
       - Dirección: ${direccion}
       - Servicio: ${servicio}
       - Cúbicos: ${cubicos}
       - Bill To: ${billToValue}
-      - Nota: Estos datos no se guardan en la factura, se obtienen del primer registro seleccionado`);
+      - Nota: La fecha de cada item se obtiene del campo fechaServicioItem del item`);
 
     const pdf = new jsPDF("p", "mm", "a4");
     const mL = 10; // margen izquierdo
@@ -2049,7 +2049,7 @@ const Hojadefechas = () => {
               itemDiv.innerHTML = `
                         <span><strong>${item.item}</strong> (x${
                 item.qty
-              }) - ${formatCurrency(item.amount)}</span>
+              }) - ${formatCurrency(item.amount)}<br><small style="color: #666;">Fecha: ${item.fechaServicioItem || 'No especificada'}</small></span>
                         <div>
                           <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
                           <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
@@ -2086,6 +2086,7 @@ const Hojadefechas = () => {
                   qty: newDetails.qty,
                   rate: newDetails.rate,
                   amount: newDetails.qty * newDetails.rate,
+                  fechaServicioItem: newDetails.fechaServicioItem, // ✅ Agregar fecha de servicio
                 };
                 window.addedItems[indexToEdit] = updatedItem;
                 renderSummary();
@@ -2112,11 +2113,15 @@ const Hojadefechas = () => {
           modalContent.innerHTML = `
                 <h3 style="margin-top:0; margin-bottom: 20px; text-align:center;">Detalles para ${itemType}</h3>
                 <textarea id="custom-item-description" class="swal2-textarea" placeholder="Descripción del servicio" style="display:block; width:95%; min-height: 80px; margin-bottom: 10px;"></textarea>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom: 10px;">
                   <input id="custom-item-qty" type="number" class="swal2-input" placeholder="Qty" value="1" min="1">
                   <input id="custom-item-rate" type="number" class="swal2-input" placeholder="Rate" value="${(
                     ITEM_RATES[itemType] || 0
                   ).toFixed(2)}" min="0" step="0.01">
+                </div>
+                <div style="margin-bottom: 10px;">
+                  <label style="display:block; margin-bottom: 5px; font-weight: bold;">Fecha de Servicio:</label>
+                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${base.fecha ? base.fecha.split('-').reverse().join('-') : ''}" style="width:100%;">
                 </div>
                 <div style="text-align: right; margin-top: 25px;">
                   <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
@@ -2134,6 +2139,9 @@ const Hojadefechas = () => {
               existingDetails.qty;
             document.getElementById("custom-item-rate").value =
               existingDetails.rate;
+            if (existingDetails.fechaServicioItem) {
+              document.getElementById("custom-item-fecha-servicio").value = existingDetails.fechaServicioItem;
+            }
           }
 
           const close = () => {
@@ -2153,6 +2161,7 @@ const Hojadefechas = () => {
               rate:
                 parseFloat(document.getElementById("custom-item-rate").value) ||
                 0,
+              fechaServicioItem: document.getElementById("custom-item-fecha-servicio").value, // ✅ Agregar fecha de servicio
             };
             if (details.qty > 0) {
               callback(details);
@@ -2176,6 +2185,7 @@ const Hojadefechas = () => {
                   qty: itemDetails.qty,
                   rate: itemDetails.rate,
                   amount: itemDetails.qty * itemDetails.rate,
+                  fechaServicioItem: itemDetails.fechaServicioItem, // ✅ Agregar fecha de servicio
                 });
                 renderSummary();
               });
@@ -2211,15 +2221,30 @@ const Hojadefechas = () => {
         break;
     }
 
-    // 5) Preparar filas con los datos ingresados en el modal (SOLO del primer registro para fecha)
-    const filas = res.items.map((item) => [
-      base.fecha, // ✅ Solo la fecha del primer registro
-      item.item,
-      item.description,
-      item.qty,
-      item.rate.toFixed(2),
-      formatCurrency(item.amount),
-    ]);
+    // 5) Preparar filas con los datos ingresados en el modal (usar fecha de servicio del item)
+    const filas = res.items.map((item) => {
+      // Formatear fecha de servicio del item
+      let fechaFormateada = base.fecha; // fallback a fecha base
+      if (item.fechaServicioItem) {
+        // Si la fecha está en formato YYYY-MM-DD, convertir a DD-MM-YYYY
+        if (item.fechaServicioItem.includes('-') && item.fechaServicioItem.split('-')[0].length === 4) {
+          const [year, month, day] = item.fechaServicioItem.split('-');
+          fechaFormateada = `${day}-${month}-${year}`;
+        } else {
+          // Si ya está en formato DD-MM-YYYY, usar directamente
+          fechaFormateada = item.fechaServicioItem;
+        }
+      }
+      
+      return [
+        fechaFormateada, // ✅ Usar fecha de servicio del item formateada
+        item.item,
+        item.description,
+        item.qty,
+        item.rate.toFixed(2),
+        formatCurrency(item.amount),
+      ];
+    });
 
     // 6) Calcular totalAmount sumando los campos 'amount' de los items
     const totalAmount = res.items.reduce((sum, item) => sum + item.amount, 0);
@@ -2233,6 +2258,7 @@ const Hojadefechas = () => {
         qty: item.qty,
         rate: item.rate,
         amount: item.amount,
+        fechaServicioItem: item.fechaServicioItem, // ✅ Agregar fecha de servicio por item
       };
     });
 
