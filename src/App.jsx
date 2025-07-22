@@ -19,6 +19,12 @@ const App = () => {
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
 
+  // Cerrar plataforma de 11pm a 12am
+  const isPlatformClosed = () => {
+    const now = new Date();
+    return now.getHours() === 23; // true si son entre 23:00 y 00:00
+  };
+
   // -- Función para escuchar invalidación de sesión --
   const listenForSessionInvalidation = (userKey, sessionId) => {
     const sessionRef = ref(database, `users/${userKey}/activeSession`);
@@ -90,6 +96,10 @@ const App = () => {
 
   // -- Login con Google --
   const handleGoogleLogin = async () => {
+    if (isPlatformClosed()) {
+      setMessage("La plataforma está cerrada. Vuelva después de las 12:00 AM.");
+      return;
+    }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
       setMessage(
@@ -231,6 +241,10 @@ const App = () => {
   // -- Submit del formulario --
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (isPlatformClosed()) {
+      setMessage("La plataforma está cerrada. Vuelva después de las 12:00 AM.");
+      return;
+    }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
       setMessage(
@@ -252,6 +266,10 @@ const App = () => {
       setMessage("La verificación del captcha falló.");
     }
   };
+
+  //  variable disabledAll
+  const disabledAll =
+    (blockedUntil && new Date() < blockedUntil) || isPlatformClosed();
 
   return (
     <div className="App">
@@ -276,7 +294,10 @@ const App = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={blockedUntil && new Date() < blockedUntil}
+              disabled={
+                (blockedUntil && new Date() < blockedUntil) ||
+                isPlatformClosed()
+              }
             />
           </div>
           <div className="input-group">
@@ -287,13 +308,19 @@ const App = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={blockedUntil && new Date() < blockedUntil}
+              disabled={
+                (blockedUntil && new Date() < blockedUntil) ||
+                isPlatformClosed()
+              }
             />
             <button
               type="button"
               onClick={togglePasswordVisibility}
               id="toggle-password"
-              disabled={blockedUntil && new Date() < blockedUntil}
+              disabled={
+                (blockedUntil && new Date() < blockedUntil) ||
+                isPlatformClosed()
+              }
             >
               <img
                 src={showPassword ? iconEyeClosed : iconEyeOpen}
@@ -305,12 +332,20 @@ const App = () => {
           <button
             id="passwordbutton"
             type="submit"
-            disabled={blockedUntil && new Date() < blockedUntil}
+            disabled={
+              (blockedUntil && new Date() < blockedUntil) || isPlatformClosed()
+            }
           >
             Iniciar Sesión
           </button>
         </form>
-        <button id="google-login-button" onClick={handleGoogleLogin}>
+        <button
+          id="google-login-button"
+          onClick={handleGoogleLogin}
+          disabled={
+            (blockedUntil && new Date() < blockedUntil) || isPlatformClosed()
+          }
+        >
           <img
             id="logo-google-icon"
             src={require("./assets/img/google.png")}
