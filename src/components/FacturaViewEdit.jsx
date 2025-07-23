@@ -362,15 +362,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       return;
     }
 
-    if (facturaData.deuda <= 0) {
-      Swal.fire({
-        icon: "info",
-        title: "Factura ya pagada",
-        text: "Esta factura ya está completamente pagada"
-      });
-      return;
-    }
-
     let montoPayment = montoDirecto;
     
     // Si no viene un monto directo, preguntar al usuario
@@ -425,7 +416,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
             Swal.showValidationMessage("Debe ingresar un monto distinto de 0");
             return false;
           }
-          if (paymentValue > facturaData.deuda) {
+          if (paymentValue > facturaData.deuda && paymentValue > 0) {
             Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
             return false;
           }
@@ -981,24 +972,23 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
               </div>
               
               {/* Botones de payment */}
-              {(facturaData.deuda || 0) > 0 ? (
-                <div style={{ marginTop: "15px", display: "grid", gap: "8px" }}>
-                  <button
-                    onClick={() => registrarPayment()}
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      backgroundColor: "#007bff",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Registrar Payment
-                  </button>
-                  
+              <div style={{ marginTop: "15px", display: "grid", gap: "8px" }}>
+                <button
+                  onClick={() => registrarPayment()}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Registrar Payment / Devolución
+                </button>
+                {(facturaData.deuda || 0) > 0 && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                     <button
                       onClick={() => registrarPayment(facturaData.deuda / 2)}
@@ -1029,20 +1019,54 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                       Pago Total
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div style={{
-                  marginTop: "15px",
-                  padding: "10px",
-                  backgroundColor: "#d4edda",
-                  color: "#155724",
-                  borderRadius: "4px",
-                  textAlign: "center",
-                  fontWeight: "bold"
-                }}>
-                  ✅ Factura Pagada Completamente
-                </div>
-              )}
+                )}
+                {/* Botones de devolución */}
+                {(facturaData.payment || 0) > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "8px" }}>
+                    <button
+                      onClick={() => registrarPayment(-facturaData.payment / 2)}
+                      style={{
+                        padding: "8px",
+                        backgroundColor: "#ffc107",
+                        color: "#212529",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Devolver 50% (AWG {formatCurrency(facturaData.payment / 2)})
+                    </button>
+                    <button
+                      onClick={() => registrarPayment(-facturaData.payment)}
+                      style={{
+                        padding: "8px",
+                        backgroundColor: "#dc3545",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px"
+                      }}
+                    >
+                      Devolver Total (AWG {formatCurrency(facturaData.payment)})
+                    </button>
+                  </div>
+                )}
+                {(facturaData.deuda || 0) === 0 && (
+                  <div style={{
+                    marginTop: "10px",
+                    padding: "10px",
+                    backgroundColor: "#d4edda",
+                    color: "#155724",
+                    borderRadius: "4px",
+                    textAlign: "center",
+                    fontWeight: "bold"
+                  }}>
+                    ✅ Factura Pagada Completamente
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
