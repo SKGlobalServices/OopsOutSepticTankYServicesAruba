@@ -1181,20 +1181,42 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                         )}
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>
-                        <div style={{
-                          padding: "4px",
-                          backgroundColor: editMode ? "#f8f9fa" : "transparent",
-                          borderRadius: "3px",
-                          color: editMode ? "#6c757d" : "inherit",
-                          fontStyle: editMode ? "italic" : "normal"
-                        }}>
-                          AWG {formatCurrency(item.rate || 0)}
-                          {editMode && (
-                            <div style={{ fontSize: "10px", marginTop: "2px" }}>
-                              (Rate fijo)
-                            </div>
-                          )}
-                        </div>
+                        {editMode ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.rate || ""}
+                            onChange={(e) => {
+                              const newRate = parseFloat(e.target.value) || 0;
+                              setFacturaData(prev => ({
+                                ...prev,
+                                invoiceItems: {
+                                  ...prev.invoiceItems,
+                                  [key]: {
+                                    ...prev.invoiceItems[key],
+                                    rate: newRate,
+                                    amount: (item.qty || 0) * newRate
+                                  }
+                                }
+                              }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            onBlur={(e) => {
+                              const newRate = parseFloat(e.target.value) || 0;
+                              updateFacturaItem(key, "rate", newRate);
+                            }}
+                            className="factura-info-input"
+                            style={{
+                              width: "70px",
+                              textAlign: "right"
+                            }}
+                          />
+                        ) : (
+                          <div>
+                            AWG {formatCurrency(item.rate || 0)}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>
                         <span style={{ fontWeight: "bold" }}>
