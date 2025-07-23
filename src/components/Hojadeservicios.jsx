@@ -24,6 +24,7 @@ const Homepage = () => {
   const slidebarRef = useRef(null);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
+  const [showDireccionAlert, setShowDireccionAlert] = useState(true);
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -626,6 +627,15 @@ const Homepage = () => {
     return true;
   });
 
+  // Contar ocurrencias de cada dirección en los datos filtrados
+  const direccionCounts = {};
+  filteredData.forEach(([_, item]) => {
+    const dir = (item.direccion || "").trim();
+    if (dir) {
+      direccionCounts[dir] = (direccionCounts[dir] || 0) + 1;
+    }
+  });
+
   // Cálculos de paginación
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -960,6 +970,56 @@ const Homepage = () => {
       </div>
 
       <div className="homepage-card">
+        {showDireccionAlert && Object.keys(direccionCounts).filter(dir => direccionCounts[dir] > 1).length > 0 && (
+          <div
+            style={{
+              background: "#fff3cd",
+              color: "#856404",
+              border: "1px solid #ffeeba",
+              borderRadius: "6px",
+              padding: "10px 16px",
+              marginBottom: "12px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              fontSize: "15px",
+              position: "relative"
+            }}
+          >
+            <span style={{ fontSize: "1.3em" }}>⚠️</span>
+            <span style={{ flex: 1 }}>
+              <b>¡Atención!</b> Hay direcciones duplicadas en los servicios:
+              <ul style={{ margin: "6px 0 0 18px", fontWeight: "normal", fontSize: "14px" }}>
+                {Object.entries(direccionCounts)
+                  .filter(([_, count]) => count > 1)
+                  .map(([dir, count]) => (
+                    <li key={dir}>
+                      <b>{dir}</b> ({count} veces)
+                    </li>
+                  ))}
+              </ul>
+            </span>
+            <button
+              onClick={() => setShowDireccionAlert(false)}
+              style={{
+                background: "#ffeeba",
+                color: "#856404",
+                border: "1px solid #ffeeba",
+                borderRadius: "4px",
+                padding: "2px 10px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontSize: "13px",
+                position: "absolute",
+                top: "8px",
+                right: "8px"
+              }}
+            >
+              Ocultar
+            </button>
+          </div>
+        )}
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -1008,8 +1068,9 @@ const Homepage = () => {
               {currentPageData && currentPageData.length > 0 ? (
                 currentPageData.map(([id, item]) => {
                   const rowClass = getRowClass(item.metododepago);
+                  const isDireccionDuplicada = direccionCounts[(item.direccion || "").trim()] > 1;
                   return (
-                    <tr key={id} className={rowClass}>
+                    <tr key={id} className={`${rowClass} ${isDireccionDuplicada ? "direccion-duplicada" : ""}`}>
                       {/* Select para "Realizado Por" */}
                       <td>
                         <select
@@ -1088,6 +1149,20 @@ const Homepage = () => {
                               }
                             }}
                           />
+                          {direccionCounts[(item.direccion || "").trim()] > 1 && (
+                            <span
+                              title="Dirección duplicada"
+                              style={{
+                                color: "#d9534f",
+                                fontWeight: "bold",
+                                marginLeft: "6px",
+                                fontSize: "1.2em",
+                                verticalAlign: "middle"
+                              }}
+                            >
+                              &#9888;
+                            </span>
+                          )}
 
                           <datalist
                             id={`direccion-options-${id}`}

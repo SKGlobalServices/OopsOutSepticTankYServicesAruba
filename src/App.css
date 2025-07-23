@@ -4405,3 +4405,7 @@ h1,
   border-color: #0056b3 !important;
   box-shadow: 0 0 12px rgba(0, 123, 255, 0.4) !important;
 }
+
+.direccion-duplicada {
+  background-color: #fff3cd !important;
+}
