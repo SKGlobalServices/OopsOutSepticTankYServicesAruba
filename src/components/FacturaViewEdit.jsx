@@ -396,6 +396,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
             <button type="button" id="pago-total" class="swal2-confirm swal2-styled" style="flex: 1;">Pago Total</button>
             <button type="button" id="mitad" class="swal2-confirm swal2-styled" style="flex: 1; background-color: #17a2b8;">50%</button>
           </div>
+          <div style="color: #888; font-size: 12px; margin-top: 8px;">
+            ¿Necesitas devolver un payment? Ingresa un valor negativo.
+          </div>
         `,
         showCancelButton: true,
         confirmButtonText: "Registrar Payment",
@@ -417,15 +420,20 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         },
         preConfirm: () => {
           const value = document.getElementById('monto-payment').value;
-          if (!value || parseFloat(value) <= 0) {
-            Swal.showValidationMessage("Debe ingresar un monto válido mayor a 0");
+          const paymentValue = parseFloat(value);
+          if (isNaN(paymentValue) || paymentValue === 0) {
+            Swal.showValidationMessage("Debe ingresar un monto distinto de 0");
             return false;
           }
-          if (parseFloat(value) > facturaData.deuda) {
+          if (paymentValue > facturaData.deuda) {
             Swal.showValidationMessage("El payment no puede ser mayor que la deuda actual");
             return false;
           }
-          return parseFloat(value);
+          if (paymentValue < 0 && Math.abs(paymentValue) > (facturaData.payment || 0)) {
+            Swal.showValidationMessage("No puede devolver más de lo que se ha pagado");
+            return false;
+          }
+          return paymentValue;
         }
       });
       
@@ -456,6 +464,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       if (facturaCompletamentePagada) {
         updates.pago = "Pago";
         updates.fechapago = fechaPagoFinal;
+      } else {
+        updates.pago = "Pendiente";
+        updates.fechapago = null;
       }
 
       await update(facturaRef, updates);
@@ -466,8 +477,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         ...prev,
         payment: nuevosPayments,
         deuda: nuevaDeuda,
-        pago: facturaCompletamentePagada ? "Pago" : prev.pago,
-        fechapago: facturaCompletamentePagada ? fechaPagoFinal : prev.fechapago
+        pago: facturaCompletamentePagada ? "Pago" : "Pendiente",
+        fechapago: facturaCompletamentePagada ? (prev.fechapago || new Date().toISOString().split('T')[0]) : null
       }));
 
       // Si está completamente pagada, actualizar servicios asociados
