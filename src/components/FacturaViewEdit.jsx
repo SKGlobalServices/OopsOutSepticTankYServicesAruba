@@ -66,7 +66,33 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       const facturaRef = ref(database, `facturas/${numeroFactura}`);
       return onValue(facturaRef, (facturaSnapshot) => {
         if (facturaSnapshot.exists()) {
-          setFacturaData(facturaSnapshot.val());
+          const newFacturaData = facturaSnapshot.val();
+          
+          // Solo actualizar si es la primera carga o si realmente hay cambios significativos
+          setFacturaData(prevData => {
+            if (!prevData) {
+              // Primera carga - recalcular amounts para asegurar que están correctos
+              const invoiceItemsRecalculados = recalcularAmounts(newFacturaData.invoiceItems);
+              return {
+                ...newFacturaData,
+                invoiceItems: invoiceItemsRecalculados
+              };
+            }
+            
+            // Si ya tenemos datos, solo actualizar campos específicos para evitar sobrescribir amounts
+            return {
+              ...prevData,
+              // Campos que pueden cambiar externamente
+              payment: newFacturaData.payment,
+              deuda: newFacturaData.deuda,
+              pago: newFacturaData.pago,
+              fechapago: newFacturaData.fechapago,
+              banco: newFacturaData.banco,
+              totalAmount: newFacturaData.totalAmount,
+              // Mantener invoiceItems del estado local, pero recalcular si hay nuevos items
+              invoiceItems: recalcularAmounts(prevData.invoiceItems || newFacturaData.invoiceItems)
+            };
+          });
         }
       });
     };
@@ -753,6 +779,25 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   const formatDate = (timestamp) => {
     if (!timestamp) return "No disponible";
     return new Date(timestamp).toLocaleDateString();
+  };
+
+  // Función para recalcular amounts en invoiceItems
+  const recalcularAmounts = (invoiceItems) => {
+    if (!invoiceItems) return {};
+    
+    const itemsRecalculados = {};
+    Object.entries(invoiceItems).forEach(([key, item]) => {
+      const qty = parseFloat(item.qty) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      const amount = qty * rate;
+      
+      itemsRecalculados[key] = {
+        ...item,
+        amount: amount
+      };
+    });
+    
+    return itemsRecalculados;
   };
 
   const BANCO_OPTIONS = [
