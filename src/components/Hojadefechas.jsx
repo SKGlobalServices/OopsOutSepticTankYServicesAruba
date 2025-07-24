@@ -3362,7 +3362,7 @@ const Hojadefechas = () => {
                           );
                           const isInactive = assigned?.role === "usernotactive";
                           if (isInactive) {
-                            return <span>{assigned.name}</span>;
+                            return <span style={{marginLeft:"12px"}}>{assigned.name}</span>;
                           } else {
                             return (
                               <select
