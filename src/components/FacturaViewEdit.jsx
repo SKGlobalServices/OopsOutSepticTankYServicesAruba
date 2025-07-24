@@ -345,7 +345,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       });
 
       await Promise.all(updatePromises);
-      console.log(`✅ Estado de pago actualizado a "${estadoPago}" para ${serviciosAsociados.length} servicios`);
     } catch (error) {
       console.error("Error actualizando estado de pago:", error);
     }
@@ -438,11 +437,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       const nuevaDeuda = Math.max(0, facturaData.totalAmount - nuevosPayments);
       const facturaCompletamentePagada = nuevaDeuda === 0;
       
-      console.log(`Registrando payment: AWG ${payment}`);
-      console.log(`Payments actuales: AWG ${facturaData.payment || 0}`);
-      console.log(`Nuevos payments: AWG ${nuevosPayments}`);
-      console.log(`Nueva deuda: AWG ${nuevaDeuda}`);
-      
       // Actualizar la factura en Firebase
       const facturaRef = ref(database, `facturas/${numeroFactura}`);
       const updates = {
@@ -461,7 +455,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       }
 
       await update(facturaRef, updates);
-      console.log("✅ Factura actualizada en Firebase");
 
       // Actualizar estado local
       setFacturaData(prev => ({
@@ -571,8 +564,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
-      console.log(`✅ Nuevo item agregado: ${newItemKey}`);
-      
     } catch (error) {
       console.error("Error agregando nuevo item:", error);
       Swal.fire({
@@ -629,7 +620,6 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
-      console.log(`✅ Item eliminado: ${itemKey}`);
       
     } catch (error) {
       console.error("Error eliminando item:", error);
