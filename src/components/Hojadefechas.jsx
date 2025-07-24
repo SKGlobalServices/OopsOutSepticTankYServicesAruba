@@ -42,6 +42,7 @@ const Hojadefechas = () => {
   const [dataBranch, setDataBranch] = useState([]);
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [todos, setTodos] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // todos, incluyendo inactive
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
   const [facturas, setFacturas] = useState({});
@@ -90,7 +91,7 @@ const Hojadefechas = () => {
 
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
-  
+
   // Estados para fila activa donde el usuario está trabajando
   const [activeRow, setActiveRow] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
@@ -160,15 +161,28 @@ const Hojadefechas = () => {
     const dbRef = ref(database, "users");
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
-        const fetchedUsers = Object.entries(snapshot.val())
+        // 1) todos
+        const all = Object.entries(snapshot.val()).map(([id, u]) => ({
+          id,
+          name: u.name,
+          role: u.role,
+        }));
+        // 2) activos = ni admin, ni contador, ni usernotactive
+        const active = all
           .filter(
-            ([_, user]) => user.role !== "admin" && user.role !== "contador"
+            (u) =>
+              u.role !== "admin" &&
+              u.role !== "contador" &&
+              u.role !== "usernotactive"
           )
-          .map(([id, user]) => ({ id, name: user.name }));
-        fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
-        setUsers(fetchedUsers);
+          .map(({ id, name }) => ({ id, name }));
+        active.sort((a, b) => a.name.localeCompare(b.name));
+
+        setAllUsers(all);
+        setUsers(active);
         setLoadedUsers(true);
       } else {
+        setAllUsers([]);
         setUsers([]);
       }
     });
@@ -480,10 +494,10 @@ const Hojadefechas = () => {
     // 4) Filtrar por Fecha de Pago
     if (filters.fechaPagoInicio && filters.fechaPagoFin) {
       // Usar fecha de pago de la factura si está ligado a una factura, sino usar la fecha del servicio
-      const fechaPagoStr = registro.numerodefactura 
+      const fechaPagoStr = registro.numerodefactura
         ? facturas[registro.numerodefactura]?.fechapago
         : registro.fechapago;
-      
+
       if (!fechaPagoStr) return false; // Si no tiene fecha de pago, no cumple el filtro
       const [y, m, d] = fechaPagoStr.split("-");
       const fechaPago = new Date(y, m - 1, d);
@@ -625,14 +639,14 @@ const Hojadefechas = () => {
 
     // Campo especial: fecha - mover registro a nueva fecha
     if (field === "fecha") {
-      console.log('🔄 Procesando cambio de fecha en Hojadefechas:', {
+      console.log("🔄 Procesando cambio de fecha en Hojadefechas:", {
         fecha,
         registroId,
         safeValue,
         origin,
-        fromData
+        fromData,
       });
-      
+
       const actualizarFechaServicio = async () => {
         try {
           // Obtener el registro completo
@@ -642,43 +656,60 @@ const Hojadefechas = () => {
                 .find((g) => g.fecha === fecha)
                 ?.registros.find((r) => r.id === registroId) || {};
 
-          console.log('📋 Registro encontrado en Hojadefechas:', registro);
+          console.log("📋 Registro encontrado en Hojadefechas:", registro);
 
           if (fromData) {
             // Si está en data, solo actualizar la fecha
-            console.log('📝 Actualizando en data desde Hojadefechas:', path);
+            console.log("📝 Actualizando en data desde Hojadefechas:", path);
             await update(dbRefItem, { fecha: safeValue });
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
-              console.log('🔄 Moviendo registro de registrofechas desde Hojadefechas:', {
-                from: fecha,
-                to: safeValue,
-                registroId
-              });
+              console.log(
+                "🔄 Moviendo registro de registrofechas desde Hojadefechas:",
+                {
+                  from: fecha,
+                  to: safeValue,
+                  registroId,
+                }
+              );
               // Crear en nueva fecha
-              await set(ref(database, `registrofechas/${safeValue}/${registroId}`), {
-                ...registro,
-                fecha: safeValue
-              });
+              await set(
+                ref(database, `registrofechas/${safeValue}/${registroId}`),
+                {
+                  ...registro,
+                  fecha: safeValue,
+                }
+              );
               // Eliminar de fecha anterior
-              await set(ref(database, `registrofechas/${fecha}/${registroId}`), null);
+              await set(
+                ref(database, `registrofechas/${fecha}/${registroId}`),
+                null
+              );
             } else {
-              console.log('📝 Actualizando fecha en registrofechas sin mover desde Hojadefechas:', path);
+              console.log(
+                "📝 Actualizando fecha en registrofechas sin mover desde Hojadefechas:",
+                path
+              );
               await update(dbRefItem, { fecha: safeValue });
             }
           }
-          console.log(`✅ Fecha de servicio actualizada en Hojadefechas: ${fecha} → ${safeValue}`);
+          console.log(
+            `✅ Fecha de servicio actualizada en Hojadefechas: ${fecha} → ${safeValue}`
+          );
         } catch (error) {
-          console.error("❌ Error actualizando fecha de servicio en Hojadefechas:", error);
+          console.error(
+            "❌ Error actualizando fecha de servicio en Hojadefechas:",
+            error
+          );
           Swal.fire({
             icon: "error",
             title: "Error",
-            text: "No se pudo actualizar la fecha del servicio"
+            text: "No se pudo actualizar la fecha del servicio",
           });
         }
       };
-      
+
       actualizarFechaServicio();
       return;
     }
@@ -795,130 +826,187 @@ const Hojadefechas = () => {
       if (registro.numerodefactura) {
         const handleFacturaPago = async () => {
           try {
-            const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
-            
+            const facturaRef = ref(
+              database,
+              `facturas/${registro.numerodefactura}`
+            );
+
             if (safeValue === "Pago") {
               // Marcar como pagada: payment = totalAmount, deuda = 0
               const facturaSnapshot = await new Promise((resolve) => {
                 onValue(facturaRef, resolve, { onlyOnce: true });
               });
-              
+
               if (facturaSnapshot.exists()) {
                 const facturaData = facturaSnapshot.val();
-                const fechaPagoFinal = new Date().toISOString().split('T')[0];
-                
+                const fechaPagoFinal = new Date().toISOString().split("T")[0];
+
                 await update(facturaRef, {
                   payment: facturaData.totalAmount,
                   deuda: 0,
                   pago: "Pago",
-                  fechapago: fechaPagoFinal
+                  fechapago: fechaPagoFinal,
                 });
 
                 // Actualizar todos los servicios asociados a esta factura
-                const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-                  new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-                  new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
-                ]);
+                const [dataSnapshot, registroFechasSnapshot] =
+                  await Promise.all([
+                    new Promise((resolve) =>
+                      onValue(ref(database, "data"), resolve, {
+                        onlyOnce: true,
+                      })
+                    ),
+                    new Promise((resolve) =>
+                      onValue(ref(database, "registrofechas"), resolve, {
+                        onlyOnce: true,
+                      })
+                    ),
+                  ]);
 
                 const serviciosAsociados = [];
-                
+
                 // Buscar en data
                 if (dataSnapshot.exists()) {
                   const dataVal = dataSnapshot.val();
                   Object.entries(dataVal).forEach(([serviceId, reg]) => {
-                    if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                      serviciosAsociados.push({ id: serviceId, origin: "data" });
+                    if (
+                      reg.referenciaFactura === registro.numerodefactura ||
+                      reg.numerodefactura === registro.numerodefactura
+                    ) {
+                      serviciosAsociados.push({
+                        id: serviceId,
+                        origin: "data",
+                      });
                     }
                   });
                 }
-                
+
                 // Buscar en registrofechas
                 if (registroFechasSnapshot.exists()) {
                   const registroVal = registroFechasSnapshot.val();
-                  Object.entries(registroVal).forEach(([fechaReg, registros]) => {
-                    Object.entries(registros).forEach(([serviceId, reg]) => {
-                      if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                        serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
-                      }
-                    });
-                  });
+                  Object.entries(registroVal).forEach(
+                    ([fechaReg, registros]) => {
+                      Object.entries(registros).forEach(([serviceId, reg]) => {
+                        if (
+                          reg.referenciaFactura === registro.numerodefactura ||
+                          reg.numerodefactura === registro.numerodefactura
+                        ) {
+                          serviciosAsociados.push({
+                            id: serviceId,
+                            fecha: fechaReg,
+                            origin: "registrofechas",
+                          });
+                        }
+                      });
+                    }
+                  );
                 }
 
                 // Actualizar todos los servicios
-                const updatePromises = serviciosAsociados.map(servicio => {
-                  const path = servicio.origin === "data" 
-                    ? `data/${servicio.id}` 
-                    : `registrofechas/${servicio.fecha}/${servicio.id}`;
-                  
-                  return update(ref(database, path), { 
+                const updatePromises = serviciosAsociados.map((servicio) => {
+                  const path =
+                    servicio.origin === "data"
+                      ? `data/${servicio.id}`
+                      : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
+                  return update(ref(database, path), {
                     pago: "Pago",
-                    fechapago: fechaPagoFinal
+                    fechapago: fechaPagoFinal,
                   });
                 });
 
                 await Promise.all(updatePromises);
-                console.log(`✅ Factura ${registro.numerodefactura} marcada como PAGADA`);
+                console.log(
+                  `✅ Factura ${registro.numerodefactura} marcada como PAGADA`
+                );
               }
             } else {
               // Desmarcar como pagada: payment = 0, deuda = totalAmount
               const facturaSnapshot = await new Promise((resolve) => {
                 onValue(facturaRef, resolve, { onlyOnce: true });
               });
-              
+
               if (facturaSnapshot.exists()) {
                 const facturaData = facturaSnapshot.val();
-                
+
                 await update(facturaRef, {
                   payment: 0,
                   deuda: facturaData.totalAmount,
                   pago: "Debe",
-                  fechapago: null
+                  fechapago: null,
                 });
 
                 // Actualizar todos los servicios asociados
-                const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-                  new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-                  new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
-                ]);
+                const [dataSnapshot, registroFechasSnapshot] =
+                  await Promise.all([
+                    new Promise((resolve) =>
+                      onValue(ref(database, "data"), resolve, {
+                        onlyOnce: true,
+                      })
+                    ),
+                    new Promise((resolve) =>
+                      onValue(ref(database, "registrofechas"), resolve, {
+                        onlyOnce: true,
+                      })
+                    ),
+                  ]);
 
                 const serviciosAsociados = [];
-                
+
                 // Buscar en data
                 if (dataSnapshot.exists()) {
                   const dataVal = dataSnapshot.val();
                   Object.entries(dataVal).forEach(([serviceId, reg]) => {
-                    if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                      serviciosAsociados.push({ id: serviceId, origin: "data" });
+                    if (
+                      reg.referenciaFactura === registro.numerodefactura ||
+                      reg.numerodefactura === registro.numerodefactura
+                    ) {
+                      serviciosAsociados.push({
+                        id: serviceId,
+                        origin: "data",
+                      });
                     }
                   });
                 }
-                
+
                 // Buscar en registrofechas
                 if (registroFechasSnapshot.exists()) {
                   const registroVal = registroFechasSnapshot.val();
-                  Object.entries(registroVal).forEach(([fechaReg, registros]) => {
-                    Object.entries(registros).forEach(([serviceId, reg]) => {
-                      if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                        serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
-                      }
-                    });
-                  });
+                  Object.entries(registroVal).forEach(
+                    ([fechaReg, registros]) => {
+                      Object.entries(registros).forEach(([serviceId, reg]) => {
+                        if (
+                          reg.referenciaFactura === registro.numerodefactura ||
+                          reg.numerodefactura === registro.numerodefactura
+                        ) {
+                          serviciosAsociados.push({
+                            id: serviceId,
+                            fecha: fechaReg,
+                            origin: "registrofechas",
+                          });
+                        }
+                      });
+                    }
+                  );
                 }
 
                 // Actualizar todos los servicios
-                const updatePromises = serviciosAsociados.map(servicio => {
-                  const path = servicio.origin === "data" 
-                    ? `data/${servicio.id}` 
-                    : `registrofechas/${servicio.fecha}/${servicio.id}`;
-                  
-                  return update(ref(database, path), { 
+                const updatePromises = serviciosAsociados.map((servicio) => {
+                  const path =
+                    servicio.origin === "data"
+                      ? `data/${servicio.id}`
+                      : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
+                  return update(ref(database, path), {
                     pago: safeValue,
-                    fechapago: null
+                    fechapago: null,
                   });
                 });
 
                 await Promise.all(updatePromises);
-                console.log(`✅ Factura ${registro.numerodefactura} marcada como DEBE`);
+                console.log(
+                  `✅ Factura ${registro.numerodefactura} marcada como DEBE`
+                );
               }
             }
           } catch (error) {
@@ -974,53 +1062,75 @@ const Hojadefechas = () => {
 
       if (registro.numerodefactura) {
         // Actualizar la fecha de pago en la factura
-        const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+        const facturaRef = ref(
+          database,
+          `facturas/${registro.numerodefactura}`
+        );
         update(facturaRef, { fechapago: safeValue }).catch(console.error);
-        
+
         // Actualizar todos los servicios asociados a esta factura
         const actualizarServiciosAsociados = async () => {
           try {
             // Buscar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+              new Promise((resolve) =>
+                onValue(ref(database, "data"), resolve, { onlyOnce: true })
+              ),
+              new Promise((resolve) =>
+                onValue(ref(database, "registrofechas"), resolve, {
+                  onlyOnce: true,
+                })
+              ),
             ]);
 
             const serviciosAsociados = [];
-            
+
             // Buscar en data
             if (dataSnapshot.exists()) {
               const dataVal = dataSnapshot.val();
               Object.entries(dataVal).forEach(([id, reg]) => {
-                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                if (
+                  reg.referenciaFactura === registro.numerodefactura ||
+                  reg.numerodefactura === registro.numerodefactura
+                ) {
                   serviciosAsociados.push({ id, origin: "data" });
                 }
               });
             }
-            
+
             // Buscar en registrofechas
             if (registroFechasSnapshot.exists()) {
               const registroVal = registroFechasSnapshot.val();
               Object.entries(registroVal).forEach(([fechaReg, registros]) => {
                 Object.entries(registros).forEach(([id, reg]) => {
-                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                    serviciosAsociados.push({ id, fecha: fechaReg, origin: "registrofechas" });
+                  if (
+                    reg.referenciaFactura === registro.numerodefactura ||
+                    reg.numerodefactura === registro.numerodefactura
+                  ) {
+                    serviciosAsociados.push({
+                      id,
+                      fecha: fechaReg,
+                      origin: "registrofechas",
+                    });
                   }
                 });
               });
             }
 
             // Actualizar todos los servicios
-            const updatePromises = serviciosAsociados.map(servicio => {
-              const path = servicio.origin === "data" 
-                ? `data/${servicio.id}` 
-                : `registrofechas/${servicio.fecha}/${servicio.id}`;
-              
+            const updatePromises = serviciosAsociados.map((servicio) => {
+              const path =
+                servicio.origin === "data"
+                  ? `data/${servicio.id}`
+                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
               return update(ref(database, path), { fechapago: safeValue });
             });
 
             await Promise.all(updatePromises);
-            console.log(`✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`);
+            console.log(
+              `✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`
+            );
           } catch (error) {
             console.error("Error actualizando servicios asociados:", error);
           }
@@ -1045,50 +1155,72 @@ const Hojadefechas = () => {
         const handleFacturaBanco = async () => {
           try {
             // Actualizar el banco en la factura
-            const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+            const facturaRef = ref(
+              database,
+              `facturas/${registro.numerodefactura}`
+            );
             await update(facturaRef, { banco: safeValue });
 
             // Actualizar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+              new Promise((resolve) =>
+                onValue(ref(database, "data"), resolve, { onlyOnce: true })
+              ),
+              new Promise((resolve) =>
+                onValue(ref(database, "registrofechas"), resolve, {
+                  onlyOnce: true,
+                })
+              ),
             ]);
 
             const serviciosAsociados = [];
-            
+
             // Buscar en data
             if (dataSnapshot.exists()) {
               const dataVal = dataSnapshot.val();
               Object.entries(dataVal).forEach(([id, reg]) => {
-                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                if (
+                  reg.referenciaFactura === registro.numerodefactura ||
+                  reg.numerodefactura === registro.numerodefactura
+                ) {
                   serviciosAsociados.push({ id, origin: "data" });
                 }
               });
             }
-            
+
             // Buscar en registrofechas
             if (registroFechasSnapshot.exists()) {
               const registroVal = registroFechasSnapshot.val();
               Object.entries(registroVal).forEach(([fechaReg, registros]) => {
                 Object.entries(registros).forEach(([id, reg]) => {
-                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                    serviciosAsociados.push({ id, fecha: fechaReg, origin: "registrofechas" });
+                  if (
+                    reg.referenciaFactura === registro.numerodefactura ||
+                    reg.numerodefactura === registro.numerodefactura
+                  ) {
+                    serviciosAsociados.push({
+                      id,
+                      fecha: fechaReg,
+                      origin: "registrofechas",
+                    });
                   }
                 });
               });
             }
 
             // Actualizar todos los servicios
-            const updatePromises = serviciosAsociados.map(servicio => {
-              const path = servicio.origin === "data" 
-                ? `data/${servicio.id}` 
-                : `registrofechas/${servicio.fecha}/${servicio.id}`;
-              
+            const updatePromises = serviciosAsociados.map((servicio) => {
+              const path =
+                servicio.origin === "data"
+                  ? `data/${servicio.id}`
+                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
               return update(ref(database, path), { banco: safeValue });
             });
 
             await Promise.all(updatePromises);
-            console.log(`✅ Banco "${safeValue}" actualizado en factura y ${serviciosAsociados.length} servicios`);
+            console.log(
+              `✅ Banco "${safeValue}" actualizado en factura y ${serviciosAsociados.length} servicios`
+            );
           } catch (error) {
             console.error("Error actualizando banco de factura:", error);
           }
@@ -1101,7 +1233,8 @@ const Hojadefechas = () => {
       }
 
       // Actualizar estado local
-      const updater = (r) => (r.id === registroId ? { ...r, [field]: safeValue } : r);
+      const updater = (r) =>
+        r.id === registroId ? { ...r, [field]: safeValue } : r;
 
       if (fromData) {
         setDataBranch((prev) => prev.map(updater));
@@ -1167,7 +1300,7 @@ const Hojadefechas = () => {
   }, []);
 
   const getUserName = (userId) => {
-    const found = users.find((u) => u.id === userId);
+    const found = allUsers.find((u) => u.id === userId);
     return found ? found.name : "";
   };
 
@@ -1309,7 +1442,8 @@ const Hojadefechas = () => {
         deuda: parseFloat(nuevaDeuda.toFixed(2)),
       };
 
-      const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split("T")[0];
+      const fechaPagoFinal =
+        facturaData.fechapago || new Date().toISOString().split("T")[0];
       if (facturaCompletamentePagada) {
         facturaUpdates.pago = "Pago";
         facturaUpdates.fechapago = fechaPagoFinal;
@@ -1436,7 +1570,7 @@ const Hojadefechas = () => {
         Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
         Pago: registro.pago || "",
-        "Fecha de Pago": registro.numerodefactura 
+        "Fecha de Pago": registro.numerodefactura
           ? facturas[registro.numerodefactura]?.fechapago || ""
           : registro.fechapago || "",
         "Forma De Pago": registro.formadepago || "",
@@ -1447,7 +1581,9 @@ const Hojadefechas = () => {
         Factura: registro.factura ? "Sí" : "No",
         "N° Factura": registro.numerodefactura || "",
         Payment: formatCurrency(getPaymentFactura(registro)),
-        "Días de Mora": calculateDaysDelay ? calculateDaysDelay(registro.timestamp, registro.pago) : "",
+        "Días de Mora": calculateDaysDelay
+          ? calculateDaysDelay(registro.timestamp, registro.pago)
+          : "",
       }))
     );
 
@@ -1816,20 +1952,20 @@ const Hojadefechas = () => {
 
     // — Cabecera con número y fecha —
     console.log("Fecha de emisión para PDF:", fechaEmision); // Debug
-    
+
     // Formatear fecha de emisión para el PDF
     let fechaEmisionFormateada = today.toLocaleDateString();
     if (fechaEmision) {
       // Si viene en formato YYYY-MM-DD, convertir a DD/MM/YYYY
-      if (fechaEmision.includes('-')) {
-        const [year, month, day] = fechaEmision.split('-');
+      if (fechaEmision.includes("-")) {
+        const [year, month, day] = fechaEmision.split("-");
         fechaEmisionFormateada = `${day}/${month}/${year}`;
       } else {
         // Si ya está en formato DD/MM/YYYY, usar directamente
         fechaEmisionFormateada = fechaEmision;
       }
     }
-    
+
     pdf
       .setFontSize(12)
       .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
@@ -1893,17 +2029,21 @@ const Hojadefechas = () => {
 
     // Obtener datos de la factura para mostrar información completa
     const hasPayment = facturaInfo && facturaInfo.payment > 0;
-    
+
     pdf.setFontSize(10);
-    
+
     // Mostrar información financiera
     if (hasPayment) {
-      pdf.text(`PAYMENT: AWG ${formatCurrency(facturaInfo.payment)}`, 152, afterY + 6);
-      
-      const balance = pagoStatus === "Pago" ? 0 : (facturaInfo.deuda || 0);
+      pdf.text(
+        `PAYMENT: AWG ${formatCurrency(facturaInfo.payment)}`,
+        152,
+        afterY + 6
+      );
+
+      const balance = pagoStatus === "Pago" ? 0 : facturaInfo.deuda || 0;
       pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 11);
     } else {
-      const balance = pagoStatus === "Pago" ? 0 : (facturaInfo.deuda || 0);
+      const balance = pagoStatus === "Pago" ? 0 : facturaInfo.deuda || 0;
       pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
     }
 
@@ -1974,9 +2114,11 @@ const Hojadefechas = () => {
 
     // ✅ USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
     const base = selectedData[0];
-    
+
     // ✅ Determinar estado de pago basado en todos los servicios seleccionados
-    const todosPagados = selectedData.every(servicio => servicio.pago === "Pago");
+    const todosPagados = selectedData.every(
+      (servicio) => servicio.pago === "Pago"
+    );
     const pagoStatus = todosPagados ? "Pago" : "Debe";
 
     // 2) Calcular número de factura estimado
@@ -2059,7 +2201,12 @@ const Hojadefechas = () => {
            <select id="swal-item-select" class="swal2-select" style="flex: 1;">
              <option value="" disabled>Seleccione un item...</option>
              ${Object.keys(ITEM_RATES)
-               .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
+               .map(
+                 (i) =>
+                   `<option value="${i}" ${
+                     i === "Septic Tank" ? "selected" : ""
+                   }>${i}</option>`
+               )
                .join("")}
            </select>
            <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
@@ -2130,7 +2277,7 @@ const Hojadefechas = () => {
         const renderSummary = () => {
           summaryContainer.innerHTML = "";
           const errorMessage = document.getElementById("items-error-message");
-          
+
           if (window.addedItems.length === 0) {
             summaryContainer.innerHTML =
               '<p style="color: #888; text-align:center;">No hay items todavía.</p>';
@@ -2148,7 +2295,11 @@ const Hojadefechas = () => {
               itemDiv.innerHTML = `
                         <span><strong>${item.item}</strong> (x${
                 item.qty
-              }) - ${formatCurrency(item.amount)}<br><small style="color: #666;">Fecha: ${item.fechaServicioItem || 'No especificada'}</small></span>
+              }) - ${formatCurrency(
+                item.amount
+              )}<br><small style="color: #666;">Fecha: ${
+                item.fechaServicioItem || "No especificada"
+              }</small></span>
                         <div>
                           <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
                           <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
@@ -2220,7 +2371,9 @@ const Hojadefechas = () => {
                 </div>
                 <div style="margin-bottom: 10px;">
                   <label style="display:block; margin-bottom: 5px; font-weight: bold;">Fecha de Servicio:</label>
-                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${base.fecha ? base.fecha.split('-').reverse().join('-') : ''}" style="width:100%;">
+                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${
+                    base.fecha ? base.fecha.split("-").reverse().join("-") : ""
+                  }" style="width:100%;">
                 </div>
                 <div style="text-align: right; margin-top: 25px;">
                   <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
@@ -2239,7 +2392,8 @@ const Hojadefechas = () => {
             document.getElementById("custom-item-rate").value =
               existingDetails.rate;
             if (existingDetails.fechaServicioItem) {
-              document.getElementById("custom-item-fecha-servicio").value = existingDetails.fechaServicioItem;
+              document.getElementById("custom-item-fecha-servicio").value =
+                existingDetails.fechaServicioItem;
             }
           }
 
@@ -2260,7 +2414,9 @@ const Hojadefechas = () => {
               rate:
                 parseFloat(document.getElementById("custom-item-rate").value) ||
                 0,
-              fechaServicioItem: document.getElementById("custom-item-fecha-servicio").value, // ✅ Agregar fecha de servicio
+              fechaServicioItem: document.getElementById(
+                "custom-item-fecha-servicio"
+              ).value, // ✅ Agregar fecha de servicio
             };
             if (details.qty > 0) {
               callback(details);
@@ -2326,15 +2482,18 @@ const Hojadefechas = () => {
       let fechaFormateada = base.fecha; // fallback a fecha base
       if (item.fechaServicioItem) {
         // Si la fecha está en formato YYYY-MM-DD, convertir a DD-MM-YYYY
-        if (item.fechaServicioItem.includes('-') && item.fechaServicioItem.split('-')[0].length === 4) {
-          const [year, month, day] = item.fechaServicioItem.split('-');
+        if (
+          item.fechaServicioItem.includes("-") &&
+          item.fechaServicioItem.split("-")[0].length === 4
+        ) {
+          const [year, month, day] = item.fechaServicioItem.split("-");
           fechaFormateada = `${day}-${month}-${year}`;
         } else {
           // Si ya está en formato DD-MM-YYYY, usar directamente
           fechaFormateada = item.fechaServicioItem;
         }
       }
-      
+
       return [
         fechaFormateada, // ✅ Usar fecha de servicio del item formateada
         item.item,
@@ -2411,12 +2570,16 @@ const Hojadefechas = () => {
       // Calcular payments totales y fecha de pago basados en el estado de los servicios
       let paymentsTotales = 0;
       let fechaPago = null;
-      
+
       if (pagoStatus === "Pago") {
         // Si todos están pagados, el payment es igual al total y usar la fecha de pago del primer servicio pagado
         paymentsTotales = totalAmount;
-        const primerServicioPagado = selectedData.find(servicio => servicio.pago === "Pago");
-        fechaPago = primerServicioPagado?.fechapago || new Date().toISOString().split('T')[0];
+        const primerServicioPagado = selectedData.find(
+          (servicio) => servicio.pago === "Pago"
+        );
+        fechaPago =
+          primerServicioPagado?.fechapago ||
+          new Date().toISOString().split("T")[0];
       } else {
         // Si no todos están pagados, calcular payments existentes
         paymentsTotales = selectedData.reduce((sum, registro) => {
@@ -2493,49 +2656,56 @@ const Hojadefechas = () => {
     try {
       // 1) ✅ BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
       const serviciosRelacionados = [];
-      
+
       // Buscar en dataBranch
-      dataBranch.forEach(servicio => {
+      dataBranch.forEach((servicio) => {
         if (servicio.numerodefactura === numeroFactura) {
           serviciosRelacionados.push({
             ...servicio,
-            origin: 'data',
-            path: `data/${servicio.id}`
+            origin: "data",
+            path: `data/${servicio.id}`,
           });
         }
       });
-      
+
       // Buscar en dataRegistroFechas
-      dataRegistroFechas.forEach(grupo => {
-        grupo.registros.forEach(servicio => {
+      dataRegistroFechas.forEach((grupo) => {
+        grupo.registros.forEach((servicio) => {
           if (servicio.numerodefactura === numeroFactura) {
             serviciosRelacionados.push({
               ...servicio,
-              origin: 'registrofechas',
-              path: `registrofechas/${grupo.fecha}/${servicio.id}`
+              origin: "registrofechas",
+              path: `registrofechas/${grupo.fecha}/${servicio.id}`,
             });
           }
         });
       });
 
       // 2) ✅ MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
-      const serviciosInfo = serviciosRelacionados.map(servicio => 
-        `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
-      ).join('\n');
+      const serviciosInfo = serviciosRelacionados
+        .map(
+          (servicio) =>
+            `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
+        )
+        .join("\n");
 
       const { isConfirmed } = await Swal.fire({
         title: "¿Cancelar Factura?",
         html: `
           <div style="text-align: left;">
             <p><strong>Factura a cancelar:</strong> ${numeroFactura}</p>
-            <p><strong>Servicios relacionados (${serviciosRelacionados.length}):</strong></p>
+            <p><strong>Servicios relacionados (${
+              serviciosRelacionados.length
+            }):</strong></p>
             <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
-              ${serviciosInfo || 'No se encontraron servicios relacionados'}
+              ${serviciosInfo || "No se encontraron servicios relacionados"}
             </div>
             <p style="color: #d33; font-weight: bold;">⚠️ Esta acción:</p>
             <ul style="text-align: left; color: #d33;">
               <li>Eliminará completamente la factura</li>
-              <li>Desvinculará ${serviciosRelacionados.length} servicios de esta factura</li>
+              <li>Desvinculará ${
+                serviciosRelacionados.length
+              } servicios de esta factura</li>
               <li>El número de factura quedará disponible para reutilización</li>
             </ul>
           </div>
@@ -2545,7 +2715,7 @@ const Hojadefechas = () => {
         confirmButtonText: "Sí, Cancelar Factura",
         cancelButtonText: "No, Mantener",
         confirmButtonColor: "#d33",
-        width: "600px"
+        width: "600px",
       });
 
       if (!isConfirmed) return;
@@ -2563,7 +2733,7 @@ const Hojadefechas = () => {
           referenciaFactura: null,
           timestamp: Date.now(),
         };
-        
+
         return update(ref(database, servicio.path), updateData);
       });
 
@@ -2594,12 +2764,12 @@ const Hojadefechas = () => {
 
       // Actualizar dataBranch
       setDataBranch((prev) => prev.map(updater));
-      
+
       // Actualizar dataRegistroFechas
       setDataRegistroFechas((prev) =>
         prev.map((g) => ({
           ...g,
-          registros: g.registros.map(updater)
+          registros: g.registros.map(updater),
         }))
       );
 
@@ -2615,7 +2785,7 @@ const Hojadefechas = () => {
           </div>
         `,
         timer: 3000,
-        width: "500px"
+        width: "500px",
       });
     } catch (error) {
       console.error("Error cancelando factura:", error);
@@ -2817,7 +2987,7 @@ const Hojadefechas = () => {
     const days = Math.floor((currentTime - timestamp) / (24 * 60 * 60 * 1000));
     return Math.max(0, days);
   };
-  console.log("Rerender")
+  console.log("Rerender");
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -3086,9 +3256,11 @@ const Hojadefechas = () => {
               {paginatedData.map((item) => (
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
-                    <tr 
+                    <tr
                       key={`${registro.origin}_${item.fecha}_${registro.id}`}
-                      className={`${activeRow === registro.id ? 'active-row' : ''}`}
+                      className={`${
+                        activeRow === registro.id ? "active-row" : ""
+                      }`}
                     >
                       {showSelection && (
                         <td>
@@ -3120,32 +3292,42 @@ const Hojadefechas = () => {
                       >
                         <input
                           type="date"
-                          value={item.fecha ? item.fecha.split('-').reverse().join('-') : ''}
+                          value={
+                            item.fecha
+                              ? item.fecha.split("-").reverse().join("-")
+                              : ""
+                          }
                           onChange={(e) => {
                             // Validar que el valor no esté vacío
                             if (!e.target.value) {
-                              console.log('Valor de fecha vacío, ignorando cambio');
+                              console.log(
+                                "Valor de fecha vacío, ignorando cambio"
+                              );
                               return;
                             }
-                            
+
                             // Convertir de YYYY-MM-DD a DD-MM-YYYY para Firebase
-                            const [year, month, day] = e.target.value.split('-');
-                            
+                            const [year, month, day] =
+                              e.target.value.split("-");
+
                             // Validar que los componentes de fecha sean válidos
                             if (!year || !month || !day) {
-                              console.error('Formato de fecha inválido:', e.target.value);
+                              console.error(
+                                "Formato de fecha inválido:",
+                                e.target.value
+                              );
                               return;
                             }
-                            
+
                             const fechaFormateada = `${day}-${month}-${year}`;
-                            
-                            console.log('Cambiando fecha en Hojadefechas:', {
+
+                            console.log("Cambiando fecha en Hojadefechas:", {
                               original: item.fecha,
                               nueva: fechaFormateada,
                               inputValue: e.target.value,
-                              registrosCount: item.registros.length
+                              registrosCount: item.registros.length,
                             });
-                            
+
                             // Actualizar todos los registros de esta fecha
                             item.registros.forEach((registro) => {
                               handleFieldChange(
@@ -3165,49 +3347,67 @@ const Hojadefechas = () => {
                             fontWeight: "bold",
                             border: "none",
                             background: "transparent",
-                            cursor: "pointer"
+                            cursor: "pointer",
                           }}
                         />
                       </td>
                       <td>
-                        <select
-                          value={registro.realizadopor || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.fecha,
-                              registro.id,
-                              "realizadopor",
-                              e.target.value,
-                              registro.origin
-                            )
+                        {/*
+     Si el registro tiene un realizadopor cuyo role es “usernotactive”,
+     mostramos sólo el nombre (no aparece en el select de activos).
+   */}
+                        {(() => {
+                          const assigned = allUsers.find(
+                            (u) => u.id === registro.realizadopor
+                          );
+                          const isInactive = assigned?.role === "usernotactive";
+                          if (isInactive) {
+                            return <span>{assigned.name}</span>;
+                          } else {
+                            return (
+                              <select
+                                value={registro.realizadopor || ""}
+                                onChange={(e) =>
+                                  handleFieldChange(
+                                    item.fecha,
+                                    registro.id,
+                                    "realizadopor",
+                                    e.target.value,
+                                    registro.origin
+                                  )
+                                }
+                                style={{
+                                  width: "fit-content",
+                                  minWidth: "16ch",
+                                  maxWidth: "100%",
+                                  paddingRight: "3ch",
+                                }}
+                              >
+                                <option value=""></option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name}
+                                  </option>
+                                ))}
+                              </select>
+                            );
                           }
-                          onFocus={() => handleRowEdit(registro.id)}
-                          onBlur={handleRowEditEnd}
-                          style={{
-                            width: "fit-content",
-                            minWidth: "16ch",
-                            maxWidth: "100%",
-                            paddingRight: "3ch",
-                          }}
-                        >
-                          <option value=""></option>
-                          {users.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name}
-                            </option>
-                          ))}
-                        </select>
+                        })()}
                       </td>
 
                       <td>
                         <input
                           style={{ width: "16ch" }}
                           type="text"
-                          value={localValues[`${registro.id}_anombrede`] ?? registro.anombrede ?? ""}
+                          value={
+                            localValues[`${registro.id}_anombrede`] ??
+                            registro.anombrede ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${registro.id}_anombrede`]: e.target.value
+                              [`${registro.id}_anombrede`]: e.target.value,
                             }))
                           }
                           onFocus={() => handleRowEdit(registro.id)}
@@ -3231,17 +3431,23 @@ const Hojadefechas = () => {
                             className="direccion-fixed-input "
                             style={{ width: "18ch" }}
                             type="text"
-                            value={localValues[`${registro.id}_direccion`] ?? registro.direccion ?? ""}
+                            value={
+                              localValues[`${registro.id}_direccion`] ??
+                              registro.direccion ??
+                              ""
+                            }
                             onChange={(e) =>
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${registro.id}_direccion`]: e.target.value
+                                [`${registro.id}_direccion`]: e.target.value,
                               }))
                             }
                             onFocus={() => handleRowEdit(registro.id)}
                             onBlur={(e) => {
                               handleRowEditEnd();
-                              if (e.target.value !== (registro.direccion || "")) {
+                              if (
+                                e.target.value !== (registro.direccion || "")
+                              ) {
                                 handleFieldChange(
                                   item.fecha,
                                   registro.id,
@@ -3288,11 +3494,15 @@ const Hojadefechas = () => {
                         <input
                           type="number"
                           style={{ textAlign: "center" }}
-                          value={localValues[`${registro.id}_cubicos`] ?? registro.cubicos ?? ""}
+                          value={
+                            localValues[`${registro.id}_cubicos`] ??
+                            registro.cubicos ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${registro.id}_cubicos`]: e.target.value
+                              [`${registro.id}_cubicos`]: e.target.value,
                             }))
                           }
                           onFocus={() => handleRowEdit(registro.id)}
@@ -3314,11 +3524,15 @@ const Hojadefechas = () => {
                         <input
                           type="number"
                           style={{ width: "10ch" }}
-                          value={localValues[`${registro.id}_valor`] ?? registro.valor ?? ""}
+                          value={
+                            localValues[`${registro.id}_valor`] ??
+                            registro.valor ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${registro.id}_valor`]: e.target.value
+                              [`${registro.id}_valor`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -3359,8 +3573,9 @@ const Hojadefechas = () => {
                         <input
                           type="date"
                           value={
-                            registro.numerodefactura 
-                              ? facturas[registro.numerodefactura]?.fechapago || ""
+                            registro.numerodefactura
+                              ? facturas[registro.numerodefactura]?.fechapago ||
+                                ""
                               : registro.fechapago || ""
                           }
                           disabled={registro.pago !== "Pago"}
@@ -3368,7 +3583,9 @@ const Hojadefechas = () => {
                             handleFieldChange(
                               item.fecha,
                               registro.id,
-                              registro.numerodefactura ? "fechapago_factura" : "fechapago",
+                              registro.numerodefactura
+                                ? "fechapago_factura"
+                                : "fechapago",
                               e.target.value,
                               registro.origin
                             )
@@ -3376,12 +3593,17 @@ const Hojadefechas = () => {
                           style={{
                             width: "16ch",
                             opacity: registro.pago !== "Pago" ? 0.5 : 1,
-                            cursor: registro.pago !== "Pago" ? "not-allowed" : "auto",
-                            backgroundColor: registro.numerodefactura ? "#f0f8ff" : "white",
-                            borderColor: registro.numerodefactura ? "#007bff" : "#ccc",
+                            cursor:
+                              registro.pago !== "Pago" ? "not-allowed" : "auto",
+                            backgroundColor: registro.numerodefactura
+                              ? "#f0f8ff"
+                              : "white",
+                            borderColor: registro.numerodefactura
+                              ? "#007bff"
+                              : "#ccc",
                           }}
                           title={
-                            registro.numerodefactura 
+                            registro.numerodefactura
                               ? `Fecha de pago de la factura #${registro.numerodefactura}`
                               : "Fecha de pago del servicio individual"
                           }
@@ -3504,11 +3726,15 @@ const Hojadefechas = () => {
                         <input
                           type="number"
                           style={{ width: "10ch" }}
-                          value={localValues[`${registro.id}_efectivo`] ?? registro.efectivo ?? ""}
+                          value={
+                            localValues[`${registro.id}_efectivo`] ??
+                            registro.efectivo ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${registro.id}_efectivo`]: e.target.value
+                              [`${registro.id}_efectivo`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -3602,7 +3828,9 @@ const Hojadefechas = () => {
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
-                            onClick={() => paymentRapido(registro.numerodefactura)}
+                            onClick={() =>
+                              paymentRapido(registro.numerodefactura)
+                            }
                             className="payment-rapido-btn"
                             title={`Payment rápido para factura ${registro.numerodefactura}`}
                           >

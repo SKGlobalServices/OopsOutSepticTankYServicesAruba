@@ -223,6 +223,7 @@ const Usuarios = () => {
                         <option value="admin">Admin</option>
                         <option value="user">User</option>
                         <option value="contador">Contador</option>
+                        <option value="usernotactive">No Activo</option>
                       </select>
                     </td>
                     {/* Edición Servicios De Hoy */}
