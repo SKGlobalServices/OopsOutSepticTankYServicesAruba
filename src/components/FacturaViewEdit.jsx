@@ -345,6 +345,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       });
 
       await Promise.all(updatePromises);
+      console.log(`✅ Estado de pago actualizado a "${estadoPago}" para ${serviciosAsociados.length} servicios`);
     } catch (error) {
       console.error("Error actualizando estado de pago:", error);
     }
@@ -444,31 +445,85 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         deuda: parseFloat(nuevaDeuda.toFixed(2))
       };
 
-      // Si está completamente pagada, actualizar estado
-      const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split('T')[0];
       if (facturaCompletamentePagada) {
+        // Si está completamente pagada
+        const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split('T')[0];
         updates.pago = "Pago";
         updates.fechapago = fechaPagoFinal;
       } else {
-        updates.pago = "Pendiente";
+        // ✅ Si NO está completamente pagada (incluyendo devoluciones)
+        updates.pago = "Debe";
         updates.fechapago = null;
       }
 
       await update(facturaRef, updates);
+      console.log("✅ Factura actualizada en Firebase");
 
       // Actualizar estado local
       setFacturaData(prev => ({
         ...prev,
         payment: nuevosPayments,
         deuda: nuevaDeuda,
-        pago: facturaCompletamentePagada ? "Pago" : "Pendiente",
-        fechapago: facturaCompletamentePagada ? (prev.fechapago || new Date().toISOString().split('T')[0]) : null
+        pago: facturaCompletamentePagada ? "Pago" : "Debe", // ✅ Actualizar siempre
+        fechapago: facturaCompletamentePagada ? (facturaData.fechapago || new Date().toISOString().split('T')[0]) : null // ✅ Actualizar siempre
       }));
 
-      // Si está completamente pagada, actualizar servicios asociados
-      if (facturaCompletamentePagada) {
-        await actualizarEstadoPagoServicios("Pago", fechaPagoFinal);
-      }
+      // ✅ ACTUALIZAR SERVICIOS ASOCIADOS SIEMPRE (no solo cuando está completamente pagada)
+      const actualizarServiciosAsociados = async () => {
+        try {
+          // Buscar todos los servicios asociados a esta factura
+          const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+            new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+            new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+          ]);
+
+          const serviciosAsociados = [];
+          
+          // Buscar en data
+          if (dataSnapshot.exists()) {
+            const dataVal = dataSnapshot.val();
+            Object.entries(dataVal).forEach(([id, registro]) => {
+              if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+                serviciosAsociados.push({ id, origin: "data" });
+              }
+            });
+          }
+          
+          // Buscar en registrofechas
+          if (registroFechasSnapshot.exists()) {
+            const registroVal = registroFechasSnapshot.val();
+            Object.entries(registroVal).forEach(([fecha, registros]) => {
+              Object.entries(registros).forEach(([id, registro]) => {
+                if (registro.referenciaFactura === numeroFactura || registro.numerodefactura === numeroFactura) {
+                  serviciosAsociados.push({ id, fecha, origin: "registrofechas" });
+                }
+              });
+            });
+          }
+
+          // ✅ Actualizar todos los servicios con el estado correcto
+          const estadoPago = facturaCompletamentePagada ? "Pago" : "Debe";
+          const fechaPago = facturaCompletamentePagada ? (facturaData.fechapago || new Date().toISOString().split('T')[0]) : null;
+
+          const updatePromises = serviciosAsociados.map(servicio => {
+            const path = servicio.origin === "data" 
+              ? `data/${servicio.id}` 
+              : `registrofechas/${servicio.fecha}/${servicio.id}`;
+            
+            return update(ref(database, path), { 
+              pago: estadoPago,
+              fechapago: fechaPago
+            });
+          });
+
+          await Promise.all(updatePromises);
+          console.log(`✅ Estado de pago actualizado a "${estadoPago}" para ${serviciosAsociados.length} servicios`);
+        } catch (error) {
+          console.error("Error actualizando servicios asociados:", error);
+        }
+      };
+
+      await actualizarServiciosAsociados();
 
       // Mostrar mensaje de éxito
       if (facturaCompletamentePagada) {
@@ -485,11 +540,22 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
           timer: 3000
         });
       } else {
+        const esDevolucion = payment < 0;
+        const tipoOperacion = esDevolucion ? "devolución" : "payment";
+        const estadoFactura = nuevaDeuda > 0 ? "DEBE" : "PAGADA";
+        
         Swal.fire({
           icon: "success",
-          title: "Payment Registrado",
-          text: `Payment de AWG ${formatCurrency(payment)} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
-          timer: 2000
+          title: `${esDevolucion ? "Devolución" : "Payment"} Registrado`,
+          html: `
+            <div style="text-align: center;">
+              <p>${esDevolucion ? "Devolución" : "Payment"} de <strong>AWG ${formatCurrency(Math.abs(payment))}</strong> registrado</p>
+              <p>Deuda restante: <strong>AWG ${formatCurrency(nuevaDeuda)}</strong></p>
+              <p style="color: ${nuevaDeuda > 0 ? '#dc3545' : '#28a745'}; font-weight: bold;">Estado: ${estadoFactura}</p>
+              ${esDevolucion ? '<p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>' : ''}
+            </div>
+          `,
+          timer: 3000
         });
       }
     } catch (error) {
@@ -564,6 +630,8 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
+      console.log(`✅ Nuevo item agregado: ${newItemKey}`);
+      
     } catch (error) {
       console.error("Error agregando nuevo item:", error);
       Swal.fire({
@@ -620,6 +688,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
+      console.log(`✅ Item eliminado: ${itemKey}`);
       
     } catch (error) {
       console.error("Error eliminando item:", error);
@@ -684,6 +753,61 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   const formatDate = (timestamp) => {
     if (!timestamp) return "No disponible";
     return new Date(timestamp).toLocaleDateString();
+  };
+
+  const BANCO_OPTIONS = [
+    "Aruba Bank N.V.",
+    "Caribbean Mercantile Bank N.V.",
+    "RBC Royal Bank N.V."
+  ];
+
+  const updateBancoInServicios = async (nuevoBanco) => {
+    try {
+      const updatePromises = serviciosAsociados.map(servicio => {
+        const path = servicio.origin === "data" 
+          ? `data/${servicio.id}` 
+          : `registrofechas/${servicio.fecha}/${servicio.id}`;
+        
+        return update(ref(database, path), { banco: nuevoBanco });
+      });
+
+      await Promise.all(updatePromises);
+      
+      setServiciosAsociados(prev => 
+        prev.map(servicio => ({ ...servicio, banco: nuevoBanco }))
+      );
+    } catch (error) {
+      console.error("Error actualizando banco en servicios:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo actualizar el banco en los servicios asociados"
+      });
+    }
+  };
+
+  const updateFacturaFieldWithSync = async (field, value) => {
+    if (!numeroFactura) return;
+    
+    try {
+      const facturaRef = ref(database, `facturas/${numeroFactura}`);
+      await update(facturaRef, { [field]: value });
+      
+      setFacturaData(prev => ({ ...prev, [field]: value }));
+      setHasUnsavedChanges(false);
+      
+      if (field === "banco") {
+        await updateBancoInServicios(value);
+      }
+      
+    } catch (error) {
+      console.error("Error actualizando factura:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo actualizar el campo"
+      });
+    }
   };
 
   // Función para manejar cambios en campos de texto
@@ -894,6 +1018,33 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                       : "No especificada"
                     }
                   </span>
+                )}
+              </div>
+              <div>
+                <label className="factura-info-label">
+                  Banco:
+                </label>
+                {editMode ? (
+                  <select
+                    value={facturaData.banco || ""}
+                    onChange={(e) => handleFieldChange("banco", e.target.value)}
+                    onBlur={(e) => updateFacturaFieldWithSync("banco", e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "5px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px"
+                    }}
+                  >
+                    <option value="">Seleccionar banco...</option>
+                    {BANCO_OPTIONS.map((banco) => (
+                      <option key={banco} value={banco}>
+                        {banco}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{facturaData.banco || "No especificado"}</span>
                 )}
               </div>
             </div>
@@ -1291,6 +1442,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "center" }}>Cúbicos</th>
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>Valor</th>
                     <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "right" }}>Payment</th>
+                    <th style={{ padding: "8px", border: "1px solid #dee2e6", textAlign: "left" }}>Banco</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1372,6 +1524,9 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                       <td style={{ padding: "6px", border: "1px solid #dee2e6", textAlign: "right", fontSize: "12px" }}>
                         AWG {formatCurrency(servicio.payment || 0)}
                       </td>
+                      <td style={{ padding: "6px", border: "1px solid #dee2e6", fontSize: "12px" }}>
+                        {servicio.banco || "No especificado"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1386,4 +1541,4 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   );
 };
 
-export default FacturaViewEdit; 
+export default FacturaViewEdit;

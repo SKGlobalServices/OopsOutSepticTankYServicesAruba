@@ -1031,7 +1031,93 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 7) Cualquier otro campo → sólo actualizamos ese campo
+    // 7) Campo especial: "banco" - sincronizar con factura asociada
+    if (field === "banco") {
+      // Obtener el registro para verificar si tiene factura asociada
+      const registro = fromData
+        ? dataBranch.find((r) => r.id === registroId) || {}
+        : dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === registroId) || {};
+
+      // Si tiene factura asociada, actualizar la factura también
+      if (registro.numerodefactura) {
+        const handleFacturaBanco = async () => {
+          try {
+            // Actualizar el banco en la factura
+            const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+            await update(facturaRef, { banco: safeValue });
+
+            // Actualizar todos los servicios asociados a esta factura
+            const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
+              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
+              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+            ]);
+
+            const serviciosAsociados = [];
+            
+            // Buscar en data
+            if (dataSnapshot.exists()) {
+              const dataVal = dataSnapshot.val();
+              Object.entries(dataVal).forEach(([id, reg]) => {
+                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                  serviciosAsociados.push({ id, origin: "data" });
+                }
+              });
+            }
+            
+            // Buscar en registrofechas
+            if (registroFechasSnapshot.exists()) {
+              const registroVal = registroFechasSnapshot.val();
+              Object.entries(registroVal).forEach(([fechaReg, registros]) => {
+                Object.entries(registros).forEach(([id, reg]) => {
+                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                    serviciosAsociados.push({ id, fecha: fechaReg, origin: "registrofechas" });
+                  }
+                });
+              });
+            }
+
+            // Actualizar todos los servicios
+            const updatePromises = serviciosAsociados.map(servicio => {
+              const path = servicio.origin === "data" 
+                ? `data/${servicio.id}` 
+                : `registrofechas/${servicio.fecha}/${servicio.id}`;
+              
+              return update(ref(database, path), { banco: safeValue });
+            });
+
+            await Promise.all(updatePromises);
+            console.log(`✅ Banco "${safeValue}" actualizado en factura y ${serviciosAsociados.length} servicios`);
+          } catch (error) {
+            console.error("Error actualizando banco de factura:", error);
+          }
+        };
+
+        handleFacturaBanco();
+      } else {
+        // Si no tiene factura, actualizar solo el servicio individual
+        update(dbRefItem, { [field]: safeValue }).catch(console.error);
+      }
+
+      // Actualizar estado local
+      const updater = (r) => (r.id === registroId ? { ...r, [field]: safeValue } : r);
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+      return;
+    }
+
+    // 8) Cualquier otro campo → sólo actualizamos ese campo
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
     const updater = (r) =>
       r.id === registroId ? { ...r, [field]: safeValue } : r;
@@ -2349,6 +2435,7 @@ const Hojadefechas = () => {
         deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
         pago: pagoStatus,
         fechapago: fechaPago, // ✅ Fecha de pago del primer servicio pagado
+        banco: base.banco || "", // ✅ Banco del primer servicio seleccionado
         // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
       };
 
