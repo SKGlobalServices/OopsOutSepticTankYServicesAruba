@@ -85,6 +85,7 @@ const Hojadefechas = () => {
     fechaFin: null,
     fechaPagoInicio: null,
     fechaPagoFin: null,
+    sinFechaPago: false,
   });
   // Número de filas marcadas
   const selectedCount = Object.values(selectedRows).filter(Boolean).length;
@@ -491,14 +492,19 @@ const Hojadefechas = () => {
     )
       return false;
 
-    // 4) Filtrar por Fecha de Pago
-    if (filters.fechaPagoInicio && filters.fechaPagoFin) {
-      // Usar fecha de pago de la factura si está ligado a una factura, sino usar la fecha del servicio
+    if (filters.sinFechaPago) {
+      // tomar la fecha de pago de la factura o del registro
       const fechaPagoStr = registro.numerodefactura
         ? facturas[registro.numerodefactura]?.fechapago
         : registro.fechapago;
-
-      if (!fechaPagoStr) return false; // Si no tiene fecha de pago, no cumple el filtro
+      if (fechaPagoStr) return false; // descartar si *tiene* fecha
+    }
+    // 5) Si no pide “sin fecha”, aplicar rango normal
+    else if (filters.fechaPagoInicio && filters.fechaPagoFin) {
+      const fechaPagoStr = registro.numerodefactura
+        ? facturas[registro.numerodefactura]?.fechapago
+        : registro.fechapago;
+      if (!fechaPagoStr) return false;
       const [y, m, d] = fechaPagoStr.split("-");
       const fechaPago = new Date(y, m - 1, d);
       if (
@@ -2933,7 +2939,6 @@ const Hojadefechas = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        <label>Rango de Fechas de Servicio</label>
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"
@@ -2952,7 +2957,6 @@ const Hojadefechas = () => {
             inline
           />
         )}
-        <label>Rango de Fechas de Pago</label>
         <button
           onClick={() => setShowPagoDatePicker(!showPagoDatePicker)}
           className="filter-button"
@@ -2971,6 +2975,22 @@ const Hojadefechas = () => {
             inline
           />
         )}
+        <button
+          className="filter-button"
+          onClick={() =>
+            setFilters((prev) => ({
+              ...prev,
+              sinFechaPago: !prev.sinFechaPago,
+              fechaPagoInicio: null,
+              fechaPagoFin: null,
+            }))
+          }
+        >
+          {filters.sinFechaPago
+            ? "Quitar filtro sin fecha"
+            : "Filtrar sin fecha de pago"}
+        </button>
+
         <label>Realizado Por</label>
         <Select
           isClearable
@@ -3232,7 +3252,11 @@ const Hojadefechas = () => {
                           );
                           const isInactive = assigned?.role === "usernotactive";
                           if (isInactive) {
-                            return <span style={{marginLeft:"12px"}}>{assigned.name}</span>;
+                            return (
+                              <span style={{ marginLeft: "12px" }}>
+                                {assigned.name}
+                              </span>
+                            );
                           } else {
                             return (
                               <select

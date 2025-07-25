@@ -571,7 +571,7 @@ html {
   font-size: 20px;
   margin-bottom: 15px;
   text-align: center;
-  color: #000000;
+  color: #fff;
 }
 
 /* Etiquetas de campo */
@@ -1224,7 +1224,7 @@ text,
   align-items: center;
   box-shadow: none;
   transition: all 0.3s ease-in-out;
-  z-index: 1000;
+  z-index: 800;
 }
 
 /* === Posiciones específicas botones generate === */

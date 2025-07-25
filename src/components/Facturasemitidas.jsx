@@ -117,11 +117,12 @@ const Facturasemitidas = () => {
     pago: [],
     personalizado: "",
     fechaPago: [null, null],
+    sinFechaPago: false,
   });
 
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
-  
+
   // Estados para fila activa donde el usuario está trabajando
   const [activeRow, setActiveRow] = useState(null);
 
@@ -317,6 +318,14 @@ const Facturasemitidas = () => {
 
   // 1) FILTRA ESE ARRAY
   const filtrados = todos.filter((r) => {
+    // 0) Si activo “Sin fecha de pago”, sólo pasen registros SIN fechapago
+    if (filters.sinFechaPago) {
+      const fechaPagoStr = r.numerodefactura
+        ? facturasData[r.numerodefactura]?.fechapago
+        : r.fechapago;
+      if (fechaPagoStr) return false;
+    }
+
     // 1) Filtrar por Fecha de Emisión (timestamp)
     const [emiStart, emiEnd] = filters.fechaEmision;
     if (emiStart && emiEnd) {
@@ -388,10 +397,10 @@ const Facturasemitidas = () => {
     const [pagoStart, pagoEnd] = filters.fechaPago;
     if (pagoStart && pagoEnd) {
       // Usar fecha de pago de la factura si está ligado a una factura, sino usar la fecha del servicio
-      const fechaPagoStr = r.numerodefactura 
+      const fechaPagoStr = r.numerodefactura
         ? facturasData[r.numerodefactura]?.fechapago
         : r.fechapago;
-      
+
       if (!fechaPagoStr) return false;
       const [y, m, d] = fechaPagoStr.split("-");
       const fechaPago = new Date(+y, m - 1, +d);
@@ -536,14 +545,14 @@ const Facturasemitidas = () => {
 
     // Campo especial: fecha - mover registro a nueva fecha
     if (field === "fecha") {
-      console.log('🔄 Procesando cambio de fecha:', {
+      console.log("🔄 Procesando cambio de fecha:", {
         fecha,
         registroId,
         safeValue,
         origin,
-        fromData
+        fromData,
       });
-      
+
       const actualizarFechaServicio = async () => {
         try {
           // Obtener el registro completo
@@ -553,43 +562,54 @@ const Facturasemitidas = () => {
                 .find((g) => g.fecha === fecha)
                 ?.registros.find((r) => r.id === registroId) || {};
 
-          console.log('📋 Registro encontrado:', registro);
+          console.log("📋 Registro encontrado:", registro);
 
           if (fromData) {
             // Si está en data, solo actualizar la fecha
-            console.log('📝 Actualizando en data:', path);
+            console.log("📝 Actualizando en data:", path);
             await update(dbRefItem, { fecha: safeValue });
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
-              console.log('🔄 Moviendo registro de registrofechas:', {
+              console.log("🔄 Moviendo registro de registrofechas:", {
                 from: fecha,
                 to: safeValue,
-                registroId
+                registroId,
               });
               // Crear en nueva fecha
-              await set(ref(database, `registrofechas/${safeValue}/${registroId}`), {
-                ...registro,
-                fecha: safeValue
-              });
+              await set(
+                ref(database, `registrofechas/${safeValue}/${registroId}`),
+                {
+                  ...registro,
+                  fecha: safeValue,
+                }
+              );
               // Eliminar de fecha anterior
-              await set(ref(database, `registrofechas/${fecha}/${registroId}`), null);
+              await set(
+                ref(database, `registrofechas/${fecha}/${registroId}`),
+                null
+              );
             } else {
-              console.log('📝 Actualizando fecha en registrofechas sin mover:', path);
+              console.log(
+                "📝 Actualizando fecha en registrofechas sin mover:",
+                path
+              );
               await update(dbRefItem, { fecha: safeValue });
             }
           }
-          console.log(`✅ Fecha de servicio actualizada: ${fecha} → ${safeValue}`);
+          console.log(
+            `✅ Fecha de servicio actualizada: ${fecha} → ${safeValue}`
+          );
         } catch (error) {
           console.error("❌ Error actualizando fecha de servicio:", error);
           Swal.fire({
             icon: "error",
             title: "Error",
-            text: "No se pudo actualizar la fecha del servicio"
+            text: "No se pudo actualizar la fecha del servicio",
           });
         }
       };
-      
+
       actualizarFechaServicio();
       return;
     }
@@ -604,53 +624,75 @@ const Facturasemitidas = () => {
 
       if (registro.numerodefactura) {
         // Actualizar la fecha de pago en la factura
-        const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
+        const facturaRef = ref(
+          database,
+          `facturas/${registro.numerodefactura}`
+        );
         update(facturaRef, { fechapago: safeValue }).catch(console.error);
-        
+
         // Actualizar todos los servicios asociados a esta factura
         const actualizarServiciosAsociados = async () => {
           try {
             // Buscar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+              new Promise((resolve) =>
+                onValue(ref(database, "data"), resolve, { onlyOnce: true })
+              ),
+              new Promise((resolve) =>
+                onValue(ref(database, "registrofechas"), resolve, {
+                  onlyOnce: true,
+                })
+              ),
             ]);
 
             const serviciosAsociados = [];
-            
+
             // Buscar en data
             if (dataSnapshot.exists()) {
               const dataVal = dataSnapshot.val();
               Object.entries(dataVal).forEach(([id, reg]) => {
-                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                if (
+                  reg.referenciaFactura === registro.numerodefactura ||
+                  reg.numerodefactura === registro.numerodefactura
+                ) {
                   serviciosAsociados.push({ id, origin: "data" });
                 }
               });
             }
-            
+
             // Buscar en registrofechas
             if (registroFechasSnapshot.exists()) {
               const registroVal = registroFechasSnapshot.val();
               Object.entries(registroVal).forEach(([fechaReg, registros]) => {
                 Object.entries(registros).forEach(([id, reg]) => {
-                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                    serviciosAsociados.push({ id, fecha: fechaReg, origin: "registrofechas" });
+                  if (
+                    reg.referenciaFactura === registro.numerodefactura ||
+                    reg.numerodefactura === registro.numerodefactura
+                  ) {
+                    serviciosAsociados.push({
+                      id,
+                      fecha: fechaReg,
+                      origin: "registrofechas",
+                    });
                   }
                 });
               });
             }
 
             // Actualizar todos los servicios
-            const updatePromises = serviciosAsociados.map(servicio => {
-              const path = servicio.origin === "data" 
-                ? `data/${servicio.id}` 
-                : `registrofechas/${servicio.fecha}/${servicio.id}`;
-              
+            const updatePromises = serviciosAsociados.map((servicio) => {
+              const path =
+                servicio.origin === "data"
+                  ? `data/${servicio.id}`
+                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
               return update(ref(database, path), { fechapago: safeValue });
             });
 
             await Promise.all(updatePromises);
-            console.log(`✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`);
+            console.log(
+              `✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`
+            );
           } catch (error) {
             console.error("Error actualizando servicios asociados:", error);
           }
@@ -743,16 +785,16 @@ const Facturasemitidas = () => {
       const factura = facturasData[registro.numerodefactura];
       if (factura.fechaEmision) {
         // Formatear la fecha de emisión al formato DD/MM/YYYY
-        const [year, month, day] = factura.fechaEmision.split('-');
+        const [year, month, day] = factura.fechaEmision.split("-");
         return `${day}/${month}/${year}`;
       }
     }
-    
+
     // 2. Si no está en la factura, buscar en el servicio
     if (registro.fechaEmision) {
       return registro.fechaEmision; // Ya está en formato DD/MM/YYYY
     }
-    
+
     // 3. Si no hay fecha de emisión específica, usar el timestamp
     return formatDate(registro.timestamp);
   };
@@ -769,21 +811,22 @@ const Facturasemitidas = () => {
   // 1) La función que actualiza Firebase y el estado local (PAGO)
   const handlePagoToggle = async (fecha, id, origin, checked) => {
     const newPagoValue = checked ? "Pago" : "Debe";
-    
+
     // Obtener el registro para verificar si tiene factura asociada
-    const registro = origin === "data"
-      ? dataBranch.find((r) => r.id === id) || {}
-      : dataRegistroFechas
-          .find((g) => g.fecha === fecha)
-          ?.registros.find((r) => r.id === id) || {};
+    const registro =
+      origin === "data"
+        ? dataBranch.find((r) => r.id === id) || {}
+        : dataRegistroFechas
+            .find((g) => g.fecha === fecha)
+            ?.registros.find((r) => r.id === id) || {};
 
     const confirmTitle = checked
-      ? (registro.numerodefactura 
-          ? `¿Deseas marcar la factura #${registro.numerodefactura} como pagada?`
-          : "¿Deseas marcar este servicio como pagado?")
-      : (registro.numerodefactura 
-          ? `¿Deseas desmarcar el pago de la factura #${registro.numerodefactura}?`
-          : "¿Deseas desmarcar el pago?");
+      ? registro.numerodefactura
+        ? `¿Deseas marcar la factura #${registro.numerodefactura} como pagada?`
+        : "¿Deseas marcar este servicio como pagado?"
+      : registro.numerodefactura
+      ? `¿Deseas desmarcar el pago de la factura #${registro.numerodefactura}?`
+      : "¿Deseas desmarcar el pago?";
 
     const result = await Swal.fire({
       title: confirmTitle,
@@ -798,74 +841,94 @@ const Facturasemitidas = () => {
     try {
       if (registro.numerodefactura) {
         // Si tiene factura asociada, actualizar la factura
-        const facturaRef = ref(database, `facturas/${registro.numerodefactura}`);
-        
+        const facturaRef = ref(
+          database,
+          `facturas/${registro.numerodefactura}`
+        );
+
         if (checked) {
           // Marcar como pagada: payment = totalAmount, deuda = 0
           const facturaSnapshot = await new Promise((resolve) => {
             onValue(facturaRef, resolve, { onlyOnce: true });
           });
-          
+
           if (facturaSnapshot.exists()) {
             const facturaData = facturaSnapshot.val();
-            const fechaPagoFinal = new Date().toISOString().split('T')[0];
-            
+            const fechaPagoFinal = new Date().toISOString().split("T")[0];
+
             await update(facturaRef, {
               payment: facturaData.totalAmount,
               deuda: 0,
               pago: "Pago",
-              fechapago: fechaPagoFinal
+              fechapago: fechaPagoFinal,
             });
 
             // Actualizar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+              new Promise((resolve) =>
+                onValue(ref(database, "data"), resolve, { onlyOnce: true })
+              ),
+              new Promise((resolve) =>
+                onValue(ref(database, "registrofechas"), resolve, {
+                  onlyOnce: true,
+                })
+              ),
             ]);
 
             const serviciosAsociados = [];
-            
+
             // Buscar en data
             if (dataSnapshot.exists()) {
               const dataVal = dataSnapshot.val();
               Object.entries(dataVal).forEach(([serviceId, reg]) => {
-                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                if (
+                  reg.referenciaFactura === registro.numerodefactura ||
+                  reg.numerodefactura === registro.numerodefactura
+                ) {
                   serviciosAsociados.push({ id: serviceId, origin: "data" });
                 }
               });
             }
-            
+
             // Buscar en registrofechas
             if (registroFechasSnapshot.exists()) {
               const registroVal = registroFechasSnapshot.val();
               Object.entries(registroVal).forEach(([fechaReg, registros]) => {
                 Object.entries(registros).forEach(([serviceId, reg]) => {
-                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                    serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
+                  if (
+                    reg.referenciaFactura === registro.numerodefactura ||
+                    reg.numerodefactura === registro.numerodefactura
+                  ) {
+                    serviciosAsociados.push({
+                      id: serviceId,
+                      fecha: fechaReg,
+                      origin: "registrofechas",
+                    });
                   }
                 });
               });
             }
 
             // Actualizar todos los servicios
-            const updatePromises = serviciosAsociados.map(servicio => {
-              const path = servicio.origin === "data" 
-                ? `data/${servicio.id}` 
-                : `registrofechas/${servicio.fecha}/${servicio.id}`;
-              
-              return update(ref(database, path), { 
+            const updatePromises = serviciosAsociados.map((servicio) => {
+              const path =
+                servicio.origin === "data"
+                  ? `data/${servicio.id}`
+                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
+              return update(ref(database, path), {
                 pago: "Pago",
-                fechapago: fechaPagoFinal
+                fechapago: fechaPagoFinal,
               });
             });
 
             await Promise.all(updatePromises);
-            
+
             Swal.fire({
               icon: "success",
               title: "¡Factura Pagada Completamente!",
               text: `Factura #${registro.numerodefactura} marcada como PAGADA`,
-              timer: 2000
+              timer: 2000,
             });
           }
         } else {
@@ -873,84 +936,102 @@ const Facturasemitidas = () => {
           const facturaSnapshot = await new Promise((resolve) => {
             onValue(facturaRef, resolve, { onlyOnce: true });
           });
-          
+
           if (facturaSnapshot.exists()) {
             const facturaData = facturaSnapshot.val();
-            
+
             await update(facturaRef, {
               payment: 0,
               deuda: facturaData.totalAmount,
               pago: "Debe",
-              fechapago: null
+              fechapago: null,
             });
 
             // Actualizar todos los servicios asociados
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) => onValue(ref(database, "data"), resolve, { onlyOnce: true })),
-              new Promise((resolve) => onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true }))
+              new Promise((resolve) =>
+                onValue(ref(database, "data"), resolve, { onlyOnce: true })
+              ),
+              new Promise((resolve) =>
+                onValue(ref(database, "registrofechas"), resolve, {
+                  onlyOnce: true,
+                })
+              ),
             ]);
 
             const serviciosAsociados = [];
-            
+
             // Buscar en data
             if (dataSnapshot.exists()) {
               const dataVal = dataSnapshot.val();
               Object.entries(dataVal).forEach(([serviceId, reg]) => {
-                if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
+                if (
+                  reg.referenciaFactura === registro.numerodefactura ||
+                  reg.numerodefactura === registro.numerodefactura
+                ) {
                   serviciosAsociados.push({ id: serviceId, origin: "data" });
                 }
               });
             }
-            
+
             // Buscar en registrofechas
             if (registroFechasSnapshot.exists()) {
               const registroVal = registroFechasSnapshot.val();
               Object.entries(registroVal).forEach(([fechaReg, registros]) => {
                 Object.entries(registros).forEach(([serviceId, reg]) => {
-                  if (reg.referenciaFactura === registro.numerodefactura || reg.numerodefactura === registro.numerodefactura) {
-                    serviciosAsociados.push({ id: serviceId, fecha: fechaReg, origin: "registrofechas" });
+                  if (
+                    reg.referenciaFactura === registro.numerodefactura ||
+                    reg.numerodefactura === registro.numerodefactura
+                  ) {
+                    serviciosAsociados.push({
+                      id: serviceId,
+                      fecha: fechaReg,
+                      origin: "registrofechas",
+                    });
                   }
                 });
               });
             }
 
             // Actualizar todos los servicios
-            const updatePromises = serviciosAsociados.map(servicio => {
-              const path = servicio.origin === "data" 
-                ? `data/${servicio.id}` 
-                : `registrofechas/${servicio.fecha}/${servicio.id}`;
-              
-              return update(ref(database, path), { 
+            const updatePromises = serviciosAsociados.map((servicio) => {
+              const path =
+                servicio.origin === "data"
+                  ? `data/${servicio.id}`
+                  : `registrofechas/${servicio.fecha}/${servicio.id}`;
+
+              return update(ref(database, path), {
                 pago: "Debe",
-                fechapago: null
+                fechapago: null,
               });
             });
 
             await Promise.all(updatePromises);
-            
+
             Swal.fire({
               icon: "success",
               title: "Pago Desmarcado",
               text: `Factura #${registro.numerodefactura} marcada como DEBE`,
-              timer: 2000
+              timer: 2000,
             });
           }
         }
       } else {
         // Si no tiene factura, actualizar solo el servicio individual
-        const path = origin === "data" ? `data/${id}` : `registrofechas/${fecha}/${id}`;
+        const path =
+          origin === "data" ? `data/${id}` : `registrofechas/${fecha}/${id}`;
         const itemRef = ref(database, path);
 
         const updates = { pago: newPagoValue };
-        
+
         if (checked) {
-          updates.fechapago = new Date().toISOString().split('T')[0];
+          updates.fechapago = new Date().toISOString().split("T")[0];
         } else {
           updates.fechapago = null;
         }
 
         await update(itemRef, updates);
-        
+
         // Actualizar estado local
         if (origin === "data") {
           setDataBranch((prev) =>
@@ -970,7 +1051,7 @@ const Facturasemitidas = () => {
             )
           );
         }
-        
+
         Swal.fire({ title: "¡Listo!", icon: "success", timer: 1000 });
       }
     } catch (error) {
@@ -978,7 +1059,7 @@ const Facturasemitidas = () => {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "No se pudo actualizar el estado de pago"
+        text: "No se pudo actualizar el estado de pago",
       });
     }
   };
@@ -1016,8 +1097,6 @@ const Facturasemitidas = () => {
       ],
     }));
   };
-
-
 
   const handlePagoChange = (dates) => {
     const [start, end] = dates;
@@ -1224,7 +1303,8 @@ const Facturasemitidas = () => {
         deuda: parseFloat(nuevaDeuda.toFixed(2)),
       };
 
-      const fechaPagoFinal = facturaData.fechapago || new Date().toISOString().split('T')[0];
+      const fechaPagoFinal =
+        facturaData.fechapago || new Date().toISOString().split("T")[0];
       if (facturaCompletamentePagada) {
         facturaUpdates.pago = "Pago";
         facturaUpdates.fechapago = fechaPagoFinal;
@@ -1289,7 +1369,7 @@ const Facturasemitidas = () => {
 
           return update(ref(database, path), {
             pago: "Pago",
-            fechapago: fechaPagoFinal
+            fechapago: fechaPagoFinal,
           });
         });
 
@@ -1478,22 +1558,23 @@ const Facturasemitidas = () => {
 
         "N° Factura": registro.numerodefactura || "",
         "A Nombre De": registro.anombrede || "",
-        "Personalizado": registro.personalizado || "",
-        "Dirección": registro.direccion || "",
+        Personalizado: registro.personalizado || "",
+        Dirección: registro.direccion || "",
         "Días de Mora": calculateDaysDelay(registro.timestamp, registro.pago),
-        "Fecha de Pago": registro.numerodefactura 
+        "Fecha de Pago": registro.numerodefactura
           ? facturasData[registro.numerodefactura]?.fechapago || ""
           : registro.fechapago || "",
         "Estado Pago": registro.pago || "",
         "Valor Total": registro.valor || "",
-        "Payment": formatCurrency(
+        Payment: formatCurrency(
           registro.numerodefactura && facturasData[registro.numerodefactura]
             ? facturasData[registro.numerodefactura].payment || 0
             : 0
         ),
-        "Deuda": registro.numerodefactura && facturasData[registro.numerodefactura]
-          ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
-          : "",
+        Deuda:
+          registro.numerodefactura && facturasData[registro.numerodefactura]
+            ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
+            : "",
         "Factura Emitida": registro.factura ? "Sí" : "No",
       }))
     );
@@ -1541,7 +1622,7 @@ const Facturasemitidas = () => {
     // Ajustar anchos de columnas
     worksheet.columns = [
       { width: 14 }, // Fecha Emisión
-      
+
       { width: 12 }, // N° Factura
       { width: 20 }, // A Nombre De
       { width: 20 }, // Personalizado
@@ -1717,7 +1798,7 @@ const Facturasemitidas = () => {
       if (facturaData.invoiceItems) {
         Object.entries(facturaData.invoiceItems).forEach(([key, item]) => {
           filas.push([
-            item.fechaServicioItem || base.fecha, 
+            item.fechaServicioItem || base.fecha,
             item.item || "",
             item.descripcion || "",
             item.qty != null ? item.qty.toString() : "",
@@ -1780,7 +1861,10 @@ const Facturasemitidas = () => {
         .setFontSize(12)
         .text(`INVOICE NO: ${invoiceId}`, 152, mT + 35)
         .text(
-          `DATE: ${facturaData.fechaEmision || new Date(facturaData.timestamp).toLocaleDateString()}`,
+          `DATE: ${
+            facturaData.fechaEmision ||
+            new Date(facturaData.timestamp).toLocaleDateString()
+          }`,
           152,
           mT + 40
         );
@@ -1840,20 +1924,32 @@ const Facturasemitidas = () => {
 
       // — Total y balance —
       const afterY = pdf.lastAutoTable.finalY;
-      
+
       // Mostrar información financiera
       const hasPayment = facturaData && facturaData.payment > 0;
-      
-      pdf.setFontSize(10);
-      
-      if (hasPayment) {
-        pdf.text(`PAYMENT: AWG ${formatCurrency(facturaData.payment)}`, 152, afterY + 6);
 
-        const balance = pagoStatus === "Pago" ? 0 : (facturaData.deuda || 0);
-        pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 11);
+      pdf.setFontSize(10);
+
+      if (hasPayment) {
+        pdf.text(
+          `PAYMENT: AWG ${formatCurrency(facturaData.payment)}`,
+          152,
+          afterY + 6
+        );
+
+        const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || 0;
+        pdf.text(
+          `BALANCE DUE: AWG ${formatCurrency(balance)}`,
+          152,
+          afterY + 11
+        );
       } else {
-        const balance = pagoStatus === "Pago" ? 0 : (facturaData.deuda || 0);
-        pdf.text(`BALANCE DUE: AWG ${formatCurrency(balance)}`, 152, afterY + 6);
+        const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || 0;
+        pdf.text(
+          `BALANCE DUE: AWG ${formatCurrency(balance)}`,
+          152,
+          afterY + 6
+        );
       }
 
       // — Bank Info y footer —
@@ -1966,9 +2062,10 @@ const Facturasemitidas = () => {
 
     const today = new Date();
 
-    const direccionesOptions = directions.sort().map(dir => 
-    `<option value="${dir}">${dir}</option>`
-  ).join('');
+    const direccionesOptions = directions
+      .sort()
+      .map((dir) => `<option value="${dir}">${dir}</option>`)
+      .join("");
 
     // 2. Mostrar modal para ingresar datos de la factura manual
     const { value: res } = await Swal.fire({
@@ -2020,8 +2117,13 @@ const Facturasemitidas = () => {
            <select id="swal-item-select" class="swal2-select" style="flex: 1;">
              <option value="" disabled selected>Seleccione un item...</option>
              ${Object.keys(ITEM_RATES)
-              .map((i) => `<option value="${i}" ${i === "Septic Tank" ? "selected" : ""}>${i}</option>`)
-              .join("")}
+               .map(
+                 (i) =>
+                   `<option value="${i}" ${
+                     i === "Septic Tank" ? "selected" : ""
+                   }>${i}</option>`
+               )
+               .join("")}
            </select>
            <button type="button" id="add-selected-item" class="swal2-confirm swal2-styled" style="flex-shrink: 0;">Agregar Item</button>
          </div>` +
@@ -2037,9 +2139,13 @@ const Facturasemitidas = () => {
         const fechaEmision = document.getElementById("fecha-emision").value;
         const anombrede = document.getElementById("anombrede").value.trim();
         const direccion = document.getElementById("direccion").value.trim();
-        const personalizado = document.getElementById("personalizado").value.trim();
+        const personalizado = document
+          .getElementById("personalizado")
+          .value.trim();
         const billToType = document.getElementById("bill-to-type").value;
-        const customValue = document.getElementById("bill-to-custom").value.trim();
+        const customValue = document
+          .getElementById("bill-to-custom")
+          .value.trim();
 
         // Los items se recogen de la variable 'addedItems' que está en el scope de didOpen
         if (!window.addedItems || window.addedItems.length === 0) {
@@ -2059,7 +2165,9 @@ const Facturasemitidas = () => {
           return false;
         }
         if (billToType === "personalizado" && !customValue) {
-          Swal.showValidationMessage("Ingrese texto personalizado para Bill To");
+          Swal.showValidationMessage(
+            "Ingrese texto personalizado para Bill To"
+          );
           return false;
         }
 
@@ -2108,7 +2216,11 @@ const Facturasemitidas = () => {
               itemDiv.innerHTML = `
                         <span><strong>${item.item}</strong> (x${
                 item.qty
-              }) - ${formatCurrency(item.amount)}<br><small style="color: #666;">Fecha: ${item.fechaServicioItem || 'No especificada'}</small></span>
+              }) - ${formatCurrency(
+                item.amount
+              )}<br><small style="color: #666;">Fecha: ${
+                item.fechaServicioItem || "No especificada"
+              }</small></span>
                         <div>
                           <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
                           <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
@@ -2180,7 +2292,9 @@ const Facturasemitidas = () => {
                 </div>
                 <div style="margin-bottom: 10px;">
                   <label style="display:block; margin-bottom: 5px; font-weight: bold;">Fecha de Servicio:</label>
-                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${today.toISOString().split("T")[0]}" style="width:100%;">
+                  <input id="custom-item-fecha-servicio" type="date" class="swal2-input" value="${
+                    today.toISOString().split("T")[0]
+                  }" style="width:100%;">
                 </div>
                 <div style="text-align: right; margin-top: 25px;">
                   <button type="button" id="cancel-custom-item" class="swal2-cancel swal2-styled" style="margin-right: 10px;">Cancelar</button>
@@ -2199,7 +2313,8 @@ const Facturasemitidas = () => {
             document.getElementById("custom-item-rate").value =
               existingDetails.rate;
             if (existingDetails.fechaServicioItem) {
-              document.getElementById("custom-item-fecha-servicio").value = existingDetails.fechaServicioItem;
+              document.getElementById("custom-item-fecha-servicio").value =
+                existingDetails.fechaServicioItem;
             }
           }
 
@@ -2220,7 +2335,9 @@ const Facturasemitidas = () => {
               rate:
                 parseFloat(document.getElementById("custom-item-rate").value) ||
                 0,
-              fechaServicioItem: document.getElementById("custom-item-fecha-servicio").value,
+              fechaServicioItem: document.getElementById(
+                "custom-item-fecha-servicio"
+              ).value,
             };
             if (details.qty > 0) {
               callback(details);
@@ -2277,7 +2394,10 @@ const Facturasemitidas = () => {
         invoiceIdFinal = invoiceIdEstimado;
         numeroFactura = parseInt(invoiceIdFinal.slice(-5));
         // Eliminar de números disponibles
-        await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
+        await set(
+          ref(database, `facturasDisponibles/${usedAvailableKey}`),
+          null
+        );
       } else {
         // Generar nuevo número
         const contadorRef = ref(database, "contadorFactura");
@@ -2367,7 +2487,6 @@ const Facturasemitidas = () => {
         text: `Factura #${invoiceIdFinal} creada exitosamente`,
         timer: 2000,
       });
-
     } catch (error) {
       console.error("Error creando factura manual:", error);
       Swal.fire({
@@ -2383,49 +2502,56 @@ const Facturasemitidas = () => {
     try {
       // 1) ✅ BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
       const serviciosRelacionados = [];
-      
+
       // Buscar en dataBranch
-      dataBranch.forEach(servicio => {
+      dataBranch.forEach((servicio) => {
         if (servicio.numerodefactura === numeroFactura) {
           serviciosRelacionados.push({
             ...servicio,
-            origin: 'data',
-            path: `data/${servicio.id}`
+            origin: "data",
+            path: `data/${servicio.id}`,
           });
         }
       });
-      
+
       // Buscar en dataRegistroFechas
-      dataRegistroFechas.forEach(grupo => {
-        grupo.registros.forEach(servicio => {
+      dataRegistroFechas.forEach((grupo) => {
+        grupo.registros.forEach((servicio) => {
           if (servicio.numerodefactura === numeroFactura) {
             serviciosRelacionados.push({
               ...servicio,
-              origin: 'registrofechas',
-              path: `registrofechas/${grupo.fecha}/${servicio.id}`
+              origin: "registrofechas",
+              path: `registrofechas/${grupo.fecha}/${servicio.id}`,
             });
           }
         });
       });
 
       // 2) ✅ MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
-      const serviciosInfo = serviciosRelacionados.map(servicio => 
-        `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
-      ).join('\n');
+      const serviciosInfo = serviciosRelacionados
+        .map(
+          (servicio) =>
+            `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
+        )
+        .join("\n");
 
       const { isConfirmed } = await Swal.fire({
         title: "¿Cancelar Factura?",
         html: `
           <div style="text-align: left;">
             <p><strong>Factura a cancelar:</strong> ${numeroFactura}</p>
-            <p><strong>Servicios relacionados (${serviciosRelacionados.length}):</strong></p>
+            <p><strong>Servicios relacionados (${
+              serviciosRelacionados.length
+            }):</strong></p>
             <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
-              ${serviciosInfo || 'No se encontraron servicios relacionados'}
+              ${serviciosInfo || "No se encontraron servicios relacionados"}
             </div>
             <p style="color: #d33; font-weight: bold;">⚠️ Esta acción:</p>
             <ul style="text-align: left; color: #d33;">
               <li>Eliminará completamente la factura</li>
-              <li>Desvinculará ${serviciosRelacionados.length} servicios de esta factura</li>
+              <li>Desvinculará ${
+                serviciosRelacionados.length
+              } servicios de esta factura</li>
               <li>El número de factura quedará disponible para reutilización</li>
             </ul>
           </div>
@@ -2435,7 +2561,7 @@ const Facturasemitidas = () => {
         confirmButtonText: "Sí, Cancelar Factura",
         cancelButtonText: "No, Mantener",
         confirmButtonColor: "#d33",
-        width: "600px"
+        width: "600px",
       });
 
       if (!isConfirmed) return;
@@ -2461,7 +2587,7 @@ const Facturasemitidas = () => {
           fechaEmision: null,
           timestamp: Date.now(),
         };
-        
+
         return update(ref(database, servicio.path), updateData);
       });
 
@@ -2499,12 +2625,12 @@ const Facturasemitidas = () => {
 
       // Actualizar dataBranch
       setDataBranch((prev) => prev.map(updater));
-      
+
       // Actualizar dataRegistroFechas
       setDataRegistroFechas((prev) =>
         prev.map((g) => ({
           ...g,
-          registros: g.registros.map(updater)
+          registros: g.registros.map(updater),
         }))
       );
 
@@ -2520,7 +2646,7 @@ const Facturasemitidas = () => {
           </div>
         `,
         timer: 3000,
-        width: "500px"
+        width: "500px",
       });
     } catch (error) {
       console.error("Error cancelando factura:", error);
@@ -2597,11 +2723,6 @@ const Facturasemitidas = () => {
             placeholderText="Desde – Hasta"
           />
         )}
-
-        <label></label>
-
-
-        <label></label>
         <button
           type="button"
           className="filter-button"
@@ -2621,6 +2742,21 @@ const Facturasemitidas = () => {
             placeholderText="Desde – Hasta"
           />
         )}
+        <button
+          className="filter-button"
+          onClick={() =>
+            setFilters((prev) => ({
+              ...prev,
+              sinFechaPago: !prev.sinFechaPago,
+              fechaPagoInicio: null,
+              fechaPagoFin: null,
+            }))
+          }
+        >
+          {filters.sinFechaPago
+            ? "Quitar filtro sin fecha"
+            : "Filtrar sin fecha de pago"}
+        </button>
 
         <label>Número de Factura</label>
         <input
@@ -2774,9 +2910,9 @@ const Facturasemitidas = () => {
               {paginatedData.map(({ fecha, registros }) => (
                 <React.Fragment key={fecha}>
                   {registros.map((r) => (
-                    <tr 
+                    <tr
                       key={`${r.origin}_${fecha}_${r.id}`}
-                      className={`${activeRow === r.id ? 'active-row' : ''}`}
+                      className={`${activeRow === r.id ? "active-row" : ""}`}
                     >
                       <td style={{ textAlign: "center" }}>
                         <input
@@ -2795,51 +2931,77 @@ const Facturasemitidas = () => {
                           type="date"
                           value={(() => {
                             // 1. Buscar primero en la factura
-                            if (r.numerodefactura && facturasData[r.numerodefactura]) {
+                            if (
+                              r.numerodefactura &&
+                              facturasData[r.numerodefactura]
+                            ) {
                               const factura = facturasData[r.numerodefactura];
                               if (factura.fechaEmision) {
                                 // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
-                                if (factura.fechaEmision.includes('/')) {
-                                  const [day, month, year] = factura.fechaEmision.split('/');
+                                if (factura.fechaEmision.includes("/")) {
+                                  const [day, month, year] =
+                                    factura.fechaEmision.split("/");
                                   return `${year}-${month}-${day}`;
                                 }
                                 // Si ya está en formato YYYY-MM-DD, usar directamente
                                 return factura.fechaEmision;
                               }
                             }
-                            
+
                             // 2. Si no está en la factura, buscar en el servicio
                             if (r.fechaEmision) {
                               // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
-                              if (r.fechaEmision.includes('/')) {
-                                const [day, month, year] = r.fechaEmision.split('/');
+                              if (r.fechaEmision.includes("/")) {
+                                const [day, month, year] =
+                                  r.fechaEmision.split("/");
                                 return `${year}-${month}-${day}`;
                               }
                               // Si ya está en formato YYYY-MM-DD, usar directamente
                               return r.fechaEmision;
                             }
-                            
+
                             // 3. Si no hay fecha de emisión específica, usar el timestamp
                             const timestamp = new Date(r.timestamp);
-                            return timestamp.toISOString().split('T')[0];
+                            return timestamp.toISOString().split("T")[0];
                           })()}
                           onChange={(e) => {
                             // Convertir de YYYY-MM-DD a DD/MM/YYYY para Firebase
-                            const [year, month, day] = e.target.value.split('-');
+                            const [year, month, day] =
+                              e.target.value.split("-");
                             const fechaFormateada = `${day}/${month}/${year}`;
-                            
+
                             // Prioridad: 1. Factura, 2. Servicio
-                            if (r.numerodefactura && facturasData[r.numerodefactura]) {
+                            if (
+                              r.numerodefactura &&
+                              facturasData[r.numerodefactura]
+                            ) {
                               // Si tiene factura, guardar en la factura
-                              const facturaRef = ref(database, `facturas/${r.numerodefactura}`);
-                              update(facturaRef, { fechaEmision: fechaFormateada }).catch(console.error);
+                              const facturaRef = ref(
+                                database,
+                                `facturas/${r.numerodefactura}`
+                              );
+                              update(facturaRef, {
+                                fechaEmision: fechaFormateada,
+                              }).catch(console.error);
                             } else {
                               // Si no tiene factura, guardar en el servicio
-                              handleFieldChange(fecha, r.id, "fechaEmision", fechaFormateada, r.origin);
+                              handleFieldChange(
+                                fecha,
+                                r.id,
+                                "fechaEmision",
+                                fechaFormateada,
+                                r.origin
+                              );
                             }
                           }}
-                          className={`fecha-emision-input ${r.numerodefactura ? 'factura' : ''}`}
-                          title={r.numerodefactura ? "Editar fecha de emisión de la factura" : "Fecha de emisión (timestamp)"}
+                          className={`fecha-emision-input ${
+                            r.numerodefactura ? "factura" : ""
+                          }`}
+                          title={
+                            r.numerodefactura
+                              ? "Editar fecha de emisión de la factura"
+                              : "Fecha de emisión (timestamp)"
+                          }
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>
@@ -2855,11 +3017,15 @@ const Facturasemitidas = () => {
                         <input
                           type="text"
                           style={{ width: "16ch" }}
-                          value={localValues[`${r.id}_anombrede`] ?? r.anombrede ?? ""}
+                          value={
+                            localValues[`${r.id}_anombrede`] ??
+                            r.anombrede ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${r.id}_anombrede`]: e.target.value
+                              [`${r.id}_anombrede`]: e.target.value,
                             }))
                           }
                           onFocus={() => handleRowEdit(r.id)}
@@ -2881,11 +3047,15 @@ const Facturasemitidas = () => {
                         <input
                           type="text"
                           style={{ width: "20ch" }}
-                          value={localValues[`${r.id}_personalizado`] ?? r.personalizado ?? ""}
+                          value={
+                            localValues[`${r.id}_personalizado`] ??
+                            r.personalizado ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${r.id}_personalizado`]: e.target.value
+                              [`${r.id}_personalizado`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -2908,11 +3078,15 @@ const Facturasemitidas = () => {
                             style={{ width: "18ch" }}
                             type="text"
                             list={`dirs-${r.id}`}
-                            value={localValues[`${r.id}_direccion`] ?? r.direccion ?? ""}
+                            value={
+                              localValues[`${r.id}_direccion`] ??
+                              r.direccion ??
+                              ""
+                            }
                             onChange={(e) =>
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${r.id}_direccion`]: e.target.value
+                                [`${r.id}_direccion`]: e.target.value,
                               }))
                             }
                             onFocus={() => handleRowEdit(r.id)}
@@ -2938,7 +3112,7 @@ const Facturasemitidas = () => {
                         <input
                           type="date"
                           value={
-                            r.numerodefactura 
+                            r.numerodefactura
                               ? facturasData[r.numerodefactura]?.fechapago || ""
                               : r.fechapago || ""
                           }
@@ -2946,17 +3120,21 @@ const Facturasemitidas = () => {
                             handleFieldChange(
                               fecha,
                               r.id,
-                              r.numerodefactura ? "fechapago_factura" : "fechapago",
+                              r.numerodefactura
+                                ? "fechapago_factura"
+                                : "fechapago",
                               e.target.value,
                               r.origin
                             )
                           }
                           style={{
-                            backgroundColor: r.numerodefactura ? "#f0f8ff" : "white",
+                            backgroundColor: r.numerodefactura
+                              ? "#f0f8ff"
+                              : "white",
                             borderColor: r.numerodefactura ? "#007bff" : "#ccc",
                           }}
                           title={
-                            r.numerodefactura 
+                            r.numerodefactura
                               ? `Fecha de pago de la factura #${r.numerodefactura}`
                               : "Fecha de pago del servicio individual"
                           }
@@ -2981,23 +3159,35 @@ const Facturasemitidas = () => {
                           }}
                         />
                       </td>
-                      <td className="factura-amount-cell" style={{ textAlign: "center" }}>
-                        {r.numerodefactura && facturasData[r.numerodefactura] 
-                          ? formatCurrency(facturasData[r.numerodefactura].totalAmount || 0)
-                          : formatCurrency(r.valor || 0)
-                        }
+                      <td
+                        className="factura-amount-cell"
+                        style={{ textAlign: "center" }}
+                      >
+                        {r.numerodefactura && facturasData[r.numerodefactura]
+                          ? formatCurrency(
+                              facturasData[r.numerodefactura].totalAmount || 0
+                            )
+                          : formatCurrency(r.valor || 0)}
                       </td>
-                      <td className="factura-payment-cell" style={{ textAlign: "center" }}>
-                        {r.numerodefactura && facturasData[r.numerodefactura] 
-                          ? formatCurrency(facturasData[r.numerodefactura].payment || 0)
-                          : "N/A"
-                        }
+                      <td
+                        className="factura-payment-cell"
+                        style={{ textAlign: "center" }}
+                      >
+                        {r.numerodefactura && facturasData[r.numerodefactura]
+                          ? formatCurrency(
+                              facturasData[r.numerodefactura].payment || 0
+                            )
+                          : "N/A"}
                       </td>
-                      <td className="factura-deuda-cell" style={{ textAlign: "center" }}>
-                        {r.numerodefactura && facturasData[r.numerodefactura] 
-                          ? formatCurrency(facturasData[r.numerodefactura].deuda || 0)
-                          : "N/A"
-                        }
+                      <td
+                        className="factura-deuda-cell"
+                        style={{ textAlign: "center" }}
+                      >
+                        {r.numerodefactura && facturasData[r.numerodefactura]
+                          ? formatCurrency(
+                              facturasData[r.numerodefactura].deuda || 0
+                            )
+                          : "N/A"}
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <button
@@ -3018,7 +3208,11 @@ const Facturasemitidas = () => {
                             Payment
                           </button>
                         ) : (
-                          <span className={`estado-pago-span ${r.pago === "Pago" ? "pagada" : ""}`}>
+                          <span
+                            className={`estado-pago-span ${
+                              r.pago === "Pago" ? "pagada" : ""
+                            }`}
+                          >
                             {r.pago === "Pago" ? "Pagada" : "Sin factura"}
                           </span>
                         )}
@@ -3040,9 +3234,7 @@ const Facturasemitidas = () => {
                             Cancelar Factura
                           </button>
                         ) : (
-                          <span className="estado-pago-span">
-                            Sin factura
-                          </span>
+                          <span className="estado-pago-span">Sin factura</span>
                         )}
                       </td>
                     </tr>
