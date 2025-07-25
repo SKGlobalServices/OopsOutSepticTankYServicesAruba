@@ -637,80 +637,8 @@ const Hojadefechas = () => {
       : `registrofechas/${fecha}/${registroId}`;
     const dbRefItem = ref(database, path);
 
-    // Campo especial: fecha - mover registro a nueva fecha
+    // Eliminar la edición de fecha: si el campo es 'fecha', no hacer nada
     if (field === "fecha") {
-      console.log("🔄 Procesando cambio de fecha en Hojadefechas:", {
-        fecha,
-        registroId,
-        safeValue,
-        origin,
-        fromData,
-      });
-
-      const actualizarFechaServicio = async () => {
-        try {
-          // Obtener el registro completo
-          const registro = fromData
-            ? dataBranch.find((r) => r.id === registroId) || {}
-            : dataRegistroFechas
-                .find((g) => g.fecha === fecha)
-                ?.registros.find((r) => r.id === registroId) || {};
-
-          console.log("📋 Registro encontrado en Hojadefechas:", registro);
-
-          if (fromData) {
-            // Si está en data, solo actualizar la fecha
-            console.log("📝 Actualizando en data desde Hojadefechas:", path);
-            await update(dbRefItem, { fecha: safeValue });
-          } else {
-            // Si está en registrofechas, mover a nueva fecha
-            if (safeValue !== fecha) {
-              console.log(
-                "🔄 Moviendo registro de registrofechas desde Hojadefechas:",
-                {
-                  from: fecha,
-                  to: safeValue,
-                  registroId,
-                }
-              );
-              // Crear en nueva fecha
-              await set(
-                ref(database, `registrofechas/${safeValue}/${registroId}`),
-                {
-                  ...registro,
-                  fecha: safeValue,
-                }
-              );
-              // Eliminar de fecha anterior
-              await set(
-                ref(database, `registrofechas/${fecha}/${registroId}`),
-                null
-              );
-            } else {
-              console.log(
-                "📝 Actualizando fecha en registrofechas sin mover desde Hojadefechas:",
-                path
-              );
-              await update(dbRefItem, { fecha: safeValue });
-            }
-          }
-          console.log(
-            `✅ Fecha de servicio actualizada en Hojadefechas: ${fecha} → ${safeValue}`
-          );
-        } catch (error) {
-          console.error(
-            "❌ Error actualizando fecha de servicio en Hojadefechas:",
-            error
-          );
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "No se pudo actualizar la fecha del servicio",
-          });
-        }
-      };
-
-      actualizarFechaServicio();
       return;
     }
 
@@ -3290,70 +3218,12 @@ const Hojadefechas = () => {
                           fontWeight: "bold",
                         }}
                       >
-                        <input
-                          type="date"
-                          value={
-                            item.fecha
-                              ? item.fecha.split("-").reverse().join("-")
-                              : ""
-                          }
-                          onChange={(e) => {
-                            // Validar que el valor no esté vacío
-                            if (!e.target.value) {
-                              console.log(
-                                "Valor de fecha vacío, ignorando cambio"
-                              );
-                              return;
-                            }
-
-                            // Convertir de YYYY-MM-DD a DD-MM-YYYY para Firebase
-                            const [year, month, day] =
-                              e.target.value.split("-");
-
-                            // Validar que los componentes de fecha sean válidos
-                            if (!year || !month || !day) {
-                              console.error(
-                                "Formato de fecha inválido:",
-                                e.target.value
-                              );
-                              return;
-                            }
-
-                            const fechaFormateada = `${day}-${month}-${year}`;
-
-                            console.log("Cambiando fecha en Hojadefechas:", {
-                              original: item.fecha,
-                              nueva: fechaFormateada,
-                              inputValue: e.target.value,
-                              registrosCount: item.registros.length,
-                            });
-
-                            // Actualizar todos los registros de esta fecha
-                            item.registros.forEach((registro) => {
-                              handleFieldChange(
-                                item.fecha,
-                                registro.id,
-                                "fecha",
-                                fechaFormateada,
-                                registro.origin
-                              );
-                            });
-                          }}
-                          className="fecha-servicio-input"
-                          title="Editar fecha de servicio"
-                          style={{
-                            width: "100%",
-                            textAlign: "center",
-                            fontWeight: "bold",
-                            border: "none",
-                            background: "transparent",
-                            cursor: "pointer",
-                          }}
-                        />
+                        {/* Fecha solo lectura, sin input editable */}
+                        {item.fecha}
                       </td>
                       <td>
                         {/*
-     Si el registro tiene un realizadopor cuyo role es “usernotactive”,
+     Si el registro tiene un realizadopor cuyo role es "usernotactive",
      mostramos sólo el nombre (no aparece en el select de activos).
    */}
                         {(() => {
