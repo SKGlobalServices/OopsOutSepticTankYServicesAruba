@@ -7,6 +7,9 @@ import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
+import ExcelJS from "exceljs";
+import excel_icon from "../assets/img/excel_icon.jpg";
+
 
 const Clientes = () => {
   const [data, setData] = useState([]);
@@ -223,6 +226,110 @@ const Clientes = () => {
         });
       }
     });
+  };
+
+  const formatCurrency = (amount) => {
+    return Number(amount || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+   const generateXLSX = async () => {
+    try {
+      const exportData = filteredData.map((cliente) => ({
+        "A Nombre De": cliente.anombrede || "",
+        "Dirección": cliente.direccion || "",
+        "Cúbicos": cliente.cubicos || 0,
+        "Valor": formatCurrency(cliente.valor || 0),
+        "Email": cliente.email || "",
+      }));
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Clientes");
+
+      const headers = [
+        "A Nombre De",
+        "Dirección", 
+        "Cúbicos",
+        "Valor",
+        "Email"
+      ];
+
+      // Agregar cabecera
+      const headerRow = worksheet.addRow(headers);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF4F81BD" },
+        };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+
+      // Agregar filtro automático
+      worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: headers.length },
+      };
+
+      // Ajustar anchos de columnas
+      worksheet.columns = [
+        { width: 25 }, // A Nombre De
+        { width: 35 }, // Dirección
+        { width: 15 }, // Cúbicos
+        { width: 15 }, // Valor
+        { width: 30 }, // Email
+      ];
+
+      // Agregar datos
+      exportData.forEach((rowData) => {
+        const row = worksheet.addRow(Object.values(rowData));
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
+        });
+      });
+
+      // Generar archivo
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Clientes_${new Date().toLocaleDateString()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Mostrar mensaje de éxito
+      Swal.fire({
+        icon: "success",
+        title: "Excel generado",
+        text: `Se exportaron ${exportData.length} clientes exitosamente.`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error("Error generando Excel:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo generar el archivo Excel.",
+      });
+    }
   };
 
   // Función para eliminar clientes seleccionados con paginación
@@ -648,6 +755,10 @@ const Clientes = () => {
         </div>
 
       </div>
+       <button className="generate-button2" onClick={generateXLSX}>
+        <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
+      </button>
+
       <button onClick={handleAddCliente} className="create-table-button">
         +
       </button>
