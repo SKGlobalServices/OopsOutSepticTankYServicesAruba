@@ -334,15 +334,12 @@ const Facturasemitidas = () => {
     }
 
     // 3) Subcadena: número de factura
-    if (filters.anombrede.length > 0) {
-      const matchAnombrede = filters.anombrede.some((valorFiltro) => {
-        if (valorFiltro === "__EMPTY__") {
-          return !r.anombrede || r.anombrede === "";
-        }
-        return r.anombrede === valorFiltro;
-      });
-      if (!matchAnombrede) return false;
-    }
+    if (
+      filters.numerodefactura &&
+      !r.numerodefactura?.toString().includes(filters.numerodefactura)
+    )
+      return false;
+
 
     // 4) Multi-select: A Nombre De
     if (filters.anombrede.length > 0) {
@@ -1569,11 +1566,10 @@ const Facturasemitidas = () => {
 
   // EXPORTAR XLSX
   const generateXLSX = async () => {
-    const exportData = filteredData.flatMap((item) =>
-      item.registros.map((registro) => ({
+    const exportData = sortedRecords.map((registro) => ({
         "Fecha Emisión": formatDate(registro.timestamp),
 
-        "N° Factura": registro.numerodefactura || "",
+        "N° Factura": registro.numerodefactura || registro.referenciaFactura || "",
         "A Nombre De": registro.anombrede || "",
         Personalizado: registro.personalizado || "",
         Dirección: registro.direccion || "",
@@ -1593,7 +1589,7 @@ const Facturasemitidas = () => {
             ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
             : "",
         "Factura Emitida": registro.factura ? "Sí" : "No",
-      }))
+      })
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -1690,7 +1686,7 @@ const Facturasemitidas = () => {
     }
 
     // 2) Obtener datos seleccionados y usar el PRIMER registro seleccionado como base
-    const allRecs = filteredData.flatMap((g) => g.registros);
+    const allRecs = sortedRecords.flatMap((g) => g.registros);
     const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
 
     // ✅ Usar el primer ID de selectedRows (mantiene orden de selección)
