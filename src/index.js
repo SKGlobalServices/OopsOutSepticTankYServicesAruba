@@ -2,6 +2,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import { HashRouter, Routes, Route } from "react-router-dom";
+import { iniciarSeguimientoHistorial } from "./services/historialTracker";
 import Homepage from "./components/Hojadeservicios.jsx";
 import Agendaexpress from "./components/Agendaexpress.jsx";
 import Hojamañana from "./components/Hojamañana.jsx";
@@ -16,6 +17,17 @@ import Agendadeldiausuario from "./components/Agendadeldiausuario.jsx"
 import Agendamañanausuario from "./components/Agendamañanausuario.jsx"
 import Agendadinamicacontador from "./components/Agendadinamicacontador.jsx"
 import Informedeefectivousuario from "./components/Informedeefectivousuario.jsx";
+import Historialdecambios from "./components/Historialdecambios.jsx";
+import Informedecobranza from "./components/Informedecobranza.jsx";
+import Informedetransferencias from "./components/Informedetransferencias.jsx";
+import Estadoderesultado from "./components/Estadoderesultado.jsx";
+import Ingresos from "./components/Ingresos.jsx";
+import Nomina from "./components/Nomina.jsx";
+import Gastos from "./components/Gastos.jsx";
+
+// Iniciar seguimiento de historial
+iniciarSeguimientoHistorial();
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
@@ -36,6 +48,13 @@ root.render(
       <Route path="/agendadeldiausuario" element={<Agendadeldiausuario />} />
       <Route path="/agendamañanausuario" element={<Agendamañanausuario />} />
       <Route path="/agendadinamicacontador" element={<Agendadinamicacontador />} />
+      <Route path="/historialdecambios" element={<Historialdecambios />} />
+      <Route path="/informedecobranza" element={<Informedecobranza />} />
+      <Route path="/informedetransferencias" element={<Informedetransferencias />} />
+      <Route path="/estadoderesultado" element={<Estadoderesultado />} />
+      <Route path="/ingresos" element={<Ingresos />} />
+      <Route path="/nomina" element={<Nomina />} />
+      <Route path="/gastos" element={<Gastos />} />
     </Routes>
   </HashRouter>
 );

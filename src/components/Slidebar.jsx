@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
@@ -12,19 +11,8 @@ import reprogramacionIcon2 from "../assets/img/reprogramacionIcon2.png";
 import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
 import configuracionUsuariosIcon2 from "../assets/img/configuracionUsuariosIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
-import agendarIcon from "../assets/img/agendarIcon.jpg";
-import servicioHoyIcon from "../assets/img/servicioHoyIcon.jpg";
-import servicioMananaIcon from "../assets/img/servicioMananaIcon.jpg";
-import servicioPasadoMananaIcon from "../assets/img/servicioPasadoMananaIcon.jpg";
-import agendaDinamicaIcon from "../assets/img/agendaDinamicaIcon.jpg";
-import facturaicon from "../assets/img/factura_icon.jpg";
-import clientesIcon from "../assets/img/clientesIcon.jpg";
-import reprogramacionIcon from "../assets/img/reprogramacionIcon.jpg";
-import informeEfectivoIcon from "../assets/img/informeEfectivoIcon.jpg";
-import configuracionUsuariosIcon from "../assets/img/configuracionUsuariosIcon.jpg";
-import logoutIcon from "../assets/img/logoutIcon.jpg";
-
-import barraIcon from "../assets/img/barra_icon.jpg"; // ajusta si cambia
+import barraIcon from "../assets/img/barra_icon.jpg";
+import logo from "../assets/img/logosolo.png";
 
 const Slidebar = () => {
   const navigate = useNavigate();
@@ -66,13 +54,43 @@ const Slidebar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ——————————————
+  // Cierra todos los <details> excepto el que acabas de abrir
+  useEffect(() => {
+    const details = slidebarRef.current.querySelectorAll("details");
+
+    const onSummaryClick = (detail) => (e) => {
+      e.preventDefault();
+      // 1) cerrar todos
+      details.forEach((d) => {
+        if (d !== detail) d.open = false;
+      });
+      // 2) alternar el que tocó
+      detail.open = !detail.open;
+    };
+
+    details.forEach((detail) => {
+      const summary = detail.querySelector("summary");
+      summary.addEventListener("click", onSummaryClick(detail));
+    });
+
+    return () => {
+      details.forEach((detail) => {
+        const summary = detail.querySelector("summary");
+        summary.removeEventListener("click", onSummaryClick(detail));
+      });
+    };
+  }, []);
+
   // Genera URL de imagen al azar para cada usuario
-  const seed = encodeURIComponent(user.username || user.email || user.id || Math.random());
+  const seed = encodeURIComponent(
+    user.username || user.email || user.id || Math.random()
+  );
   const placeholderUrl = `https://loremflickr.com/80/80/animal?lock=${seed}`;
 
   return (
     <div className="homepage-container">
-      {/* SLIDEBAR MÓVIL */}
+      {/* SLIDEBAR */}
       <button className="show-slidebar-button" onClick={toggleSlidebar}>
         <img src={barraIcon} alt="Menú" className="barra-icon-img" />
       </button>
@@ -83,20 +101,20 @@ const Slidebar = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendaexpress">
+            <img
+              className="user-photo"
+              src={logo}
+              alt={user.name || "Invitado"}
+            />
+          </a>
           <div className="user-greeting">
             Bienvenido, {user.name || "Invitado"}
           </div>
-          <img
-            className="user-photo"
-            src={user.photoURL || placeholderUrl}
-            alt={user.name || "Invitado"}
-          />
         </div>
 
         {/* ===== MENÚ PRINCIPAL ===== */}
         {/* MÓDULO: AGENDA EXPRESS */}
-        <details>
-          <summary className="module-header">AGENDA EXPRESS</summary>
           <button
             className="btn-agendar2"
             onClick={() => navigate("/agendaexpress")}
@@ -108,7 +126,6 @@ const Slidebar = () => {
             />
             <span>Agenda Express</span>
           </button>
-        </details>
 
         {/* MÓDULO: HOJAS DE SERVICIOS */}
         <details>
@@ -194,16 +211,42 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button className="btn-nomina2" style={{cursor: "no-drop"}}>
-              <span>Nómina</span>
+            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Nomina"
+              />
+              <span>ㅤㅤNómina</span>
             </button>
-            <button className="btn-gastos2" style={{cursor: "no-drop"}}>
-              <span>Gastos</span>
+            <button className="btn-gastos2" onClick={() => navigate("/gastos")}>
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Gastos"
+              />
+              <span>ㅤㅤGastos</span>
             </button>
-            <button className="btn-ingresos2" style={{cursor: "no-drop"}}>
-              <span>Ingresos</span>
+            <button
+              className="btn-edoResul2"
+              onClick={() => navigate("/ingresos")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Ingresos"
+              />
+              <span>ㅤㅤIngresos</span>
             </button>
-            <button className="btn-edoResul2" style={{cursor: "no-drop"}}>
+            <button
+              className="btn-edoResul2"
+              onClick={() => navigate("/estadoderesultado")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Estado De Resultado"
+              />
               <span>Estado De Resultado</span>
             </button>
           </div>
@@ -224,10 +267,26 @@ const Slidebar = () => {
               />
               <span>Informe De Efectivo</span>
             </button>
-            <button className="btn-infTrans2" style={{cursor: "no-drop"}}>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/informedetransferencias")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe De Transferencias"
+              />
               <span>Informe De Transferencias</span>
             </button>
-            <button className="btn-infCob2" style={{cursor: "no-drop"}}>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/informedecobranza")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe De Cobranza"
+              />
               <span>Informe De Cobranza</span>
             </button>
           </div>
@@ -238,15 +297,26 @@ const Slidebar = () => {
           <summary className="module-header">CONFIGURACIÓN</summary>
           <div className="module-content">
             <button
-              className="btn-clientes2"
+              className="btn-configUsr2"
+              onClick={() => navigate("/historialdecambios")}
+            >
+              <img
+                className="icon-configUsr2"
+                src={configuracionUsuariosIcon2}
+                alt="Historial De Cambios"
+              />
+              <span>Historial De Cambios</span>
+            </button>
+            <button
+              className="btn-configUsr2"
               onClick={() => navigate("/clientes")}
             >
               <img
-                className="icon-clientes2"
+                className="icon-configUsr2"
                 src={clientesIcon2}
                 alt="Clientes"
               />
-              <span>Clientes</span>
+              <span>ㅤㅤClientes</span>
             </button>
             <button
               className="btn-configUsr2"
@@ -263,134 +333,16 @@ const Slidebar = () => {
         </details>
 
         {/* CERRAR SESIÓN */}
-        <details>
-          <summary className="module-header">CERRAR SESIÓN</summary>
-          <div className="module-content">
-            <button className="btn-logout2" onClick={handleLogout}>
-              <img
-                className="icon-logout2"
-                src={logoutIcon2}
-                alt="Logout"
-              />
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
-        </details>
+        <button className="btn-logout2" onClick={handleLogout}>
+          <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
+          <span>Cerrar Sesión</span>
+        </button>
 
         {/* FOOTER */}
         <div className="sidebar-footer">
           © {new Date().getFullYear()} SK GLOBAL SERVICES
         </div>
       </div>
-
-      {/* SLIDEBAR PC */}
-      <button
-        className="icon-button-agendar"
-        onClick={() => navigate("/agendaexpress")}
-      >
-        <img
-          className="icon-image-agendar"
-          src={agendarIcon}
-          alt="Agenda Express"
-        />
-      </button>
-      <button
-        className="icon-button-servicioHoy"
-        onClick={() => navigate("/homepage")}
-      >
-        <img
-          className="icon-image-servicioHoy"
-          src={servicioHoyIcon}
-          alt="homepage"
-        />
-      </button>
-      <button
-        className="icon-button-servicioManana"
-        onClick={() => navigate("/hojamañana")}
-      >
-        <img
-          className="icon-image-servicioManana"
-          src={servicioMananaIcon}
-          alt="hojamañana"
-        />
-      </button>
-      <button
-        className="icon-button-servicioPasadoManana"
-        onClick={() => navigate("/hojapasadomañana")}
-      >
-        <img
-          className="icon-image-servicioPasadoManana"
-          src={servicioPasadoMananaIcon}
-          alt="hojapasadomañana"
-        />
-      </button>
-      <button
-        className="icon-button-agendaDinamica"
-        onClick={() => navigate("/hojadefechas")}
-      >
-        <img
-          className="icon-image-agendaDinamica"
-          src={agendaDinamicaIcon}
-          alt="hojadefechas"
-        />
-      </button>
-      <button
-        className="icon-button-facturasEmitidas"
-        onClick={() => navigate("/facturasemitidas")}
-      >
-        <img
-          className="icon-image-facturasEmitidas"
-          src={facturaicon}
-          alt="Facturas Emitidas"
-        />
-      </button>
-      <button
-        className="icon-button-clientes"
-        onClick={() => navigate("/clientes")}
-      >
-        <img
-          className="icon-image-clientes"
-          src={clientesIcon}
-          alt="clientes"
-        />
-      </button>
-      <button
-        className="icon-button-reprogramacionAutomatica"
-        onClick={() => navigate("/reprogramacionautomatica")}
-      >
-        <img
-          className="icon-image-reprogramacionAutomatica"
-          src={reprogramacionIcon}
-          alt="reprogramacionautomatica"
-        />
-      </button>
-      <button
-        className="icon-button-informeEfectivo"
-        onClick={() => navigate("/informedeefectivo")}
-      >
-        <img
-          className="icon-image-informeEfectivo"
-          src={informeEfectivoIcon}
-          alt="informedeefectivo"
-        />
-      </button>
-      <button
-        className="icon-button-configuracionUsuarios"
-        onClick={() => navigate("/usuarios")}
-      >
-        <img
-          className="icon-image-configuracionUsuarios"
-          src={configuracionUsuariosIcon}
-          alt="usuarios"
-        />
-      </button>
-      <button className="icon-button-logout" onClick={handleLogout}>
-        <img
-          className="icon-image-logout"
-          src={logoutIcon}
-          alt="logout"
-        />
-      </button>
     </div>
   );
 };
