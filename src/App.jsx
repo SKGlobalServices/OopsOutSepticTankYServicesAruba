@@ -11,6 +11,8 @@ import ReCAPTCHA from "react-google-recaptcha";
 import Swal from "sweetalert2";
 import { userCache } from './utils/userCache';
 import { debounce } from './utils/debounce';
+import LoadingScreen from './components/LoadingScreen';
+import { useGlobalLoading, setGlobalLoading } from './utils/useGlobalLoading';
 
 const App = () => {
   const [email, setEmail] = useState("");
@@ -24,6 +26,17 @@ const App = () => {
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
   const emailRef = useRef(null);
+  const globalLoading = useGlobalLoading();
+  
+  // Mostrar pantalla de carga inicial
+  useEffect(() => {
+    setGlobalLoading(true);
+    const timer = setTimeout(() => {
+      setGlobalLoading(false);
+    }, 2000); // 2 segundos de carga inicial
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   // Debounced validation
   const debouncedEmailValidation = useMemo(
@@ -177,20 +190,24 @@ const App = () => {
         startSessionForUser(userKey);
       }
 
-      // Navegación según rol
-      switch (userFound.role.toLowerCase()) {
-        case "admin":
-          navigate("/agendaexpress");
-          break;
-        case "user":
-          navigate("/agendadeldiausuario");
-          break;
-        case "contador":
-          navigate("/agendadinamicacontador");
-          break;
-        default:
-          setMessage("Rol no identificado");
-      }
+      // Navegación según rol con pantalla de carga
+      setGlobalLoading(true);
+      setTimeout(() => {
+        switch (userFound.role.toLowerCase()) {
+          case "admin":
+            navigate("/agendaexpress");
+            break;
+          case "user":
+            navigate("/agendadeldiausuario");
+            break;
+          case "contador":
+            navigate("/agendadinamicacontador");
+            break;
+          default:
+            setMessage("Rol no identificado");
+            setGlobalLoading(false);
+        }
+      }, 1000);
     } catch (error) {
       const attempts = failedAttempts + 1;
       setFailedAttempts(attempts);
@@ -220,12 +237,17 @@ const App = () => {
         startSessionForUser(cachedUser.id);
       }
       
-      switch (cachedUser.role.toLowerCase()) {
-        case "admin": navigate("/agendaexpress"); break;
-        case "user": navigate("/agendadeldiausuario"); break;
-        case "contador": navigate("/agendadinamicacontador"); break;
-        default: setMessage("Rol no identificado");
-      }
+      setGlobalLoading(true);
+      setTimeout(() => {
+        switch (cachedUser.role.toLowerCase()) {
+          case "admin": navigate("/agendaexpress"); break;
+          case "user": navigate("/agendadeldiausuario"); break;
+          case "contador": navigate("/agendadinamicacontador"); break;
+          default: 
+            setMessage("Rol no identificado");
+            setGlobalLoading(false);
+        }
+      }, 1000);
       return;
     }
     
@@ -314,19 +336,23 @@ const App = () => {
       setIsLoading(false);
       Swal.close();
       
-      switch (userFound.role.toLowerCase()) {
-        case "admin":
-          navigate("/agendaexpress");
-          break;
-        case "user":
-          navigate("/agendadeldiausuario");
-          break;
-        case "contador":
-          navigate("/agendadinamicacontador");
-          break;
-        default:
-          setMessage("Rol no identificado");
-      }
+      setGlobalLoading(true);
+      setTimeout(() => {
+        switch (userFound.role.toLowerCase()) {
+          case "admin":
+            navigate("/agendaexpress");
+            break;
+          case "user":
+            navigate("/agendadeldiausuario");
+            break;
+          case "contador":
+            navigate("/agendadinamicacontador");
+            break;
+          default:
+            setMessage("Rol no identificado");
+            setGlobalLoading(false);
+        }
+      }, 1000);
     } catch (error) {
       // Cerrar loading en caso de error
       setIsLoading(false);
@@ -394,6 +420,7 @@ const App = () => {
 
   return (
     <div className="App">
+      {globalLoading && <LoadingScreen />}
       <div className="form-container text-center">
         <h1>
           <img src={logo} alt="Logo" id="logologin" />
