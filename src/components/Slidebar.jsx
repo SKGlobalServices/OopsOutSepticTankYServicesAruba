@@ -26,21 +26,30 @@ const Slidebar = () => {
   
   // Pre-cargar rutas críticas
   useEffect(() => {
-    if (user.role) {
-      const routes = {
-        admin: ['/agendaexpress', '/homepage', '/hojadefechas'],
-        user: ['/agendadeldiausuario'],
-        contador: ['/agendadinamicacontador']
-      };
-      
-      const userRoutes = routes[user.role] || [];
-      userRoutes.forEach(route => {
+    if (!user.role) return;
+    
+    const routes = {
+      admin: ['/agendaexpress', '/homepage', '/hojadefechas'],
+      user: ['/agendadeldiausuario'],
+      contador: ['/agendadinamicacontador']
+    };
+    
+    const userRoutes = routes[user.role];
+    if (!userRoutes) return;
+    
+    const existingLinks = new Set(
+      Array.from(document.querySelectorAll('link[rel="prefetch"]')).map(link => link.href)
+    );
+    
+    userRoutes.forEach(route => {
+      const fullUrl = window.location.origin + route;
+      if (!existingLinks.has(fullUrl)) {
         const link = document.createElement('link');
         link.rel = 'prefetch';
         link.href = route;
         document.head.appendChild(link);
-      });
-    }
+      }
+    });
   }, [user.role]);
 
   useEffect(() => {
@@ -140,6 +149,8 @@ const Slidebar = () => {
   // ——————————————
   // Cierra todos los <details> excepto el que acabas de abrir
   useEffect(() => {
+    if (!slidebarRef.current) return;
+    
     const details = slidebarRef.current.querySelectorAll("details");
 
     const onSummaryClick = (detail) => (e) => {
@@ -154,13 +165,17 @@ const Slidebar = () => {
 
     details.forEach((detail) => {
       const summary = detail.querySelector("summary");
-      summary.addEventListener("click", onSummaryClick(detail));
+      if (summary) {
+        summary.addEventListener("click", onSummaryClick(detail));
+      }
     });
 
     return () => {
       details.forEach((detail) => {
         const summary = detail.querySelector("summary");
-        summary.removeEventListener("click", onSummaryClick(detail));
+        if (summary) {
+          summary.removeEventListener("click", onSummaryClick(detail));
+        }
       });
     };
   }, []);
@@ -292,7 +307,10 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button className="btn-nomina2" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button
+              className="btn-nomina2"
+              onClick={() => navigate("/nomina")}
+            >
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -300,7 +318,10 @@ const Slidebar = () => {
               />
               <span>ㅤㅤNómina</span>
             </button>
-            <button className="btn-gastos2" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button
+              className="btn-gastos2"
+              onClick={() => navigate("/gastos")}
+            >
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -310,8 +331,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/ingresos")}
             >
               <img
                 className="icon-infEfec2"
@@ -322,8 +342,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/estadoderesultado")}
             >
               <img
                 className="icon-infEfec2"
@@ -363,8 +382,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-infEfec2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/informedecobranza")}
             >
               <img
                 className="icon-infEfec2"
@@ -382,8 +400,7 @@ const Slidebar = () => {
           <div className="module-content">
             <button
               className="btn-configUsr2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/historialdecambios")}
             >
               <img
                 className="icon-configUsr2"

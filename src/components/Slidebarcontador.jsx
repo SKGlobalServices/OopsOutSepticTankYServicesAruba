@@ -133,15 +133,14 @@ const Slidebarcontador = () => {
       >
         <button
           className="btn-agendar2"
-          onClick={() => navigate("/agendaexpress")}
-          style={{ visibility: "hidden" }}
+          onClick={() => navigate("/agendadinamicacontador")}
         >
           <img
             className="icon-agendar2"
             src={agendarIcon2}
-            alt="Agenda Express"
+            alt="Agenda Dinámica"
           />
-          <span>Agenda Express</span>
+          <span>Agenda Dinámica</span>
         </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
