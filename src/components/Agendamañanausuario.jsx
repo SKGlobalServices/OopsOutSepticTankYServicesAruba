@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ref, set, push, get, onValue, update } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
+import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
@@ -167,7 +168,7 @@ const Agendadeldiausuario = () => {
 
   // --- Hook para verificar permisos 'candadoserviciosmañana' ---
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = decryptData(localStorage.getItem("user"));
     if (!user) return;
     const candadoRef = ref(database, `users/${user.id}/candadoserviciosmañana`);
     let inicial = true;
@@ -240,7 +241,7 @@ const Agendadeldiausuario = () => {
     });
   };
 
-  const loggedUser = JSON.parse(localStorage.getItem("user"));
+  const loggedUser = decryptData(localStorage.getItem("user"));
   const myUserId = loggedUser?.id;
   const showMisServicios = () => {
     if (!myUserId) {

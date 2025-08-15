@@ -10,6 +10,7 @@ import {
   update,
   remove,
 } from "firebase/database";
+import { decryptData } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Slidebaruser from "./Slidebaruser";
@@ -57,7 +58,7 @@ const Informedeefectivousuario = () => {
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
 
-  const loggedUser = JSON.parse(localStorage.getItem("user"));
+  const loggedUser = decryptData(localStorage.getItem("user"));
   const myUserId = loggedUser?.id;
 
   const [filters, setFilters] = useState({
