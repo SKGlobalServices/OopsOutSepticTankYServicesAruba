@@ -24,7 +24,7 @@ const ITEM_RATES = {
   Pool: 0.0,
 };
 
-const FacturaViewEdit = ({ numeroFactura, onClose }) => {
+const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
   const [facturaData, setFacturaData] = useState(null);
   const [serviciosAsociados, setServiciosAsociados] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -965,30 +965,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
                 {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
               </button>
             )}
-            <button 
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  Swal.fire({
-                    title: "¿Descartar cambios?",
-                    text: "Tienes cambios sin guardar. ¿Deseas descartarlos?",
-                    icon: "warning",
-                    showCancelButton: true,
-                    confirmButtonText: "Sí, descartar",
-                    cancelButtonText: "Cancelar"
-                  }).then((result) => {
-                    if (result.isConfirmed) {
-                      setEditMode(!editMode);
-                      setHasUnsavedChanges(false);
-                    }
-                  });
-                } else {
-                  setEditMode(!editMode);
-                }
-              }}
-              className={`factura-modal-btn ${editMode ? 'secondary' : 'primary'}`}
-            >
-              {editMode ? "Cancelar" : "Editar"}
-            </button>
+
             <button 
               onClick={onClose}
               className="factura-modal-btn danger"
@@ -1156,86 +1133,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
               
               {/* Botones de payment */}
               <div style={{ marginTop: "15px", display: "grid", gap: "8px" }}>
-                <button
-                  onClick={() => registrarPayment()}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    backgroundColor: "#007bff",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontWeight: "bold"
-                  }}
-                >
-                  Registrar Payment / Devolución
-                </button>
-                {(facturaData.deuda || 0) > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    <button
-                      onClick={() => registrarPayment(facturaData.deuda / 2)}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#17a2b8",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px"
-                      }}
-                    >
-                      50% (AWG {formatCurrency(facturaData.deuda / 2)})
-                    </button>
-                    <button
-                      onClick={() => registrarPayment(facturaData.deuda)}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#28a745",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px"
-                      }}
-                    >
-                      Pago Total
-                    </button>
-                  </div>
-                )}
-                {/* Botones de devolución */}
-                {(facturaData.payment || 0) > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "8px" }}>
-                    <button
-                      onClick={() => registrarPayment(-facturaData.payment / 2)}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#ffc107",
-                        color: "#212529",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px"
-                      }}
-                    >
-                      Devolver 50% (AWG {formatCurrency(facturaData.payment / 2)})
-                    </button>
-                    <button
-                      onClick={() => registrarPayment(-facturaData.payment)}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px"
-                      }}
-                    >
-                      Devolver Total (AWG {formatCurrency(facturaData.payment)})
-                    </button>
-                  </div>
-                )}
+
                 {(facturaData.deuda || 0) === 0 && (
                   <div style={{
                     marginTop: "10px",
@@ -1583,4 +1481,4 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   );
 };
 
-export default FacturaViewEdit;
+export default FacturaViewEditTra;

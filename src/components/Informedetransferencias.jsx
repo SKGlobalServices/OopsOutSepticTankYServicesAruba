@@ -12,7 +12,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
-import FacturaViewEdit from "./FacturaViewEdit";
+import FacturaViewEditTra from "./FacturaViewEditTra";
 
 // Función auxiliar para formatear números
 const formatCurrency = (amount) => {
@@ -845,7 +845,7 @@ const Informedetransferencias = () => {
 
       {/* Modal de Vista/Edición de Factura */}
       {showFacturaModal && selectedFactura && (
-        <FacturaViewEdit
+        <FacturaViewEditTra
           numeroFactura={selectedFactura}
           onClose={closeFacturaModal}
         />

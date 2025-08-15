@@ -43,14 +43,28 @@ const Slidebaruser = () => {
 
   // Función para cerrar sesión automáticamente
   const handleAutomaticLogout = async () => {
-    await Swal.fire({
+    let countdown = 30;
+    
+    const result = await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
-      text: "La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.",
+      html: `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
       confirmButtonText: "Aceptar",
       allowOutsideClick: false,
-      allowEscapeKey: false
+      allowEscapeKey: false,
+      timer: 30000,
+      timerProgressBar: true,
+      didOpen: () => {
+        const timer = setInterval(() => {
+          countdown--;
+          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
+          if (countdown <= 0) {
+            clearInterval(timer);
+          }
+        }, 1000);
+      }
     });
+    
     handleLogout();
   };
 
