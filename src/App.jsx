@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import "./App.css";
-import { ref, get, child, update, onValue } from "firebase/database";
+import { ref, get, child, update, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { database, auth, provider } from "./Database/firebaseConfig";
 import { signInWithPopup } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,9 @@ import logo from "./assets/img/logo.png";
 import iconEyeOpen from "./assets/img/iconeye.jpg";
 import iconEyeClosed from "./assets/img/iconeyeclosed.jpg";
 import ReCAPTCHA from "react-google-recaptcha";
+import Swal from "sweetalert2";
+import { userCache } from './utils/userCache';
+import { debounce } from './utils/debounce';
 
 const App = () => {
   const [email, setEmail] = useState("");
@@ -16,8 +19,23 @@ const App = () => {
   const [message, setMessage] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState(null);
+  const [showRecaptcha, setShowRecaptcha] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
+  const emailRef = useRef(null);
+  
+  // Debounced validation
+  const debouncedEmailValidation = useMemo(
+    () => debounce((email) => {
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setMessage('Formato de email inválido');
+      } else {
+        setMessage('');
+      }
+    }, 500),
+    []
+  );
 
   // // Cerrar plataforma de 11pm a 12am
   const isPlatformClosed = () => {
@@ -89,10 +107,26 @@ const App = () => {
     }
     return () => clearInterval(interval);
   }, [blockedUntil]);
+  
+  // Auto-focus en campo email
+  useEffect(() => {
+    if (emailRef.current && !blockedUntil && !isPlatformClosed()) {
+      emailRef.current.focus();
+    }
+  }, [blockedUntil]);
+  
+  // Registrar Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('SW registrado'))
+        .catch(() => console.log('SW falló'));
+    }
+  }, []);
 
-  const togglePasswordVisibility = () => {
+  const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
-  };
+  }, []);
 
   // -- Login con Google --
   const handleGoogleLogin = async () => {
@@ -176,19 +210,77 @@ const App = () => {
 
   // -- Login con email y contraseña --
   const handleLogin = async (token) => {
+    // Verificar cache primero
+    const cachedUser = userCache.get(email);
+    if (cachedUser && cachedUser.password === password) {
+      localStorage.setItem("user", JSON.stringify(cachedUser));
+      localStorage.setItem("isAdmin", cachedUser.role.toLowerCase() === "admin" ? "true" : "false");
+      
+      if (cachedUser.role.toLowerCase() === "user") {
+        startSessionForUser(cachedUser.id);
+      }
+      
+      switch (cachedUser.role.toLowerCase()) {
+        case "admin": navigate("/agendaexpress"); break;
+        case "user": navigate("/agendadeldiausuario"); break;
+        case "contador": navigate("/agendadinamicacontador"); break;
+        default: setMessage("Rol no identificado");
+      }
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // Mostrar progreso específico
+    Swal.fire({
+      title: 'Conectando...',
+      html: 'Validando credenciales con el servidor',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+    
+    // Actualizar progreso
+    setTimeout(() => {
+      if (Swal.isVisible()) {
+        Swal.update({
+          title: 'Verificando...',
+          html: 'Procesando información de usuario'
+        });
+      }
+    }, 1000);
+
     try {
+      // Revertir a consulta original temporalmente
       const dbRef = ref(database);
       const snapshot = await get(child(dbRef, "users"));
+      
+      console.log('Snapshot exists:', snapshot.exists());
+      
       if (!snapshot.exists()) {
+        Swal.close();
+        setIsLoading(false);
         setMessage("No se encontraron usuarios en la base de datos.");
         return;
       }
 
       const users = snapshot.val();
+      console.log('Users data:', users);
+      console.log('Looking for email:', email);
+      
       const entry = Object.entries(users).find(
         ([, u]) => u.email === email && u.password === password
       );
+      
+      console.log('Found entry:', entry);
       if (!entry) {
+        // Cerrar loading en caso de credenciales inválidas
+        Swal.close();
+        setIsLoading(false);
+        
         const attempts = failedAttempts + 1;
         setFailedAttempts(attempts);
         if (attempts >= 5) {
@@ -205,20 +297,23 @@ const App = () => {
       }
 
       const [userKey, userFound] = entry;
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ ...userFound, id: userKey })
-      );
-      localStorage.setItem(
-        "isAdmin",
-        userFound.role.toLowerCase() === "admin" ? "true" : "false"
-      );
+      const userData = { ...userFound, id: userKey };
+      
+      // Guardar en cache
+      userCache.set(email, userData);
+      
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("isAdmin", userFound.role.toLowerCase() === "admin" ? "true" : "false");
 
       // Si es conductor, iniciamos sesión única
       if (userFound.role.toLowerCase() === "user") {
         startSessionForUser(userKey);
       }
 
+      // Cerrar loading
+      setIsLoading(false);
+      Swal.close();
+      
       switch (userFound.role.toLowerCase()) {
         case "admin":
           navigate("/agendaexpress");
@@ -233,6 +328,9 @@ const App = () => {
           setMessage("Rol no identificado");
       }
     } catch (error) {
+      // Cerrar loading en caso de error
+      setIsLoading(false);
+      Swal.close();
       console.error("Error en login:", error);
       setMessage("Ocurrió un error durante el login.");
     }
@@ -253,6 +351,28 @@ const App = () => {
       return;
     }
     setMessage("");
+    
+    // Lazy load reCAPTCHA
+    if (!showRecaptcha) {
+      setShowRecaptcha(true);
+      setTimeout(async () => {
+        if (!recaptchaRef.current) {
+          setMessage("No se pudo validar el captcha.");
+          return;
+        }
+        try {
+          const token = await recaptchaRef.current.executeAsync();
+          recaptchaRef.current.reset();
+          await handleLogin(token);
+        } catch (error) {
+          Swal.close();
+          console.error("Error al ejecutar reCAPTCHA:", error);
+          setMessage("La verificación del captcha falló.");
+        }
+      }, 100);
+      return;
+    }
+    
     if (!recaptchaRef.current) {
       setMessage("No se pudo validar el captcha.");
       return;
@@ -262,6 +382,7 @@ const App = () => {
       recaptchaRef.current.reset();
       await handleLogin(token);
     } catch (error) {
+      Swal.close();
       console.error("Error al ejecutar reCAPTCHA:", error);
       setMessage("La verificación del captcha falló.");
     }
@@ -288,6 +409,7 @@ const App = () => {
           </div>
           <div className="input-group">
             <input
+              ref={emailRef}
               type="email"
               id="email"
               placeholder="Correo"
@@ -295,8 +417,8 @@ const App = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={
-                (blockedUntil && new Date() < blockedUntil)
-                 ||
+                isLoading ||
+                (blockedUntil && new Date() < blockedUntil) ||
                 isPlatformClosed()
               }
             />
@@ -320,9 +442,9 @@ const App = () => {
               onClick={togglePasswordVisibility}
               id="toggle-password"
               disabled={
-                (blockedUntil && new Date() < blockedUntil) 
-                  ||
-                  isPlatformClosed()
+                isLoading ||
+                (blockedUntil && new Date() < blockedUntil) ||
+                isPlatformClosed()
               }
             >
               <img
@@ -336,11 +458,12 @@ const App = () => {
             id="passwordbutton"
             type="submit"
             disabled={
-              (blockedUntil && new Date() < blockedUntil) 
-              || isPlatformClosed()
+              isLoading ||
+              (blockedUntil && new Date() < blockedUntil) ||
+              isPlatformClosed()
             }
           >
-            Iniciar Sesión
+            {isLoading ? 'Verificando...' : 'Iniciar Sesión'}
           </button>
         </form>
         <button
@@ -360,21 +483,23 @@ const App = () => {
         </button>
         {message && <p className="danger">{message}</p>}
       </div>
-      <ReCAPTCHA
-        sitekey="6LdtjvEqAAAAAIYf7TbTFeLMjE3mCbgbt95hs3sE"
-        size="invisible"
-        ref={recaptchaRef}
-        asyncScriptOnLoad={() => console.log("reCAPTCHA listo")}
-        onErrored={() => {
-          console.error("🔴 reCAPTCHA error al cargar");
-          setMessage("Error cargando reCAPTCHA. Revisa tu conexión.");
-        }}
-        onExpired={() => {
-          console.warn("⚠️ reCAPTCHA expirado");
-          recaptchaRef.current.reset();
-          setMessage("El captcha expiró. Intenta de nuevo.");
-        }}
-      />
+      {showRecaptcha && (
+        <ReCAPTCHA
+          sitekey="6LdtjvEqAAAAAIYf7TbTFeLMjE3mCbgbt95hs3sE"
+          size="invisible"
+          ref={recaptchaRef}
+          asyncScriptOnLoad={() => console.log("reCAPTCHA listo")}
+          onErrored={() => {
+            console.error("🔴 reCAPTCHA error al cargar");
+            setMessage("Error cargando reCAPTCHA. Revisa tu conexión.");
+          }}
+          onExpired={() => {
+            console.warn("⚠️ reCAPTCHA expirado");
+            recaptchaRef.current.reset();
+            setMessage("El captcha expiró. Intenta de nuevo.");
+          }}
+        />
+      )}
     </div>
   );
 };

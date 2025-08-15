@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
@@ -19,7 +19,26 @@ const Slidebar = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = JSON.parse(localStorage.getItem("user")) || {};
+  const user = useMemo(() => JSON.parse(localStorage.getItem("user")) || {}, []);
+  
+  // Pre-cargar rutas críticas
+  useEffect(() => {
+    if (user.role) {
+      const routes = {
+        admin: ['/agendaexpress', '/homepage', '/hojadefechas'],
+        user: ['/agendadeldiausuario'],
+        contador: ['/agendadinamicacontador']
+      };
+      
+      const userRoutes = routes[user.role] || [];
+      userRoutes.forEach(route => {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = route;
+        document.head.appendChild(link);
+      });
+    }
+  }, [user.role]);
 
   useEffect(() => {
     if (!user || !user.role) {
@@ -34,19 +53,19 @@ const Slidebar = () => {
     // admin se queda aquí
   }, [user, navigate]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem("user");
     navigate("/");
-  };
+  }, [navigate]);
 
   // Función para verificar si la plataforma está cerrada
-  const isPlatformClosed = () => {
+  const isPlatformClosed = useCallback(() => {
     const now = new Date();
     return now.getHours() === 23;
-  };
+  }, []);
 
   // Función para cerrar sesión automáticamente
-  const handleAutomaticLogout = async () => {
+  const handleAutomaticLogout = useCallback(async () => {
     let countdown = 30;
     
     const result = await Swal.fire({
@@ -70,7 +89,7 @@ const Slidebar = () => {
     });
     
     handleLogout();
-  };
+  }, [handleLogout]);
 
   // Verificar horario cada minuto
   useEffect(() => {
@@ -87,9 +106,9 @@ const Slidebar = () => {
     checkPlatformStatus();
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isPlatformClosed, handleAutomaticLogout]);
 
-  const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
+  const toggleSlidebar = useCallback(() => setShowSlidebar(prev => !prev), []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -133,11 +152,9 @@ const Slidebar = () => {
     };
   }, []);
 
-  // Genera URL de imagen al azar para cada usuario
-  const seed = encodeURIComponent(
-    user.username || user.email || user.id || Math.random()
-  );
-  const placeholderUrl = `https://loremflickr.com/80/80/animal?lock=${seed}`;
+  // Avatar por defecto en lugar de LoremFlickr
+  const defaultAvatar = logo;
+
 
   return (
     <div className="homepage-container">
