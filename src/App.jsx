@@ -311,31 +311,7 @@ const App = () => {
       return;
     }
     
-    // Verificar cache primero
-    const cachedUser = userCache.get(email);
-    if (cachedUser && cachedUser.password === password) {
-      localStorage.setItem("user", encryptData(cachedUser));
-      localStorage.setItem("isAdmin", cachedUser.role.toLowerCase() === "admin" ? "true" : "false");
-      
-      if (cachedUser.role.toLowerCase() === "user") {
-        startSessionForUser(cachedUser.id);
-        initInactivityDetection(handleInactivityLogout);
-      }
-      
-      setGlobalLoading(true);
-      setTimeout(() => {
-        sessionStorage.setItem('navigated', 'true');
-        switch (cachedUser.role.toLowerCase()) {
-          case "admin": navigate("/agendaexpress"); break;
-          case "user": navigate("/agendadeldiausuario"); break;
-          case "contador": navigate("/agendadinamicacontador"); break;
-          default: 
-            setMessage("Rol no identificado");
-            setGlobalLoading(false);
-        }
-      }, 500);
-      return;
-    }
+    // Siempre validar contra base de datos para contraseñas
     
     setIsLoading(true);
     
