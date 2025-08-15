@@ -66,7 +66,8 @@ const Slidebarcontador = () => {
   // Verificar horario cada minuto
   useEffect(() => {
     const checkPlatformStatus = () => {
-      if (isPlatformClosed()) {
+      const currentUser = JSON.parse(localStorage.getItem("user"));
+      if (isPlatformClosed() && currentUser) {
         handleAutomaticLogout();
       }
     };
