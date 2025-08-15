@@ -231,7 +231,7 @@ const App = () => {
     
     setIsLoading(true);
     
-    // Mostrar progreso específico
+    // SweetAlert de carga activado
     Swal.fire({
       title: 'Conectando...',
       html: 'Validando credenciales con el servidor',
