@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, onValue } from "firebase/database";
+import { useNavigate } from "react-router-dom";
+import { decryptData } from "../utils/security";
+import { validateSessionForAction } from "../utils/sessionValidator";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
@@ -23,6 +26,17 @@ const formatCurrency = (amount) => {
 };
 
 const Informedetransferencias = () => {
+  const navigate = useNavigate();
+  
+  // Verificación de autorización
+  useEffect(() => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (!userData || userData.role !== "admin") {
+      navigate("/");
+      return;
+    }
+  }, [navigate]);
+  
   // Estados de carga
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
@@ -62,29 +76,36 @@ const Informedetransferencias = () => {
   // DatePicker
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Cargar datos de "data"
+  // Cargar datos de "data" con autorización
   useEffect(() => {
-    const dbRef = ref(database, "data");
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const dataVal = snapshot.val();
-        const dataList = Object.entries(dataVal).map(([id, record]) => {
-          const today = new Date();
-          const day = ("0" + today.getDate()).slice(-2);
-          const month = ("0" + (today.getMonth() + 1)).slice(-2);
-          const year = today.getFullYear();
-          const fecha = `${day}-${month}-${year}`;
-          return { id, ...record, fecha };
-        });
-        dataList.sort((a, b) => b.timestamp - a.timestamp);
-        setDataBranch(dataList);
-        setLoadedData(true);
-      } else {
-        setDataBranch([]);
-        setLoadedData(true);
-      }
-    });
-    return unsubscribe;
+    const loadData = async () => {
+      const isAuthorized = await validateSessionForAction("cargar datos");
+      if (!isAuthorized) return;
+      
+      const dbRef = ref(database, "data");
+      const unsubscribe = onValue(dbRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const dataVal = snapshot.val();
+          const dataList = Object.entries(dataVal).map(([id, record]) => {
+            const today = new Date();
+            const day = ("0" + today.getDate()).slice(-2);
+            const month = ("0" + (today.getMonth() + 1)).slice(-2);
+            const year = today.getFullYear();
+            const fecha = `${day}-${month}-${year}`;
+            return { id, ...record, fecha };
+          });
+          dataList.sort((a, b) => b.timestamp - a.timestamp);
+          setDataBranch(dataList);
+          setLoadedData(true);
+        } else {
+          setDataBranch([]);
+          setLoadedData(true);
+        }
+      });
+      return unsubscribe;
+    };
+    
+    loadData();
   }, []);
 
   // Cargar datos de "registrofechas"

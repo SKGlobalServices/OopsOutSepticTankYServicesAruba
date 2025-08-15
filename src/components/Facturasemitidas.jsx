@@ -8,6 +8,7 @@ import {
   onValue,
   runTransaction,
 } from "firebase/database";
+import { sanitizeForLog } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
@@ -559,13 +560,7 @@ const Facturasemitidas = () => {
 
     // Campo especial: fecha - mover registro a nueva fecha
     if (field === "fecha") {
-      console.log("🔄 Procesando cambio de fecha:", {
-        fecha,
-        registroId,
-        safeValue,
-        origin,
-        fromData,
-      });
+      console.log("Procesando cambio de fecha para registro");
 
       const actualizarFechaServicio = async () => {
         try {
@@ -576,20 +571,16 @@ const Facturasemitidas = () => {
                 .find((g) => g.fecha === fecha)
                 ?.registros.find((r) => r.id === registroId) || {};
 
-          console.log("📋 Registro encontrado:", registro);
+          console.log("Registro encontrado para actualización");
 
           if (fromData) {
             // Si está en data, solo actualizar la fecha
-            console.log("📝 Actualizando en data:", path);
+            console.log("Actualizando registro en data");
             await update(dbRefItem, { fecha: safeValue });
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
-              console.log("🔄 Moviendo registro de registrofechas:", {
-                from: fecha,
-                to: safeValue,
-                registroId,
-              });
+              console.log("Moviendo registro entre fechas");
               // Crear en nueva fecha
               await set(
                 ref(database, `registrofechas/${safeValue}/${registroId}`),
@@ -604,18 +595,13 @@ const Facturasemitidas = () => {
                 null
               );
             } else {
-              console.log(
-                "📝 Actualizando fecha en registrofechas sin mover:",
-                path
-              );
+              console.log("Actualizando fecha en registrofechas");
               await update(dbRefItem, { fecha: safeValue });
             }
           }
-          console.log(
-            `✅ Fecha de servicio actualizada: ${fecha} → ${safeValue}`
-          );
+          console.log("Fecha de servicio actualizada exitosamente");
         } catch (error) {
-          console.error("❌ Error actualizando fecha de servicio:", error);
+          console.error("Error actualizando fecha de servicio:", sanitizeForLog(error.message));
           Swal.fire({
             icon: "error",
             title: "Error",
@@ -704,11 +690,9 @@ const Facturasemitidas = () => {
             });
 
             await Promise.all(updatePromises);
-            console.log(
-              `✅ Fecha de pago actualizada en factura y ${serviciosAsociados.length} servicios`
-            );
+            console.log("Fecha de pago actualizada en factura y servicios asociados");
           } catch (error) {
-            console.error("Error actualizando servicios asociados:", error);
+            console.error("Error actualizando servicios asociados:", sanitizeForLog(error.message));
           }
         };
 

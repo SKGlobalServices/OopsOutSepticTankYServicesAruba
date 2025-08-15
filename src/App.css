@@ -114,7 +114,13 @@ html {
   justify-content: center;
   align-items: center;
   z-index: 10000;
-  animation: fadeIn 0.3s ease-in;
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+}
+
+.loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .loading-content {
@@ -144,7 +150,7 @@ html {
 }
 
 .loading-text {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
   animation: fadeInOut 1.5s infinite;

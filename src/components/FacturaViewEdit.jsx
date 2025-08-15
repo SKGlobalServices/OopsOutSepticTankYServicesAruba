@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, onValue, update, set } from "firebase/database";
 import Swal from "sweetalert2";
+import { sanitizeForLog } from "../utils/security";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -582,7 +583,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         });
       }
     } catch (error) {
-      console.error("Error registrando payment:", error);
+      console.error("Error registrando payment:", sanitizeForLog(error.message));
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -653,10 +654,10 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
-      console.log(`✅ Nuevo item agregado: ${newItemKey}`);
+      console.log("Nuevo item agregado exitosamente");
       
     } catch (error) {
-      console.error("Error agregando nuevo item:", error);
+      console.error("Error agregando nuevo item:", sanitizeForLog(error.message));
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -711,10 +712,10 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       
       setHasUnsavedChanges(true);
       
-      console.log(`✅ Item eliminado: ${itemKey}`);
+      console.log("Item eliminado exitosamente");
       
     } catch (error) {
-      console.error("Error eliminando item:", error);
+      console.error("Error eliminando item:", sanitizeForLog(error.message));
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -759,7 +760,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
       });
       
     } catch (error) {
-      console.error("Error guardando cambios:", error);
+      console.error("Error guardando cambios:", sanitizeForLog(error.message));
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -819,7 +820,7 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
         prev.map(servicio => ({ ...servicio, banco: nuevoBanco }))
       );
     } catch (error) {
-      console.error("Error actualizando banco en servicios:", error);
+      console.error("Error actualizando banco en servicios:", sanitizeForLog(error.message));
       Swal.fire({
         icon: "error",
         title: "Error",

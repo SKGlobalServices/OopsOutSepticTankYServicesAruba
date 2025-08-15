@@ -1,17 +1,45 @@
 import React, { useEffect } from 'react';
-import { setGlobalLoading } from '../utils/useGlobalLoading';
+import LoadingScreen from './LoadingScreen';
+import { useGlobalLoading, setGlobalLoading } from '../utils/useGlobalLoading';
 
-const PageWrapper = ({ children, loadingTime = 1500 }) => {
+const PageWrapper = ({ children }) => {
+  const globalLoading = useGlobalLoading();
+
   useEffect(() => {
-    setGlobalLoading(true);
-    const timer = setTimeout(() => {
-      setGlobalLoading(false);
-    }, loadingTime);
+    // Solo mostrar pantalla de carga si es recarga de página (no navegación)
+    const isPageReload = !sessionStorage.getItem('navigated');
     
-    return () => clearTimeout(timer);
-  }, [loadingTime]);
+    if (isPageReload) {
+      setGlobalLoading(true);
+      
+      const minLoadTime = 4000;
+      const startTime = Date.now();
+      
+      const hideLoading = () => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, minLoadTime - elapsed);
+        
+        setTimeout(() => {
+          setGlobalLoading(false);
+        }, remaining);
+      };
+      
+      if (document.readyState === 'complete') {
+        hideLoading();
+      } else {
+        window.addEventListener('load', hideLoading);
+      }
+      
+      return () => window.removeEventListener('load', hideLoading);
+    }
+  }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      {globalLoading && <LoadingScreen />}
+      {children}
+    </>
+  );
 };
 
 export default PageWrapper;

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue } from "firebase/database";
+import { useNavigate } from "react-router-dom";
+import { decryptData } from "../utils/security";
+import { validateSessionForAction } from "../utils/sessionValidator";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
@@ -16,6 +19,17 @@ import Select from "react-select";
 import { ToggleButtonGroup } from "react-bootstrap";
 
 const Agendadinamicacontador = () => {
+  const navigate = useNavigate();
+  
+  // Verificación de autorización
+  useEffect(() => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (!userData || userData.role !== "contador") {
+      navigate("/");
+      return;
+    }
+  }, [navigate]);
+  
   // Estados para los datos:
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [dataBranch, setDataBranch] = useState([]);
@@ -122,23 +136,30 @@ const Agendadinamicacontador = () => {
     return () => unsubscribe();
   }, []);
 
-  // Cargar usuarios
+  // Cargar usuarios con autorización
   useEffect(() => {
-    const dbRef = ref(database, "users");
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const fetchedUsers = Object.entries(snapshot.val())
-          .filter(([_, user]) => user.role !== "admin")
-          .filter(([_, user]) => user.role !== "contador")
-          .map(([id, user]) => ({ id, name: user.name }));
-        fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
-        setUsers(fetchedUsers);
-      } else {
-        setUsers([]);
-      }
-      setLoadedUsers(true);
-    });
-    return () => unsubscribe();
+    const loadUsers = async () => {
+      const isAuthorized = await validateSessionForAction("cargar usuarios");
+      if (!isAuthorized) return;
+      
+      const dbRef = ref(database, "users");
+      const unsubscribe = onValue(dbRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const fetchedUsers = Object.entries(snapshot.val())
+            .filter(([_, user]) => user.role !== "admin")
+            .filter(([_, user]) => user.role !== "contador")
+            .map(([id, user]) => ({ id, name: user.name }));
+          fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
+          setUsers(fetchedUsers);
+        } else {
+          setUsers([]);
+        }
+        setLoadedUsers(true);
+      });
+      return () => unsubscribe();
+    };
+    
+    loadUsers();
   }, []);
 
   // Cargar clientes

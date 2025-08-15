@@ -314,7 +314,7 @@ const Agendadeldiausuario = () => {
                 <th>Notas</th>
                 <th>Cúbicos</th>
                 <th>Realizado Por</th>
-                <th>Metodo De Pago</th>
+                <th>Método De Pago</th>
                 <th>Efectivo</th>
               </tr>
             </thead>

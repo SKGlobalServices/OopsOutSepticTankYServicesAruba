@@ -3,6 +3,7 @@ import "./index.css";
 import App from "./App.jsx";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { iniciarSeguimientoHistorial } from "./services/historialTracker";
+import PageWrapper from "./components/PageWrapper.jsx";
 import Homepage from "./components/Hojadeservicios.jsx";
 import Agendaexpress from "./components/Agendaexpress.jsx";
 import Hojamañana from "./components/Hojamañana.jsx";
@@ -34,27 +35,27 @@ root.render(
   <HashRouter>
     <Routes>
       <Route path="/" element={<App />} />
-      <Route path="/homepage" element={<Homepage />} />
-      <Route path="/agendaexpress" element={<Agendaexpress />} />
-      <Route path="/hojamañana" element={<Hojamañana />} />
-      <Route path="/hojapasadomañana" element={<Hojapasadomañana />} />
-      <Route path="/hojadefechas" element={<Hojadefechas />} />
-      <Route path="/facturasemitidas" element={<Facturasemitidas />} />
-      <Route path="/clientes" element={<Clientes />} />
-      <Route path="/reprogramacionautomatica" element={<Reprogramacionautomatica />} />
-      <Route path="/usuarios" element={<Usuarios />} />
-      <Route path="/informedeefectivo" element={<Informedeefectivo />} />
-      <Route path="/informedeefectivousuario" element={<Informedeefectivousuario />} />
-      <Route path="/agendadeldiausuario" element={<Agendadeldiausuario />} />
-      <Route path="/agendamañanausuario" element={<Agendamañanausuario />} />
-      <Route path="/agendadinamicacontador" element={<Agendadinamicacontador />} />
-      <Route path="/historialdecambios" element={<Historialdecambios />} />
-      <Route path="/informedecobranza" element={<Informedecobranza />} />
-      <Route path="/informedetransferencias" element={<Informedetransferencias />} />
-      <Route path="/estadoderesultado" element={<Estadoderesultado />} />
-      <Route path="/ingresos" element={<Ingresos />} />
-      <Route path="/nomina" element={<Nomina />} />
-      <Route path="/gastos" element={<Gastos />} />
+      <Route path="/homepage" element={<PageWrapper><Homepage /></PageWrapper>} />
+      <Route path="/agendaexpress" element={<PageWrapper><Agendaexpress /></PageWrapper>} />
+      <Route path="/hojamañana" element={<PageWrapper><Hojamañana /></PageWrapper>} />
+      <Route path="/hojapasadomañana" element={<PageWrapper><Hojapasadomañana /></PageWrapper>} />
+      <Route path="/hojadefechas" element={<PageWrapper><Hojadefechas /></PageWrapper>} />
+      <Route path="/facturasemitidas" element={<PageWrapper><Facturasemitidas /></PageWrapper>} />
+      <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
+      <Route path="/reprogramacionautomatica" element={<PageWrapper><Reprogramacionautomatica /></PageWrapper>} />
+      <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
+      <Route path="/informedeefectivo" element={<PageWrapper><Informedeefectivo /></PageWrapper>} />
+      <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
+      <Route path="/agendadeldiausuario" element={<PageWrapper><Agendadeldiausuario /></PageWrapper>} />
+      <Route path="/agendamañanausuario" element={<PageWrapper><Agendamañanausuario /></PageWrapper>} />
+      <Route path="/agendadinamicacontador" element={<PageWrapper><Agendadinamicacontador /></PageWrapper>} />
+      <Route path="/historialdecambios" element={<PageWrapper><Historialdecambios /></PageWrapper>} />
+      <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
+      <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
+      <Route path="/estadoderesultado" element={<PageWrapper><Estadoderesultado /></PageWrapper>} />
+      <Route path="/ingresos" element={<PageWrapper><Ingresos /></PageWrapper>} />
+      <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
+      <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

@@ -13,6 +13,8 @@ import { userCache } from './utils/userCache';
 import { debounce } from './utils/debounce';
 import LoadingScreen from './components/LoadingScreen';
 import { useGlobalLoading, setGlobalLoading } from './utils/useGlobalLoading';
+import { sanitizeForLog, validateEmail, validatePassword, encryptData, decryptData, checkRateLimit } from './utils/security';
+import { initInactivityDetection, clearInactivityTimer } from './utils/sessionTimeout';
 
 const App = () => {
   const [email, setEmail] = useState("");
@@ -28,14 +30,32 @@ const App = () => {
   const emailRef = useRef(null);
   const globalLoading = useGlobalLoading();
   
-  // Mostrar pantalla de carga inicial
+  // Mostrar pantalla de carga inicial solo si no se ha navegado antes
   useEffect(() => {
-    setGlobalLoading(true);
-    const timer = setTimeout(() => {
-      setGlobalLoading(false);
-    }, 2000); // 2 segundos de carga inicial
-    
-    return () => clearTimeout(timer);
+    const hasNavigated = sessionStorage.getItem('navigated');
+    if (!hasNavigated) {
+      setGlobalLoading(true);
+      
+      const minLoadTime = 4000;
+      const startTime = Date.now();
+      
+      const hideLoading = () => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, minLoadTime - elapsed);
+        
+        setTimeout(() => {
+          setGlobalLoading(false);
+        }, remaining);
+      };
+      
+      if (document.readyState === 'complete') {
+        hideLoading();
+      } else {
+        window.addEventListener('load', hideLoading);
+      }
+      
+      return () => window.removeEventListener('load', hideLoading);
+    }
   }, []);
   
   // Debounced validation
@@ -61,27 +81,71 @@ const App = () => {
     const sessionRef = ref(database, `users/${userKey}/activeSession`);
     onValue(sessionRef, (snap) => {
       if (snap.exists() && snap.val() !== sessionId) {
-        // Se inició sesión en otro dispositivo: cerramos esta sesión
-        auth.signOut();
-        localStorage.clear();
-        alert(
-          "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
-        );
-        navigate(
-          "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
-        );
+        // Esperar y verificar de nuevo para evitar falsos positivos
+        setTimeout(() => {
+          const currentSessionId = localStorage.getItem("sessionId");
+          if (snap.val() !== currentSessionId) {
+            // Se inició sesión en otro dispositivo: cerramos esta sesión
+            auth.signOut();
+            localStorage.clear();
+            alert(
+              "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
+            );
+            navigate(
+              "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
+            );
+          }
+        }, 2000);
       }
     });
   };
+
+  // Logout por inactividad
+  const handleInactivityLogout = useCallback(async () => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+      try {
+        const userRef = ref(database, `users/${userData.id}`);
+        await update(userRef, { activeSession: null });
+      } catch (error) {
+        console.error("Error al limpiar sesión por inactividad:", sanitizeForLog(error.message));
+      }
+    }
+    localStorage.clear();
+    clearInactivityTimer();
+    alert("Sesión cerrada por inactividad (1 hora)");
+    navigate("/");
+  }, [navigate]);
+
+  // Limpiar sesión al cerrar pestaña/navegador
+  const cleanupSession = useCallback(async () => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+      try {
+        const userRef = ref(database, `users/${userData.id}`);
+        await update(userRef, { activeSession: null });
+      } catch (error) {
+        console.error("Error al limpiar sesión:", sanitizeForLog(error.message));
+      }
+    }
+  }, []);
 
   // Inicio de sesión único
   const startSessionForUser = async (userKey) => {
     const sessionId = `${userKey}_${Date.now()}`;
     const userRef = ref(database, `users/${userKey}`);
     try {
-      await update(userRef, { activeSession: sessionId });
       localStorage.setItem("sessionId", sessionId);
-      listenForSessionInvalidation(userKey, sessionId);
+      await update(userRef, { activeSession: sessionId });
+      
+      // Limpiar sesión al cerrar pestaña
+      window.addEventListener('beforeunload', cleanupSession);
+      window.addEventListener('unload', cleanupSession);
+      
+      // Delay para evitar race condition
+      setTimeout(() => {
+        listenForSessionInvalidation(userKey, sessionId);
+      }, 1000);
     } catch (updErr) {
       console.error("No se pudo actualizar la sesión:", updErr);
       setMessage("Error de servidor al iniciar sesión.");
@@ -130,12 +194,21 @@ const App = () => {
   
   // Registrar Service Worker
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(() => console.log('SW registrado'))
-        .catch(() => console.log('SW falló'));
-    }
+    // Desactivado temporalmente para evitar errores MIME
+    // if ('serviceWorker' in navigator) {
+    //   navigator.serviceWorker.register('/sw.js')
+    //     .then(() => console.log('SW registrado'))
+    //     .catch(() => {});
+    // }
   }, []);
+
+  // Limpiar listeners al desmontar
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('beforeunload', cleanupSession);
+      window.removeEventListener('unload', cleanupSession);
+    };
+  }, [cleanupSession]);
 
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
@@ -176,23 +249,23 @@ const App = () => {
       }
 
       const [userKey, userFound] = entry;
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ ...userFound, id: userKey })
-      );
+      const userData = { ...userFound, id: userKey };
+      localStorage.setItem("user", encryptData(userData));
       localStorage.setItem(
         "isAdmin",
         userFound.role.toLowerCase() === "admin" ? "true" : "false"
       );
 
-      // Si es conductor, iniciamos sesión única
+      // Si es conductor, iniciamos sesión única e inactividad
       if (userFound.role.toLowerCase() === "user") {
         startSessionForUser(userKey);
+        initInactivityDetection(handleInactivityLogout);
       }
 
       // Navegación según rol con pantalla de carga
       setGlobalLoading(true);
       setTimeout(() => {
+        sessionStorage.setItem('navigated', 'true');
         switch (userFound.role.toLowerCase()) {
           case "admin":
             navigate("/agendaexpress");
@@ -207,7 +280,7 @@ const App = () => {
             setMessage("Rol no identificado");
             setGlobalLoading(false);
         }
-      }, 1000);
+      }, 500);
     } catch (error) {
       const attempts = failedAttempts + 1;
       setFailedAttempts(attempts);
@@ -227,18 +300,31 @@ const App = () => {
 
   // -- Login con email y contraseña --
   const handleLogin = async (token) => {
+    // Validaciones de seguridad
+    if (!validateEmail(email)) {
+      setMessage("Email inválido");
+      return;
+    }
+
+    if (!checkRateLimit(email)) {
+      setMessage("Demasiados intentos. Espere 15 minutos.");
+      return;
+    }
+    
     // Verificar cache primero
     const cachedUser = userCache.get(email);
     if (cachedUser && cachedUser.password === password) {
-      localStorage.setItem("user", JSON.stringify(cachedUser));
+      localStorage.setItem("user", encryptData(cachedUser));
       localStorage.setItem("isAdmin", cachedUser.role.toLowerCase() === "admin" ? "true" : "false");
       
       if (cachedUser.role.toLowerCase() === "user") {
         startSessionForUser(cachedUser.id);
+        initInactivityDetection(handleInactivityLogout);
       }
       
       setGlobalLoading(true);
       setTimeout(() => {
+        sessionStorage.setItem('navigated', 'true');
         switch (cachedUser.role.toLowerCase()) {
           case "admin": navigate("/agendaexpress"); break;
           case "user": navigate("/agendadeldiausuario"); break;
@@ -247,61 +333,43 @@ const App = () => {
             setMessage("Rol no identificado");
             setGlobalLoading(false);
         }
-      }, 1000);
+      }, 500);
       return;
     }
     
     setIsLoading(true);
     
-    // SweetAlert de carga activado
+    // SweetAlert simple y confiable
     Swal.fire({
-      title: 'Conectando...',
-      html: 'Validando credenciales con el servidor',
+      title: 'Verificando...',
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
+      didOpen: () => Swal.showLoading()
     });
-    
-    // Actualizar progreso
-    setTimeout(() => {
-      if (Swal.isVisible()) {
-        Swal.update({
-          title: 'Verificando...',
-          html: 'Procesando información de usuario'
-        });
-      }
-    }, 1000);
 
     try {
       // Revertir a consulta original temporalmente
       const dbRef = ref(database);
       const snapshot = await get(child(dbRef, "users"));
       
-      console.log('Snapshot exists:', snapshot.exists());
-      
       if (!snapshot.exists()) {
-        Swal.close();
         setIsLoading(false);
+        Swal.close();
         setMessage("No se encontraron usuarios en la base de datos.");
         return;
       }
 
       const users = snapshot.val();
-      console.log('Users data:', users);
-      console.log('Looking for email:', email);
+      console.log('Login attempt initiated');
       
       const entry = Object.entries(users).find(
         ([, u]) => u.email === email && u.password === password
       );
       
-      console.log('Found entry:', entry);
       if (!entry) {
-        // Cerrar loading en caso de credenciales inválidas
-        Swal.close();
         setIsLoading(false);
+        Swal.close();
         
         const attempts = failedAttempts + 1;
         setFailedAttempts(attempts);
@@ -324,20 +392,26 @@ const App = () => {
       // Guardar en cache
       userCache.set(email, userData);
       
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", encryptData(userData));
       localStorage.setItem("isAdmin", userFound.role.toLowerCase() === "admin" ? "true" : "false");
 
-      // Si es conductor, iniciamos sesión única
+      // Si es conductor, iniciamos sesión única e inactividad
       if (userFound.role.toLowerCase() === "user") {
         startSessionForUser(userKey);
+        initInactivityDetection(handleInactivityLogout);
       }
 
-      // Cerrar loading
       setIsLoading(false);
-      Swal.close();
       
-      setGlobalLoading(true);
-      setTimeout(() => {
+      // Forzar cierre del SweetAlert
+      Swal.fire({
+        icon: 'success',
+        title: 'Login exitoso',
+        timer: 500,
+        showConfirmButton: false
+      }).then(() => {
+        setGlobalLoading(true);
+        sessionStorage.setItem('navigated', 'true');
         switch (userFound.role.toLowerCase()) {
           case "admin":
             navigate("/agendaexpress");
@@ -352,9 +426,8 @@ const App = () => {
             setMessage("Rol no identificado");
             setGlobalLoading(false);
         }
-      }, 1000);
+      });
     } catch (error) {
-      // Cerrar loading en caso de error
       setIsLoading(false);
       Swal.close();
       console.error("Error en login:", error);
@@ -391,7 +464,6 @@ const App = () => {
           recaptchaRef.current.reset();
           await handleLogin(token);
         } catch (error) {
-          Swal.close();
           console.error("Error al ejecutar reCAPTCHA:", error);
           setMessage("La verificación del captcha falló.");
         }
@@ -408,7 +480,6 @@ const App = () => {
       recaptchaRef.current.reset();
       await handleLogin(token);
     } catch (error) {
-      Swal.close();
       console.error("Error al ejecutar reCAPTCHA:", error);
       setMessage("La verificación del captcha falló.");
     }
@@ -426,14 +497,6 @@ const App = () => {
           <img src={logo} alt="Logo" id="logologin" />
         </h1>
         <form onSubmit={onSubmit} className="form-login" id="demo-form">
-          <div className="input-group">
-            <label
-              style={{ fontWeight: "bold", fontSize: "20px" }}
-              htmlFor="email"
-            >
-              Inicio De Sesión
-            </label>
-          </div>
           <div className="input-group">
             <input
               ref={emailRef}
@@ -525,6 +588,7 @@ const App = () => {
             recaptchaRef.current.reset();
             setMessage("El captcha expiró. Intenta de nuevo.");
           }}
+
         />
       )}
     </div>

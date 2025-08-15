@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { database } from "../Database/firebaseConfig";
+import { ref, update } from "firebase/database";
+import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
@@ -19,7 +22,7 @@ const Slidebar = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = useMemo(() => JSON.parse(localStorage.getItem("user")) || {}, []);
+  const user = useMemo(() => decryptData(localStorage.getItem("user")) || {}, []);
   
   // Pre-cargar rutas críticas
   useEffect(() => {
@@ -53,8 +56,18 @@ const Slidebar = () => {
     // admin se queda aquí
   }, [user, navigate]);
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("user");
+  const handleLogout = useCallback(async () => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+      try {
+        const userRef = ref(database, `users/${userData.id}`);
+        await update(userRef, { activeSession: null });
+      } catch (error) {
+        console.error("Error al limpiar sesión:", error);
+      }
+    }
+    localStorage.clear();
+    sessionStorage.removeItem('navigated');
     navigate("/");
   }, [navigate]);
 
@@ -94,7 +107,7 @@ const Slidebar = () => {
   // Verificar horario cada minuto
   useEffect(() => {
     const checkPlatformStatus = () => {
-      const currentUser = JSON.parse(localStorage.getItem("user"));
+      const currentUser = decryptData(localStorage.getItem("user"));
       if (isPlatformClosed() && currentUser) {
         handleAutomaticLogout();
       }

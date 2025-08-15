@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, remove, update, onValue } from "firebase/database";
+import { useNavigate } from "react-router-dom";
+import { decryptData } from "../utils/security";
+import { validateSessionForAction } from "../utils/sessionValidator";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
@@ -12,6 +15,17 @@ import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
 
 const Hojapasadomañana = () => {
+  const navigate = useNavigate();
+  
+  // Verificación de autorización
+  useEffect(() => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (!userData || userData.role !== "admin") {
+      navigate("/");
+      return;
+    }
+  }, [navigate]);
+  
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -65,23 +79,30 @@ const Hojapasadomañana = () => {
     return () => unsubscribe();
   }, []);
 
-  // Cargar "users" (excluyendo administradores y contadores)
+  // Cargar "users" con autorización
   useEffect(() => {
-    const dbRef = ref(database, "users");
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const fetchedUsers = Object.entries(snapshot.val())
-          .filter(([_, user]) => user.role !== "admin")
-          .filter(([_, user]) => user.role !== "contador")
-          .map(([id, user]) => ({ id, name: user.name }));
-        fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
-        setUsers(fetchedUsers);
-      } else {
-        setUsers([]);
-      }
-      setLoadedUsers(true);
-    });
-    return () => unsubscribe();
+    const loadUsers = async () => {
+      const isAuthorized = await validateSessionForAction("cargar usuarios");
+      if (!isAuthorized) return;
+      
+      const dbRef = ref(database, "users");
+      const unsubscribe = onValue(dbRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const fetchedUsers = Object.entries(snapshot.val())
+            .filter(([_, user]) => user.role !== "admin")
+            .filter(([_, user]) => user.role !== "contador")
+            .map(([id, user]) => ({ id, name: user.name }));
+          fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
+          setUsers(fetchedUsers);
+        } else {
+          setUsers([]);
+        }
+        setLoadedUsers(true);
+      });
+      return () => unsubscribe();
+    };
+    
+    loadUsers();
   }, []);
 
   // Cargar "clientes"
@@ -232,6 +253,9 @@ const Hojapasadomañana = () => {
     efectivo,
     factura
   ) => {
+    const isAuthorized = await validateSessionForAction("agregar servicio");
+    if (!isAuthorized) return;
+    
     const dbRef = ref(database, "hojapasadomañana");
     const newDataRef = push(dbRef);
     const newData = {

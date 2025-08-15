@@ -10,6 +10,7 @@ import {
   update,
   remove,
 } from "firebase/database";
+import { sanitizeForLog } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Slidebar from "./Slidebar";
@@ -211,7 +212,7 @@ const Informedeefectivo = () => {
       }).catch((error) => {
         console.error(
           "Error sincronizando registrofechas → informedeefectivo:",
-          error
+          sanitizeForLog(error.message)
         );
       });
     });
@@ -225,7 +226,7 @@ const Informedeefectivo = () => {
         timestamp: record.timestamp ?? Date.now(),
         origin: "data",
       }).catch((error) => {
-        console.error("Error sincronizando data → informedeefectivo:", error);
+        console.error("Error sincronizando data → informedeefectivo:", sanitizeForLog(error.message));
       });
     });
   }, [dataData]);
@@ -241,11 +242,11 @@ const Informedeefectivo = () => {
         update(
           ref(database, `registrofechas/${record.fecha}/${id}`),
           record
-        ).catch((err) => console.error("Error update → registrofechas:", err));
+        ).catch((err) => console.error("Error update → registrofechas:", sanitizeForLog(err.message)));
       }
       if (record.origin === "data") {
         update(ref(database, `data/${id}`), record).catch((err) =>
-          console.error("Error update → data:", err)
+          console.error("Error update → data:", sanitizeForLog(err.message))
         );
       }
     });
@@ -254,12 +255,12 @@ const Informedeefectivo = () => {
       const id = snapshot.key;
       if (record.origin === "registrofechas" && record.fecha) {
         remove(ref(database, `registrofechas/${record.fecha}/${id}`)).catch(
-          (err) => console.error("Error remove → registrofechas:", err)
+          (err) => console.error("Error remove → registrofechas:", sanitizeForLog(err.message))
         );
       }
       if (record.origin === "data") {
         remove(ref(database, `data/${id}`)).catch((err) =>
-          console.error("Error remove → data:", err)
+          console.error("Error remove → data:", sanitizeForLog(err.message))
         );
       }
     });
@@ -275,7 +276,7 @@ const Informedeefectivo = () => {
     const unsubscribe = onChildRemoved(registroRef, (snapshot) => {
       const removedId = snapshot.key;
       remove(ref(database, `informedeefectivo/${removedId}`)).catch((error) =>
-        console.error("Error remove → informedeefectivo:", error)
+        console.error("Error remove → informedeefectivo:", sanitizeForLog(error.message))
       );
     });
     return () => unsubscribe();
@@ -785,7 +786,7 @@ const Informedeefectivo = () => {
       origin: "informedeefectivo",
     };
     await set(newDataRef, newData).catch((error) => {
-      console.error("Error adding data: ", error);
+      console.error("Error adding data: ", sanitizeForLog(error.message));
     });
     setLastAddedId(newDataRef.key);
   };
@@ -1159,7 +1160,7 @@ const Informedeefectivo = () => {
                                         `informedeefectivo/${registro.id}`
                                       )
                                     ).catch((err) =>
-                                      console.error("Error al eliminar:", err)
+                                      console.error("Error al eliminar:", sanitizeForLog(err.message))
                                     );
                                   }
                                 });
