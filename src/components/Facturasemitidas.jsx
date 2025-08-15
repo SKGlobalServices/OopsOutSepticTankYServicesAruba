@@ -340,6 +340,7 @@ const Facturasemitidas = () => {
     )
       return false;
 
+
     // 4) Multi-select: A Nombre De
     if (filters.anombrede.length > 0) {
       const matchAnombrede = filters.anombrede.some((valorFiltro) => {
@@ -413,63 +414,76 @@ const Facturasemitidas = () => {
   // 2b) ORDENA el array plano según la configuración
   const sortedRecords = [...filtrados].sort((a, b) => {
     if (sortConfig.key === "numerodefactura") {
-      const numA = a.numerodefactura || "";
-      const numB = b.numerodefactura || "";
+      // Obtener el número de factura, considerando ambos campos
+      const getFacturaNumber = (registro) => {
+        // Prioriza numerodefactura si existe, sino referenciaFactura, sino vacío
+        return registro.numerodefactura || registro.referenciaFactura || "";
+      };
+      
+      const numA = getFacturaNumber(a);
+      const numB = getFacturaNumber(b);
+      
+      // Use localeCompare with numeric: true for proper number sorting
+      // If numA or numB are empty, they will be treated as less than any number
       if (sortConfig.direction === "asc") {
         return numA.localeCompare(numB, undefined, { numeric: true });
+      } else {
+        return numB.localeCompare(numA, undefined, { numeric: true });
       }
-      return numB.localeCompare(numA, undefined, { numeric: true });
     }
-    // Orden por defecto (fecha)
-    const [d1, m1, y1] = a.fecha.split("-");
-    const [d2, m2, y2] = b.fecha.split("-");
-    const dateA = new Date(y1, m1 - 1, d1);
-    const dateB = new Date(y2, m2 - 1, d2);
-    return dateB - dateA; // Descendente por defecto
+    
+    // Default sort (by date)
+    // Assuming 'fecha' is 'DD-MM-YYYY'
+    const parseDate = (dateString) => {
+      const [day, month, year] = dateString.split("-");
+      return new Date(year, month - 1, day);
+    };
+
+    const dateA = parseDate(a.fecha);
+    const dateB = parseDate(b.fecha);
+
+    if (sortConfig.direction === "asc") {
+      return dateA - dateB;
+    } else {
+      return dateB - dateA; // Descending by default for date
+    }
   });
 
-  // 3) AGRUPA DE NUEVO POR FECHA PARA LA TABLA (si no se ordena por factura)
-  const grouped = sortedRecords.reduce((acc, r) => {
-    const key = sortConfig.key === "numerodefactura" ? r.id : r.fecha;
-    (acc[key] = acc[key] || []).push(r);
-    return acc;
-  }, {});
-
-  const filteredData = Object.entries(grouped)
-    .map(([key, registros]) => ({
-      fecha: sortConfig.key === "numerodefactura" ? registros[0].fecha : key,
-      registros,
-    }))
-    .sort((a, b) => {
-      if (sortConfig.key === "numerodefactura") {
-        // La ordenación principal ya se hizo en sortedRecords
-        return 0;
-      }
-      const [d1, m1, y1] = a.fecha.split("-");
-      const [d2, m2, y2] = b.fecha.split("-");
-      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
-    });
-
   // Cálculos de paginación
-  const allRecords = filteredData.flatMap((group) => group.registros);
+  const allRecords = sortedRecords;
   const totalItems = allRecords.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentPageRecords = allRecords.slice(startIndex, endIndex);
 
-  // Reagrupar los registros paginados por fecha
-  const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
-    (acc[r.fecha] = acc[r.fecha] || []).push(r);
-    return acc;
-  }, {});
-  const paginatedData = Object.entries(paginatedGrouped)
-    .map(([fecha, registros]) => ({ fecha, registros }))
-    .sort((a, b) => {
-      const [d1, m1, y1] = a.fecha.split("-");
-      const [d2, m2, y2] = b.fecha.split("-");
-      return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+  // IMPORTANT: Only group by date for display if NOT sorting by invoice number
+  const paginatedData = [];
+  if (sortConfig.key === "numerodefactura") {
+    // If sorting by invoice number, treat each record as its own "group"
+    // to maintain a flat, sorted list for rendering.
+    currentPageRecords.forEach((record) => {
+      paginatedData.push({
+        // Use a unique key for each record group
+        fecha: `${record.origin}_${record.id}`,
+        registros: [record],
+      });
     });
+  } else {
+    // Reagrupar los registros paginados por fecha (original logic)
+    const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
+      (acc[r.fecha] = acc[r.fecha] || []).push(r);
+      return acc;
+    }, {});
+    Object.entries(paginatedGrouped)
+      .map(([fecha, registros]) => ({ fecha, registros }))
+      .sort((a, b) => {
+        const [d1, m1, y1] = a.fecha.split("-");
+        const [d2, m2, y2] = b.fecha.split("-");
+        return new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1);
+      })
+      .forEach((item) => paginatedData.push(item));
+  }
 
   // Funciones de navegación
   const goToPage = (page) => {
@@ -505,7 +519,7 @@ const Facturasemitidas = () => {
       const newSelections = { ...prev, [key]: checked };
       let totalRecords = 0;
       let selectedCount = 0;
-      filteredData.forEach((item) => {
+      paginatedData.forEach((item) => {
         item.registros.forEach((registro) => {
           totalRecords++;
           if (newSelections[`${item.fecha}_${registro.id}`]) {
@@ -1542,21 +1556,20 @@ const Facturasemitidas = () => {
   const handleSort = (key) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
-        if (prev.direction === "desc")
-          return { key: "fecha", direction: "desc" }; // Volver a default
-        return { key, direction: "desc" };
+        // Toggle direction if same key is clicked
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
       }
+      // Set new key with default 'asc' direction
       return { key, direction: "asc" };
     });
   };
 
   // EXPORTAR XLSX
   const generateXLSX = async () => {
-    const exportData = filteredData.flatMap((item) =>
-      item.registros.map((registro) => ({
+    const exportData = sortedRecords.map((registro) => ({
         "Fecha Emisión": formatDate(registro.timestamp),
 
-        "N° Factura": registro.numerodefactura || "",
+        "N° Factura": registro.numerodefactura || registro.referenciaFactura || "",
         "A Nombre De": registro.anombrede || "",
         Personalizado: registro.personalizado || "",
         Dirección: registro.direccion || "",
@@ -1576,7 +1589,7 @@ const Facturasemitidas = () => {
             ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
             : "",
         "Factura Emitida": registro.factura ? "Sí" : "No",
-      }))
+      })
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -1673,7 +1686,7 @@ const Facturasemitidas = () => {
     }
 
     // 2) Obtener datos seleccionados y usar el PRIMER registro seleccionado como base
-    const allRecs = filteredData.flatMap((g) => g.registros);
+    const allRecs = sortedRecords.flatMap((g) => g.registros);
     const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
 
     // ✅ Usar el primer ID de selectedRows (mantiene orden de selección)
@@ -2802,7 +2815,19 @@ const Facturasemitidas = () => {
         <Select
           isClearable
           isMulti
-          options={moraOptions}
+          options={[
+            { value: "0", label: "0" },
+            { value: "1", label: "1" },
+            { value: "2", label: "2" },
+            { value: "3", label: "3" },
+            { value: "4", label: "4" },
+            { value: "5", label: "5" },
+            { value: "6", label: "6" },
+            { value: "7", label: "7" },
+            { value: "8", label: "8" },
+            { value: "9", label: "9" },
+            { value: "10+", label: "10+" },
+          ]}
           placeholder="Selecciona mora(s)..."
           onChange={(opts) =>
             setFilters((f) => ({
@@ -2911,7 +2936,7 @@ const Facturasemitidas = () => {
                 <React.Fragment key={fecha}>
                   {registros.map((r) => (
                     <tr
-                      key={`${r.origin}_${fecha}_${r.id}`}
+                      key={`${r.origin}_${r.id}`}
                       className={`${activeRow === r.id ? "active-row" : ""}`}
                     >
                       <td style={{ textAlign: "center" }}>
