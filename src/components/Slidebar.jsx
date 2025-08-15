@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
@@ -37,6 +38,41 @@ const Slidebar = () => {
     localStorage.removeItem("user");
     navigate("/");
   };
+
+  // Función para verificar si la plataforma está cerrada
+  const isPlatformClosed = () => {
+    const now = new Date();
+    return now.getHours() === 23;
+  };
+
+  // Función para cerrar sesión automáticamente
+  const handleAutomaticLogout = async () => {
+    await Swal.fire({
+      icon: "warning",
+      title: "Plataforma Cerrada",
+      text: "La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.",
+      confirmButtonText: "Aceptar",
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    });
+    handleLogout();
+  };
+
+  // Verificar horario cada minuto
+  useEffect(() => {
+    const checkPlatformStatus = () => {
+      if (isPlatformClosed()) {
+        handleAutomaticLogout();
+      }
+    };
+
+    const interval = setInterval(checkPlatformStatus, 60000); // Cada minuto
+    
+    // Verificar inmediatamente al cargar
+    checkPlatformStatus();
+
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
 

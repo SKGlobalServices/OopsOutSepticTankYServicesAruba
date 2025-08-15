@@ -4,10 +4,13 @@ import { ref, onValue } from "firebase/database";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import Slidebar from "./Slidebar";
 import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
+import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
 import FacturaViewEdit from "./FacturaViewEdit";
 
@@ -25,27 +28,27 @@ const Informedetransferencias = () => {
   const [loadedData, setLoadedData] = useState(false);
   const [loadedRegistro, setLoadedRegistro] = useState(false);
   const [loadedFacturas, setLoadedFacturas] = useState(false);
-  
+
   // Datos
   const [dataBranch, setDataBranch] = useState([]);
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [facturas, setFacturas] = useState({});
   const [todos, setTodos] = useState([]);
-  
+
   // UI Estados
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
-  
+
   // Modal de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
   const [showFacturaModal, setShowFacturaModal] = useState(false);
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-  
+
   // Filtros
   const [filters, setFilters] = useState({
     direccion: [],
@@ -55,7 +58,7 @@ const Informedetransferencias = () => {
     fechaInicio: null,
     fechaFin: null,
   });
-  
+
   // DatePicker
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -159,14 +162,14 @@ const Informedetransferencias = () => {
   const transferencias = todos.filter((registro) => {
     // Solo mostrar registros con formadepago = "Transferencia"
     if (registro.formadepago !== "Transferencia") return false;
-    
+
     // Aplicar filtros adicionales
     if (filters.fechaInicio && filters.fechaFin) {
       const [d, m, y] = registro.fecha.split("-");
       const f = new Date(y, m - 1, d);
       if (f < filters.fechaInicio || f > filters.fechaFin) return false;
     }
-    
+
     const match = (arr, field) =>
       !arr.length ||
       arr.some((opt) => {
@@ -174,11 +177,11 @@ const Informedetransferencias = () => {
         const optValue = (opt.value ?? "").toString().toLowerCase();
         return val === optValue;
       });
-    
+
     if (!match(filters.direccion, "direccion")) return false;
     if (!match(filters.valor, "valor")) return false;
     if (!match(filters.banco, "banco")) return false;
-    
+
     if (
       filters.numerodefactura &&
       !(registro.numerodefactura || "")
@@ -186,7 +189,7 @@ const Informedetransferencias = () => {
         .includes(filters.numerodefactura.toLowerCase())
     )
       return false;
-    
+
     return true;
   });
 
@@ -195,7 +198,7 @@ const Informedetransferencias = () => {
     (acc[r.fecha] = acc[r.fecha] || []).push(r);
     return acc;
   }, {});
-  
+
   const filteredData = Object.entries(grouped)
     .map(([fecha, registros]) => ({ fecha, registros }))
     .sort((a, b) => {
@@ -211,12 +214,12 @@ const Informedetransferencias = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentPageRecords = allRecords.slice(startIndex, endIndex);
-  
+
   const paginatedGrouped = currentPageRecords.reduce((acc, r) => {
     (acc[r.fecha] = acc[r.fecha] || []).push(r);
     return acc;
   }, {});
-  
+
   const paginatedData = Object.entries(paginatedGrouped)
     .map(([fecha, registros]) => ({ fecha, registros }))
     .sort((a, b) => {
@@ -227,32 +230,26 @@ const Informedetransferencias = () => {
 
   // Opciones para filtros
   const allTransferencias = transferencias;
-  
+
   const direccionOptions = [
     ...Array.from(
-      new Set(
-        allTransferencias.map((r) => r.direccion).filter(Boolean)
-      )
+      new Set(allTransferencias.map((r) => r.direccion).filter(Boolean))
     )
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
-  
+
   const valorOptions = [
     ...Array.from(
-      new Set(
-        allTransferencias.map((r) => r.valor).filter(Boolean)
-      )
+      new Set(allTransferencias.map((r) => r.valor).filter(Boolean))
     )
       .sort((a, b) => a - b)
       .map((v) => ({ value: v.toString(), label: formatCurrency(v) })),
   ];
-  
+
   const bancoOptions = [
     ...Array.from(
-      new Set(
-        allTransferencias.map((r) => r.banco).filter(Boolean)
-      )
+      new Set(allTransferencias.map((r) => r.banco).filter(Boolean))
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -264,12 +261,12 @@ const Informedetransferencias = () => {
       setCurrentPage(page);
     }
   };
-  
+
   const goToFirstPage = () => goToPage(1);
   const goToLastPage = () => goToPage(totalPages);
   const goToPreviousPage = () => goToPage(currentPage - 1);
   const goToNextPage = () => goToPage(currentPage + 1);
-  
+
   const handleItemsPerPageChange = (newSize) => {
     setItemsPerPage(newSize);
     setCurrentPage(1);
@@ -325,7 +322,7 @@ const Informedetransferencias = () => {
       "Banco",
       "N° Factura",
     ];
-    
+
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -379,6 +376,75 @@ const Informedetransferencias = () => {
     a.download = "Informe_Transferencias.xlsx";
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Exportar a PDF
+  const generatePDF = () => {
+    const exportData = filteredData.flatMap((item) =>
+      item.registros.map((registro) => ({
+        Fecha: item.fecha,
+        Dirección: registro.direccion || "",
+        Valor: registro.valor || "",
+        "Forma De Pago": registro.formadepago || "",
+        Banco: registro.banco || "",
+        "N° Factura": registro.numerodefactura || "",
+      }))
+    );
+
+    const doc = new jsPDF("p", "mm", "a4");
+    
+    // Título
+    doc.setFontSize(16);
+    doc.text("Informe de Transferencias", 105, 20, { align: "center" });
+    
+    // Calcular sumas por banco
+    const totalGeneral = transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalAruba = transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalCaribbean = transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalRBC = transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    
+    // Agregar sumas antes de la tabla
+    doc.setFontSize(10);
+    let yPosition = 35;
+    doc.text(`Total General: AWS ${totalGeneral.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`Aruba Bank N.V.: AWS ${totalAruba.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`Caribbean Mercantile Bank N.V.: AWS ${totalCaribbean.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`RBC Royal Bank N.V.: AWS ${totalRBC.toFixed(2)}`, 20, yPosition);
+    yPosition += 10;
+    
+    // Headers de la tabla
+    const headers = [[
+      "Fecha",
+      "Dirección",
+      "Valor",
+      "Forma De Pago",
+      "Banco",
+      "N° Factura",
+    ]];
+
+    const dataRows = exportData.map((item) => [
+      item.Fecha,
+      item.Dirección,
+      item.Valor,
+      item["Forma De Pago"],
+      item.Banco,
+      item["N° Factura"],
+    ]);
+
+    autoTable(doc, {
+      head: headers,
+      body: dataRows,
+      startY: yPosition,
+      theme: "grid",
+      headStyles: { fillColor: [79, 129, 189], textColor: [255, 255, 255] },
+      styles: { fontSize: 8 },
+      margin: { top: 30, left: 10, right: 10 },
+    });
+    
+    doc.save("Informe_Transferencias.pdf");
   };
 
   // Mostrar/ocultar slidebars
@@ -437,7 +503,7 @@ const Informedetransferencias = () => {
     <div className="homepage-container">
       <Slidebar />
       <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
-      
+
       {/* FILTROS */}
       <div onClick={() => toggleFilterSlidebar(!showFilterSlidebar)}>
         <img
@@ -451,7 +517,7 @@ const Informedetransferencias = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        
+
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"
@@ -470,7 +536,7 @@ const Informedetransferencias = () => {
             inline
           />
         )}
-        
+
         <label>Dirección</label>
         <Select
           isClearable
@@ -480,7 +546,7 @@ const Informedetransferencias = () => {
           onChange={(opts) => setFilters({ ...filters, direccion: opts || [] })}
           placeholder="Dirección(es)..."
         />
-        
+
         <label>Valor</label>
         <Select
           isClearable
@@ -490,7 +556,7 @@ const Informedetransferencias = () => {
           onChange={(opts) => setFilters({ ...filters, valor: opts || [] })}
           placeholder="Valor(es)..."
         />
-        
+
         <label>Banco</label>
         <Select
           isClearable
@@ -500,7 +566,7 @@ const Informedetransferencias = () => {
           onChange={(opts) => setFilters({ ...filters, banco: opts || [] })}
           placeholder="Banco(s)..."
         />
-        
+
         <label>N° de Factura</label>
         <input
           type="text"
@@ -516,7 +582,7 @@ const Informedetransferencias = () => {
             width: "100%",
           }}
         />
-        
+
         <button
           className="discard-filter-button"
           onClick={() =>
@@ -545,6 +611,113 @@ const Informedetransferencias = () => {
       </div>
 
       <div className="homepage-card">
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#28a745',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#218838';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#28a745';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Total General</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Aruba Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Caribbean Mercantile Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>RBC Royal Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+        </div>
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -574,14 +747,22 @@ const Informedetransferencias = () => {
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
-                            onClick={() => openFacturaModal(registro.numerodefactura)}
+                            onClick={() =>
+                              openFacturaModal(registro.numerodefactura)
+                            }
                             className="numero-factura-btn"
                             title={`Ver Factura N° ${registro.numerodefactura}`}
                           >
                             {registro.numerodefactura}
                           </button>
                         ) : (
-                          <span style={{ color: "#ccc", fontSize: "11px", fontStyle: "italic" }}>
+                          <span
+                            style={{
+                              color: "#ccc",
+                              fontSize: "11px",
+                              fontStyle: "italic",
+                            }}
+                          >
                             Sin N°
                           </span>
                         )}
@@ -593,7 +774,7 @@ const Informedetransferencias = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Paginación */}
         <div className="pagination-container">
           <div className="pagination-info">
@@ -605,7 +786,9 @@ const Informedetransferencias = () => {
               <label>Mostrar:</label>
               <select
                 value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
               >
                 <option value={50}>50</option>
                 <option value={100}>100</option>
@@ -651,10 +834,13 @@ const Informedetransferencias = () => {
           </div>
         </div>
       </div>
-      
-      {/* Botón de exportar Excel */}
-      <button className="generate-button2" onClick={generateXLSX}>
-        <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
+
+      {/* Botones de exportar */}
+      <button className="generate-button1" onClick={generateXLSX}>
+        <img className="generate-button-imagen1" src={excel_icon} alt="Excel" />
+      </button>
+      <button className="generate-button2" onClick={generatePDF}>
+        <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
       </button>
 
       {/* Modal de Vista/Edición de Factura */}
