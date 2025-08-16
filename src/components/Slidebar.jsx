@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
@@ -22,25 +28,39 @@ const Slidebar = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = useMemo(() => decryptData(localStorage.getItem("user")) || {}, []);
-  
+  const user = useMemo(
+    () => decryptData(localStorage.getItem("user")) || {},
+    []
+  );
+
   // Pre-cargar rutas críticas
   useEffect(() => {
-    if (user.role) {
-      const routes = {
-        admin: ['/agendaexpress', '/homepage', '/hojadefechas'],
-        user: ['/agendadeldiausuario'],
-        contador: ['/agendadinamicacontador']
-      };
-      
-      const userRoutes = routes[user.role] || [];
-      userRoutes.forEach(route => {
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
+    if (!user.role) return;
+
+    const routes = {
+      admin: ["/agendaexpress", "/homepage", "/hojadefechas"],
+      user: ["/agendadeldiausuario"],
+      contador: ["/agendadinamicacontador"],
+    };
+
+    const userRoutes = routes[user.role];
+    if (!userRoutes) return;
+
+    const existingLinks = new Set(
+      Array.from(document.querySelectorAll('link[rel="nofollow"]')).map(
+        (link) => link.href
+      )
+    );
+
+    userRoutes.forEach((route) => {
+      const fullUrl = window.location.origin + route;
+      if (!existingLinks.has(fullUrl)) {
+        const link = document.createElement("link");
+        link.rel = "nofollow";
         link.href = route;
         document.head.appendChild(link);
-      });
-    }
+      }
+    });
   }, [user.role]);
 
   useEffect(() => {
@@ -67,7 +87,7 @@ const Slidebar = () => {
       }
     }
     localStorage.clear();
-    sessionStorage.removeItem('navigated');
+    sessionStorage.removeItem("navigated");
     navigate("/");
   }, [navigate]);
 
@@ -80,7 +100,7 @@ const Slidebar = () => {
   // Función para cerrar sesión automáticamente
   const handleAutomaticLogout = useCallback(async () => {
     let countdown = 30;
-    
+
     const result = await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
@@ -98,9 +118,9 @@ const Slidebar = () => {
             clearInterval(timer);
           }
         }, 1000);
-      }
+      },
     });
-    
+
     handleLogout();
   }, [handleLogout]);
 
@@ -114,14 +134,17 @@ const Slidebar = () => {
     };
 
     const interval = setInterval(checkPlatformStatus, 60000); // Cada minuto
-    
+
     // Verificar inmediatamente al cargar
     checkPlatformStatus();
 
     return () => clearInterval(interval);
   }, [isPlatformClosed, handleAutomaticLogout]);
 
-  const toggleSlidebar = useCallback(() => setShowSlidebar(prev => !prev), []);
+  const toggleSlidebar = useCallback(
+    () => setShowSlidebar((prev) => !prev),
+    []
+  );
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -140,6 +163,8 @@ const Slidebar = () => {
   // ——————————————
   // Cierra todos los <details> excepto el que acabas de abrir
   useEffect(() => {
+    if (!slidebarRef.current) return;
+
     const details = slidebarRef.current.querySelectorAll("details");
 
     const onSummaryClick = (detail) => (e) => {
@@ -154,20 +179,23 @@ const Slidebar = () => {
 
     details.forEach((detail) => {
       const summary = detail.querySelector("summary");
-      summary.addEventListener("click", onSummaryClick(detail));
+      if (summary) {
+        summary.addEventListener("click", onSummaryClick(detail));
+      }
     });
 
     return () => {
       details.forEach((detail) => {
         const summary = detail.querySelector("summary");
-        summary.removeEventListener("click", onSummaryClick(detail));
+        if (summary) {
+          summary.removeEventListener("click", onSummaryClick(detail));
+        }
       });
     };
   }, []);
 
   // Avatar por defecto en lugar de LoremFlickr
   const defaultAvatar = logo;
-
 
   return (
     <div className="homepage-container">
@@ -196,17 +224,17 @@ const Slidebar = () => {
 
         {/* ===== MENÚ PRINCIPAL ===== */}
         {/* MÓDULO: AGENDA EXPRESS */}
-          <button
-            className="btn-agendar2"
-            onClick={() => navigate("/agendaexpress")}
-          >
-            <img
-              className="icon-agendar2"
-              src={agendarIcon2}
-              alt="Agenda Express"
-            />
-            <span>Agenda Express</span>
-          </button>
+        <button
+          className="btn-agendar2"
+          onClick={() => navigate("/agendaexpress")}
+        >
+          <img
+            className="icon-agendar2"
+            src={agendarIcon2}
+            alt="Agenda Express"
+          />
+          <span>Agenda Express</span>
+        </button>
 
         {/* MÓDULO: HOJAS DE SERVICIOS */}
         <details>
@@ -292,7 +320,7 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button className="btn-nomina2" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -300,7 +328,7 @@ const Slidebar = () => {
               />
               <span>ㅤㅤNómina</span>
             </button>
-            <button className="btn-gastos2" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button className="btn-gastos2" onClick={() => navigate("/gastos")}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -310,8 +338,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/ingresos")}
             >
               <img
                 className="icon-infEfec2"
@@ -322,8 +349,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/estadoderesultado")}
             >
               <img
                 className="icon-infEfec2"
@@ -363,8 +389,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-infEfec2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/informedecobranza")}
             >
               <img
                 className="icon-infEfec2"
@@ -382,8 +407,7 @@ const Slidebar = () => {
           <div className="module-content">
             <button
               className="btn-configUsr2"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              onClick={() => navigate("/historialdecambios")}
             >
               <img
                 className="icon-configUsr2"
