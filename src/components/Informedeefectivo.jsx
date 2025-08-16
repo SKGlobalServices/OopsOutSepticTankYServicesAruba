@@ -192,14 +192,17 @@ const Informedeefectivo = () => {
     return () => unsubscribe();
   }, []);
 
-  // Actualizar la lista de direcciones combinando registros de "registrofechas"
+  // Actualizar la lista de direcciones combinando todos los registros
   useEffect(() => {
     const newDirections = new Set();
-    registroFechasData.forEach((record) => {
-      if (record.direccion) newDirections.add(record.direccion);
+    // Agregar direcciones de todos los datos
+    [...registroFechasData, ...dataData, ...dataInformedeefectivoData].forEach((record) => {
+      if (record.direccion && record.direccion.trim() !== "") {
+        newDirections.add(record.direccion);
+      }
     });
-    setDirections([...newDirections]);
-  }, [registroFechasData]);
+    setDirections([...newDirections].sort());
+  }, [registroFechasData, dataData, dataInformedeefectivoData]);
 
   // --- SINCRONIZAR A "informedeefectivo" (bidireccional) ---
   // Desde registrofechas (creación y cambios)
