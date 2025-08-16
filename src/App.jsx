@@ -103,11 +103,13 @@ const App = () => {
   // Verificar resultado de redirect de Google solo si hay navegación pendiente
   useEffect(() => {
     const checkRedirectResult = async () => {
-      // Solo verificar si hay indicios de redirect pendiente
       const urlParams = new URLSearchParams(window.location.search);
       const hasAuthParams = urlParams.has('code') || urlParams.has('state') || window.location.hash.includes('access_token');
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       
-      if (!hasAuthParams) return;
+      // En apps instaladas, reducir verificaciones
+      if (isStandalone && !hasAuthParams) return;
+      if (!isStandalone && !hasAuthParams) return;
       
       try {
         const result = await getRedirectResult(auth);
@@ -120,18 +122,25 @@ const App = () => {
       }
     };
     
-    checkRedirectResult();
+    // Retrasar en apps instaladas para evitar congelamiento
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) {
+      setTimeout(checkRedirectResult, 500);
+    } else {
+      checkRedirectResult();
+    }
   }, [processGoogleUser]);
 
-  // Mostrar pantalla de carga inicial solo en la página de login
+  // Mostrar pantalla de carga inicial
   useEffect(() => {
     const hasNavigated = sessionStorage.getItem('navigated');
     const isLoginPage = window.location.pathname === '/' || window.location.hash === '#/';
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     
-    if (!hasNavigated && isLoginPage) {
+    if (!hasNavigated && (isLoginPage || isStandalone)) {
       setGlobalLoading(true);
       
-      const minLoadTime = 3000;
+      const minLoadTime = isStandalone ? 2000 : 3000;
       const startTime = Date.now();
       
       const hideLoading = () => {
@@ -143,8 +152,9 @@ const App = () => {
         }, remaining);
       };
       
-      if (document.readyState === 'complete') {
-        hideLoading();
+      // En apps instaladas, forzar carga inmediata
+      if (isStandalone || document.readyState === 'complete') {
+        setTimeout(hideLoading, 100);
       } else {
         window.addEventListener('load', hideLoading);
       }
