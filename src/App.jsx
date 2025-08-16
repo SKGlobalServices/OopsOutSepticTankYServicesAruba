@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import "./App.css";
 import { ref, get, child, update, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { database, auth, provider } from "./Database/firebaseConfig";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import logo from "./assets/img/logo.png";
 import iconEyeOpen from "./assets/img/iconeye.jpg";
@@ -23,20 +23,115 @@ const App = () => {
   const [message, setMessage] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState(null);
-  const [showRecaptcha, setShowRecaptcha] = useState(false);
+  const [showRecaptcha, setShowRecaptcha] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
   const emailRef = useRef(null);
   const globalLoading = useGlobalLoading();
   
-  // Mostrar pantalla de carga inicial solo si no se ha navegado antes
+  // Logout por inactividad
+  const handleInactivityLogout = useCallback(async () => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+      try {
+        const userRef = ref(database, `users/${userData.id}`);
+        await update(userRef, { activeSession: null });
+      } catch (error) {
+        console.error("Error al limpiar sesión por inactividad:", sanitizeForLog(error.message));
+      }
+    }
+    localStorage.clear();
+    clearInactivityTimer();
+    alert("Sesión cerrada por inactividad (1 hora)");
+    navigate("/");
+  }, [navigate]);
+  
+  // Procesar usuario de Google autenticado
+  const processGoogleUser = useCallback(async (user) => {
+    const { email: emailFromGoogle } = user;
+    
+    if (!emailFromGoogle) {
+      setMessage("No se pudo obtener el email de Google.");
+      return;
+    }
+
+    const dbRef = ref(database);
+    const snapshot = await get(child(dbRef, "users"));
+    if (!snapshot.exists()) {
+      setMessage("No se encontraron usuarios en la base de datos.");
+      return;
+    }
+
+    const users = snapshot.val();
+    const entry = Object.entries(users).find(([, u]) => u.email === emailFromGoogle);
+    if (!entry) {
+      setMessage("El usuario no está registrado en el sistema.");
+      return;
+    }
+
+    const [userKey, userFound] = entry;
+    const userData = { ...userFound, id: userKey };
+    localStorage.setItem("user", encryptData(userData));
+    localStorage.setItem("isAdmin", userFound.role.toLowerCase() === "admin" ? "true" : "false");
+
+    if (userFound.role.toLowerCase() === "user") {
+      startSessionForUser(userKey);
+      initInactivityDetection(handleInactivityLogout);
+    }
+
+    setGlobalLoading(true);
+    setTimeout(() => {
+      sessionStorage.setItem('navigated', 'true');
+      switch (userFound.role.toLowerCase()) {
+        case "admin":
+          navigate("/agendaexpress");
+          break;
+        case "user":
+          navigate("/agendadeldiausuario");
+          break;
+        case "contador":
+          navigate("/agendadinamicacontador");
+          break;
+        default:
+          setMessage("Rol no identificado");
+          setGlobalLoading(false);
+      }
+    }, 500);
+  }, [navigate, handleInactivityLogout]);
+  
+  // Verificar resultado de redirect de Google solo si hay navegación pendiente
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      // Solo verificar si hay indicios de redirect pendiente
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasAuthParams = urlParams.has('code') || urlParams.has('state') || window.location.hash.includes('access_token');
+      
+      if (!hasAuthParams) return;
+      
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          await processGoogleUser(result.user);
+        }
+      } catch (error) {
+        console.error("Error procesando redirect de Google:", error);
+        setMessage("Error al procesar login de Google.");
+      }
+    };
+    
+    checkRedirectResult();
+  }, [processGoogleUser]);
+
+  // Mostrar pantalla de carga inicial solo en la página de login
   useEffect(() => {
     const hasNavigated = sessionStorage.getItem('navigated');
-    if (!hasNavigated) {
+    const isLoginPage = window.location.pathname === '/' || window.location.hash === '#/';
+    
+    if (!hasNavigated && isLoginPage) {
       setGlobalLoading(true);
       
-      const minLoadTime = 4000;
+      const minLoadTime = 3000;
       const startTime = Date.now();
       
       const hideLoading = () => {
@@ -70,52 +165,29 @@ const App = () => {
     []
   );
 
-  // // Cerrar plataforma de 11pm a 12am
+  // Cerrar plataforma de 11pm a 12am
   const isPlatformClosed = () => {
     const now = new Date();
-    return now.getHours() === 23; // true si son entre 23:00 y 00:00
+    return now.getHours() === 23;
   };
 
-  // -- Función para escuchar invalidación de sesión --
+  // Función para escuchar invalidación de sesión
   const listenForSessionInvalidation = (userKey, sessionId) => {
     const sessionRef = ref(database, `users/${userKey}/activeSession`);
     onValue(sessionRef, (snap) => {
       if (snap.exists() && snap.val() !== sessionId) {
-        // Esperar y verificar de nuevo para evitar falsos positivos
         setTimeout(() => {
           const currentSessionId = localStorage.getItem("sessionId");
           if (snap.val() !== currentSessionId) {
-            // Se inició sesión en otro dispositivo: cerramos esta sesión
             auth.signOut();
             localStorage.clear();
-            alert(
-              "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
-            );
-            navigate(
-              "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
-            );
+            alert("Su sesión ha sido cerrada porque se inició sesión en otro dispositivo.");
+            navigate("https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/");
           }
         }, 2000);
       }
     });
   };
-
-  // Logout por inactividad
-  const handleInactivityLogout = useCallback(async () => {
-    const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
-      try {
-        const userRef = ref(database, `users/${userData.id}`);
-        await update(userRef, { activeSession: null });
-      } catch (error) {
-        console.error("Error al limpiar sesión por inactividad:", sanitizeForLog(error.message));
-      }
-    }
-    localStorage.clear();
-    clearInactivityTimer();
-    alert("Sesión cerrada por inactividad (1 hora)");
-    navigate("/");
-  }, [navigate]);
 
   // Limpiar sesión al cerrar pestaña/navegador
   const cleanupSession = useCallback(async () => {
@@ -138,11 +210,9 @@ const App = () => {
       localStorage.setItem("sessionId", sessionId);
       await update(userRef, { activeSession: sessionId });
       
-      // Limpiar sesión al cerrar pestaña
       window.addEventListener('beforeunload', cleanupSession);
       window.addEventListener('unload', cleanupSession);
       
-      // Delay para evitar race condition
       setTimeout(() => {
         listenForSessionInvalidation(userKey, sessionId);
       }, 1000);
@@ -152,7 +222,7 @@ const App = () => {
     }
   };
 
-  // -- Bloqueo por intentar demasiadas veces --
+  // Bloqueo por intentar demasiadas veces
   useEffect(() => {
     const storedBlockedUntil = localStorage.getItem("blockedUntil");
     if (storedBlockedUntil) {
@@ -171,9 +241,7 @@ const App = () => {
       interval = setInterval(() => {
         const secondsRemaining = Math.ceil((blockedUntil - new Date()) / 1000);
         if (secondsRemaining > 0) {
-          setMessage(
-            `Dispositivo bloqueado. Intente nuevamente en ${secondsRemaining} segundos.`
-          );
+          setMessage(`Dispositivo bloqueado. Intente nuevamente en ${secondsRemaining} segundos.`);
         } else {
           setBlockedUntil(null);
           localStorage.removeItem("blockedUntil");
@@ -191,16 +259,6 @@ const App = () => {
       emailRef.current.focus();
     }
   }, [blockedUntil]);
-  
-  // Registrar Service Worker
-  useEffect(() => {
-    // Desactivado temporalmente para evitar errores MIME
-    // if ('serviceWorker' in navigator) {
-    //   navigator.serviceWorker.register('/sw.js')
-    //     .then(() => console.log('SW registrado'))
-    //     .catch(() => {});
-    // }
-  }, []);
 
   // Limpiar listeners al desmontar
   useEffect(() => {
@@ -214,93 +272,61 @@ const App = () => {
     setShowPassword((prev) => !prev);
   }, []);
 
-  // -- Login con Google --
+
+
+  // Login con Google
   const handleGoogleLogin = async () => {
     if (isPlatformClosed()) {
-      setMessage("La plataforma está cerrada. Vuelva después de las 12:00 AM.");
+      setMessage("La plataforma está cerrada. Vuelva después de las 12:00AM.");
       return;
     }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
-      setMessage(
-        `Dispositivo bloqueado. Intente nuevamente en ${sec} segundos.`
-      );
+      setMessage(`Dispositivo bloqueado. Intente nuevamente en ${sec} segundos.`);
       return;
     }
 
+    setMessage("");
+    
     try {
       const result = await signInWithPopup(auth, provider);
-      const { email: emailFromGoogle } = result.user;
-
-      const dbRef = ref(database);
-      const snapshot = await get(child(dbRef, "users"));
-      if (!snapshot.exists()) {
-        setMessage("No se encontraron usuarios en la base de datos.");
+      
+      if (!result || !result.user) {
+        setMessage("No se pudo obtener información del usuario de Google.");
         return;
       }
-
-      const users = snapshot.val();
-      const entry = Object.entries(users).find(
-        ([, u]) => u.email === emailFromGoogle
-      );
-      if (!entry) {
-        setMessage("El usuario no está registrado en el sistema.");
-        return;
-      }
-
-      const [userKey, userFound] = entry;
-      const userData = { ...userFound, id: userKey };
-      localStorage.setItem("user", encryptData(userData));
-      localStorage.setItem(
-        "isAdmin",
-        userFound.role.toLowerCase() === "admin" ? "true" : "false"
-      );
-
-      // Si es conductor, iniciamos sesión única e inactividad
-      if (userFound.role.toLowerCase() === "user") {
-        startSessionForUser(userKey);
-        initInactivityDetection(handleInactivityLogout);
-      }
-
-      // Navegación según rol con pantalla de carga
-      setGlobalLoading(true);
-      setTimeout(() => {
-        sessionStorage.setItem('navigated', 'true');
-        switch (userFound.role.toLowerCase()) {
-          case "admin":
-            navigate("/agendaexpress");
-            break;
-          case "user":
-            navigate("/agendadeldiausuario");
-            break;
-          case "contador":
-            navigate("/agendadinamicacontador");
-            break;
-          default:
-            setMessage("Rol no identificado");
-            setGlobalLoading(false);
-        }
-      }, 500);
+      
+      await processGoogleUser(result.user);
+      
     } catch (error) {
-      const attempts = failedAttempts + 1;
-      setFailedAttempts(attempts);
-      if (attempts >= 5) {
-        const blockTime = new Date(Date.now() + 5 * 60 * 1000);
-        setBlockedUntil(blockTime);
-        localStorage.setItem("blockedUntil", blockTime.getTime().toString());
-        setMessage(
-          "Dispositivo bloqueado. Intente nuevamente en 300 segundos."
-        );
-      } else {
-        setMessage("Ocurrió un error durante el login con Google.");
-      }
       console.error("Error en login con Google:", error);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        setMessage("Login cancelado. Intentando método alternativo...");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectError) {
+          console.error("Error con redirect:", redirectError);
+          setMessage("Error al iniciar sesión con Google. Intente nuevamente.");
+        }
+      } else if (error.code === 'auth/popup-blocked') {
+        setMessage("Popup bloqueado. Usando método alternativo...");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectError) {
+          console.error("Error con redirect:", redirectError);
+          setMessage("Permita popups para este sitio o intente nuevamente.");
+        }
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        setMessage("Solicitud cancelada. Intente nuevamente.");
+      } else {
+        setMessage(`Error al iniciar sesión con Google: ${error.message}`);
+      }
     }
   };
 
-  // -- Login con email y contraseña --
+  // Login con email y contraseña
   const handleLogin = async (token) => {
-    // Validaciones de seguridad
     if (!validateEmail(email)) {
       setMessage("Email inválido");
       return;
@@ -311,11 +337,8 @@ const App = () => {
       return;
     }
     
-    // Siempre validar contra base de datos para contraseñas
-    
     setIsLoading(true);
     
-    // SweetAlert simple y confiable
     Swal.fire({
       title: 'Verificando...',
       allowOutsideClick: false,
@@ -325,7 +348,6 @@ const App = () => {
     });
 
     try {
-      // Revertir a consulta original temporalmente
       const dbRef = ref(database);
       const snapshot = await get(child(dbRef, "users"));
       
@@ -337,11 +359,7 @@ const App = () => {
       }
 
       const users = snapshot.val();
-      console.log('Login attempt initiated');
-      
-      const entry = Object.entries(users).find(
-        ([, u]) => u.email === email && u.password === password
-      );
+      const entry = Object.entries(users).find(([, u]) => u.email === email && u.password === password);
       
       if (!entry) {
         setIsLoading(false);
@@ -353,9 +371,7 @@ const App = () => {
           const blockTime = new Date(Date.now() + 5 * 60 * 1000);
           setBlockedUntil(blockTime);
           localStorage.setItem("blockedUntil", blockTime.getTime().toString());
-          setMessage(
-            "Dispositivo bloqueado. Intente nuevamente en 300 segundos."
-          );
+          setMessage("Dispositivo bloqueado. Intente nuevamente en 300 segundos.");
         } else {
           setMessage("Correo o contraseña inválidos.");
         }
@@ -365,13 +381,11 @@ const App = () => {
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
       
-      // Guardar en cache
       userCache.set(email, userData);
       
       localStorage.setItem("user", encryptData(userData));
       localStorage.setItem("isAdmin", userFound.role.toLowerCase() === "admin" ? "true" : "false");
 
-      // Si es conductor, iniciamos sesión única e inactividad
       if (userFound.role.toLowerCase() === "user") {
         startSessionForUser(userKey);
         initInactivityDetection(handleInactivityLogout);
@@ -379,7 +393,6 @@ const App = () => {
 
       setIsLoading(false);
       
-      // Forzar cierre del SweetAlert
       Swal.fire({
         icon: 'success',
         title: 'Login exitoso',
@@ -411,23 +424,20 @@ const App = () => {
     }
   };
 
-  // -- Submit del formulario --
+  // Submit del formulario
   const onSubmit = async (e) => {
     e.preventDefault();
     if (isPlatformClosed()) {
-      setMessage("La plataforma está cerrada. Vuelva después de las 12:00 AM.");
+      setMessage("La plataforma está cerrada. Vuelva después de las 12:00AM.");
       return;
     }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
-      setMessage(
-        `Dispositivo bloqueado. Intente nuevamente en ${sec} segundos.`
-      );
+      setMessage(`Dispositivo bloqueado. Intente nuevamente en ${sec} segundos.`);
       return;
     }
     setMessage("");
     
-    // Lazy load reCAPTCHA
     if (!showRecaptcha) {
       setShowRecaptcha(true);
       setTimeout(async () => {
@@ -460,10 +470,6 @@ const App = () => {
       setMessage("La verificación del captcha falló.");
     }
   };
-
-  //  variable disabledAll
-  const disabledAll =
-    (blockedUntil && new Date() < blockedUntil) || isPlatformClosed();
 
   return (
     <div className="App">
@@ -498,8 +504,7 @@ const App = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={
-                (blockedUntil && new Date() < blockedUntil) 
-                ||
+                (blockedUntil && new Date() < blockedUntil) ||
                 isPlatformClosed()
               }
             />
@@ -536,8 +541,8 @@ const App = () => {
           id="google-login-button"
           onClick={handleGoogleLogin}
           disabled={
-            (blockedUntil && new Date() < blockedUntil) 
-            || isPlatformClosed()
+            (blockedUntil && new Date() < blockedUntil) ||
+            isPlatformClosed()
           }
         >
           <img
@@ -564,7 +569,6 @@ const App = () => {
             recaptchaRef.current.reset();
             setMessage("El captcha expiró. Intenta de nuevo.");
           }}
-
         />
       )}
     </div>

@@ -26,10 +26,12 @@ import Ingresos from "./components/Ingresos.jsx";
 import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 
-// Iniciar seguimiento de historial
-iniciarSeguimientoHistorial();
-
 const root = ReactDOM.createRoot(document.getElementById("root"));
+
+// Iniciar seguimiento de historial después del montaje
+setTimeout(() => {
+  iniciarSeguimientoHistorial();
+}, 1000);
 
 root.render(
   <HashRouter>

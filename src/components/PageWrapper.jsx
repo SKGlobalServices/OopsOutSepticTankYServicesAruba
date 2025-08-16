@@ -1,38 +1,31 @@
 import React, { useEffect } from 'react';
 import LoadingScreen from './LoadingScreen';
 import { useGlobalLoading, setGlobalLoading } from '../utils/useGlobalLoading';
+import { useNavigate } from 'react-router-dom';
 
 const PageWrapper = ({ children }) => {
   const globalLoading = useGlobalLoading();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Solo mostrar pantalla de carga si es recarga de página (no navegación)
-    const isPageReload = !sessionStorage.getItem('navigated');
-    
-    if (isPageReload) {
-      setGlobalLoading(true);
-      
-      const minLoadTime = 4000;
-      const startTime = Date.now();
-      
-      const hideLoading = () => {
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, minLoadTime - elapsed);
-        
-        setTimeout(() => {
-          setGlobalLoading(false);
-        }, remaining);
-      };
-      
-      if (document.readyState === 'complete') {
-        hideLoading();
-      } else {
-        window.addEventListener('load', hideLoading);
+    const checkPlatformClosure = () => {
+      const now = new Date();
+      if (now.getHours() === 23) {
+        localStorage.clear();
+        sessionStorage.clear();
+        alert('La plataforma está cerrada de 11:00 PM a 12:00 AM. Será redirigido al login.');
+        navigate('/');
       }
-      
-      return () => window.removeEventListener('load', hideLoading);
-    }
-  }, []);
+    };
+
+    // Verificar inmediatamente
+    checkPlatformClosure();
+    
+    // Verificar cada minuto
+    const interval = setInterval(checkPlatformClosure, 60000);
+    
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   return (
     <>
