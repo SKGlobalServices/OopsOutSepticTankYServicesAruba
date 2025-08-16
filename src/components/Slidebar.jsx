@@ -320,7 +320,11 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
+            <button
+              className="btn-nomina2"
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
+            >
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -328,7 +332,11 @@ const Slidebar = () => {
               />
               <span>ㅤㅤNómina</span>
             </button>
-            <button className="btn-gastos2" onClick={() => navigate("/gastos")}>
+            <button
+              className="btn-gastos2"
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
+            >
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -338,7 +346,8 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              onClick={() => navigate("/ingresos")}
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
             >
               <img
                 className="icon-infEfec2"
@@ -349,7 +358,8 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              onClick={() => navigate("/estadoderesultado")}
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
             >
               <img
                 className="icon-infEfec2"
@@ -389,7 +399,8 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-infEfec2"
-              onClick={() => navigate("/informedecobranza")}
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
             >
               <img
                 className="icon-infEfec2"
@@ -407,7 +418,8 @@ const Slidebar = () => {
           <div className="module-content">
             <button
               className="btn-configUsr2"
-              onClick={() => navigate("/historialdecambios")}
+              disabled
+              style={{ opacity: 0.5, cursor: "not-allowed" }}
             >
               <img
                 className="icon-configUsr2"
