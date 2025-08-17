@@ -1670,7 +1670,7 @@ const Facturasemitidas = () => {
     }
 
     // 2) Obtener datos seleccionados y usar el PRIMER registro seleccionado como base
-    const allRecs = sortedRecords.flatMap((g) => g.registros);
+    const allRecs = sortedRecords || sortedRecords.flatMap((g) => g.registros);
     const selectedData = allRecs.filter((r) => selectedRows.includes(r.id));
 
     // ✅ Usar el primer ID de selectedRows (mantiene orden de selección)
@@ -1687,7 +1687,7 @@ const Facturasemitidas = () => {
     }
 
     // 3) Validar que la factura existe
-    if (!base.numerodefactura) {
+    if (!base.numerodefactura && !base.referenciaFactura) {
       return Swal.fire({
         title: "Sin factura asociada",
         text: "El primer registro seleccionado no tiene una factura asociada.",
