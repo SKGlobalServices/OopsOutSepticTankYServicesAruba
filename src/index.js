@@ -2,7 +2,6 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import { HashRouter, Routes, Route } from "react-router-dom";
-import { iniciarSeguimientoHistorial } from "./services/historialTracker";
 import PageWrapper from "./components/PageWrapper.jsx";
 import Homepage from "./components/Hojadeservicios.jsx";
 import Agendaexpress from "./components/Agendaexpress.jsx";
@@ -27,11 +26,6 @@ import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-
-// Iniciar seguimiento de historial después del montaje
-setTimeout(() => {
-  iniciarSeguimientoHistorial();
-}, 1000);
 
 root.render(
   <HashRouter>
