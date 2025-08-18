@@ -569,7 +569,6 @@ const App = () => {
           sitekey="6LdtjvEqAAAAAIYf7TbTFeLMjE3mCbgbt95hs3sE"
           size="invisible"
           ref={recaptchaRef}
-          asyncScriptOnLoad={() => console.log("reCAPTCHA listo")}
           onErrored={() => {
             console.error("🔴 reCAPTCHA error al cargar");
             setMessage("Error cargando reCAPTCHA. Revisa tu conexión.");
