@@ -43,7 +43,9 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtro</h2>
+        <h2>Filtros</h2>
+        <br/>
+        <hr/>
         <button className="Filter-Button">
           <p>DataPicker</p>
         </button>

@@ -1781,6 +1781,7 @@ details[open] .module-content {
   margin-right: 10px;
   border-radius: 5px;
   font-size: 13px;
+  margin-bottom: 5px;
 }
 
 .filter-button:hover {

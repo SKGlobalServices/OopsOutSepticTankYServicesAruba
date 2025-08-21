@@ -452,6 +452,8 @@ const Clientes = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
+        <br/>
+        <hr/>
         <label>Dirección</label>
         <Select
           isClearable

@@ -44,6 +44,8 @@ const Gastos = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
+        <br/>
+        <hr/>
         <button className="Filter-Button">
           <p>DataPicker</p>
         </button>

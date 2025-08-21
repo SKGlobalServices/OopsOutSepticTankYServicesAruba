@@ -91,56 +91,6 @@ const Slidebar = () => {
     navigate("/");
   }, [navigate]);
 
-  // Función para verificar si la plataforma está cerrada
-  const isPlatformClosed = useCallback(() => {
-    const now = new Date();
-    return now.getHours() === 23;
-  }, []);
-
-  // Función para cerrar sesión automáticamente
-  const handleAutomaticLogout = useCallback(async () => {
-    let countdown = 30;
-
-    const result = await Swal.fire({
-      icon: "warning",
-      title: "Plataforma Cerrada",
-      html: `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
-      confirmButtonText: "Aceptar",
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      timer: 30000,
-      timerProgressBar: true,
-      didOpen: () => {
-        const timer = setInterval(() => {
-          countdown--;
-          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
-          if (countdown <= 0) {
-            clearInterval(timer);
-          }
-        }, 1000);
-      },
-    });
-
-    handleLogout();
-  }, [handleLogout]);
-
-  // Verificar horario cada minuto
-  useEffect(() => {
-    const checkPlatformStatus = () => {
-      const currentUser = decryptData(localStorage.getItem("user"));
-      if (isPlatformClosed() && currentUser) {
-        handleAutomaticLogout();
-      }
-    };
-
-    const interval = setInterval(checkPlatformStatus, 60000); // Cada minuto
-
-    // Verificar inmediatamente al cargar
-    checkPlatformStatus();
-
-    return () => clearInterval(interval);
-  }, [isPlatformClosed, handleAutomaticLogout]);
-
   const toggleSlidebar = useCallback(
     () => setShowSlidebar((prev) => !prev),
     []
@@ -408,6 +358,16 @@ const Slidebar = () => {
                 alt="Informe De Cobranza"
               />
               <span>Informe De Cobranza</span>
+            </button>
+            <button className="btn-infEfec2"
+            onClick={() => navigate("/fastmark")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Fast Mark"
+              />
+              <span>ㅤㅤFast Mark</span>
             </button>
           </div>
         </details>

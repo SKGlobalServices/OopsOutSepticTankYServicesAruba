@@ -2698,7 +2698,8 @@ const Facturasemitidas = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        <label>Fechas</label>
+        <br/>
+        <hr/>
         <button
           type="button"
           className="filter-button"

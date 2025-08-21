@@ -24,6 +24,7 @@ import Estadoderesultado from "./components/Estadoderesultado.jsx";
 import Ingresos from "./components/Ingresos.jsx";
 import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
+import Fastmark from "./components/Fastmark.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -40,14 +41,15 @@ root.render(
       <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
       <Route path="/reprogramacionautomatica" element={<PageWrapper><Reprogramacionautomatica /></PageWrapper>} />
       <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
-      <Route path="/informedeefectivo" element={<PageWrapper><Informedeefectivo /></PageWrapper>} />
       <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
       <Route path="/agendadeldiausuario" element={<PageWrapper><Agendadeldiausuario /></PageWrapper>} />
       <Route path="/agendamañanausuario" element={<PageWrapper><Agendamañanausuario /></PageWrapper>} />
       <Route path="/agendadinamicacontador" element={<PageWrapper><Agendadinamicacontador /></PageWrapper>} />
       <Route path="/historialdecambios" element={<PageWrapper><Historialdecambios /></PageWrapper>} />
-      <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
+      <Route path="/informedeefectivo" element={<PageWrapper><Informedeefectivo /></PageWrapper>} />
       <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
+      <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
+      <Route path="/fastmark" element={<PageWrapper><Fastmark /></PageWrapper>} />
       <Route path="/estadoderesultado" element={<PageWrapper><Estadoderesultado /></PageWrapper>} />
       <Route path="/ingresos" element={<PageWrapper><Ingresos /></PageWrapper>} />
       <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />

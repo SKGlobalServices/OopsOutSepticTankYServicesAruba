@@ -445,110 +445,6 @@ const Agendadinamicacontador = () => {
       document.removeEventListener("mousedown", handleClickOutsideFilter);
   }, []);
 
-  // Gestión de colores para trabajadores
-  const [workerColors, setWorkerColors] = useState({});
-  useEffect(() => {
-    const dbRefColors = ref(database, "workerColors");
-    onValue(dbRefColors, (snapshot) => {
-      if (snapshot.exists()) {
-        setWorkerColors(snapshot.val());
-      }
-    });
-  }, []);
-
-  const predefinedColors = [
-    "#FF5733",
-    "#33FF57",
-    "#3357FF",
-    "#FF33A1",
-    "#FFD700",
-    "#800080",
-    "#FF4500",
-    "#2E8B57",
-    "#1E90FF",
-    "#DC143C",
-    "#00FA9A",
-    "#8A2BE2",
-    "#FF8C00",
-    "#228B22",
-    "#DAA520",
-    "#9932CC",
-    "#FF1493",
-    "#FF6347",
-    "#40E0D0",
-    "#ADFF2F",
-    "#BA55D3",
-    "#00CED1",
-    "#3CB371",
-    "#FF00FF",
-    "#7FFF00",
-    "#B22222",
-    "#20B2AA",
-    "#6B8E23",
-    "#FFA07A",
-    "#8B0000",
-    "#00BFFF",
-    "#4682B4",
-    "#32CD32",
-    "#A52A2A",
-    "#9400D3",
-    "#7B68EE",
-    "#5F9EA0",
-    "#FF69B4",
-    "#9ACD32",
-    "#E9967A",
-    "#6495ED",
-    "#8B4513",
-    "#FA8072",
-    "#B0C4DE",
-    "#D2691E",
-    "#FFDEAD",
-    "#F08080",
-    "#FFDAB9",
-    "#98FB98",
-    "#DDA0DD",
-  ];
-
-  const getWorkerColor = (userId) => {
-    if (!userId) return "#f9f9f9";
-    if (workerColors[userId]) return workerColors[userId];
-
-    const dbRefWorker = ref(database, `workerColors/${userId}`);
-    onValue(
-      dbRefWorker,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const savedColor = snapshot.val();
-          setWorkerColors((prevColors) => ({
-            ...prevColors,
-            [userId]: savedColor,
-          }));
-        } else {
-          const availableColors = predefinedColors.filter(
-            (color) => !Object.values(workerColors).includes(color)
-          );
-          const newColor =
-            availableColors.length > 0
-              ? availableColors[
-                  Math.floor(Math.random() * availableColors.length)
-                ]
-              : predefinedColors[
-                  Math.floor(Math.random() * predefinedColors.length)
-                ];
-          setWorkerColors((prevColors) => ({
-            ...prevColors,
-            [userId]: newColor,
-          }));
-          set(dbRefWorker, newColor).catch((error) => {
-            console.error("Error saving color to Firebase: ", error);
-          });
-        }
-      },
-      { onlyOnce: true }
-    );
-    return workerColors[userId] || "#f9f9f9";
-  };
-
   const getPagoColor = (pago) => {
     switch (pago) {
       case "Debe":
@@ -830,6 +726,8 @@ const Agendadinamicacontador = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
+        <br/>
+        <hr/>
         <label>Rango de Fechas</label>
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
@@ -1114,12 +1012,7 @@ const Agendadinamicacontador = () => {
                         >
                           {item.fecha}
                         </td>
-                        <td
-                          style={{
-                            backgroundColor: getWorkerColor(r.realizadopor),
-                            padding: "5px",
-                          }}
-                        >
+                        <td>
                           {getUserName(r.realizadopor)}
                         </td>
                         <td style={{ padding: "5px" }}>{r.anombrede || ""}</td>

@@ -538,6 +538,8 @@ const Informedetransferencias = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
+        <br/>
+        <hr/>
 
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}

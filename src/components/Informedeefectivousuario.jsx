@@ -828,7 +828,8 @@ const Informedeefectivousuario = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
-        <label>Rango de Fechas</label>
+        <br/>
+        <hr/>
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"

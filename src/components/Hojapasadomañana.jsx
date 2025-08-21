@@ -688,6 +688,8 @@ const Hojapasadomañana = () => {
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
         <h2>Filtros</h2>
+        <br/>
+        <hr/>
 
         {/** Realizado Por **/}
         <label>Realizado Por</label>
