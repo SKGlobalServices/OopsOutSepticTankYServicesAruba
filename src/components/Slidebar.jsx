@@ -359,16 +359,6 @@ const Slidebar = () => {
               />
               <span>Informe De Cobranza</span>
             </button>
-            <button className="btn-infEfec2"
-            onClick={() => navigate("/fastmark")}
-            >
-              <img
-                className="icon-infEfec2"
-                src={informeEfectivoIcon2}
-                alt="Fast Mark"
-              />
-              <span>ㅤㅤFast Mark</span>
-            </button>
           </div>
         </details>
 
