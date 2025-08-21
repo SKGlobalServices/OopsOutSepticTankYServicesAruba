@@ -272,8 +272,7 @@ const Slidebar = () => {
           <div className="module-content">
             <button
               className="btn-nomina2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => navigate("/nomina")}
             >
               <img
                 className="icon-infEfec2"
@@ -284,8 +283,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-gastos2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => navigate("/gastos")}
             >
               <img
                 className="icon-infEfec2"
@@ -296,8 +294,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => navigate("/ingresos")}
             >
               <img
                 className="icon-infEfec2"
@@ -308,8 +305,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-edoResul2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => navigate("/estadoderesultado")}
             >
               <img
                 className="icon-infEfec2"
@@ -349,8 +345,7 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-infEfec2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => navigate("/informedecobranza")}
             >
               <img
                 className="icon-infEfec2"
