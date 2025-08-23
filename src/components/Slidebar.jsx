@@ -144,9 +144,6 @@ const Slidebar = () => {
     };
   }, []);
 
-  // Avatar por defecto en lugar de LoremFlickr
-  const defaultAvatar = logo;
-
   return (
     <div className="homepage-container">
       {/* SLIDEBAR */}
@@ -234,6 +231,17 @@ const Slidebar = () => {
               />
               <span>Reprogramación Automática</span>
             </button>
+            <button
+              className="btn-reprog2"
+              onClick={() => navigate("/clientesfijos")}
+            >
+              <img
+                className="icon-reprog2"
+                src={reprogramacionIcon2}
+                alt="Clientes Fijos"
+              />
+              <span>ㅤClientes Fijos</span>
+            </button>
           </div>
         </details>
 
@@ -270,10 +278,7 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button
-              className="btn-nomina2"
-              onClick={() => navigate("/nomina")}
-            >
+            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -281,10 +286,7 @@ const Slidebar = () => {
               />
               <span>ㅤㅤNómina</span>
             </button>
-            <button
-              className="btn-gastos2"
-              onClick={() => navigate("/gastos")}
-            >
+            <button className="btn-gastos2" onClick={() => navigate("/gastos")}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -330,7 +332,7 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Informe de Efectivo"
               />
-              <span>Informe De Efectivo</span>
+              <span>ㅤㅤEfectivo</span>
             </button>
             <button
               className="btn-infEfec2"
@@ -341,7 +343,7 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Informe De Transferencias"
               />
-              <span>Informe De Transferencias</span>
+              <span>ㅤTransferencias</span>
             </button>
             <button
               className="btn-infEfec2"
@@ -352,7 +354,18 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Informe De Cobranza"
               />
-              <span>Informe De Cobranza</span>
+              <span>ㅤㅤCobranza</span>
+            </button>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/fastmark")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Fast Mark"
+              />
+              <span>ㅤㅤFast Mark</span>
             </button>
           </div>
         </details>
@@ -361,10 +374,8 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">CONFIGURACIÓN</summary>
           <div className="module-content">
-            <button
-              className="btn-configUsr2"
-              disabled
-              style={{ opacity: 0.5, cursor: "not-allowed" }}
+            <button className="btn-configUsr2"
+            onClick={() => navigate("/historialdecambios")}
             >
               <img
                 className="icon-configUsr2"

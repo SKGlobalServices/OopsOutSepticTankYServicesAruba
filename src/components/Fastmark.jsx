@@ -4,6 +4,7 @@ import { ref, set, push, onValue, update } from "firebase/database";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
+import Clock from "./Clock";
 
 // ⬇️ IMPORTS para filtro de fechas
 import DatePicker from "react-datepicker";
@@ -397,8 +398,8 @@ const Fastmark = () => {
         <div className="homepage-card">
           <h1 className="title-page">Fast Mark</h1>
           <div className="current-date">
-            <p>Fecha</p>
-            <p>Reloj</p>
+            <div>{new Date().toLocaleDateString()}</div>
+            <Clock />
           </div>
         </div>
       </div>

@@ -25,6 +25,7 @@ import Ingresos from "./components/Ingresos.jsx";
 import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 import Fastmark from "./components/Fastmark.jsx";
+import Clientesfijos from "./components/Clientesfijos.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -40,6 +41,7 @@ root.render(
       <Route path="/facturasemitidas" element={<PageWrapper><Facturasemitidas /></PageWrapper>} />
       <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
       <Route path="/reprogramacionautomatica" element={<PageWrapper><Reprogramacionautomatica /></PageWrapper>} />
+      <Route path="/clientesfijos" element={<PageWrapper><Clientesfijos /></PageWrapper>} />
       <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
       <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
       <Route path="/agendadeldiausuario" element={<PageWrapper><Agendadeldiausuario /></PageWrapper>} />
