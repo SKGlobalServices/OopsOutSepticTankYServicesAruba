@@ -537,7 +537,7 @@ const Informedetransferencias = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
+        <h2 style={{color:"white"}}>Filtros</h2>
         <br/>
         <hr/>
 
@@ -758,16 +758,16 @@ const Informedetransferencias = () => {
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
-                      <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold",padding:"5px", paddingRight:"10px", paddingRight:"10px" }}>
                         {item.fecha}
                       </td>
-                      <td>{registro.direccion || ""}</td>
-                      <td style={{ textAlign: "right" }}>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.direccion || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center" }}>
                         {formatCurrency(registro.valor || 0)}
                       </td>
-                      <td>{registro.formadepago || ""}</td>
-                      <td>{registro.banco || ""}</td>
-                      <td style={{ textAlign: "center" }}>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.formadepago || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.banco || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center"}}>
                         {registro.numerodefactura ? (
                           <button
                             onClick={() =>

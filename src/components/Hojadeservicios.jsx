@@ -17,7 +17,7 @@ import pdf_icon from "../assets/img/pdf_icon.jpg";
 
 const Homepage = () => {
   const navigate = useNavigate();
-  
+
   // Verificación de autorización
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
@@ -26,7 +26,7 @@ const Homepage = () => {
       return;
     }
   }, [navigate]);
-  
+
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -39,11 +39,11 @@ const Homepage = () => {
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
   const [showDireccionAlert, setShowDireccionAlert] = useState(true);
-  
+
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-  
+
   const [filters, setFilters] = useState({
     realizadopor: [],
     anombrede: [],
@@ -90,7 +90,7 @@ const Homepage = () => {
     const loadUsers = async () => {
       const isAuthorized = await validateSessionForAction("cargar usuarios");
       if (!isAuthorized) return;
-      
+
       const dbRef = ref(database, "users");
       const unsubscribe = onValue(dbRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -107,7 +107,7 @@ const Homepage = () => {
       });
       return () => unsubscribe();
     };
-    
+
     loadUsers();
   }, []);
 
@@ -392,7 +392,7 @@ const Homepage = () => {
     }
   };
 
-  // Función para borrar un servicio
+  // Función para eliminar un servicio
   const deleteData = (id) => {
     const dbRefItem = ref(database, `data/${id}`);
     remove(dbRefItem).catch(console.error);
@@ -817,9 +817,9 @@ const Homepage = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
 
         {/** Realizado Por **/}
         <label>Realizado Por</label>
@@ -993,56 +993,64 @@ const Homepage = () => {
       </div>
 
       <div className="homepage-card">
-        {showDireccionAlert && Object.keys(direccionCounts).filter(dir => direccionCounts[dir] > 1).length > 0 && (
-          <div
-            style={{
-              background: "#fff3cd",
-              color: "#856404",
-              border: "1px solid #ffeeba",
-              borderRadius: "6px",
-              padding: "10px 16px",
-              marginBottom: "12px",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              fontSize: "15px",
-              position: "relative"
-            }}
-          >
-            <span style={{ fontSize: "1.3em" }}>⚠️</span>
-            <span style={{ flex: 1 }}>
-              <b>¡Atención!</b> Hay direcciones duplicadas en los servicios:
-              <ul style={{ margin: "6px 0 0 18px", fontWeight: "normal", fontSize: "14px" }}>
-                {Object.entries(direccionCounts)
-                  .filter(([_, count]) => count > 1)
-                  .map(([dir, count]) => (
-                    <li key={dir}>
-                      <b>{dir}</b> ({count} veces)
-                    </li>
-                  ))}
-              </ul>
-            </span>
-            <button
-              onClick={() => setShowDireccionAlert(false)}
+        {showDireccionAlert &&
+          Object.keys(direccionCounts).filter((dir) => direccionCounts[dir] > 1)
+            .length > 0 && (
+            <div
               style={{
-                background: "#ffeeba",
+                background: "#fff3cd",
                 color: "#856404",
                 border: "1px solid #ffeeba",
-                borderRadius: "4px",
-                padding: "2px 10px",
+                borderRadius: "6px",
+                padding: "10px 16px",
+                marginBottom: "12px",
                 fontWeight: "bold",
-                cursor: "pointer",
-                fontSize: "13px",
-                position: "absolute",
-                top: "8px",
-                right: "8px"
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontSize: "15px",
+                position: "relative",
               }}
             >
-              Ocultar
-            </button>
-          </div>
-        )}
+              <span style={{ fontSize: "1.3em" }}>⚠️</span>
+              <span style={{ flex: 1 }}>
+                <b>¡Atención!</b> Hay direcciones duplicadas en los servicios:
+                <ul
+                  style={{
+                    margin: "6px 0 0 18px",
+                    fontWeight: "normal",
+                    fontSize: "14px",
+                  }}
+                >
+                  {Object.entries(direccionCounts)
+                    .filter(([_, count]) => count > 1)
+                    .map(([dir, count]) => (
+                      <li key={dir}>
+                        <b>{dir}</b> ({count} veces)
+                      </li>
+                    ))}
+                </ul>
+              </span>
+              <button
+                onClick={() => setShowDireccionAlert(false)}
+                style={{
+                  background: "#ffeeba",
+                  color: "#856404",
+                  border: "1px solid #ffeeba",
+                  borderRadius: "4px",
+                  padding: "2px 10px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                }}
+              >
+                Ocultar
+              </button>
+            </div>
+          )}
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -1091,9 +1099,15 @@ const Homepage = () => {
               {currentPageData && currentPageData.length > 0 ? (
                 currentPageData.map(([id, item]) => {
                   const rowClass = getRowClass(item.metododepago);
-                  const isDireccionDuplicada = direccionCounts[(item.direccion || "").trim()] > 1;
+                  const isDireccionDuplicada =
+                    direccionCounts[(item.direccion || "").trim()] > 1;
                   return (
-                    <tr key={id} className={`${rowClass} ${isDireccionDuplicada ? "direccion-duplicada" : ""}`}>
+                    <tr
+                      key={id}
+                      className={`${rowClass} ${
+                        isDireccionDuplicada ? "direccion-duplicada" : ""
+                      }`}
+                    >
                       {/* Select para "Realizado Por" */}
                       <td>
                         <select
@@ -1129,16 +1143,24 @@ const Homepage = () => {
                               20
                             )}ch`,
                           }}
-                          value={localValues[`${id}_anombrede`] ?? item.anombrede ?? ""}
+                          value={
+                            localValues[`${id}_anombrede`] ??
+                            item.anombrede ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_anombrede`]: e.target.value
+                              [`${id}_anombrede`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
                             if (e.target.value !== (item.anombrede || "")) {
-                              handleFieldChange(id, "anombrede", e.target.value);
+                              handleFieldChange(
+                                id,
+                                "anombrede",
+                                e.target.value
+                              );
                             }
                           }}
                         />
@@ -1149,11 +1171,15 @@ const Homepage = () => {
                             className="direccion-fixed-input custom-select-input"
                             type="text"
                             style={{ width: "20ch" }}
-                            value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
+                            value={
+                              localValues[`${id}_direccion`] ??
+                              item.direccion ??
+                              ""
+                            }
                             onChange={(e) =>
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_direccion`]: e.target.value
+                                [`${id}_direccion`]: e.target.value,
                               }))
                             }
                             onFocus={(e) =>
@@ -1168,11 +1194,16 @@ const Homepage = () => {
                                 200
                               );
                               if (e.target.value !== (item.direccion || "")) {
-                                handleFieldChange(id, "direccion", e.target.value);
+                                handleFieldChange(
+                                  id,
+                                  "direccion",
+                                  e.target.value
+                                );
                               }
                             }}
                           />
-                          {direccionCounts[(item.direccion || "").trim()] > 1 && (
+                          {direccionCounts[(item.direccion || "").trim()] >
+                            1 && (
                             <span
                               title="Dirección duplicada"
                               style={{
@@ -1180,7 +1211,7 @@ const Homepage = () => {
                                 fontWeight: "bold",
                                 marginLeft: "6px",
                                 fontSize: "1.2em",
-                                verticalAlign: "middle"
+                                verticalAlign: "middle",
                               }}
                             >
                               &#9888;
@@ -1236,11 +1267,13 @@ const Homepage = () => {
                         <input
                           type="number"
                           style={{ width: "10ch", textAlign: "center" }}
-                          value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
+                          value={
+                            localValues[`${id}_cubicos`] ?? item.cubicos ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_cubicos`]: e.target.value
+                              [`${id}_cubicos`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -1257,14 +1290,14 @@ const Homepage = () => {
                           value={localValues[`${id}_valor`] ?? item.valor ?? ""}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_valor`]: newValue
+                              [`${id}_valor`]: newValue,
                             }));
                             if (item.metododepago === "efectivo") {
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_efectivo`]: newValue
+                                [`${id}_efectivo`]: newValue,
                               }));
                             }
                           }}
@@ -1334,11 +1367,13 @@ const Homepage = () => {
                       <td>
                         <button
                           className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
                           onClick={() => {
-                            const direccion = item.direccion || "No especificada";
+                            const direccion =
+                              item.direccion || "No especificada";
                             const servicio = item.servicio || "No especificado";
                             Swal.fire({
-                              title: "¿Estás seguro de borrar este servicio?",
+                              title: "¿Estás seguro de eliminar este servicio?",
                               html: `
                                 <div>Esta acción no se puede deshacer.</div>
                                 <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
@@ -1350,7 +1385,7 @@ const Homepage = () => {
                               showCancelButton: true,
                               confirmButtonColor: "#d33",
                               cancelButtonColor: "#3085d6",
-                              confirmButtonText: "Sí, borrar",
+                              confirmButtonText: "Sí, eliminar",
                               cancelButtonText: "Cancelar",
                               position: "center",
                               backdrop: "rgba(0,0,0,0.4)",
@@ -1362,19 +1397,26 @@ const Homepage = () => {
                               if (result.isConfirmed) {
                                 deleteData(id);
                                 Swal.fire({
-                                  title: "¡Borrado!",
-                                  text: "El servicio ha sido eliminado.",
+                                  title: "¡Registro eliminado!",
+                                  text: "El registro ha sido eliminado exitosamente.",
                                   icon: "success",
                                   position: "center",
                                   backdrop: "rgba(0,0,0,0.4)",
                                   timer: 2000,
                                   showConfirmButton: false,
+                                  heightAuto: false,
+                                  didOpen: () => {
+                                    document.body.style.overflow = "auto";
+                                  },
+                                  willClose: () => {
+                                    document.body.style.overflow = "";
+                                  },
                                 });
                               }
                             });
                           }}
                         >
-                          Borrar
+                          Eliminar
                         </button>
                       </td>
 
@@ -1433,11 +1475,13 @@ const Homepage = () => {
                         <input
                           type="number"
                           style={{ width: "12ch", textAlign: "center" }}
-                          value={localValues[`${id}_efectivo`] ?? item.efectivo ?? ""}
+                          value={
+                            localValues[`${id}_efectivo`] ?? item.efectivo ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_efectivo`]: e.target.value
+                              [`${id}_efectivo`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -1475,63 +1519,66 @@ const Homepage = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Controles de paginación */}
         <div className="pagination-container">
-        <div className="pagination-info">
-          <span>
-            Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de {totalItems} registros
-          </span>
-          <div className="items-per-page">
-            <label>Mostrar:</label>
-            <select 
-              value={itemsPerPage} 
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+          <div className="pagination-info">
+            <span>
+              Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de{" "}
+              {totalItems} registros
+            </span>
+            <div className="items-per-page">
+              <label>Mostrar:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+              </select>
+              <span>por página</span>
+            </div>
+          </div>
+
+          {/* Controles de navegación */}
+          <div className="pagination-controls">
+            <button
+              onClick={goToFirstPage}
+              disabled={currentPage === 1}
+              title="Primera página"
             >
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={200}>200</option>
-              <option value={500}>500</option>
-            </select>
-            <span>por página</span>
+              ««
+            </button>
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              «
+            </button>
+            <span>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              »
+            </button>
+            <button
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              title="Última página"
+            >
+              »»
+            </button>
           </div>
         </div>
-        
-        {/* Controles de navegación */}
-        <div className="pagination-controls">
-          <button 
-            onClick={goToFirstPage} 
-            disabled={currentPage === 1}
-            title="Primera página"
-          >
-            ««
-          </button>
-          <button 
-            onClick={goToPreviousPage} 
-            disabled={currentPage === 1}
-            title="Página anterior"
-          >
-            «
-          </button>
-          <span>
-            Página {currentPage} de {totalPages}
-          </span>
-          <button 
-            onClick={goToNextPage} 
-            disabled={currentPage === totalPages}
-            title="Página siguiente"
-          >
-            »
-          </button>
-          <button 
-            onClick={goToLastPage} 
-            disabled={currentPage === totalPages}
-            title="Última página"
-          >
-            »»
-          </button>
-        </div>
-      </div>
 
         <div
           className="button-container"

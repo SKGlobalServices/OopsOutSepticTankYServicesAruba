@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
 import { decryptData } from "../utils/security";
-import Swal from "sweetalert2";
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
@@ -271,6 +270,28 @@ const Slidebar = () => {
               />
               <span>Facturas Emitidas</span>
             </button>
+            <button
+              className="btn-facturasEmitidas2"
+              onClick={() => navigate("/ciclodefacturacion")}
+            >
+              <img
+                className="icon-facturasEmitidas2"
+                src={facturaicon2}
+                alt="Ciclo De Facturación"
+              />
+              <span>Ciclo De Facturación</span>
+            </button>
+            <button
+              className="btn-facturasEmitidas2"
+              onClick={() => navigate("/pagosanticipados")}
+            >
+              <img
+                className="icon-facturasEmitidas2"
+                src={facturaicon2}
+                alt="Pagos Anticipados"
+              />
+              <span>Pagos Anticipados</span>
+            </button>
           </div>
         </details>
 
@@ -293,6 +314,17 @@ const Slidebar = () => {
                 alt="Gastos"
               />
               <span>ㅤㅤGastos</span>
+            </button>
+            <button
+              className="btn-facturasEmitidas2"
+              onClick={() => navigate("/pagosmensuales")}
+            >
+              <img
+                className="icon-facturasEmitidas2"
+                src={facturaicon2}
+                alt="Pagos Mensuales"
+              />
+              <span>Pagos Mensuales</span>
             </button>
             <button
               className="btn-edoResul2"

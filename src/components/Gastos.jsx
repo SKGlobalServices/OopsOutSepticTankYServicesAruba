@@ -383,7 +383,11 @@ const Gastos = () => {
     doc.setFontSize(10);
 
     let y = 28;
-    doc.text(`Total General De Gastos: ${formatearDinero(totalGeneral)}`, 14, y);
+    doc.text(
+      `Total General De Gastos: ${formatearDinero(totalGeneral)}`,
+      14,
+      y
+    );
     y += 6;
     doc.text(`Efectivo: ${formatearDinero(totalEfectivo)}`, 14, y);
     y += 6;
@@ -472,7 +476,7 @@ const Gastos = () => {
         ref={refSlidebarFiltros}
         className={`filter-slidebar ${mostrarSlidebarFiltros ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
+        <h2 style={{color:"white"}}>Filtros</h2>
         <br />
         <hr />
         <button
@@ -612,18 +616,18 @@ const Gastos = () => {
               flex: 1,
               textAlign: "center",
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              backgroundColor: "#dc3545",
+              backgroundColor: "#28a745",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-6px) scale(1.02)";
               e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
-              e.currentTarget.style.backgroundColor = "#bb2d3b";
+              e.currentTarget.style.backgroundColor = "#218838";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0) scale(1)";
               e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-              e.currentTarget.style.backgroundColor = "#dc3545";
+              e.currentTarget.style.backgroundColor = "#28a745";
             }}
           >
             <p style={{ margin: 0, fontSize: 12, fontWeight: "bold" }}>
@@ -643,18 +647,18 @@ const Gastos = () => {
               flex: 1,
               textAlign: "center",
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              backgroundColor: "#6c757d",
+              backgroundColor: "#5271ff",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-6px) scale(1.02)";
               e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
-              e.currentTarget.style.backgroundColor = "#5c636a";
+              e.currentTarget.style.backgroundColor = "#375bff";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0) scale(1)";
               e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-              e.currentTarget.style.backgroundColor = "#6c757d";
+              e.currentTarget.style.backgroundColor = "#5271ff";
             }}
           >
             <p style={{ margin: 0, fontSize: 12, fontWeight: "bold" }}>
@@ -696,6 +700,7 @@ const Gastos = () => {
             </p>
           </div>
 
+          {/* Tarjeta */}
           <div
             style={{
               border: "1px solid #ddd",
@@ -705,18 +710,18 @@ const Gastos = () => {
               flex: 1,
               textAlign: "center",
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              backgroundColor: "#198754",
+              backgroundColor: "#5271ff", // ← CAMBIA AQUÍ
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-6px) scale(1.02)";
               e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
-              e.currentTarget.style.backgroundColor = "#157347";
+              e.currentTarget.style.backgroundColor = "#375bff";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0) scale(1)";
               e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-              e.currentTarget.style.backgroundColor = "#198754";
+              e.currentTarget.style.backgroundColor = "#5271ff";
             }}
           >
             <p style={{ margin: 0, fontSize: 12, fontWeight: "bold" }}>
@@ -752,23 +757,36 @@ const Gastos = () => {
                     <tr key={r.id}>
                       {/* Fecha */}
                       <td>
-                        <input
-                          type="text"
-                          value={
-                            valoresLocales[`${r.id}_fecha`] ?? r.fecha ?? ""
+                        <DatePicker
+                          selected={
+                            valoresLocales[`${r.id}_fecha`]
+                              ? new Date(valoresLocales[`${r.id}_fecha`])
+                              : r.fecha
+                              ? (() => {
+                                  const [d, m, y] = r.fecha.split("-");
+                                  return new Date(y, m - 1, d);
+                                })()
+                              : null
                           }
-                          onChange={(e) =>
+                          onChange={(date) => {
+                            const fechaStr = formatearFecha(date);
                             setValoresLocales((prev) => ({
                               ...prev,
-                              [`${r.id}_fecha`]: e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            if (e.target.value !== (r.fecha || "")) {
-                              actualizarCampo(r.id, "fecha", e.target.value);
-                            }
+                              [`${r.id}_fecha`]: fechaStr,
+                            }));
+                            actualizarCampo(r.id, "fecha", fechaStr);
                           }}
-                          style={{ width: "10ch" }}
+                          dateFormat="dd-MM-yyyy"
+                          customInput={
+                            <input
+                              style={{
+                                width: "10ch",
+                                textAlign: "center",
+                                fontWeight: "bold",
+                              }}
+                              readOnly
+                            />
+                          }
                         />
                       </td>
                       {/* Categoría */}
@@ -969,15 +987,11 @@ const Gastos = () => {
                       {/* Eliminar */}
                       <td style={{ textAlign: "center" }}>
                         <button
-                          className="edit-button"
-                          style={{
-                            marginLeft: "5px",
-                            backgroundColor: "red",
-                            color: "white",
-                          }}
+                          className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
                           onClick={() => {
                             Swal.fire({
-                              title: "¿Eliminar registro?",
+                              title: "¿Deseas eliminar el registro?",
                               text: "Esta acción no se puede deshacer.",
                               icon: "warning",
                               showCancelButton: true,
@@ -992,11 +1006,27 @@ const Gastos = () => {
                                       err.message
                                     )
                                 );
+                                Swal.fire({
+                                  title: "¡Registro eliminado!",
+                                  text: "El Registro ha sido eliminado exitosamente.",
+                                  icon: "success",
+                                  position: "center",
+                                  backdrop: "rgba(0,0,0,0.4)",
+                                  timer: 2000,
+                                  showConfirmButton: false,
+                                  heightAuto: false,
+                                  didOpen: () => {
+                                    document.body.style.overflow = "auto";
+                                  },
+                                  willClose: () => {
+                                    document.body.style.overflow = "";
+                                  },
+                                });
                               }
                             });
                           }}
                         >
-                          Borrar
+                          Eliminar
                         </button>
                       </td>
                     </tr>

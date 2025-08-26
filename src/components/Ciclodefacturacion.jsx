@@ -5,11 +5,10 @@ import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
-import Swal from "sweetalert2";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-const Fastmark = () => {
+const Ciclodefacturacion = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -17,10 +16,7 @@ const Fastmark = () => {
 
   const [data, setData] = useState([]);
   const [localValues, setLocalValues] = useState({});
-  const [showDireccionAlert, setShowDireccionAlert] = useState(true);
-
-  // clientes para poblar el datalist de Dirección (igual que en Homepage)
-  const [clients, setClients] = useState([]);
+  const [showDuplicatesAlert, setShowDuplicatesAlert] = useState(true);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,86 +25,38 @@ const Fastmark = () => {
   // Mostrar/ocultar datepicker
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // ===== Estados de carga (mismo patrón del otro componente)
-  const [loading, setLoading] = useState(true);
-  const [loadedFastmark, setLoadedFastmark] = useState(false);
-  const [loadedClientes, setLoadedClientes] = useState(false);
-
   // Filtros
   const [filters, setFilters] = useState({
-    direccion: [],
+    compania: [],
+    concepto: [],
     monto: [],
+    estado: [],
     fechaInicio: null,
     fechaFin: null,
+    mes: null,
+    año: null,
   });
 
-  // ==== Helpers de dinero ====
-  const formatMoney = (val) => {
-    const n = Number(val);
-    if (Number.isNaN(n)) return "";
-    return n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  // Permite escribir "1,000.5", "1000,5", " 1 000 ", etc. y lo convierte a número o "".
-  const parseMoney = (str) => {
-    if (str === "" || str == null) return "";
-    const s = String(str).trim().replace(/\s+/g, "");
-    // Cambia coma decimal por punto si aplica y elimina separadores de miles
-    const normalized = s
-      .replace(/\.(?=.*\.)/g, "") // quita puntos intermedios (como miles)
-      .replace(/,(?=.*[,])/g, "") // quita comas intermedias (como miles)
-      .replace(/,/, "."); // usa coma final como decimal
-    const n = Number(normalized);
-    return Number.isFinite(n) ? n : "";
-  };
-
-  // ====== Carga de datos (fastmark) ======
+  // ====== Carga de datos (ciclodefacturacion) ======
   useEffect(() => {
-    const dbRef = ref(database, "fastmark");
+    const dbRef = ref(database, "ciclodefacturacion");
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (!snapshot.exists()) {
         setData([]);
-        setLoadedFastmark(true);
         return;
       }
       const all = snapshot.val();
       const arr = Object.entries(all).map(([id, r]) => ({
         id,
         fecha: r?.fecha ?? "",
-        direccion: r?.direccion ?? "",
+        compania: r?.compania ?? "",
+        concepto: r?.concepto ?? "",
         monto: r?.monto ?? "",
+        estado: r?.estado ?? "",
       }));
       setData(sortByFechaDesc(arr));
-      setLoadedFastmark(true);
     });
     return unsubscribe;
-  }, []);
-
-  // ====== Carga de clientes (para el datalist de Dirección) ======
-  useEffect(() => {
-    const dbRef = ref(database, "clientes");
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const fetchedClients = Object.entries(snapshot.val()).map(
-          ([id, client]) => ({
-            id,
-            direccion: client.direccion,
-            cubicos: client.cubicos,
-            valor: client.valor,
-            anombrede: client.anombrede,
-          })
-        );
-        setClients(fetchedClients);
-        setLoadedClientes(true);
-      } else {
-        setClients([]);
-        setLoadedClientes(true);
-      }
-    });
-    return () => unsubscribe();
   }, []);
 
   // ====== Utils fecha ======
@@ -190,20 +138,31 @@ const Fastmark = () => {
       document.removeEventListener("mousedown", handleClickOutsideFilter);
   }, []);
 
-  // --------- CRUD ---------
+  // actualizar un campo en Firebase y en estado local ---------
   const handleFieldChange = async (item, field, value) => {
-    const safeValue =
-      field === "monto" ? (value === "" ? "" : Number(value)) : value ?? "";
-    const itemRef = ref(database, `fastmark/${item.id}`);
-    await update(itemRef, { [field]: safeValue }).catch(console.error);
+    const safeValue = value ?? "";
+    try {
+      const itemRef = ref(database, `ciclodefacturacion/${item.id}`);
+      await update(itemRef, { [field]: safeValue });
 
-    setData((prev) =>
-      sortByFechaDesc(
-        prev.map((it) =>
-          it.id === item.id ? { ...it, [field]: safeValue } : it
+      setData((prev) =>
+        sortByFechaDesc(
+          prev.map((it) =>
+            it.id === item.id ? { ...it, [field]: safeValue } : it
+          )
         )
-      )
-    );
+      );
+
+      setLocalValues((prev) => {
+        const k = `${item.id}_${field}`;
+        if (prev[k] === undefined) return prev;
+        const { [k]: _omit, ...rest } = prev;
+        return rest;
+      });
+    } catch (err) {
+      console.error("Error actualizando", field, err);
+      alert("No se pudo guardar el cambio.");
+    }
   };
 
   const handleFechaChange = async (item, nuevaFechaDMY, revert) => {
@@ -217,7 +176,7 @@ const Fastmark = () => {
     if (nuevaFecha === item.fecha) return;
 
     try {
-      const itemRef = ref(database, `fastmark/${item.id}`);
+      const itemRef = ref(database, `ciclodefacturacion/${item.id}`);
       await update(itemRef, { fecha: nuevaFecha });
 
       setData((prev) =>
@@ -234,25 +193,38 @@ const Fastmark = () => {
     }
   };
 
-  const addData = async (fecha, direccion, monto) => {
-    const parsed = parseFecha(fecha);
-    if (!parsed) {
-      alert("Selecciona una fecha válida (dd-mm-aaaa).");
-      return;
-    }
-    const dbRef = ref(database, "fastmark");
+  // Crea un nuevo pago con estado "Pago" por defecto
+  const addData = async () => {
+    const hoy = new Date();
+    const dd = String(hoy.getDate()).padStart(2, "0");
+    const mm = String(hoy.getMonth() + 1).padStart(2, "0");
+    const yyyy = hoy.getFullYear();
+    const fecha = `${dd}-${mm}-${yyyy}`;
+
+    const dbRef = ref(database, "ciclodefacturacion");
     const newRef = push(dbRef);
     await set(newRef, {
-      fecha,
-      direccion: direccion ?? "",
-      monto: monto === "" ? "" : Number(monto ?? 0),
-    }).catch(console.error);
+      fecha, // dd-mm-aaaa
+      compania: "", // texto
+      concepto: "", // texto
+      monto: "", // texto
+      estado: "", // default
+    });
   };
 
-  // ====== Opciones para filtros (react-select) ======
-  const direccionOptions = [
+  // ====== Opciones para filtros (react-select & selects) ======
+  const companiaOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
-    ...Array.from(new Set(data.map((it) => it.direccion).filter(Boolean)))
+    ...Array.from(new Set(data.map((it) => (it.compania ?? "").trim())))
+      .filter((v) => v !== "")
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const conceptoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map((it) => (it.concepto ?? "").trim())))
+      .filter((v) => v !== "")
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
@@ -266,18 +238,64 @@ const Fastmark = () => {
       .map((v) => ({ value: String(v), label: String(v) })),
   ];
 
+  const estadoOptions = [
+    { value: "__EMPTY__", label: "🚫 Vacío" },
+    ...Array.from(new Set(data.map((it) => (it.estado ?? "").trim())))
+      .filter((v) => v !== "")
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const availableYears = Array.from(
+    new Set(
+      data
+        .map((it) => parseFecha(it.fecha)?.getFullYear())
+        .filter((y) => Number.isInteger(y))
+    )
+  ).sort((a, b) => b - a);
+
+  const monthNames = [
+    "",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
+
   // ====== Filtrado ======
   const filteredData = data.filter((item) => {
-    // 1) filtro por fechas
     const d = parseFecha(item.fecha); // Date | null
+
+    // 1) filtro por rango de fechas
     if (filters.fechaInicio || filters.fechaFin) {
-      // si no hay fecha válida en el item y hay filtro activo, lo excluimos
-      if (!d) return false;
+      if (!d) return false; // si no hay fecha válida, excluye
       if (filters.fechaInicio && d < filters.fechaInicio) return false;
       if (filters.fechaFin && d > filters.fechaFin) return false;
     }
 
-    // 2) filtros multi-select
+    // 2) filtro por mes
+    if (filters.mes != null) {
+      if (!d) return false;
+      const mesItem = d.getMonth() + 1;
+      if (mesItem !== filters.mes) return false;
+    }
+
+    // 3) filtro por año
+    if (filters.año != null) {
+      if (!d) return false;
+      const añoItem = d.getFullYear();
+      if (añoItem !== filters.año) return false;
+    }
+
+    // 4) filtros multi-select
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
       filterArr.some((f) => {
@@ -294,17 +312,19 @@ const Fastmark = () => {
         );
       });
 
-    if (!matchMulti(filters.direccion, "direccion")) return false;
+    if (!matchMulti(filters.compania, "compania")) return false;
+    if (!matchMulti(filters.concepto, "concepto")) return false;
     if (!matchMulti(filters.monto, "monto")) return false;
+    if (!matchMulti(filters.estado, "estado")) return false; // ← NUEVO
 
     return true;
   });
 
-  // ====== Conteo de direcciones (para alerta/⚠️) ======
-  const direccionCounts = {};
+  // ====== Conteo de compañías duplicadas (para alerta/⚠️) ======
+  const companyCounts = {};
   filteredData.forEach((it) => {
-    const dir = (it.direccion || "").trim();
-    if (dir) direccionCounts[dir] = (direccionCounts[dir] || 0) + 1;
+    const c = (it.compania || "").trim();
+    if (c) companyCounts[c] = (companyCounts[c] || 0) + 1;
   });
 
   // ====== Paginación sobre datos filtrados ======
@@ -358,21 +378,6 @@ const Fastmark = () => {
     }));
   };
 
-  // ====== useEffect de loader ======
-  useEffect(() => {
-    if (loadedFastmark && loadedClientes) {
-      setLoading(false);
-    }
-  }, [loadedFastmark, loadedClientes]);
-
-  if (loading) {
-    return (
-      <div className="loader-container">
-        <div className="loader" />
-      </div>
-    );
-  }
-
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -414,21 +419,72 @@ const Fastmark = () => {
           />
         )}
 
-        {/* Dirección */}
-        <label>Dirección</label>
+        {/* Mes */}
+        <label style={{ marginTop: 12 }}>Mes</label>
+        <select
+          value={filters.mes ?? ""}
+          onChange={(e) =>
+            setFilters((f) => ({
+              ...f,
+              mes: e.target.value === "" ? null : Number(e.target.value),
+            }))
+          }
+        >
+          <option value="">Todos</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+            <option key={m} value={m}>
+              {monthNames[m]}
+            </option>
+          ))}
+        </select>
+
+        {/* Año */}
+        <label style={{ marginTop: 12 }}>Año</label>
+        <select
+          value={filters.año ?? ""}
+          onChange={(e) =>
+            setFilters((f) => ({
+              ...f,
+              año: e.target.value === "" ? null : Number(e.target.value),
+            }))
+          }
+        >
+          <option value="">Todos</option>
+          {availableYears.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+
+        {/* Compañía */}
+        <label style={{ marginTop: 12 }}>Compañía</label>
         <Select
           isClearable
           isMulti
-          options={direccionOptions}
-          value={filters.direccion}
+          options={companiaOptions}
+          value={filters.compania}
           onChange={(opts) =>
-            setFilters((f) => ({ ...f, direccion: opts || [] }))
+            setFilters((f) => ({ ...f, compania: opts || [] }))
           }
-          placeholder="Selecciona dirección(es)..."
+          placeholder="Selecciona compañía(s)..."
+        />
+
+        {/* Concepto */}
+        <label style={{ marginTop: 12 }}>Concepto</label>
+        <Select
+          isClearable
+          isMulti
+          options={conceptoOptions}
+          value={filters.concepto}
+          onChange={(opts) =>
+            setFilters((f) => ({ ...f, concepto: opts || [] }))
+          }
+          placeholder="Selecciona concepto(s)..."
         />
 
         {/* Monto */}
-        <label>Monto</label>
+        <label style={{ marginTop: 12 }}>Monto</label>
         <Select
           isClearable
           isMulti
@@ -438,16 +494,32 @@ const Fastmark = () => {
           placeholder="Selecciona monto(s)..."
         />
 
+        {/* Estado */}
+        <label style={{ marginTop: 12 }}>Estado</label>
+        <Select
+          isClearable
+          isMulti
+          options={estadoOptions}
+          value={filters.estado}
+          onChange={(opts) => setFilters((f) => ({ ...f, estado: opts || [] }))}
+          placeholder="Selecciona estado(s)..."
+        />
+
         <button
           className="discard-filter-button"
           onClick={() =>
             setFilters({
-              direccion: [],
+              compania: [],
+              concepto: [],
               monto: [],
+              estado: [],
               fechaInicio: null,
               fechaFin: null,
+              mes: null,
+              año: null,
             })
           }
+          style={{ marginTop: 12 }}
         >
           Descartar Filtros
         </button>
@@ -456,7 +528,7 @@ const Fastmark = () => {
       {/* Título */}
       <div className="homepage-title">
         <div className="homepage-card">
-          <h1 className="title-page">Fast Mark</h1>
+          <h1 className="title-page">Ciclo De Facturación Mensual</h1>
           <div className="current-date">
             <div>{new Date().toLocaleDateString()}</div>
             <Clock />
@@ -464,10 +536,10 @@ const Fastmark = () => {
         </div>
       </div>
 
-      {/* Alerta de direcciones duplicadas */}
-      {showDireccionAlert &&
-        Object.keys(direccionCounts).filter((dir) => direccionCounts[dir] > 1)
-          .length > 0 && (
+      {/* Alerta de compañías duplicadas */}
+      {showDuplicatesAlert &&
+        Object.keys(companyCounts).filter((c) => companyCounts[c] > 1).length >
+          0 && (
           <div
             style={{
               background: "#fff3cd",
@@ -486,7 +558,7 @@ const Fastmark = () => {
           >
             <span style={{ fontSize: "1.3em" }}>⚠️</span>
             <span style={{ flex: 1 }}>
-              <b>¡Atención!</b> Hay direcciones duplicadas en los registros
+              <b>¡Atención!</b> Hay compañías duplicadas en los registros
               filtrados:
               <ul
                 style={{
@@ -495,17 +567,17 @@ const Fastmark = () => {
                   fontSize: "14px",
                 }}
               >
-                {Object.entries(direccionCounts)
+                {Object.entries(companyCounts)
                   .filter(([_, count]) => count > 1)
-                  .map(([dir, count]) => (
-                    <li key={dir}>
-                      <b>{dir}</b> ({count} veces)
+                  .map(([c, count]) => (
+                    <li key={c}>
+                      <b>{c}</b> ({count} veces)
                     </li>
                   ))}
               </ul>
             </span>
             <button
-              onClick={() => setShowDireccionAlert(false)}
+              onClick={() => setShowDuplicatesAlert(false)}
               style={{
                 background: "#ffeeba",
                 color: "#856404",
@@ -527,65 +599,42 @@ const Fastmark = () => {
 
       {/* Tabla */}
       <div className="homepage-card">
-        {/* Total superior */}
-        <div
-          style={{
-            border: "1px solid #ddd",
-            color: "#fff",
-            borderRadius: "6px",
-            padding: "8px",
-            flex: 1,
-            textAlign: "center",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            backgroundColor: "#5271ff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
-            e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
-            e.currentTarget.style.borderColor = "#ddd";
-            e.currentTarget.style.backgroundColor = "#375bffff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0) scale(1)";
-            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-            e.currentTarget.style.borderColor = "#ddd";
-            e.currentTarget.style.backgroundColor = "#5271ff";
-          }}
-        >
-          Total AWS{" "}
-          {data
-            .reduce((acc, item) => acc + Number(item.monto || 0), 0)
-            .toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-        </div>
         <div className="table-container">
           <table className="service-table">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th className="direccion-fixed-th">Dirección</th>
-                <th>Monto</th>
-                <th>Accion</th>
+                <th>Fecha</th>{/* Datepicker */}
+                <th>Cliente</th> {/* anombrede(tabla clientes) */}
+                <th>Dirección</th> {/* Datalist de direccion (tabla clientes)  */}
+                <th>Valor</th> {/* Campo tipo numero */}
+                <th>Notas</th> {/* Campo tipo texto */}
+                <th>Enero</th> {/* Checkbox sin style */}
+                <th>Fecrero</th> {/* Checkbox sin style */}
+                <th>Marzo</th> {/* Checkbox sin style */}
+                <th>Abril</th> {/* Checkbox sin style */}
+                <th>Mayo</th> {/* Checkbox sin style */}
+                <th>Junio</th> {/* Checkbox sin style */}
+                <th>Julio</th> {/* Checkbox sin style */}
+                <th>Agosto</th> {/* Checkbox sin style */}
+                <th>Septiembre</th> {/* Checkbox sin style */}
+                <th>Octubre</th> {/* Checkbox sin style */}
+                <th>Noviembre</th> {/* Checkbox sin style */}
+                <th>Diciembre</th> {/* Checkbox sin style */}
               </tr>
             </thead>
             <tbody>
               {currentPageData.length > 0 ? (
                 currentPageData.map((item) => {
+                  const kCompania = `${item.id}_compania`;
+                  const kConcepto = `${item.id}_concepto`;
+                  const kMonto = `${item.id}_monto`;
+                  const kEstado = `${item.id}_estado`;
                   const kFecha = `${item.id}_fecha_${item.fecha}`;
-                  const kDir = `${item.id}_direccion_${item.fecha}`;
-                  const kMonto = `${item.id}_monto_${item.fecha}`;
-
                   const prevFechaDMY = item.fecha;
                   const currentInputValue =
                     localValues[kFecha] !== undefined
                       ? localValues[kFecha]
                       : dmyToInput(item.fecha);
-
-                  const isDireccionDuplicada =
-                    direccionCounts[(item.direccion || "").trim()] > 1;
 
                   return (
                     <tr key={item.id}>
@@ -627,186 +676,115 @@ const Fastmark = () => {
                         />
                       </td>
 
-                      {/* DIRECCIÓN: datalist basado en clientes */}
-                      <td className="direccion-fixed-td">
-                        <div className="custom-select-container">
-                          <input
-                            className="direccion-fixed-input custom-select-input"
-                            type="text"
-                            style={{ width: "20ch" }}
-                            value={
-                              localValues[kDir] !== undefined
-                                ? localValues[kDir]
-                                : item.direccion || ""
+                      {/* COMPAÑÍA */}
+                      <td>
+                        <input
+                          type="text"
+                          value={
+                            localValues[kCompania] !== undefined
+                              ? localValues[kCompania]
+                              : item.compania ?? ""
+                          }
+                          onChange={(e) =>
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kCompania]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const v = e.target.value ?? "";
+                            if (v !== (item.compania ?? "")) {
+                              handleFieldChange(item, "compania", v);
                             }
-                            onChange={(e) =>
-                              setLocalValues((p) => ({
-                                ...p,
-                                [kDir]: e.target.value,
-                              }))
-                            }
-                            onFocus={(e) =>
-                              e.target.setAttribute(
-                                "list",
-                                `direccion-options-${item.id}`
-                              )
-                            }
-                            onBlur={(e) => {
-                              setTimeout(
-                                () => e.target.removeAttribute("list"),
-                                200
-                              );
-                              if (e.target.value !== (item.direccion || "")) {
-                                handleFieldChange(
-                                  item,
-                                  "direccion",
-                                  e.target.value
-                                );
-                              }
-                            }}
-                          />
+                          }}
+                          style={{ width: "22ch" }}
+                        />
+                      </td>
 
-                          {isDireccionDuplicada && (
-                            <span
-                              title="Dirección duplicada (en la data filtrada)"
-                              style={{
-                                color: "#d9534f",
-                                fontWeight: "bold",
-                                marginLeft: "6px",
-                                fontSize: "1.2em",
-                                verticalAlign: "middle",
-                              }}
-                            >
-                              &#9888;
-                            </span>
-                          )}
-
-                          <datalist
-                            id={`direccion-options-${item.id}`}
-                            style={{
-                              height: "20px",
-                              maxHeight: "20px",
-                              overflowY: "auto",
-                            }}
-                          >
-                            {Array.from(
-                              new Set(
-                                clients
-                                  .map((client) => client.direccion)
-                                  .filter(Boolean)
-                              )
-                            )
-                              .sort((a, b) => a.localeCompare(b))
-                              .map((direccion, index) => (
-                                <option key={index} value={direccion} />
-                              ))}
-                          </datalist>
-                        </div>
+                      {/* CONCEPTO */}
+                      <td>
+                        <input
+                          type="text"
+                          value={
+                            localValues[kConcepto] !== undefined
+                              ? localValues[kConcepto]
+                              : item.concepto ?? ""
+                          }
+                          onChange={(e) =>
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kConcepto]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const v = e.target.value ?? "";
+                            if (v !== (item.concepto ?? "")) {
+                              handleFieldChange(item, "concepto", v);
+                            }
+                          }}
+                          style={{ width: "28ch" }}
+                        />
                       </td>
 
                       {/* MONTO */}
                       <td>
                         <input
                           type="text"
-                          inputMode="decimal"
-                          style={{
-                            minWidth: "8ch",
-                            width: "12ch",
-                            textAlign: "center",
-                          }}
                           value={
                             localValues[kMonto] !== undefined
                               ? localValues[kMonto]
-                              : formatMoney(item.monto || 0)
+                              : item.monto ?? ""
                           }
-                          onFocus={(e) => {
-                            // Al enfocar, muestra el valor "crudo" (sin separadores) para editar fácil
-                            const raw =
-                              item.monto === "" || item.monto == null
-                                ? ""
-                                : String(Number(item.monto));
-                            setLocalValues((p) => ({ ...p, [kMonto]: raw }));
-                            // Posiciona el cursor al final
-                            setTimeout(() => {
-                              e.target.selectionStart = e.target.value.length;
-                              e.target.selectionEnd = e.target.value.length;
-                            }, 0);
-                          }}
-                          onChange={(e) => {
-                            // Permite solo dígitos, coma, punto y espacios temporales mientras escribe
-                            const v = e.target.value;
-                            if (/^[\d\s,.\-]*$/.test(v)) {
-                              setLocalValues((p) => ({ ...p, [kMonto]: v }));
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const parsed = parseMoney(e.target.value);
-                            // Guarda "" si está vacío; si no, guarda número
-                            handleFieldChange(item, "monto", parsed);
-                            // Regresa al formateo bonito
+                          onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kMonto]:
-                                parsed === "" ? "" : formatMoney(parsed),
-                            }));
+                              [kMonto]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const v = e.target.value ?? "";
+                            if (v !== (item.monto ?? "")) {
+                              handleFieldChange(item, "monto", v);
+                            }
                           }}
-                          placeholder="0.00"
+                          style={{ width: "12ch", textAlign: "center" }}
                         />
                       </td>
 
-                      <td style={{ textAlign: "center" }}>
-                        <button
-                          className="delete-button"
-                          style={{ marginLeft: "10px", marginRight: "6px" }}
-                          onClick={() => {
-                            Swal.fire({
-                              title: "¿Deseas eliminar el registro?",
-                              text: "Esta acción no se puede deshacer.",
-                              icon: "warning",
-                              showCancelButton: true,
-                              confirmButtonText: "Sí, eliminar",
-                              cancelButtonText: "Cancelar",
-                            }).then((result) => {
-                              if (result.isConfirmed) {
-                                set(ref(database, `fastmark/${item.id}`), null)
-                                  .then(() => {
-                                    Swal.fire({
-                                      title: "¡Registro eliminado!",
-                                      text: "El registro ha sido eliminado exitosamente.",
-                                      icon: "success",
-                                      position: "center",
-                                      backdrop: "rgba(0,0,0,0.4)",
-                                      timer: 2000,
-                                      showConfirmButton: false,
-                                      heightAuto: false,
-                                      didOpen: () => {
-                                        document.body.style.overflow = "auto";
-                                      },
-                                      willClose: () => {
-                                        document.body.style.overflow = "";
-                                      },
-                                    });
-                                  })
-                                  .catch((err) =>
-                                    Swal.fire(
-                                      "Error",
-                                      "No se pudo eliminar: " + err.message,
-                                      "error"
-                                    )
-                                  );
-                              }
-                            });
+                      {/* ESTADO */}
+                      <td>
+                        <input
+                          type="text"
+                          list={`estado-options-${item.id}`}
+                          value={
+                            localValues[kEstado] !== undefined
+                              ? localValues[kEstado]
+                              : item.estado ?? ""
+                          }
+                          onChange={(e) =>
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kEstado]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const v = (e.target.value ?? "").trim();
+                            if (v !== (item.estado ?? "")) {
+                              handleFieldChange(item, "estado", v);
+                            }
                           }}
-                        >
-                          Eliminar
-                        </button>
+                          style={{ width: "14ch" }}
+                        />
+                        <datalist id={`estado-options-${item.id}`}>
+                          <option value="Pago" />
+                        </datalist>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="3">No hay registros disponibles</td>
+                  <td colSpan="5">No hay registros disponibles</td>
                 </tr>
               )}
             </tbody>
@@ -874,20 +852,11 @@ const Fastmark = () => {
       </div>
 
       {/* Crear nuevo (fecha por defecto = hoy) */}
-      <button
-        className="create-table-button"
-        onClick={() => {
-          const hoy = new Date();
-          const dd = String(hoy.getDate()).padStart(2, "0");
-          const mm = String(hoy.getMonth() + 1).padStart(2, "0");
-          const yyyy = hoy.getFullYear();
-          addData(`${dd}-${mm}-${yyyy}`, "", "");
-        }}
-      >
+      <button className="create-table-button" onClick={addData}>
         +
       </button>
     </div>
   );
 };
 
-export default Fastmark;
+export default Ciclodefacturacion;

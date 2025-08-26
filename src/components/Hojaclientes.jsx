@@ -451,7 +451,7 @@ const Clientes = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
+        <h2 style={{color:"white"}}>Filtros</h2>
         <br/>
         <hr/>
         <label>Dirección</label>

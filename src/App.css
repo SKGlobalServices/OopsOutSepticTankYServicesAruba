@@ -635,7 +635,7 @@ html {
   font-size: 20px;
   margin-bottom: 15px;
   text-align: center;
-  color: #ffffff;
+  color: #000000;
 }
 
 .filter-slidebar label {
@@ -661,7 +661,7 @@ html {
   font-size: 20px;
   margin-bottom: 15px;
   text-align: center;
-  color: #fff;
+  color: #000000;
 }
 
 /* Etiquetas de campo */
@@ -956,7 +956,7 @@ body {
   transition: background-color 0.3s, transform 0.2s ease-in-out;
   font-weight: 900;
   border-radius: 5px;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .create-table-button:hover {
@@ -1900,7 +1900,7 @@ details[open] .module-content {
 button.delete-button {
   background-color: #ff6347;
   color: #fff;
-  padding: 2px 5px;
+  padding: 3px 5px;
   cursor: pointer;
   font-size: 12px;
   border: none;

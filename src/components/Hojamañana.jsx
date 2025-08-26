@@ -357,7 +357,7 @@ const Hojamañana = () => {
     }
   };
 
-  // Función para borrar un servicio
+  // Función para eliminar un servicio
   const deleteData = (id) => {
     const dbRefItem = ref(database, `hojamañana/${id}`);
     remove(dbRefItem).catch(console.error);
@@ -736,9 +736,9 @@ const Hojamañana = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
 
         {/** Realizado Por **/}
         <label>Realizado Por</label>
@@ -974,16 +974,24 @@ const Hojamañana = () => {
                         <input
                           type="text"
                           style={{ width: "16ch" }}
-                          value={localValues[`${id}_anombrede`] ?? item.anombrede ?? ""}
+                          value={
+                            localValues[`${id}_anombrede`] ??
+                            item.anombrede ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_anombrede`]: e.target.value
+                              [`${id}_anombrede`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
                             if (e.target.value !== (item.anombrede || "")) {
-                              handleFieldChange(id, "anombrede", e.target.value);
+                              handleFieldChange(
+                                id,
+                                "anombrede",
+                                e.target.value
+                              );
                             }
                           }}
                         />
@@ -994,11 +1002,15 @@ const Hojamañana = () => {
                             className="direccion-fixed-input"
                             type="text"
                             style={{ width: "20ch" }}
-                            value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
+                            value={
+                              localValues[`${id}_direccion`] ??
+                              item.direccion ??
+                              ""
+                            }
                             onChange={(e) =>
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_direccion`]: e.target.value
+                                [`${id}_direccion`]: e.target.value,
                               }))
                             }
                             onFocus={(e) =>
@@ -1013,7 +1025,11 @@ const Hojamañana = () => {
                                 200
                               );
                               if (e.target.value !== (item.direccion || "")) {
-                                handleFieldChange(id, "direccion", e.target.value);
+                                handleFieldChange(
+                                  id,
+                                  "direccion",
+                                  e.target.value
+                                );
                               }
                             }}
                           />
@@ -1066,11 +1082,13 @@ const Hojamañana = () => {
                         <input
                           type="number"
                           style={{ width: "10ch", textAlign: "center" }}
-                          value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
+                          value={
+                            localValues[`${id}_cubicos`] ?? item.cubicos ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_cubicos`]: e.target.value
+                              [`${id}_cubicos`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -1087,14 +1105,14 @@ const Hojamañana = () => {
                           value={localValues[`${id}_valor`] ?? item.valor ?? ""}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_valor`]: newValue
+                              [`${id}_valor`]: newValue,
                             }));
                             if (item.metododepago === "efectivo") {
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_efectivo`]: newValue
+                                [`${id}_efectivo`]: newValue,
                               }));
                             }
                           }}
@@ -1163,12 +1181,14 @@ const Hojamañana = () => {
                       <td>
                         <button
                           className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
                           onClick={() => {
                             const servicio = item.servicio || "No especificado";
-                            const direccion = item.direccion || "No especificada";
+                            const direccion =
+                              item.direccion || "No especificada";
                             Swal.fire({
-                              title: "¿Estás seguro de borrar este servicio?",
-                               html: `
+                              title: "¿Estás seguro de eliminar este servicio?",
+                              html: `
                                 <div>Esta acción no se puede deshacer.</div>
                                 <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
                                   <strong>Dirección:</strong> ${direccion}<br>
@@ -1179,7 +1199,7 @@ const Hojamañana = () => {
                               showCancelButton: true,
                               confirmButtonColor: "#d33",
                               cancelButtonColor: "#3085d6",
-                              confirmButtonText: "Sí, borrar",
+                              confirmButtonText: "Sí, eliminar",
                               cancelButtonText: "Cancelar",
                               position: "center",
                               backdrop: "rgba(0,0,0,0.4)",
@@ -1191,19 +1211,26 @@ const Hojamañana = () => {
                               if (result.isConfirmed) {
                                 deleteData(id);
                                 Swal.fire({
-                                  title: "¡Borrado!",
-                                  text: "El servicio ha sido eliminado.",
+                                  title: "¡Registro eliminado!",
+                                  text: "El registro ha sido eliminado exitosamente.",
                                   icon: "success",
                                   position: "center",
                                   backdrop: "rgba(0,0,0,0.4)",
                                   timer: 2000,
                                   showConfirmButton: false,
+                                  heightAuto: false,
+                                  didOpen: () => {
+                                    document.body.style.overflow = "auto";
+                                  },
+                                  willClose: () => {
+                                    document.body.style.overflow = "";
+                                  },
                                 });
                               }
                             });
                           }}
                         >
-                          Borrar
+                          Eliminar
                         </button>
                       </td>
 
@@ -1272,11 +1299,13 @@ const Hojamañana = () => {
                         <input
                           type="number"
                           style={{ width: "12ch", textAlign: "center" }}
-                          value={localValues[`${id}_efectivo`] ?? item.efectivo ?? ""}
+                          value={
+                            localValues[`${id}_efectivo`] ?? item.efectivo ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_efectivo`]: e.target.value
+                              [`${id}_efectivo`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {

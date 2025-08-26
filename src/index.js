@@ -26,6 +26,9 @@ import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 import Fastmark from "./components/Fastmark.jsx";
 import Clientesfijos from "./components/Clientesfijos.jsx";
+import Pagosmensuales from "./components/Pagosmensuales.jsx";
+import Pagosanticipados from "./components/Pagosanticipados.jsx";
+import Ciclodefacturacion from "./components/Ciclodefacturacion.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -56,6 +59,9 @@ root.render(
       <Route path="/ingresos" element={<PageWrapper><Ingresos /></PageWrapper>} />
       <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
       <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
+      <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />
+      <Route path="/pagosanticipados" element={<PageWrapper><Pagosanticipados /></PageWrapper>} />
+      <Route path="/ciclodefacturacion" element={<PageWrapper><Ciclodefacturacion /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

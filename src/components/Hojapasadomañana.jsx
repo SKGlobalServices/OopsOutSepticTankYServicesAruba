@@ -16,7 +16,7 @@ import Select from "react-select";
 
 const Hojapasadomañana = () => {
   const navigate = useNavigate();
-  
+
   // Verificación de autorización
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
@@ -25,7 +25,7 @@ const Hojapasadomañana = () => {
       return;
     }
   }, [navigate]);
-  
+
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -84,7 +84,7 @@ const Hojapasadomañana = () => {
     const loadUsers = async () => {
       const isAuthorized = await validateSessionForAction("cargar usuarios");
       if (!isAuthorized) return;
-      
+
       const dbRef = ref(database, "users");
       const unsubscribe = onValue(dbRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -101,7 +101,7 @@ const Hojapasadomañana = () => {
       });
       return () => unsubscribe();
     };
-    
+
     loadUsers();
   }, []);
 
@@ -255,7 +255,7 @@ const Hojapasadomañana = () => {
   ) => {
     const isAuthorized = await validateSessionForAction("agregar servicio");
     if (!isAuthorized) return;
-    
+
     const dbRef = ref(database, "hojapasadomañana");
     const newDataRef = push(dbRef);
     const newData = {
@@ -390,7 +390,7 @@ const Hojapasadomañana = () => {
     }
   };
 
-  // Función para borrar un servicio
+  // Función para eliminar un servicio
   const deleteData = (id) => {
     const dbRefItem = ref(database, `hojapasadomañana/${id}`);
     remove(dbRefItem).catch(console.error);
@@ -687,9 +687,9 @@ const Hojapasadomañana = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
 
         {/** Realizado Por **/}
         <label>Realizado Por</label>
@@ -925,16 +925,24 @@ const Hojapasadomañana = () => {
                         <input
                           type="text"
                           style={{ width: "16ch" }}
-                          value={localValues[`${id}_anombrede`] ?? item.anombrede ?? ""}
+                          value={
+                            localValues[`${id}_anombrede`] ??
+                            item.anombrede ??
+                            ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_anombrede`]: e.target.value
+                              [`${id}_anombrede`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
                             if (e.target.value !== (item.anombrede || "")) {
-                              handleFieldChange(id, "anombrede", e.target.value);
+                              handleFieldChange(
+                                id,
+                                "anombrede",
+                                e.target.value
+                              );
                             }
                           }}
                         />
@@ -945,11 +953,15 @@ const Hojapasadomañana = () => {
                             className="direccion-fixed-input custom-select-input"
                             type="text"
                             style={{ width: "20ch" }}
-                            value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
+                            value={
+                              localValues[`${id}_direccion`] ??
+                              item.direccion ??
+                              ""
+                            }
                             onChange={(e) =>
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_direccion`]: e.target.value
+                                [`${id}_direccion`]: e.target.value,
                               }))
                             }
                             onFocus={(e) =>
@@ -964,7 +976,11 @@ const Hojapasadomañana = () => {
                                 200
                               );
                               if (e.target.value !== (item.direccion || "")) {
-                                handleFieldChange(id, "direccion", e.target.value);
+                                handleFieldChange(
+                                  id,
+                                  "direccion",
+                                  e.target.value
+                                );
                               }
                             }}
                           />
@@ -1018,11 +1034,13 @@ const Hojapasadomañana = () => {
                         <input
                           type="number"
                           style={{ width: "10ch", textAlign: "center" }}
-                          value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
+                          value={
+                            localValues[`${id}_cubicos`] ?? item.cubicos ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_cubicos`]: e.target.value
+                              [`${id}_cubicos`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -1039,14 +1057,14 @@ const Hojapasadomañana = () => {
                           value={localValues[`${id}_valor`] ?? item.valor ?? ""}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_valor`]: newValue
+                              [`${id}_valor`]: newValue,
                             }));
                             if (item.metododepago === "efectivo") {
-                              setLocalValues(prev => ({
+                              setLocalValues((prev) => ({
                                 ...prev,
-                                [`${id}_efectivo`]: newValue
+                                [`${id}_efectivo`]: newValue,
                               }));
                             }
                           }}
@@ -1115,11 +1133,13 @@ const Hojapasadomañana = () => {
                       <td>
                         <button
                           className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
                           onClick={() => {
                             const servicio = item.servicio || "No especificado";
-                            const direccion = item.direccion || "No especificada";
+                            const direccion =
+                              item.direccion || "No especificada";
                             Swal.fire({
-                              title: "¿Estás seguro de borrar este servicio?",
+                              title: "¿Estás seguro de eliminar este servicio?",
                               html: `
                                 <div>Esta acción no se puede deshacer.</div>
                                 <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
@@ -1131,7 +1151,7 @@ const Hojapasadomañana = () => {
                               showCancelButton: true,
                               confirmButtonColor: "#d33",
                               cancelButtonColor: "#3085d6",
-                              confirmButtonText: "Sí, borrar",
+                              confirmButtonText: "Sí, eliminar",
                               cancelButtonText: "Cancelar",
                               position: "center",
                               backdrop: "rgba(0,0,0,0.4)",
@@ -1143,19 +1163,26 @@ const Hojapasadomañana = () => {
                               if (result.isConfirmed) {
                                 deleteData(id);
                                 Swal.fire({
-                                  title: "¡Borrado!",
-                                  text: "El servicio ha sido eliminado.",
+                                  title: "¡Registro eliminado!",
+                                  text: "El registro ha sido eliminado exitosamente.",
                                   icon: "success",
                                   position: "center",
                                   backdrop: "rgba(0,0,0,0.4)",
                                   timer: 2000,
                                   showConfirmButton: false,
+                                  heightAuto: false,
+                                  didOpen: () => {
+                                    document.body.style.overflow = "auto";
+                                  },
+                                  willClose: () => {
+                                    document.body.style.overflow = "";
+                                  },
                                 });
                               }
                             });
                           }}
                         >
-                          Borrar
+                          eliminar
                         </button>
                       </td>
                       <td>
@@ -1223,11 +1250,13 @@ const Hojapasadomañana = () => {
                         <input
                           type="number"
                           style={{ width: "12ch", textAlign: "center" }}
-                          value={localValues[`${id}_efectivo`] ?? item.efectivo ?? ""}
+                          value={
+                            localValues[`${id}_efectivo`] ?? item.efectivo ?? ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_efectivo`]: e.target.value
+                              [`${id}_efectivo`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
