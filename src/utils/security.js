@@ -42,8 +42,8 @@ export const checkRateLimit = (email) => {
   const now = Date.now();
   const attempts = loginAttempts.get(email) || { count: 0, lastAttempt: now };
   
-  // Reset después de 15 minutos
-  if (now - attempts.lastAttempt > 15 * 60 * 1000) {
+  // Reset después de 5 minutos
+  if (now - attempts.lastAttempt > 5 * 60 * 1000) {
     attempts.count = 0;
   }
   
@@ -51,5 +51,5 @@ export const checkRateLimit = (email) => {
   attempts.lastAttempt = now;
   loginAttempts.set(email, attempts);
   
-  return attempts.count <= 10; // Máximo 10 intentos por 15 min
+  return attempts.count <= 5; // Máximo 5 intentos por 5 min
 };

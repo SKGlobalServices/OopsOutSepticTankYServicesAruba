@@ -7,14 +7,17 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import Swal from "sweetalert2";
 
 const Ciclodefacturacion = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
-
+  const [deletingId, setDeletingId] = useState(null);
   const [data, setData] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loadedClients, setLoadedClients] = useState(false);
   const [localValues, setLocalValues] = useState({});
   const [showDuplicatesAlert, setShowDuplicatesAlert] = useState(true);
 
@@ -27,14 +30,13 @@ const Ciclodefacturacion = () => {
 
   // Filtros
   const [filters, setFilters] = useState({
-    compania: [],
-    concepto: [],
-    monto: [],
-    estado: [],
+    cliente: [],
+    direccion: [],
+    valor: [],
+    notas: [],
     fechaInicio: null,
     fechaFin: null,
-    mes: null,
-    año: null,
+    año: new Date().getFullYear(),
   });
 
   // ====== Carga de datos (ciclodefacturacion) ======
@@ -48,15 +50,51 @@ const Ciclodefacturacion = () => {
       const all = snapshot.val();
       const arr = Object.entries(all).map(([id, r]) => ({
         id,
-        fecha: r?.fecha ?? "",
-        compania: r?.compania ?? "",
-        concepto: r?.concepto ?? "",
-        monto: r?.monto ?? "",
-        estado: r?.estado ?? "",
+        // Campos según TH
+        fecha: r?.fecha ?? "", // dd-mm-aaaa
+        cliente: r?.cliente ?? "", // texto (anombrede)
+        direccion: r?.direccion ?? "", // texto (desde clientes)
+        valor: r?.valor ?? "", // número (guardado como texto/numero)
+        notas: r?.notas ?? "", // texto
+        // Meses (checkboxes)
+        enero: !!r?.enero,
+        febrero: !!r?.febrero,
+        marzo: !!r?.marzo,
+        abril: !!r?.abril,
+        mayo: !!r?.mayo,
+        junio: !!r?.junio,
+        julio: !!r?.julio,
+        agosto: !!r?.agosto,
+        septiembre: !!r?.septiembre,
+        octubre: !!r?.octubre,
+        noviembre: !!r?.noviembre,
+        diciembre: !!r?.diciembre,
       }));
       setData(sortByFechaDesc(arr));
     });
     return unsubscribe;
+  }, []);
+
+  // Cargar "clientes" para datalist de Cliente y Dirección
+  useEffect(() => {
+    const dbRef = ref(database, "clientes");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetchedClients = Object.entries(snapshot.val()).map(
+          ([id, client]) => ({
+            id,
+            anombrede: client?.anombrede ?? "",
+            direccion: client?.direccion ?? "",
+            cubicos: client?.cubicos, // si lo necesitas luego
+          })
+        );
+        setClients(fetchedClients);
+      } else {
+        setClients([]);
+      }
+      setLoadedClients(true);
+    });
+    return () => unsubscribe();
   }, []);
 
   // ====== Utils fecha ======
@@ -140,7 +178,7 @@ const Ciclodefacturacion = () => {
 
   // actualizar un campo en Firebase y en estado local ---------
   const handleFieldChange = async (item, field, value) => {
-    const safeValue = value ?? "";
+    const safeValue = value ?? (typeof value === "boolean" ? false : "");
     try {
       const itemRef = ref(database, `ciclodefacturacion/${item.id}`);
       await update(itemRef, { [field]: safeValue });
@@ -193,7 +231,7 @@ const Ciclodefacturacion = () => {
     }
   };
 
-  // Crea un nuevo pago con estado "Pago" por defecto
+  // Crea un nuevo registro con todos los campos del TH
   const addData = async () => {
     const hoy = new Date();
     const dd = String(hoy.getDate()).padStart(2, "0");
@@ -204,43 +242,60 @@ const Ciclodefacturacion = () => {
     const dbRef = ref(database, "ciclodefacturacion");
     const newRef = push(dbRef);
     await set(newRef, {
-      fecha, // dd-mm-aaaa
-      compania: "", // texto
-      concepto: "", // texto
-      monto: "", // texto
-      estado: "", // default
+      fecha,
+      cliente: "",
+      direccion: "",
+      valor: "",
+      notas: "",
+      enero: false,
+      febrero: false,
+      marzo: false,
+      abril: false,
+      mayo: false,
+      junio: false,
+      julio: false,
+      agosto: false,
+      septiembre: false,
+      octubre: false,
+      noviembre: false,
+      diciembre: false,
     });
   };
 
   // ====== Opciones para filtros (react-select & selects) ======
-  const companiaOptions = [
+  const uniqueSorted = (arr) =>
+    Array.from(new Set(arr.filter((v) => v != null))).map((v) =>
+      typeof v === "string" ? v.trim() : v
+    );
+
+  const clienteOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
-    ...Array.from(new Set(data.map((it) => (it.compania ?? "").trim())))
+    ...uniqueSorted(data.map((it) => (it.cliente ?? "").trim()))
       .filter((v) => v !== "")
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
 
-  const conceptoOptions = [
+  const direccionOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
-    ...Array.from(new Set(data.map((it) => (it.concepto ?? "").trim())))
+    ...uniqueSorted(data.map((it) => (it.direccion ?? "").trim()))
       .filter((v) => v !== "")
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
 
-  const montoOptions = [
+  const valorOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map((it) => it.monto).filter((v) => v !== "" && v != null))
+      new Set(data.map((it) => it.valor).filter((v) => v !== "" && v != null))
     )
       .sort((a, b) => Number(a) - Number(b))
       .map((v) => ({ value: String(v), label: String(v) })),
   ];
 
-  const estadoOptions = [
+  const notasOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
-    ...Array.from(new Set(data.map((it) => (it.estado ?? "").trim())))
+    ...uniqueSorted(data.map((it) => (it.notas ?? "").trim()))
       .filter((v) => v !== "")
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
@@ -254,22 +309,6 @@ const Ciclodefacturacion = () => {
     )
   ).sort((a, b) => b - a);
 
-  const monthNames = [
-    "",
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
-
   // ====== Filtrado ======
   const filteredData = data.filter((item) => {
     const d = parseFecha(item.fecha); // Date | null
@@ -281,21 +320,14 @@ const Ciclodefacturacion = () => {
       if (filters.fechaFin && d > filters.fechaFin) return false;
     }
 
-    // 2) filtro por mes
-    if (filters.mes != null) {
-      if (!d) return false;
-      const mesItem = d.getMonth() + 1;
-      if (mesItem !== filters.mes) return false;
-    }
-
-    // 3) filtro por año
+    // 2) filtro por año
     if (filters.año != null) {
       if (!d) return false;
       const añoItem = d.getFullYear();
       if (añoItem !== filters.año) return false;
     }
 
-    // 4) filtros multi-select
+    // 3) filtros multi-select exactos (incluye opción "__EMPTY__")
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
       filterArr.some((f) => {
@@ -312,19 +344,19 @@ const Ciclodefacturacion = () => {
         );
       });
 
-    if (!matchMulti(filters.compania, "compania")) return false;
-    if (!matchMulti(filters.concepto, "concepto")) return false;
-    if (!matchMulti(filters.monto, "monto")) return false;
-    if (!matchMulti(filters.estado, "estado")) return false; // ← NUEVO
+    if (!matchMulti(filters.cliente, "cliente")) return false;
+    if (!matchMulti(filters.direccion, "direccion")) return false;
+    if (!matchMulti(filters.valor, "valor")) return false;
+    if (!matchMulti(filters.notas, "notas")) return false;
 
     return true;
   });
 
-  // ====== Conteo de compañías duplicadas (para alerta/⚠️) ======
-  const companyCounts = {};
+  // ====== Conteo de clientes duplicados (para alerta/⚠️) ======
+  const clientCounts = {};
   filteredData.forEach((it) => {
-    const c = (it.compania || "").trim();
-    if (c) companyCounts[c] = (companyCounts[c] || 0) + 1;
+    const c = (it.cliente || "").trim();
+    if (c) clientCounts[c] = (clientCounts[c] || 0) + 1;
   });
 
   // ====== Paginación sobre datos filtrados ======
@@ -378,6 +410,70 @@ const Ciclodefacturacion = () => {
     }));
   };
 
+  // Confirmar y eliminar un registro del ciclo de facturación
+  const handleDelete = async (itemId) => {
+    const result = await Swal.fire({
+      title: "¿Eliminar registro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      heightAuto: false,
+      backdrop: "rgba(0,0,0,0.4)",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingId(itemId);
+      await set(ref(database, `ciclodefacturacion/${itemId}`), null);
+
+      // Eliminación optimista en estado (por si el onValue tarda)
+      setData((prev) => prev.filter((r) => r.id !== itemId));
+
+      await Swal.fire({
+        title: "¡Registro eliminado!",
+        text: "El registro ha sido eliminado exitosamente.",
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+        heightAuto: false,
+        position: "center",
+        backdrop: "rgba(0,0,0,0.4)",
+        didOpen: () => {
+          document.body.style.overflow = "auto";
+        },
+        willClose: () => {
+          document.body.style.overflow = "";
+        },
+      });
+    } catch (err) {
+      await Swal.fire("Error", "No se pudo eliminar: " + err.message, "error");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ====== Datalists de Cliente y Dirección ======
+  const clienteNombres = Array.from(
+    new Set(
+      clients
+        .map((c) => (c.anombrede || "").trim())
+        .filter((v) => v && v.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const direcciones = Array.from(
+    new Set(
+      clients
+        .map((c) => (c.direccion || "").trim())
+        .filter((v) => v && v.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -395,7 +491,7 @@ const Ciclodefacturacion = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
+        <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
 
@@ -419,25 +515,6 @@ const Ciclodefacturacion = () => {
           />
         )}
 
-        {/* Mes */}
-        <label style={{ marginTop: 12 }}>Mes</label>
-        <select
-          value={filters.mes ?? ""}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              mes: e.target.value === "" ? null : Number(e.target.value),
-            }))
-          }
-        >
-          <option value="">Todos</option>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>
-              {monthNames[m]}
-            </option>
-          ))}
-        </select>
-
         {/* Año */}
         <label style={{ marginTop: 12 }}>Año</label>
         <select
@@ -457,65 +534,64 @@ const Ciclodefacturacion = () => {
           ))}
         </select>
 
-        {/* Compañía */}
-        <label style={{ marginTop: 12 }}>Compañía</label>
+        {/* Cliente */}
+        <label style={{ marginTop: 12 }}>Cliente</label>
         <Select
           isClearable
           isMulti
-          options={companiaOptions}
-          value={filters.compania}
+          options={clienteOptions}
+          value={filters.cliente}
           onChange={(opts) =>
-            setFilters((f) => ({ ...f, compania: opts || [] }))
+            setFilters((f) => ({ ...f, cliente: opts || [] }))
           }
-          placeholder="Selecciona compañía(s)..."
+          placeholder="Selecciona cliente(s)..."
         />
 
-        {/* Concepto */}
-        <label style={{ marginTop: 12 }}>Concepto</label>
+        {/* Dirección */}
+        <label style={{ marginTop: 12 }}>Dirección</label>
         <Select
           isClearable
           isMulti
-          options={conceptoOptions}
-          value={filters.concepto}
+          options={direccionOptions}
+          value={filters.direccion}
           onChange={(opts) =>
-            setFilters((f) => ({ ...f, concepto: opts || [] }))
+            setFilters((f) => ({ ...f, direccion: opts || [] }))
           }
-          placeholder="Selecciona concepto(s)..."
+          placeholder="Selecciona dirección(es)..."
         />
 
-        {/* Monto */}
-        <label style={{ marginTop: 12 }}>Monto</label>
+        {/* Valor */}
+        <label style={{ marginTop: 12 }}>Valor</label>
         <Select
           isClearable
           isMulti
-          options={montoOptions}
-          value={filters.monto}
-          onChange={(opts) => setFilters((f) => ({ ...f, monto: opts || [] }))}
-          placeholder="Selecciona monto(s)..."
+          options={valorOptions}
+          value={filters.valor}
+          onChange={(opts) => setFilters((f) => ({ ...f, valor: opts || [] }))}
+          placeholder="Selecciona valor(es)..."
         />
 
-        {/* Estado */}
-        <label style={{ marginTop: 12 }}>Estado</label>
+        {/* Notas */}
+        <label style={{ marginTop: 12 }}>Notas</label>
         <Select
           isClearable
           isMulti
-          options={estadoOptions}
-          value={filters.estado}
-          onChange={(opts) => setFilters((f) => ({ ...f, estado: opts || [] }))}
-          placeholder="Selecciona estado(s)..."
+          options={notasOptions}
+          value={filters.notas}
+          onChange={(opts) => setFilters((f) => ({ ...f, notas: opts || [] }))}
+          placeholder="Selecciona nota(s)..."
         />
 
         <button
           className="discard-filter-button"
           onClick={() =>
             setFilters({
-              compania: [],
-              concepto: [],
-              monto: [],
-              estado: [],
+              cliente: [],
+              direccion: [],
+              valor: [],
+              notas: [],
               fechaInicio: null,
               fechaFin: null,
-              mes: null,
               año: null,
             })
           }
@@ -536,9 +612,9 @@ const Ciclodefacturacion = () => {
         </div>
       </div>
 
-      {/* Alerta de compañías duplicadas */}
+      {/* Alerta de clientes duplicados */}
       {showDuplicatesAlert &&
-        Object.keys(companyCounts).filter((c) => companyCounts[c] > 1).length >
+        Object.keys(clientCounts).filter((c) => clientCounts[c] > 1).length >
           0 && (
           <div
             style={{
@@ -558,7 +634,7 @@ const Ciclodefacturacion = () => {
           >
             <span style={{ fontSize: "1.3em" }}>⚠️</span>
             <span style={{ flex: 1 }}>
-              <b>¡Atención!</b> Hay compañías duplicadas en los registros
+              <b>¡Atención!</b> Hay clientes duplicados en los registros
               filtrados:
               <ul
                 style={{
@@ -567,7 +643,7 @@ const Ciclodefacturacion = () => {
                   fontSize: "14px",
                 }}
               >
-                {Object.entries(companyCounts)
+                {Object.entries(clientCounts)
                   .filter(([_, count]) => count > 1)
                   .map(([c, count]) => (
                     <li key={c}>
@@ -597,38 +673,46 @@ const Ciclodefacturacion = () => {
           </div>
         )}
 
+      {/* DATALISTS GLOBALES para inputs en tabla */}
+      <datalist id="clientes-datalist">
+        {clienteNombres.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+      <datalist id="direcciones-datalist">
+        {direcciones.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
+
       {/* Tabla */}
       <div className="homepage-card">
         <div className="table-container">
           <table className="service-table">
             <thead>
               <tr>
-                <th>Fecha</th>{/* Datepicker */}
-                <th>Cliente</th> {/* anombrede(tabla clientes) */}
-                <th>Dirección</th> {/* Datalist de direccion (tabla clientes)  */}
-                <th>Valor</th> {/* Campo tipo numero */}
-                <th>Notas</th> {/* Campo tipo texto */}
-                <th>Enero</th> {/* Checkbox sin style */}
-                <th>Fecrero</th> {/* Checkbox sin style */}
-                <th>Marzo</th> {/* Checkbox sin style */}
-                <th>Abril</th> {/* Checkbox sin style */}
-                <th>Mayo</th> {/* Checkbox sin style */}
-                <th>Junio</th> {/* Checkbox sin style */}
-                <th>Julio</th> {/* Checkbox sin style */}
-                <th>Agosto</th> {/* Checkbox sin style */}
-                <th>Septiembre</th> {/* Checkbox sin style */}
-                <th>Octubre</th> {/* Checkbox sin style */}
-                <th>Noviembre</th> {/* Checkbox sin style */}
-                <th>Diciembre</th> {/* Checkbox sin style */}
+                <th>Cliente</th>
+                <th>Dirección</th>
+                <th>Valor</th>
+                <th>Notas</th>
+                <th>Enero</th>
+                <th>Febrero</th>
+                <th>Marzo</th>
+                <th>Abril</th>
+                <th>Mayo</th>
+                <th>Junio</th>
+                <th>Julio</th>
+                <th>Agosto</th>
+                <th>Septiembre</th>
+                <th>Octubre</th>
+                <th>Noviembre</th>
+                <th>Diciembre</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
               {currentPageData.length > 0 ? (
                 currentPageData.map((item) => {
-                  const kCompania = `${item.id}_compania`;
-                  const kConcepto = `${item.id}_concepto`;
-                  const kMonto = `${item.id}_monto`;
-                  const kEstado = `${item.id}_estado`;
                   const kFecha = `${item.id}_fecha_${item.fecha}`;
                   const prevFechaDMY = item.fecha;
                   const currentInputValue =
@@ -636,155 +720,173 @@ const Ciclodefacturacion = () => {
                       ? localValues[kFecha]
                       : dmyToInput(item.fecha);
 
+                  const kCliente = `${item.id}_cliente`;
+                  const kDireccion = `${item.id}_direccion`;
+                  const kValor = `${item.id}_valor`;
+                  const kNotas = `${item.id}_notas`;
+
+                  const monthFields = [
+                    "enero",
+                    "febrero",
+                    "marzo",
+                    "abril",
+                    "mayo",
+                    "junio",
+                    "julio",
+                    "agosto",
+                    "septiembre",
+                    "octubre",
+                    "noviembre",
+                    "diciembre",
+                  ];
+
                   return (
                     <tr key={item.id}>
-                      {/* FECHA */}
-                      <td>
-                        <input
-                          type="date"
-                          value={currentInputValue}
-                          onChange={(e) =>
-                            setLocalValues((p) => ({
-                              ...p,
-                              [kFecha]: e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            const oldDmy = prevFechaDMY;
-                            const newYmd = e.target.value;
-                            const newDmy = inputToDmy(newYmd);
-
-                            if (!newDmy) {
-                              setLocalValues((p) => ({
-                                ...p,
-                                [kFecha]: dmyToInput(oldDmy),
-                              }));
-                              alert("Fecha inválida.");
-                              return;
-                            }
-                            if (newDmy === oldDmy) return;
-
-                            const revert = () =>
-                              setLocalValues((p) => ({
-                                ...p,
-                                [kFecha]: dmyToInput(oldDmy),
-                              }));
-
-                            handleFechaChange(item, newDmy, revert);
-                          }}
-                          style={{ width: "14ch", textAlign: "center" }}
-                        />
-                      </td>
-
-                      {/* COMPAÑÍA */}
+                      {/* CLIENTE */}
                       <td>
                         <input
                           type="text"
+                          list="clientes-datalist"
                           value={
-                            localValues[kCompania] !== undefined
-                              ? localValues[kCompania]
-                              : item.compania ?? ""
+                            localValues[kCliente] !== undefined
+                              ? localValues[kCliente]
+                              : item.cliente ?? ""
                           }
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kCompania]: e.target.value,
+                              [kCliente]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
-                            const v = e.target.value ?? "";
-                            if (v !== (item.compania ?? "")) {
-                              handleFieldChange(item, "compania", v);
+                            const v = (e.target.value ?? "").trim();
+                            if (v !== (item.cliente ?? "")) {
+                              handleFieldChange(item, "cliente", v);
                             }
                           }}
                           style={{ width: "22ch" }}
                         />
                       </td>
 
-                      {/* CONCEPTO */}
+                      {/* DIRECCIÓN */}
                       <td>
                         <input
                           type="text"
+                          list="direcciones-datalist"
                           value={
-                            localValues[kConcepto] !== undefined
-                              ? localValues[kConcepto]
-                              : item.concepto ?? ""
+                            localValues[kDireccion] !== undefined
+                              ? localValues[kDireccion]
+                              : item.direccion ?? ""
                           }
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kConcepto]: e.target.value,
+                              [kDireccion]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
-                            const v = e.target.value ?? "";
-                            if (v !== (item.concepto ?? "")) {
-                              handleFieldChange(item, "concepto", v);
+                            const v = (e.target.value ?? "").trim();
+                            if (v !== (item.direccion ?? "")) {
+                              handleFieldChange(item, "direccion", v);
                             }
                           }}
                           style={{ width: "28ch" }}
                         />
                       </td>
 
-                      {/* MONTO */}
+                      {/* VALOR */}
                       <td>
                         <input
-                          type="text"
+                          type="number"
                           value={
-                            localValues[kMonto] !== undefined
-                              ? localValues[kMonto]
-                              : item.monto ?? ""
+                            localValues[kValor] !== undefined
+                              ? localValues[kValor]
+                              : item.valor ?? ""
                           }
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kMonto]: e.target.value,
+                              [kValor]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
                             const v = e.target.value ?? "";
-                            if (v !== (item.monto ?? "")) {
-                              handleFieldChange(item, "monto", v);
+                            if (v !== (item.valor ?? "")) {
+                              handleFieldChange(item, "valor", v);
                             }
                           }}
                           style={{ width: "12ch", textAlign: "center" }}
                         />
                       </td>
 
-                      {/* ESTADO */}
+                      {/* NOTAS */}
                       <td>
                         <input
                           type="text"
-                          list={`estado-options-${item.id}`}
                           value={
-                            localValues[kEstado] !== undefined
-                              ? localValues[kEstado]
-                              : item.estado ?? ""
+                            localValues[kNotas] !== undefined
+                              ? localValues[kNotas]
+                              : item.notas ?? ""
                           }
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kEstado]: e.target.value,
+                              [kNotas]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
                             const v = (e.target.value ?? "").trim();
-                            if (v !== (item.estado ?? "")) {
-                              handleFieldChange(item, "estado", v);
+                            if (v !== (item.notas ?? "")) {
+                              handleFieldChange(item, "notas", v);
                             }
                           }}
-                          style={{ width: "14ch" }}
+                          style={{ width: "20ch" }}
                         />
-                        <datalist id={`estado-options-${item.id}`}>
-                          <option value="Pago" />
-                        </datalist>
+                      </td>
+
+                      {/* MESES */}
+                      {monthFields.map((mf) => (
+                        <td
+                          key={`${item.id}_${mf}`}
+                          style={{ textAlign: "center" }}
+                        >
+                          <input
+                            type="checkbox"
+                            style={{
+                              width: "3ch",
+                              height: "3ch",
+                            }}
+                            checked={!!item[mf]}
+                            onChange={(e) =>
+                              handleFieldChange(item, mf, e.target.checked)
+                            }
+                          />
+                        </td>
+                      ))}
+                      {/* ACCIÓN: BOTÓN ELIMINAR */}
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          className="delete-button"
+                          style={{
+                            marginLeft: "8px",
+                            marginRight: "6px",
+                            minWidth: 92,
+                          }}
+                          onClick={() => handleDelete(item.id)}
+                          title="Eliminar registro"
+                          disabled={deletingId === item.id}
+                        >
+                          {deletingId === item.id
+                            ? "Eliminando..."
+                            : "Eliminar"}
+                        </button>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="5">No hay registros disponibles</td>
+                  <td colSpan="17">No hay registros disponibles</td>
                 </tr>
               )}
             </tbody>

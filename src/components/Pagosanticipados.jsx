@@ -7,6 +7,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import Swal from "sweetalert2";
 
 const Pagosanticipados = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -14,6 +15,8 @@ const Pagosanticipados = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
+  // arriba junto a otros estados
+  const [deletingId, setDeletingId] = useState(null);
   const [data, setData] = useState([]);
   const [localValues, setLocalValues] = useState({});
   const [showDuplicatesAlert, setShowDuplicatesAlert] = useState(true);
@@ -27,9 +30,9 @@ const Pagosanticipados = () => {
 
   // Filtros (alineados a los th)
   const [filters, setFilters] = useState({
-    compania: [],   // multi
-    monto: [],      // multi (num)
-    servicios: [],  // multi (num)
+    compania: [], // multi
+    monto: [], // multi (num)
+    servicios: [], // multi (num)
     fechaInicio: null,
     fechaFin: null,
     mes: null,
@@ -49,9 +52,9 @@ const Pagosanticipados = () => {
         id,
         fecha: r?.fecha ?? "",
         compania: r?.compania ?? "",
-        monto: r?.monto ?? "",            // número o ""
-        servicios: r?.servicios ?? "",    // número o ""
-        montoafavor: r?.montoafavor ?? "",// número o "" (nuevo)
+        monto: r?.monto ?? "", // número o ""
+        servicios: r?.servicios ?? "", // número o ""
+        montoafavor: r?.montoafavor ?? "", // número o "" (nuevo)
       }));
       setData(sortByFechaDesc(arr));
     });
@@ -67,7 +70,8 @@ const Pagosanticipados = () => {
       date.getFullYear() !== yyyy ||
       date.getMonth() !== mm - 1 ||
       date.getDate() !== dd
-    ) return null;
+    )
+      return null;
     return date;
   };
 
@@ -98,7 +102,8 @@ const Pagosanticipados = () => {
       d.getFullYear() !== Number(yyyy) ||
       d.getMonth() !== Number(mm) - 1 ||
       d.getDate() !== Number(dd)
-    ) return "";
+    )
+      return "";
     return `${dd}-${mm}-${yyyy}`;
   };
 
@@ -131,7 +136,8 @@ const Pagosanticipados = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutsideFilter);
-    return () => document.removeEventListener("mousedown", handleClickOutsideFilter);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideFilter);
   }, []);
 
   // ====== helpers numéricos ======
@@ -176,7 +182,10 @@ const Pagosanticipados = () => {
           next.servicios
         );
 
-        await update(itemRef, { [field]: safeValue, montoafavor: nuevoMontoAFavor });
+        await update(itemRef, {
+          [field]: safeValue,
+          montoafavor: nuevoMontoAFavor,
+        });
 
         setData((prev) =>
           sortByFechaDesc(
@@ -250,11 +259,11 @@ const Pagosanticipados = () => {
     const dbRef = ref(database, "pagosanticipados");
     const newRef = push(dbRef);
     await set(newRef, {
-      fecha,          // dd-mm-aaaa
+      fecha, // dd-mm-aaaa
       compania: "",
-      monto: "",      // num o ""
-      servicios: "",  // num o ""
-      montoafavor: "",// se recalculará al ingresar valores
+      monto: "", // num o ""
+      servicios: "", // num o ""
+      montoafavor: "", // se recalculará al ingresar valores
     });
   };
 
@@ -279,7 +288,9 @@ const Pagosanticipados = () => {
   const serviciosOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map((it) => it.servicios).filter((v) => v !== "" && v != null))
+      new Set(
+        data.map((it) => it.servicios).filter((v) => v !== "" && v != null)
+      )
     )
       .sort((a, b) => Number(a) - Number(b))
       .map((v) => ({ value: String(v), label: String(v) })),
@@ -401,12 +412,65 @@ const Pagosanticipados = () => {
     setFilters((prev) => ({
       ...prev,
       fechaInicio: start
-        ? new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0)
+        ? new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate(),
+            0,
+            0,
+            0
+          )
         : null,
       fechaFin: end
         ? new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59)
         : null,
     }));
+  };
+
+  // FUNCIÓN PARA ELIMINAR REGISTRO
+  const handleDelete = async (itemId) => {
+    const result = await Swal.fire({
+      title: "¿Eliminar registro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      heightAuto: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingId(itemId);
+      await set(ref(database, `pagosanticipados/${itemId}`), null);
+
+      // quita del estado sin esperar a que onValue vuelva a disparar
+      setData((prev) => prev.filter((r) => r.id !== itemId));
+
+      await Swal.fire({
+        title: "¡Eliminado!",
+        text: "Registro eliminado exitosamente.",
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+        heightAuto: false,
+        position: "center",
+        backdrop: "rgba(0,0,0,0.4)",
+        didOpen: () => {
+          document.body.style.overflow = "auto";
+        },
+        willClose: () => {
+          document.body.style.overflow = "";
+        },
+      });
+    } catch (err) {
+      await Swal.fire("Error", "No se pudo eliminar: " + err.message, "error");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -426,7 +490,7 @@ const Pagosanticipados = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
+        <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
 
@@ -435,7 +499,9 @@ const Pagosanticipados = () => {
           onClick={() => setShowDatePicker((s) => !s)}
           className="filter-button"
         >
-          {showDatePicker ? "Ocultar selector de fechas" : "Filtrar por rango de fechas"}
+          {showDatePicker
+            ? "Ocultar selector de fechas"
+            : "Filtrar por rango de fechas"}
         </button>
         {showDatePicker && (
           <DatePicker
@@ -493,7 +559,9 @@ const Pagosanticipados = () => {
           isMulti
           options={companiaOptions}
           value={filters.compania}
-          onChange={(opts) => setFilters((f) => ({ ...f, compania: opts || [] }))}
+          onChange={(opts) =>
+            setFilters((f) => ({ ...f, compania: opts || [] }))
+          }
           placeholder="Selecciona compañía(s)..."
         />
 
@@ -515,7 +583,9 @@ const Pagosanticipados = () => {
           isMulti
           options={serviciosOptions}
           value={filters.servicios}
-          onChange={(opts) => setFilters((f) => ({ ...f, servicios: opts || [] }))}
+          onChange={(opts) =>
+            setFilters((f) => ({ ...f, servicios: opts || [] }))
+          }
           placeholder="Selecciona servicios..."
         />
 
@@ -551,7 +621,8 @@ const Pagosanticipados = () => {
 
       {/* Alerta de compañías duplicadas */}
       {showDuplicatesAlert &&
-        Object.keys(companyCounts).filter((c) => companyCounts[c] > 1).length > 0 && (
+        Object.keys(companyCounts).filter((c) => companyCounts[c] > 1).length >
+          0 && (
           <div
             style={{
               background: "#fff3cd",
@@ -570,7 +641,8 @@ const Pagosanticipados = () => {
           >
             <span style={{ fontSize: "1.3em" }}>⚠️</span>
             <span style={{ flex: 1 }}>
-              <b>¡Atención!</b> Hay compañías duplicadas en los registros filtrados:
+              <b>¡Atención!</b> Hay compañías duplicadas en los registros
+              filtrados:
               <ul
                 style={{
                   margin: "6px 0 0 18px",
@@ -619,6 +691,7 @@ const Pagosanticipados = () => {
                 <th>Monto</th>
                 <th>Servicios</th>
                 <th>Monto A Favor</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -649,7 +722,10 @@ const Pagosanticipados = () => {
                           type="date"
                           value={currentInputValue}
                           onChange={(e) =>
-                            setLocalValues((p) => ({ ...p, [kFecha]: e.target.value }))
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kFecha]: e.target.value,
+                            }))
                           }
                           onBlur={(e) => {
                             const oldDmy = prevFechaDMY;
@@ -657,14 +733,20 @@ const Pagosanticipados = () => {
                             const newDmy = inputToDmy(newYmd);
 
                             if (!newDmy) {
-                              setLocalValues((p) => ({ ...p, [kFecha]: dmyToInput(oldDmy) }));
+                              setLocalValues((p) => ({
+                                ...p,
+                                [kFecha]: dmyToInput(oldDmy),
+                              }));
                               alert("Fecha inválida.");
                               return;
                             }
                             if (newDmy === oldDmy) return;
 
                             const revert = () =>
-                              setLocalValues((p) => ({ ...p, [kFecha]: dmyToInput(oldDmy) }));
+                              setLocalValues((p) => ({
+                                ...p,
+                                [kFecha]: dmyToInput(oldDmy),
+                              }));
 
                             handleFechaChange(item, newDmy, revert);
                           }}
@@ -682,7 +764,10 @@ const Pagosanticipados = () => {
                               : item.compania ?? ""
                           }
                           onChange={(e) =>
-                            setLocalValues((p) => ({ ...p, [kCompania]: e.target.value }))
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kCompania]: e.target.value,
+                            }))
                           }
                           onBlur={(e) => {
                             const v = e.target.value ?? "";
@@ -704,7 +789,10 @@ const Pagosanticipados = () => {
                               : item.monto ?? ""
                           }
                           onChange={(e) =>
-                            setLocalValues((p) => ({ ...p, [kMonto]: e.target.value }))
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kMonto]: e.target.value,
+                            }))
                           }
                           onBlur={(e) => {
                             const raw = e.target.value;
@@ -713,7 +801,11 @@ const Pagosanticipados = () => {
                               handleFieldChange(item, "monto", val);
                             }
                           }}
-                          style={{ width: "12ch", textAlign: "right" }}
+                          style={{
+                            width: "12ch",
+                            textAlign: "center",
+                            paddingLeft: "10px",
+                          }}
                         />
                       </td>
 
@@ -727,7 +819,10 @@ const Pagosanticipados = () => {
                               : item.servicios ?? ""
                           }
                           onChange={(e) =>
-                            setLocalValues((p) => ({ ...p, [kServicios]: e.target.value }))
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kServicios]: e.target.value,
+                            }))
                           }
                           onBlur={(e) => {
                             const raw = e.target.value;
@@ -736,20 +831,49 @@ const Pagosanticipados = () => {
                               handleFieldChange(item, "servicios", val);
                             }
                           }}
-                          style={{ width: "12ch", textAlign: "right" }}
+                          style={{
+                            width: "12ch",
+                            textAlign: "center",
+                            paddingLeft: "10px",
+                          }}
                         />
                       </td>
 
                       {/* MONTO A FAVOR (almacenado/calculado) */}
-                      <td style={{ textAlign: "right", fontWeight: "bold" }}>
+                      <td
+                        style={{
+                          textAlign: "center",
+                          paddingLeft: "5px",
+                          fontWeight: "bold",
+                        }}
+                      >
                         {montoAFavorToShow}
+                      </td>
+                      {/* ACCIÓN: BOTÓN ELIMINAR */}
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          className="delete-button"
+                          style={{
+                            marginLeft: "8px",
+                            marginRight: "6px",
+                            minWidth: 92,
+                          }}
+                          onClick={() => handleDelete(item.id)}
+                          title="Eliminar registro"
+                          disabled={deletingId === item.id}
+                        >
+                          {deletingId === item.id
+                            ? "Eliminando..."
+                            : "Eliminar"}
+                        </button>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="5">No hay registros disponibles</td>
+                  <td colSpan="6">No hay registros disponibles</td>{" "}
+                  {/* ← Actualiza el colspan */}
                 </tr>
               )}
             </tbody>
@@ -767,7 +891,9 @@ const Pagosanticipados = () => {
               <label>Mostrar:</label>
               <select
                 value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
               >
                 <option value={50}>50</option>
                 <option value={100}>100</option>

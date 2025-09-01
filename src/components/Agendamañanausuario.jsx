@@ -6,7 +6,7 @@ import Swal from "sweetalert2";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
 
-const Agendadeldiausuario = () => {
+const Agendamañanausuario = () => {
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -17,7 +17,27 @@ const Agendadeldiausuario = () => {
   const [clients, setClients] = useState([]);
   const [canEdit, setCanEdit] = useState(false);
 
-  // Cargar la rama "hojamañana"
+  // Usuario logueado y helper de permisos por fila (MISMA LÓGICA QUE "Servicios De Hoy")
+  const loggedUser = decryptData(localStorage.getItem("user"));
+  const myUserId = loggedUser?.id;
+
+  /**
+   * Regla por fila:
+   * - Si no hay realizadopor: solo se puede abrir el select de asignación (si canEdit global lo permite)
+   * - Si hay realizadopor y coincide con mi usuario: puedo editar el resto
+   * - Si hay realizadopor y NO coincide: todo bloqueado
+   */
+  const getRowPermission = (item) => {
+    const assigned = !!item.realizadopor;
+    const mine = item.realizadopor === myUserId;
+
+    // Si deseas permitir asignar aunque el candado esté cerrado, cambia "canEdit &&" por "true &&"
+    const canAssign = canEdit && !assigned; // habilita select de "Realizado Por" solo si aún no está asignado
+    const canEditFields = canEdit && assigned && mine; // demás campos solo si está asignado a mí
+    return { canAssign, canEditFields };
+  };
+
+  // === Cargar hoja de mañana ===
   useEffect(() => {
     const unsubData = onValue(ref(database, "hojamañana"), (snap) => {
       if (snap.exists()) {
@@ -27,7 +47,9 @@ const Agendadeldiausuario = () => {
 
         setData([
           ...con.sort(([, a], [, b]) =>
-            a.realizadopor.localeCompare(b.realizadopor)
+            String(a.realizadopor || "").localeCompare(
+              String(b.realizadopor || "")
+            )
           ),
           ...sin,
         ]);
@@ -66,6 +88,7 @@ const Agendadeldiausuario = () => {
       }
       setLoadedClients(true);
     });
+
     return () => {
       unsubData();
       unsubUsers();
@@ -75,48 +98,45 @@ const Agendadeldiausuario = () => {
 
   // --- Lógica para editar campos en Firebase y estado local ---
   const handleFieldChange = (id, field, value) => {
-    // actualizamos el campo en hojamañana
     const safeValue = value == null ? "" : value;
+
+    // Actualiza en DB (hojamañana)
     const dbRefItem = ref(database, `hojamañana/${id}`);
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
 
-    // actualizamos estado local y reordenamos
+    // Actualiza estado local y reordena
     setData((d) => {
-      // 1) Reemplazamos el elemento modificado
       const updated = d.map(([iid, it]) =>
         iid === id ? [iid, { ...it, [field]: safeValue }] : [iid, it]
       );
-
-      // 2) Separamos:
       const sinRealizadopor = updated.filter(([, it]) => !it.realizadopor);
       const conRealizadopor = updated
         .filter(([, it]) => !!it.realizadopor)
-        .sort(([, a], [, b]) => a.realizadopor.localeCompare(b.realizadopor));
-
-      // 3) Concatenamos, sin volver a “tocar” el bloque de vacíos:
+        .sort(([, a], [, b]) =>
+          String(a.realizadopor || "").localeCompare(
+            String(b.realizadopor || "")
+          )
+        );
       return [...conRealizadopor, ...sinRealizadopor];
     });
 
-    // --- Lógica específica para servicio ---
+    // Lógica específica para "servicio"
     if (field === "servicio") {
-      // solo si se asignó un servicio no vacío
       if (safeValue) {
-        const item = data.find(([iid]) => iid === id)[1];
-        const direccion = item.direccion;
+        const item = data.find(([iid]) => iid === id)?.[1];
+        const direccion = item?.direccion;
         if (direccion) {
           const existing = clients.find((c) => c.direccion === direccion);
           if (!existing) {
-            // insertar nuevo cliente
             const newClientRef = push(ref(database, "clientes"));
             set(newClientRef, {
               direccion,
               cubicos:
-                item.cubicos != null && item.cubicos !== ""
+                item?.cubicos != null && item?.cubicos !== ""
                   ? item.cubicos
                   : null,
             }).catch(console.error);
           }
-          // luego, cargar cubicos desde clientes (si existe)
           loadCubicosFromClient(direccion, id);
         }
       } else {
@@ -124,17 +144,15 @@ const Agendadeldiausuario = () => {
       }
     }
 
-    // --- Lógica específica para direccion ---
+    // Lógica específica para "direccion"
     if (field === "direccion") {
-      // al cambiar dirección, siempre recargamos cubicos desde clientes
       loadCubicosFromClient(safeValue, id);
     }
   };
 
-  // 2) Función de solo lectura de cúbicos desde clientes
+  // --- Leer cubicos desde "clientes" y sincronizar en hojamañana ---
   const loadCubicosFromClient = (direccion, dataId) => {
     if (!direccion) {
-      // limpia cubicos en data si no hay dirección
       const dbRefItem = ref(database, `hojamañana/${dataId}`);
       update(dbRefItem, { cubicos: "" }).catch(console.error);
       setData((d) =>
@@ -146,7 +164,6 @@ const Agendadeldiausuario = () => {
     }
     const cli = clients.find((c) => c.direccion === direccion);
     if (cli && cli.cubicos != null) {
-      // escribe en data solo lectura
       const dbRefItem = ref(database, `hojamañana/${dataId}`);
       update(dbRefItem, { cubicos: cli.cubicos }).catch(console.error);
       setData((d) =>
@@ -155,7 +172,6 @@ const Agendadeldiausuario = () => {
         )
       );
     } else {
-      // si no existe o no tiene cubicos, limpiamos
       const dbRefItem = ref(database, `hojamañana/${dataId}`);
       update(dbRefItem, { cubicos: "" }).catch(console.error);
       setData((d) =>
@@ -174,7 +190,6 @@ const Agendadeldiausuario = () => {
     let inicial = true;
     let previo = null;
 
-    // Listener de Firebase
     const unsub = onValue(candadoRef, (snap) => {
       const val = snap.val();
       if (inicial) {
@@ -191,7 +206,6 @@ const Agendadeldiausuario = () => {
       }
     });
 
-    // Al volver de otra pestaña
     const onVisibilityChange = () => {
       if (!document.hidden) {
         get(candadoRef).then((snap) => {
@@ -208,7 +222,6 @@ const Agendadeldiausuario = () => {
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
-
     return () => {
       unsub();
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -241,19 +254,13 @@ const Agendadeldiausuario = () => {
     });
   };
 
-  const loggedUser = decryptData(localStorage.getItem("user"));
-  const myUserId = loggedUser?.id;
   const showMisServicios = () => {
     if (!myUserId) {
       return Swal.fire("Error", "No hay usuario logueado", "error");
     }
-    // Filtra sólo los servicios de “yo”
     const mis = data.filter(([_, item]) => item.realizadopor === myUserId);
-
-    // Si quieres sólo el conteo:
     const total = mis.length;
 
-    // O si prefieres un listado con dirección y servicio:
     let html = total
       ? `<ul style="text-align:left;">${mis
           .map(
@@ -321,28 +328,17 @@ const Agendadeldiausuario = () => {
             </thead>
             <tbody>
               {data.length > 0 ? (
-                data.map(([id, item]) => (
-                  <tr key={id} className={getRowClass(item.metododepago)}>
-                    <td className="direccion-fixed-td">
-                      {canEdit ? (
+                data.map(([id, item]) => {
+                  const { canAssign, canEditFields } = getRowPermission(item);
+
+                  return (
+                    <tr key={id} className={getRowClass(item.metododepago)}>
+                      {/* Dirección: solo lectura en esta vista */}
+                      <td className="direccion-fixed-td">
                         <p
                           className="p-text"
                           style={{
-                            width: "20ch",
-                            textAlign: "left",
-                            backgroundColor: "white",
-                            margin: "5px",
-                            borderRadius: "5px",
-                            cursor: "default",
-                          }}
-                        >
-                          {item.direccion}
-                        </p>
-                      ) : (
-                        <p
-                          className="p-text"
-                          style={{
-                            width: "30ch",
+                            width: canEdit ? "20ch" : "30ch",
                             textAlign: "left",
                             margin: "5px",
                             borderRadius: "5px",
@@ -351,141 +347,152 @@ const Agendadeldiausuario = () => {
                         >
                           {item.direccion}
                         </p>
-                      )}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <button
-                          style={{
-                            border: "none",
-                            backgroundColor: "transparent",
-                            borderRadius: "0.25em",
-                            color: "black",
-                            padding: "0.2em 0.5em",
-                            cursor: "pointer",
-                            fontSize: "1em",
-                            maxWidth: "20ch",
-                            textAlign: "left",
-                            width: "100%",
-                          }}
-                          onClick={() => handleNotesClick(id, item.notas)}
-                        >
-                          {item.notas ? (
-                            <p
-                              style={{
-                                margin: 0,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                flex: 1,
-                                maxWidth: "20ch",
-                              }}
-                            >
-                              {item.notas}
-                            </p>
-                          ) : (
-                            <span
-                              style={{
-                                width: "100%",
-                                display: "inline-block",
-                              }}
-                            ></span>
-                          )}
-                        </button>
-                      ) : (
-                        <p
-                          style={{
-                            width: "20ch",
-                            textAlign: "left",
-                          }}
-                        >
-                          {item.notas}
-                        </p>
-                      )}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <input
-                          type="number"
-                          style={{
-                            width: "10ch",
-                            textAlign: "center",
-                          }}
-                          value={item.cubicos}
-                          onChange={(e) =>
-                            handleFieldChange(id, "cubicos", e.target.value)
-                          }
-                        />
-                      ) : (
-                        <p style={{ textAlign: "center" }}>{item.cubicos}</p>
-                      )}
-                    </td>
-                    <td style={{ minWidth: "26ch" }}>
-                      {canEdit ? (
-                        <select
-                          style={{ width: "24ch" }}
-                          value={item.realizadopor || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              id,
-                              "realizadopor",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value=""></option>
-                          {users.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p>
-                          {users.find((u) => u.id === item.realizadopor)?.name}
-                        </p>
-                      )}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <select
-                          value={item.metododepago}
-                          onChange={(e) => {
-                            const m = e.target.value;
-                            handleFieldChange(id, "metododepago", m);
-                            if (m === "efectivo") {
-                              handleFieldChange(id, "efectivo", item.valor);
-                            } else {
-                              handleFieldChange(id, "efectivo", "");
+                      </td>
+
+                      {/* Notas */}
+                      <td>
+                        {canEditFields ? (
+                          <button
+                            style={{
+                              border: "none",
+                              backgroundColor: "transparent",
+                              borderRadius: "0.25em",
+                              color: "black",
+                              padding: "0.2em 0.5em",
+                              cursor: "pointer",
+                              fontSize: "1em",
+                              maxWidth: "20ch",
+                              textAlign: "left",
+                              width: "100%",
+                            }}
+                            onClick={() => handleNotesClick(id, item.notas)}
+                          >
+                            {item.notas ? (
+                              <p
+                                style={{
+                                  margin: 0,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  flex: 1,
+                                  maxWidth: "20ch",
+                                }}
+                              >
+                                {item.notas}
+                              </p>
+                            ) : (
+                              <span
+                                style={{
+                                  width: "100%",
+                                  display: "inline-block",
+                                }}
+                              />
+                            )}
+                          </button>
+                        ) : (
+                          <p style={{ width: "20ch", textAlign: "left" }}>
+                            {item.notas}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Cúbicos */}
+                      <td>
+                        {canEditFields ? (
+                          <input
+                            type="number"
+                            style={{ width: "10ch", textAlign: "center" }}
+                            value={item.cubicos ?? ""}
+                            onChange={(e) =>
+                              handleFieldChange(id, "cubicos", e.target.value)
                             }
-                          }}
-                        >
-                          <option value=""></option>
-                          <option value="credito">Crédito</option>
-                          <option value="cancelado">Cancelado</option>
-                          <option value="efectivo">Efectivo</option>
-                        </select>
-                      ) : (
-                        <p>{item.metododepago}</p>
-                      )}
-                    </td>
-                    <td>
-                      {canEdit ? (
-                        <input
-                          type="number"
-                          style={{ width: "12ch", textAlign: "center" }}
-                          value={item.efectivo}
-                          onChange={(e) =>
-                            handleFieldChange(id, "efectivo", e.target.value)
-                          }
-                          disabled={item.metododepago !== "efectivo"}
-                        />
-                      ) : (
-                        <p>{item.efectivo}</p>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                          />
+                        ) : (
+                          <p style={{ textAlign: "center" }}>
+                            {item.cubicos ?? ""}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Realizado Por */}
+                      <td style={{ minWidth: "26ch" }}>
+                        {canAssign ? (
+                          <select
+                            style={{ width: "24ch" }}
+                            value={item.realizadopor || ""}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                id,
+                                "realizadopor",
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value=""></option>
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p>
+                            {item.realizadopor
+                              ? users.find((u) => u.id === item.realizadopor)
+                                  ?.name
+                              : ""}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Método de Pago */}
+                      <td>
+                        {canEditFields ? (
+                          <select
+                            value={item.metododepago || ""}
+                            onChange={(e) => {
+                              const m = e.target.value;
+                              handleFieldChange(id, "metododepago", m);
+                              if (m === "efectivo") {
+                                handleFieldChange(
+                                  id,
+                                  "efectivo",
+                                  item.valor ?? ""
+                                );
+                              } else {
+                                handleFieldChange(id, "efectivo", "");
+                              }
+                            }}
+                          >
+                            <option value=""></option>
+                            <option value="credito">Crédito</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="efectivo">Efectivo</option>
+                          </select>
+                        ) : (
+                          <p>{item.metododepago || ""}</p>
+                        )}
+                      </td>
+
+                      {/* Efectivo */}
+                      <td>
+                        {canEditFields ? (
+                          <input
+                            type="number"
+                            style={{ width: "12ch", textAlign: "center" }}
+                            value={item.efectivo ?? ""}
+                            onChange={(e) =>
+                              handleFieldChange(id, "efectivo", e.target.value)
+                            }
+                            disabled={item.metododepago !== "efectivo"}
+                          />
+                        ) : (
+                          <p>{item.efectivo ?? ""}</p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr className="no-data">
                   <td colSpan="6">No hay datos disponibles</td>
@@ -494,6 +501,7 @@ const Agendadeldiausuario = () => {
             </tbody>
           </table>
         </div>
+
         <div
           className="button-container"
           style={{
@@ -516,4 +524,4 @@ const Agendadeldiausuario = () => {
   );
 };
 
-export default Agendadeldiausuario;
+export default Agendamañanausuario;

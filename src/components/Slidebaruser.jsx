@@ -1,25 +1,24 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
 import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
-
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
-import servicioHoyIcon from "../assets/img/servicioHoyIcon.jpg";
-import servicioMananaIcon from "../assets/img/servicioMananaIcon.jpg";
-import informeEfectivoIcon from "../assets/img/informeEfectivoIcon.jpg";
-import logoutIcon from "../assets/img/logoutIcon.jpg";
 import barraIcon from "../assets/img/barra_icon.jpg";
+import logo from "../assets/img/logosolo.png";
 
 const Slidebaruser = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = decryptData(localStorage.getItem("user")) || {};
+  const user = useMemo(
+      () => decryptData(localStorage.getItem("user")) || {},
+      []
+    );
 
   useEffect(() => {
     if (!user || !user.role) {
@@ -44,7 +43,7 @@ const Slidebaruser = () => {
       }
     }
     localStorage.clear();
-    sessionStorage.removeItem('navigated');
+    sessionStorage.removeItem("navigated");
     navigate("/");
   };
 
@@ -57,7 +56,7 @@ const Slidebaruser = () => {
   // Función para cerrar sesión automáticamente
   const handleAutomaticLogout = async () => {
     let countdown = 30;
-    
+
     const result = await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
@@ -75,9 +74,9 @@ const Slidebaruser = () => {
             clearInterval(timer);
           }
         }, 1000);
-      }
+      },
     });
-    
+
     handleLogout();
   };
 
@@ -91,7 +90,7 @@ const Slidebaruser = () => {
     };
 
     const interval = setInterval(checkPlatformStatus, 60000); // Cada minuto
-    
+
     // Verificar inmediatamente al cargar
     checkPlatformStatus();
 
@@ -114,12 +113,6 @@ const Slidebaruser = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Genera URL de imagen al azar para cada usuario
-  const seed = encodeURIComponent(
-    user.username || user.email || user.id || Math.random()
-  );
-  const placeholderUrl = `https://loremflickr.com/80/80/portrait?lock=${seed}`;
-
   return (
     <div className="homepage-container">
       {/* botón hamburguesa móvil */}
@@ -133,29 +126,19 @@ const Slidebaruser = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <p className="user-greeting">
-            Bienvenid@, {user.name || "Invitado"}
-          </p>
-          <img
-            className="user-photo"
-            src={user.photoURL || placeholderUrl}
-            alt={user.name || "Invitado"}
-          />
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadeldiausuario">
+            <img
+              className="user-photo"
+              src={logo}
+              alt={user.name || "Invitado"}
+            />
+          </a>
+          <div className="user-greeting">
+            Bienvenido, {user.name || "Invitado"}
+          </div>
         </div>
 
-        {/* ===== BOTONES MÓVIL ===== */}
-        <button
-          className="btn-servHoy2"
-          onClick={() => navigate("/agendadeldiausuario")}
-          style={{ visibility: "hidden" }}
-        >
-          <img
-            className="icon-servHoy2"
-            src={servicioHoyIcon2}
-            alt="Servicios de Hoy"
-          />
-          <span>Servicios de Hoy</span>
-        </button>
+        {/* ===== MENÚ PRINCIPAL ===== */}
         <button
           className="btn-servHoy2"
           onClick={() => navigate("/agendadeldiausuario")}
@@ -167,6 +150,7 @@ const Slidebaruser = () => {
           />
           <span>Servicios de Hoy</span>
         </button>
+
         <button
           className="btn-servMan2"
           onClick={() => navigate("/agendamañanausuario")}
@@ -179,16 +163,16 @@ const Slidebaruser = () => {
           <span>Servicios de Mañana</span>
         </button>
         <button
-              className="btn-infEfec2"
-              onClick={() => navigate("/informedeefectivousuario")}
-            >
-              <img
-                className="icon-infEfec2"
-                src={informeEfectivoIcon2}
-                alt="Informe de Efectivo"
-              />
-              <span>Informe De Efectivo</span>
-            </button>
+          className="btn-infEfec2"
+          onClick={() => navigate("/informedeefectivousuario")}
+        >
+          <img
+            className="icon-infEfec2"
+            src={informeEfectivoIcon2}
+            alt="Informe de Efectivo"
+          />
+          <span>Informe De Efectivo</span>
+        </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
           <span>Cerrar Sesión</span>
@@ -199,41 +183,6 @@ const Slidebaruser = () => {
           © {new Date().getFullYear()} SK GLOBAL SERVICES
         </div>
       </div>
-
-      {/* ===== BOTONES PC ===== */}
-      <button
-        className="icon-button-servicioHoy"
-        onClick={() => navigate("/agendadeldiausuario")}
-      >
-        <img
-          className="icon-image-servicioHoy"
-          src={servicioHoyIcon}
-          alt="Servicios De Hoy"
-        />
-      </button>
-      <button
-        className="icon-button-servicioManana"
-        onClick={() => navigate("/agendamañanausuario")}
-      >
-        <img
-          className="icon-image-servicioManana"
-          src={servicioMananaIcon}
-          alt="Servicios De Mañana"
-        />
-      </button>
-      <button
-        className="icon-button-informeEfectivo"
-        onClick={() => navigate("/informedeefectivousuario")}
-      >
-        <img
-          className="icon-image-informeEfectivo"
-          src={informeEfectivoIcon}
-          alt="informedeefectivo"
-        />
-      </button>
-      <button className="icon-button-logout" onClick={handleLogout}>
-        <img className="icon-image-logout" src={logoutIcon} alt="logout" />
-      </button>
     </div>
   );
 };

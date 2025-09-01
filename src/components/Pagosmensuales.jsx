@@ -7,6 +7,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import Swal from "sweetalert2";
 
 const Pagosmensuales = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -378,6 +379,34 @@ const Pagosmensuales = () => {
     }));
   };
 
+  // FUNCIÓN PARA ELIMINAR REGISTRO
+  const handleDelete = (itemId) => {
+    Swal.fire({
+      title: "¿Eliminar registro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        set(ref(database, `pagosmensuales/${itemId}`), null)
+          .then(() => {
+            Swal.fire({
+              title: "¡Eliminado!",
+              text: "Registro eliminado exitosamente.",
+              icon: "success",
+              timer: 1800,
+              showConfirmButton: false,
+            });
+          })
+          .catch((err) =>
+            Swal.fire("Error", "No se pudo eliminar: " + err.message, "error")
+          );
+      }
+    });
+  };
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -608,6 +637,7 @@ const Pagosmensuales = () => {
                 <th>Concepto</th>
                 <th>Monto</th>
                 <th>Estado</th>
+                <th>Acción</th> {/* ← NUEVA COLUMNA */}
               </tr>
             </thead>
             <tbody>
@@ -767,12 +797,23 @@ const Pagosmensuales = () => {
                           <option value="Pago" />
                         </datalist>
                       </td>
+                      {/* ACCIÓN: BOTÓN ELIMINAR */}
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
+                          onClick={() => handleDelete(item.id)}
+                          title="Eliminar registro"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="5">No hay registros disponibles</td>
+                  <td colSpan="6">No hay registros disponibles</td> {/* ← Actualiza el colspan */}
                 </tr>
               )}
             </tbody>

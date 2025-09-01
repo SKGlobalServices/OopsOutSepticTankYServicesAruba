@@ -49,13 +49,17 @@ const Hojadefechas = () => {
   const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
-  const [selectedRows, setSelectedRows] = useState({});
   const [selectAll, setSelectAll] = useState(false);
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
   const [showSelection, setShowSelection] = useState(false);
   const [selectedKey, setSelectedKey] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // === Casillas de seleccion ===
+  const [showCobranzaSelection, setShowCobranzaSelection] = useState(false);
+  const [cobranzaSelectedRows, setCobranzaSelectedRows] = useState({});
+  const [selectedRows, setSelectedRows] = useState({});
 
   // Estado para el modal de vista/edición de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
@@ -598,7 +602,6 @@ const Hojadefechas = () => {
   }, [filters]);
 
   // A partir de aquí utiliza paginatedData para mapear tu tabla…
-
   const handleRowSelection = (fecha, registroId, checked) => {
     const key = `${fecha}_${registroId}`;
     setSelectedRows((prev) => {
@@ -617,6 +620,114 @@ const Hojadefechas = () => {
       return newSelections;
     });
   };
+
+  // Helpers para selección y fecha
+  const handleCobranzaRowSelection = (_fecha, registroId, checked) => {
+  // ignoramos fecha, guardamos por id
+  const key = registroId;
+  setCobranzaSelectedRows((prev) => ({ ...prev, [key]: checked }));
+};
+
+  const getTodayDDMMYYYY = () => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  // Acción principal del botón “Cobranza”
+  const GestionarCobranza = async () => {
+  if (!showCobranzaSelection) {
+    setShowCobranzaSelection(true);
+    return;
+  }
+
+  const haySeleccion = Object.values(cobranzaSelectedRows).some(Boolean);
+  if (!haySeleccion) {
+    setShowCobranzaSelection(false);
+    setCobranzaSelectedRows({});
+    return;
+  }
+
+  const { isConfirmed } = await Swal.fire({
+    title: "Enviar a Informe de Cobranza",
+    html: `
+      <p style="margin:0 0 8px;">Se copiarán los registros seleccionados a <b>Informe De Cobranza</b>.</p>
+      <p style="margin:0;">Los datos <b>NO</b> se eliminarán de Agenda Dinámica.</p>
+      <p style="margin:8px 0 0;color:#d35400;font-size:0.9em;">
+        Nota: si ya existía una copia para un id, será <b>actualizada</b>.
+      </p>
+    `,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sí, enviar",
+    cancelButtonText: "Cancelar",
+  });
+  if (!isConfirmed) return;
+
+  Swal.fire({
+    title: "Enviando...",
+    text: "Se están enviando los datos a informe de cobranza",
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading(),
+  });
+
+  try {
+    // aplanar todo como ya lo haces
+    const flatAll = filteredData.flatMap((group) =>
+      group.registros.map((r) => ({ ...r, fecha: group.fecha }))
+    );
+
+    // filtrar por ids seleccionados
+    const seleccionados = flatAll.filter((r) => !!cobranzaSelectedRows[r.id]);
+
+    if (seleccionados.length === 0) {
+      Swal.close();
+      await Swal.fire({
+        icon: "info",
+        title: "Sin registros",
+        text: "No hay registros seleccionados para cobranza.",
+      });
+      return;
+    }
+
+    // escribir 1 a 1 en informedecobranza/{id}
+    const writes = seleccionados.map((reg) => {
+      const copy = {
+        direccion: reg.direccion || "",
+        valor: reg.valor ?? "",
+        notas: reg.notas || "",
+      };
+
+      // path por ID (sin fecha)
+      const itemRef = ref(database, `informedecobranza/${reg.id}`);
+      return set(itemRef, copy); // sobrescribe/crea
+    });
+
+    await Promise.all(writes);
+
+    Swal.close();
+    await Swal.fire({
+      icon: "success",
+      title: "Copiados a Informe de Cobranza",
+      text: `Se copiaron ${seleccionados.length} registro(s) por id en 'Informe De Cobranza'.`,
+      timer: 2200,
+    });
+
+    setShowCobranzaSelection(false);
+    setCobranzaSelectedRows({});
+  } catch (err) {
+    console.error("Error copiando a informedecobranza:", err);
+    Swal.close();
+    await Swal.fire({
+      icon: "error",
+      title: "Error al enviar",
+      text: "No se pudo copiar a Informe de Cobranza. Intenta de nuevo.",
+    });
+  }
+};
+
 
   // Solo agrega una nueva dirección al cambiar el servicio
   const syncWithClients = (direccion, cubicos) => {
@@ -2938,9 +3049,9 @@ const Hojadefechas = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
           className="filter-button"
@@ -3187,6 +3298,7 @@ const Hojadefechas = () => {
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Pago</th>
+                {showCobranzaSelection && <th></th>}
                 <th>Fecha de Pago</th>
                 <th>Forma De Pago</th>
                 <th>Banco</th>
@@ -3465,6 +3577,20 @@ const Hojadefechas = () => {
                           <option value="Pendiente Fin De Mes">-</option>
                         </select>
                       </td>
+                      {showCobranzaSelection && (
+                        <td style={{ textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: "3ch", height: "3ch" }}
+                            checked={!!cobranzaSelectedRows[registro.id]}
+onChange={(e) => handleCobranzaRowSelection(null, registro.id, e.target.checked)}
+                            // si quieres impedir cobrar ya pagados, descomenta:
+                            // disabled={registro.pago === "Pago"}
+                            title="Marcar para enviar a Informe de Cobranza"
+                          />
+                        </td>
+                      )}
+
                       <td>
                         <input
                           type="date"
@@ -3883,6 +4009,17 @@ const Hojadefechas = () => {
             ? "Eliminar Servicio"
             : selectedKey
             ? "Eliminar Servicio"
+            : "Ocultar casillas"}
+        </button>
+        <button
+          style={{ backgroundColor: "#0a7e00ff" }}
+          onClick={GestionarCobranza}
+          className="filter-button"
+        >
+          {!showCobranzaSelection
+            ? "Cobranza"
+            : cobranzaSelectedRows
+            ? "Enviar a Cobranza"
             : "Ocultar casillas"}
         </button>
       </div>

@@ -21,7 +21,6 @@ import Historialdecambios from "./components/Historialdecambios.jsx";
 import Informedecobranza from "./components/Informedecobranza.jsx";
 import Informedetransferencias from "./components/Informedetransferencias.jsx";
 import Estadoderesultado from "./components/Estadoderesultado.jsx";
-import Ingresos from "./components/Ingresos.jsx";
 import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 import Fastmark from "./components/Fastmark.jsx";
@@ -56,7 +55,6 @@ root.render(
       <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
       <Route path="/fastmark" element={<PageWrapper><Fastmark /></PageWrapper>} />
       <Route path="/estadoderesultado" element={<PageWrapper><Estadoderesultado /></PageWrapper>} />
-      <Route path="/ingresos" element={<PageWrapper><Ingresos /></PageWrapper>} />
       <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
       <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
       <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />

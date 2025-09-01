@@ -5,6 +5,7 @@ import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
+import Swal from "sweetalert2";
 
 const Clientesfijos = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -298,6 +299,47 @@ const Clientesfijos = () => {
     }
   };
 
+  // Agrega esta función para eliminar
+  const handleDelete = (itemId) => {
+    Swal.fire({
+      title: "¿Deseas eliminar el registro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        set(ref(database, `clientesfijos/${itemId}`), null)
+          .then(() => {
+            Swal.fire({
+              title: "¡Registro eliminado!",
+              text: "El registro ha sido eliminado exitosamente.",
+              icon: "success",
+              position: "center",
+              backdrop: "rgba(0,0,0,0.4)",
+              timer: 2000,
+              showConfirmButton: false,
+              heightAuto: false,
+              didOpen: () => {
+                document.body.style.overflow = "auto";
+              },
+              willClose: () => {
+                document.body.style.overflow = "";
+              },
+            });
+          })
+          .catch((err) =>
+            Swal.fire(
+              "Error",
+              "No se pudo eliminar: " + err.message,
+              "error"
+            )
+          );
+      }
+    });
+  };
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -467,6 +509,7 @@ const Clientesfijos = () => {
                 <th>Programación</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -644,10 +687,18 @@ const Clientesfijos = () => {
                               handleFieldChange(item, "valor", val);
                             }
                           }}
-                          Notas
-                          rápi
                           style={{ width: "12ch", textAlign: "center", paddingLeft: "14px" }}
                         />
+                      </td>
+                      {/* BOTÓN ELIMINAR */}
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          className="delete-button"
+                          style={{ marginLeft: "10px", marginRight: "6px" }}
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          Eliminar
+                        </button>
                       </td>
                     </tr>
                   );

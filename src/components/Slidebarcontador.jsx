@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
@@ -6,21 +6,23 @@ import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
-import logoutIcon from "../assets/img/logoutIcon.jpg";
 import barraIcon from "../assets/img/barra_icon.jpg";
+import logo from "../assets/img/logosolo.png";
 
 const Slidebarcontador = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const user = decryptData(localStorage.getItem("user"));
+  const user = useMemo(
+      () => decryptData(localStorage.getItem("user")) || {},
+      []
+    );
   
     useEffect(() => {
-      if (!user) {
-        navigate("/");
-        return;
-      }
-  
+      if (!user || !user.role) {
+      navigate("/");
+      return;
+    }
       if (user.role === "admin") {
         navigate("/agendaexpress");
       } else if (user.role === "user") {
@@ -112,57 +114,54 @@ const Slidebarcontador = () => {
 
   return (
     <div className="homepage-container">
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
-      {/* SLIDEBAR MOVILES */}
 
       <button className="show-slidebar-button" onClick={toggleSlidebar}>
         <img src={barraIcon} alt="Menú" className="barra-icon-img" />
       </button>
 
+
       <div
         ref={slidebarRef}
         className={`slidebar ${showSlidebar ? "show" : ""}`}
       >
+        {/* ===== HEADER USUARIO ===== */}
+        <div className="sidebar-user">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadeldiausuario">
+            <img
+              className="user-photo"
+              src={logo}
+              alt={user.name || "Invitado"}
+            />
+          </a>
+          <div className="user-greeting">
+            Bienvenido, {user.name || "Invitado"}
+          </div>
+        </div>
+
+        {/* ===== MENÚ PRINCIPAL ===== */}
         <button
-          className="btn-agendar2"
-          onClick={() => navigate("/agendaexpress")}
-          style={{ visibility: "hidden" }}
+          className="btn-servHoy2"
+          onClick={() => navigate("/agendadinamicacontador")}
         >
           <img
-            className="icon-agendar2"
+            className="icon-servHoy2"
             src={agendarIcon2}
-            alt="Agenda Express"
+            alt="Agenda Dinamica"
           />
-          <span>Agenda Express</span>
+          <span>Agenda Dinamica</span>
         </button>
+
+        {/* ===== CERRAR SESION ===== */}
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
           <span>Cerrar Sesión</span>
         </button>
+
+        {/* ===== FOOTER ===== */}
+        <div className="sidebar-footer">
+          © {new Date().getFullYear()} SK GLOBAL SERVICES
+        </div>
       </div>
-
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-      {/* SLIDEBAR PC */}
-
-      <button className="icon-button-logout" onClick={handleLogout}>
-        <img className="icon-image-logout" src={logoutIcon} alt="logout" />
-      </button>
     </div>
   );
 };

@@ -299,7 +299,8 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
-            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
+            {/* onClick={() => navigate("/nomina")} */}
+            <button className="btn-nomina2" disable style={{cursor: "not-allowed", opacity:"0.5"}}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}
@@ -325,17 +326,6 @@ const Slidebar = () => {
                 alt="Pagos Mensuales"
               />
               <span>Pagos Mensuales</span>
-            </button>
-            <button
-              className="btn-edoResul2"
-              onClick={() => navigate("/ingresos")}
-            >
-              <img
-                className="icon-infEfec2"
-                src={informeEfectivoIcon2}
-                alt="Ingresos"
-              />
-              <span>ㅤㅤIngresos</span>
             </button>
             <button
               className="btn-edoResul2"
@@ -377,6 +367,7 @@ const Slidebar = () => {
               />
               <span>ㅤTransferencias</span>
             </button>
+            
             <button
               className="btn-infEfec2"
               onClick={() => navigate("/informedecobranza")}

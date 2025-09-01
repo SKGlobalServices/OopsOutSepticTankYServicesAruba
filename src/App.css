@@ -318,7 +318,7 @@ html {
 /* ----------------------------------------- */
 #passwordbutton {
   background: linear-gradient(90deg, #00c6ff, #0072ff);
-  color: white;
+  color: white !important;
   padding: 12px;
   font-size: 1rem;
   font-weight: bold;
@@ -1243,10 +1243,6 @@ table.service-table {
   border-collapse: collapse; /* opcional, para un único trazo si hay celdas contiguas */
 }
 
-table.service-table {
-  border-collapse: collapse; /* ya lo tienes si usaste antes */
-}
-
 table.service-table tr {
   transition: background-color 0.2s ease-in-out; /* transición suave */
 }
@@ -1787,6 +1783,7 @@ details[open] .module-content {
 .filter-button:hover {
   background-color: #5271ff;
   transform: scale(1.05);
+  cursor: pointer;
 }
 
 .filters-container {
@@ -2321,6 +2318,7 @@ button.delete-button:hover {
   .filter-button.active {
     background-color: #5271ff;
     color: white;
+    cursor: pointer;
   }
 
   .discard-filter-button {
@@ -2343,6 +2341,7 @@ button.delete-button:hover {
   .filter-button.reset-button {
     background-color: #6c757d;
     color: white;
+    cursor: pointer;
   }
   .icon-button-agendar,
   .icon-button-mis-servicios,
@@ -2410,6 +2409,7 @@ button.delete-button:hover {
     padding: 12px 18px;
     font-size: 10px;
     margin-top: 5px;
+    cursor: pointer;
     margin-bottom: 5px;
     white-space: nowrap;
   }
