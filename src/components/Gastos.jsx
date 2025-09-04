@@ -27,6 +27,79 @@ const Gastos = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState(50);
   const [gastos, setGastos] = useState([]);
+  
+  // Función para agregar gasto con SweetAlert
+  const agregarGastoSwal = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: "Agregar nuevo gasto",
+      html: `
+        <input id="swal-fecha" type="date" class="swal2-input" placeholder="Fecha">
+        <input id="swal-categoria" class="swal2-input" placeholder="Categoría">
+        <input id="swal-descripcion" class="swal2-input" placeholder="Descripción">
+        <input id="swal-proveedor" class="swal2-input" placeholder="Proveedor">
+        <select id="swal-metodo" class="swal2-input">
+          <option value="">Método de pago...</option>
+          ${METODOS_PAGO.map(
+            (m) => `<option value="${m}">${m}</option>`
+          ).join("")}
+        </select>
+        <select id="swal-banco" class="swal2-input">
+          <option value="">Banco...</option>
+          <option value="Aruba Bank N.V.">Aruba Bank N.V.</option>
+          <option value="Caribbean Mercantile Bank N.V.">Caribbean Mercantile Bank N.V.</option>
+          <option value="RBC Royal Bank N.V.">RBC Royal Bank N.V.</option>
+        </select>
+        <input id="swal-idBanco" type="number" class="swal2-input" placeholder="Id banco">
+        <input id="swal-monto" type="number" class="swal2-input" placeholder="Monto">
+        <input id="swal-numFactura" class="swal2-input" placeholder="N° Factura">
+        <input id="swal-responsable" class="swal2-input" placeholder="Responsable">
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Agregar",
+      cancelButtonText: "Cancelar",
+      preConfirm: () => {
+        return {
+          fecha: document.getElementById("swal-fecha").value,
+          categoria: document.getElementById("swal-categoria").value,
+          descripcion: document.getElementById("swal-descripcion").value,
+          proveedor: document.getElementById("swal-proveedor").value,
+          metodoPago: document.getElementById("swal-metodo").value,
+          banco: document.getElementById("swal-banco").value,
+          idBanco: document.getElementById("swal-idBanco").value,
+          monto: document.getElementById("swal-monto").value,
+          numFactura: document.getElementById("swal-numFactura").value,
+          responsable: document.getElementById("swal-responsable").value,
+        };
+      },
+    });
+
+    if (formValues) {
+      if (!formValues.fecha || !formValues.categoria || !formValues.monto) {
+        Swal.fire("Campos obligatorios", "Completa fecha, categoría y monto.", "warning");
+        return;
+      }
+      // Formatear fecha a dd-mm-yyyy
+      const [y, m, d] = formValues.fecha.split("-");
+      const fechaFormateada = `${d}-${m}-${y}`;
+      const nuevoRef = push(ref(database, "gastos"));
+      await set(nuevoRef, {
+        fecha: fechaFormateada,
+        categoria: formValues.categoria,
+        descripcion: formValues.descripcion,
+        proveedor: formValues.proveedor,
+        metodoPago: formValues.metodoPago,
+        banco: formValues.banco,
+        idBanco: formValues.idBanco,
+        monto: formValues.monto,
+        moneda: "AWS",
+        numFactura: formValues.numFactura,
+        responsable: formValues.responsable,
+        timestamp: Date.now(),
+      });
+      Swal.fire("¡Agregado!", "El gasto fue registrado correctamente.", "success");
+    }
+  };
 
   /* ---------- Filtros y paginación ---------- */
   const [filtros, setFiltros] = useState({
@@ -56,6 +129,42 @@ const Gastos = () => {
     const month = ("0" + (d.getMonth() + 1)).slice(-2);
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
+  };
+
+  // Funciones de conversión de fecha (como en Fastmark)
+  const parseFecha = (dmy) => {
+    if (!/^\d{2}-\d{2}-\d{4}$/.test(dmy)) return null;
+    const [dd, mm, yyyy] = dmy.split("-").map((x) => parseInt(x, 10));
+    const date = new Date(yyyy, mm - 1, dd);
+    if (
+      date.getFullYear() !== yyyy ||
+      date.getMonth() !== mm - 1 ||
+      date.getDate() !== dd
+    )
+      return null;
+    return date;
+  };
+
+  const dmyToInput = (dmy) => {
+    const d = parseFecha(dmy);
+    if (!d) return "";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const inputToDmy = (ymd) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "";
+    const [yyyy, mm, dd] = ymd.split("-");
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    if (
+      d.getFullYear() !== Number(yyyy) ||
+      d.getMonth() !== Number(mm) - 1 ||
+      d.getDate() !== Number(dd)
+    )
+      return "";
+    return `${dd}-${mm}-${yyyy}`;
   };
 
   const METODOS_PAGO = ["Efectivo", "Transferencia", "Tarjeta"];
@@ -744,6 +853,7 @@ const Gastos = () => {
                 <th>Proveedor</th>
                 <th>Método</th>
                 <th>Banco</th>
+                <th>Id banco</th> {/* ← NUEVA COLUMNA */}
                 <th>Monto</th>
                 <th>N° Factura</th>
                 <th>Responsable</th>
@@ -757,36 +867,40 @@ const Gastos = () => {
                     <tr key={r.id}>
                       {/* Fecha */}
                       <td>
-                        <DatePicker
-                          selected={
-                            valoresLocales[`${r.id}_fecha`]
-                              ? new Date(valoresLocales[`${r.id}_fecha`])
-                              : r.fecha
-                              ? (() => {
-                                  const [d, m, y] = r.fecha.split("-");
-                                  return new Date(y, m - 1, d);
-                                })()
-                              : null
+                        <input
+                          type="date"
+                          value={
+                            valoresLocales[`${r.id}_fecha`] !== undefined
+                              ? valoresLocales[`${r.id}_fecha`]
+                              : dmyToInput(r.fecha)
                           }
-                          onChange={(date) => {
-                            const fechaStr = formatearFecha(date);
+                          onChange={(e) =>
                             setValoresLocales((prev) => ({
                               ...prev,
-                              [`${r.id}_fecha`]: fechaStr,
-                            }));
-                            actualizarCampo(r.id, "fecha", fechaStr);
-                          }}
-                          dateFormat="dd-MM-yyyy"
-                          customInput={
-                            <input
-                              style={{
-                                width: "10ch",
-                                textAlign: "center",
-                                fontWeight: "bold",
-                              }}
-                              readOnly
-                            />
+                              [`${r.id}_fecha`]: e.target.value,
+                            }))
                           }
+                          onBlur={(e) => {
+                            const oldDmy = r.fecha;
+                            const newYmd = e.target.value;
+                            const newDmy = inputToDmy(newYmd);
+
+                            if (!newDmy) {
+                              setValoresLocales((prev) => ({
+                                ...prev,
+                                [`${r.id}_fecha`]: dmyToInput(oldDmy),
+                              }));
+                              alert("Fecha inválida.");
+                              return;
+                            }
+                            if (newDmy === oldDmy) return;
+
+                            actualizarCampo(r.id, "fecha", newDmy);
+                          }}
+                          style={{
+                            width: "14ch",
+                            textAlign: "center",
+                          }}
                         />
                       </td>
                       {/* Categoría */}
@@ -907,6 +1021,27 @@ const Gastos = () => {
                             RBC Royal Bank N.V.
                           </option>
                         </select>
+                      </td>
+                      {/* Id banco */}
+                      <td>
+                        <input
+                          type="number"
+                          value={
+                            valoresLocales[`${r.id}_idBanco`] ?? r.idBanco ?? ""
+                          }
+                          onChange={(e) =>
+                            setValoresLocales((prev) => ({
+                              ...prev,
+                              [`${r.id}_idBanco`]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            if (e.target.value !== (r.idBanco || "")) {
+                              actualizarCampo(r.id, "idBanco", e.target.value);
+                            }
+                          }}
+                          style={{ width: "10ch", textAlign: "center" }}
+                        />
                       </td>
                       {/* Monto */}
                       <td style={{ textAlign: "right" }}>
@@ -1105,23 +1240,7 @@ const Gastos = () => {
 
       <button
         className="create-table-button"
-        onClick={async () => {
-          // Crea un gasto vacío en la rama "gastos"
-          const nuevoRef = push(ref(database, "gastos"));
-          await set(nuevoRef, {
-            fecha: formatearFecha(new Date()),
-            categoria: "",
-            descripcion: "",
-            proveedor: "",
-            metodoPago: "",
-            banco: "",
-            monto: "",
-            moneda: "AWS",
-            numFactura: "",
-            responsable: "",
-            timestamp: Date.now(),
-          });
-        }}
+        onClick={agregarGastoSwal}
       >
         +
       </button>
