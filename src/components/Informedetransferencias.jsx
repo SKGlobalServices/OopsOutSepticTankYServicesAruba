@@ -877,4 +877,4 @@ const Informedetransferencias = () => {
   );
 };
 
-export default Informedetransferencias;
+export default React.memo(Informedetransferencias);

@@ -34,4 +34,4 @@ const DateFilterButton = ({ filter, setFilter }) => {
   );
 };
 
-export default DateFilterButton;
+export default React.memo(DateFilterButton);

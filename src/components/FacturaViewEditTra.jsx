@@ -1481,4 +1481,4 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
   );
 };
 
-export default FacturaViewEditTra;
+export default React.memo(FacturaViewEditTra);

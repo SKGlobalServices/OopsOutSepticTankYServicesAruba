@@ -397,16 +397,6 @@ const Slidebar = () => {
         <details>
           <summary className="module-header">CONFIGURACIÓN</summary>
           <div className="module-content">
-            <button className="btn-configUsr2"
-            onClick={() => navigate("/historialdecambios")}
-            >
-              <img
-                className="icon-configUsr2"
-                src={configuracionUsuariosIcon2}
-                alt="Historial De Cambios"
-              />
-              <span>Historial De Cambios</span>
-            </button>
             <button
               className="btn-configUsr2"
               onClick={() => navigate("/clientes")}
@@ -447,4 +437,4 @@ const Slidebar = () => {
   );
 };
 
-export default Slidebar;
+export default React.memo(Slidebar);

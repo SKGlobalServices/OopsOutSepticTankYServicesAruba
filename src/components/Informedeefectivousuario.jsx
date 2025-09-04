@@ -1155,4 +1155,4 @@ const Informedeefectivousuario = () => {
   );
 };
 
-export default Informedeefectivousuario;
+export default React.memo(Informedeefectivousuario);

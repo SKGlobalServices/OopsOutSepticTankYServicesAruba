@@ -4049,4 +4049,4 @@ onChange={(e) => handleCobranzaRowSelection(null, registro.id, e.target.checked)
   );
 };
 
-export default Hojadefechas;
+export default React.memo(Hojadefechas);

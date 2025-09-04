@@ -158,4 +158,4 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
   );
 };
 
-export default Estadoderesultado;
+export default React.memo(Estadoderesultado);

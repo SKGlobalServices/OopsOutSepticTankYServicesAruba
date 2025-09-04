@@ -1274,4 +1274,4 @@ const Informedeefectivo = () => {
   );
 };
 
-export default Informedeefectivo;
+export default React.memo(Informedeefectivo);

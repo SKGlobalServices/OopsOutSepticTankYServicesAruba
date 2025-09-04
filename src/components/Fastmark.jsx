@@ -890,4 +890,4 @@ const Fastmark = () => {
   );
 };
 
-export default Fastmark;
+export default React.memo(Fastmark);

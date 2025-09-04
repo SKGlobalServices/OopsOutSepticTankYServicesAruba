@@ -166,4 +166,4 @@ const Slidebarcontador = () => {
   );
 };
 
-export default Slidebarcontador;
+export default React.memo(Slidebarcontador);

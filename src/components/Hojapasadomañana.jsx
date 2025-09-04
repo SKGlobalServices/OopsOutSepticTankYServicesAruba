@@ -1313,4 +1313,4 @@ const Hojapasadomañana = () => {
   );
 };
 
-export default Hojapasadomañana;
+export default React.memo(Hojapasadomañana);

@@ -909,4 +909,4 @@ const Pagosmensuales = () => {
   );
 };
 
-export default Pagosmensuales;
+export default React.memo(Pagosmensuales);

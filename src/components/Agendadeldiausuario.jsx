@@ -508,4 +508,4 @@ const Agendadeldiausuario = () => {
   );
 };
 
-export default Agendadeldiausuario;
+export default React.memo(Agendadeldiausuario);

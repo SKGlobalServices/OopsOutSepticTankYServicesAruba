@@ -814,4 +814,4 @@ const Clientesfijos = () => {
   );
 };
 
-export default Clientesfijos;
+export default React.memo(Clientesfijos);

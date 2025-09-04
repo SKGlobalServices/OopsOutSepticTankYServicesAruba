@@ -1161,4 +1161,4 @@ const Agendadinamicacontador = () => {
   );
 };
 
-export default Agendadinamicacontador;
+export default React.memo(Agendadinamicacontador);

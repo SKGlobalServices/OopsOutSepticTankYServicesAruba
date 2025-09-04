@@ -1584,4 +1584,4 @@ const FacturaViewEdit = ({ numeroFactura, onClose }) => {
   );
 };
 
-export default FacturaViewEdit;
+export default React.memo(FacturaViewEdit);

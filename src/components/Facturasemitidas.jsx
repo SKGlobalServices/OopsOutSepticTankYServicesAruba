@@ -3378,4 +3378,4 @@ const Facturasemitidas = () => {
   );
 };
 
-export default Facturasemitidas;
+export default React.memo(Facturasemitidas);

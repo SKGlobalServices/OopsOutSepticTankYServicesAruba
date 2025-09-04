@@ -969,4 +969,4 @@ const Pagosanticipados = () => {
   );
 };
 
-export default Pagosanticipados;
+export default React.memo(Pagosanticipados);

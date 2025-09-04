@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, remove, update, onValue } from "firebase/database";
 import Swal from "sweetalert2";
@@ -1651,4 +1651,4 @@ const Reprogramacionautomatica = () => {
   );
 };
 
-export default Reprogramacionautomatica;
+export default React.memo(Reprogramacionautomatica);

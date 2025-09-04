@@ -1381,4 +1381,4 @@ const Hojamañana = () => {
   );
 };
 
-export default Hojamañana;
+export default React.memo(Hojamañana);

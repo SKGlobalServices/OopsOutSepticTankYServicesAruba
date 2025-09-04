@@ -160,4 +160,4 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
   );
 };
 
-export default Nomina;
+export default React.memo(Nomina);

@@ -961,4 +961,4 @@ const Ciclodefacturacion = () => {
   );
 };
 
-export default Ciclodefacturacion;
+export default React.memo(Ciclodefacturacion);

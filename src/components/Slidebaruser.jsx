@@ -187,4 +187,4 @@ const Slidebaruser = () => {
   );
 };
 
-export default Slidebaruser;
+export default React.memo(Slidebaruser);

@@ -449,4 +449,4 @@ const AgendaExpress = () => {
   );
 };
 
-export default AgendaExpress;
+export default React.memo(AgendaExpress);

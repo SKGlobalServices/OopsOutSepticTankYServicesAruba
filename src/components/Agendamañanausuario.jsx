@@ -524,4 +524,4 @@ const Agendamañanausuario = () => {
   );
 };
 
-export default Agendamañanausuario;
+export default React.memo(Agendamañanausuario);

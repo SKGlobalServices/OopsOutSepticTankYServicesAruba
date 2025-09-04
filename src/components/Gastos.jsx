@@ -1129,4 +1129,4 @@ const Gastos = () => {
   );
 };
 
-export default Gastos;
+export default React.memo(Gastos);
