@@ -4,14 +4,25 @@ import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 
 const Nomina = () => {
-const [showSlidebar, setShowSlidebar] = useState(false);
-const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
-const slidebarRef = useRef(null);
- const filterSlidebarRef = useRef(null);
+  // LOADER
+  const [loading, setLoading] = useState(true);
+  
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const slidebarRef = useRef(null);
+  const filterSlidebarRef = useRef(null);
 
 // Mostrar/ocultar slidebars
 const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
 const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
+
+  // Simular carga inicial
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -26,6 +37,15 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Loading
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">
@@ -109,15 +129,17 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
           <table className="service-table">
             <thead>
               <tr>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
-                <th>th</th>
+                <th>Nombre</th>
+                <th>Dias</th>
+                <th>Valor</th>
+                <th>Total Quincena</th>
+                <th>Extra</th>
+                <th>Deducciones</th>
+                <th>Total Nomina</th>
+                <th>Efectivo</th>
+                <th>Total</th>
+                <th>Entregado</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>

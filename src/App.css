@@ -3790,42 +3790,61 @@ h1,
 /* Estilos para móviles */
 @media (max-width: 768px) {
   .pagination-container {
-    padding: 0rem;
-    margin-bottom: 0.2rem;
-    gap: 7rem;
+    padding: 0.3rem;
+    margin-bottom: 0.5rem;
+    gap: 1rem;
     flex-direction: column;
-    /* Reducir margen derecho en móviles */
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
   }
 
   .pagination-info {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
   }
 
   .pagination-controls {
-    gap: 0.3rem;
+    gap: 0.4rem;
+    justify-content: center;
   }
 
   .pagination-controls button {
-    padding: 0.2rem 0.4rem;
-    font-size: 0.8rem;
-    min-width: 28px;
-    height: 28px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    font-weight: 500;
   }
 
   .pagination-controls span {
-    font-size: 0.8rem;
-    margin: 0 0.2rem;
+    font-size: 0.9rem;
+    margin: 0 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background: #007bff;
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+    min-width: 100px;
+    text-align: center;
   }
 
   .items-per-page {
     font-size: 0.8rem;
+    background: #fff;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
   }
 
   .items-per-page select {
     font-size: 0.8rem;
-    padding: 0.2rem;
+    padding: 0.3rem;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
   }
 }
 
@@ -3848,18 +3867,28 @@ h1,
   .pagination-controls {
     justify-content: center;
     width: 100%;
+    gap: 0.2rem;
   }
 
   .pagination-controls button {
-    padding: 0.15rem 0.3rem;
-    font-size: 0.7rem;
-    min-width: 24px;
-    height: 24px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    min-width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    font-weight: 600;
   }
 
   .pagination-controls span {
-    font-size: 0.7rem;
-    margin: 0 0.1rem;
+    font-size: 0.8rem;
+    margin: 0 0.3rem;
+    padding: 0.3rem 0.6rem;
+    background: #007bff;
+    color: white;
+    border-radius: 4px;
+    font-weight: 600;
+    min-width: 80px;
+    text-align: center;
   }
 
   .items-per-page {
@@ -3870,13 +3899,76 @@ h1,
     font-size: 0.7rem;
     padding: 0.15rem;
   }
+
+  /* Estilos específicos para los controles de paginación en móviles */
+  .pagination-controls button:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+
+  .pagination-controls button:not(:disabled) {
+    background-color: #fff;
+    color: #495057;
+    border: 1px solid #ced4da;
+  }
+
+  .pagination-controls button:not(:disabled):hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+  }
+
+  /* Ajustes adicionales para la información de registros en móviles */
+  .pagination-info span {
+    color: #495057;
+    font-weight: 500;
+  }
+
+  .items-per-page label {
+    color: #495057;
+    font-weight: 500;
+  }
 }
 
 /* Para pantallas horizontales en móviles */
 @media (max-width: 1000px) and (orientation: landscape) {
   .pagination-container {
-    margin-bottom: 0px;
+    margin-bottom: 0.3rem;
     flex-direction: row;
+    padding: 0.4rem;
+    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .pagination-info {
+    flex: 1;
+    text-align: left;
+    font-size: 0.85rem;
+  }
+
+  .pagination-controls {
+    flex: 0 0 auto;
+    gap: 0.5rem;
+  }
+
+  .pagination-controls button {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.85rem;
+    min-width: 38px;
+    height: 38px;
+  }
+
+  .pagination-controls span {
+    font-size: 0.85rem;
+    margin: 0 0.5rem;
+    padding: 0.4rem 0.8rem;
+    min-width: 120px;
+  }
+
+  .items-per-page {
+    flex: 0 0 auto;
+    font-size: 0.85rem;
   }
 }
 

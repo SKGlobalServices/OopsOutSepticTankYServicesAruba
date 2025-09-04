@@ -10,6 +10,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 
 const Pagosanticipados = () => {
+  // LOADER
+  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState(false);
+  
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -57,9 +61,17 @@ const Pagosanticipados = () => {
         montoafavor: r?.montoafavor ?? "", // número o "" (nuevo)
       }));
       setData(sortByFechaDesc(arr));
+      setLoadedData(true);
     });
     return unsubscribe;
   }, []);
+
+  // Cuando los datos estén cargados, oculta el loader
+  useEffect(() => {
+    if (loadedData) {
+      setLoading(false);
+    }
+  }, [loadedData]);
 
   // ====== Utils fecha ======
   const parseFecha = (dmy) => {
@@ -472,6 +484,15 @@ const Pagosanticipados = () => {
       setDeletingId(null);
     }
   };
+
+  // Loading
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">

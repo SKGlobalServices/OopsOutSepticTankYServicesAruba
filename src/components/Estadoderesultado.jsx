@@ -4,14 +4,25 @@ import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 
 const Estadoderesultado = () => {
-const [showSlidebar, setShowSlidebar] = useState(false);
-const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
-const slidebarRef = useRef(null);
- const filterSlidebarRef = useRef(null);
+  // LOADER
+  const [loading, setLoading] = useState(true);
+  
+  const [showSlidebar, setShowSlidebar] = useState(false);
+  const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
+  const slidebarRef = useRef(null);
+  const filterSlidebarRef = useRef(null);
 
 // Mostrar/ocultar slidebars
 const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
 const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
+
+  // Simular carga inicial
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -26,6 +37,15 @@ const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Loading
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   return (
     <div className="homepage-container">

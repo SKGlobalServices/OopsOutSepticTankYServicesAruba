@@ -300,7 +300,7 @@ const Slidebar = () => {
           <summary className="module-header">GESTIÓN FINANCIERA</summary>
           <div className="module-content">
             {/* onClick={() => navigate("/nomina")} */}
-            <button className="btn-nomina2" disable style={{cursor: "not-allowed", opacity:"0.5"}}>
+            <button className="btn-nomina2" onClick={() => navigate("/nomina")}>
               <img
                 className="icon-infEfec2"
                 src={informeEfectivoIcon2}

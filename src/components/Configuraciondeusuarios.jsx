@@ -29,10 +29,17 @@ const Usuarios = () => {
       } else {
         setData([]);
       }
-      setLoading(false);
+      setLoadedUsers(true);
     });
     return () => unsubscribe();
   }, []);
+
+  // Cuando los usuarios estén cargados, oculta el loader
+  useEffect(() => {
+    if (loadedUsers) {
+      setLoading(false);
+    }
+  }, [loadedUsers]);
 
   const addUser = () => {
     const dbRef = ref(database, "users");
@@ -101,6 +108,7 @@ const Usuarios = () => {
     };
   }, []);
 
+  // Loading
   if (loading) {
     return (
       <div className="loader-container">

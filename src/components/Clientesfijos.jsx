@@ -8,6 +8,11 @@ import Clock from "./Clock";
 import Swal from "sweetalert2";
 
 const Clientesfijos = () => {
+  // LOADER
+  const [loading, setLoading] = useState(true);
+  const [loadedClientesFijos, setLoadedClientesFijos] = useState(false);
+  const [loadedClients, setLoadedClients] = useState(false);
+  
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -51,6 +56,7 @@ const Clientesfijos = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (!snapshot.exists()) {
         setData([]);
+        setLoadedClientesFijos(true);
         return;
       }
       const all = snapshot.val();
@@ -62,6 +68,7 @@ const Clientesfijos = () => {
         valor: r?.valor ?? "",
       }));
       setData(sortData(arr));
+      setLoadedClientesFijos(true);
     });
     return unsubscribe;
   }, []);
@@ -81,8 +88,10 @@ const Clientesfijos = () => {
           })
         );
         setClients(fetchedClients);
+        setLoadedClients(true);
       } else {
         setClients([]);
+        setLoadedClients(true);
       }
     });
     return () => unsubscribe();
@@ -298,6 +307,22 @@ const Clientesfijos = () => {
       }
     }
   };
+
+  // Cuando todas las fuentes de datos estén listas, oculta el loader
+  useEffect(() => {
+    if (loadedClientesFijos && loadedClients) {
+      setLoading(false);
+    }
+  }, [loadedClientesFijos, loadedClients]);
+
+  // Loading
+  if (loading) {
+    return (
+      <div className="loader-container">
+        <div className="loader" />
+      </div>
+    );
+  }
 
   // Agrega esta función para eliminar
   const handleDelete = (itemId) => {
