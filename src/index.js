@@ -27,6 +27,7 @@ import Clientesfijos from "./components/Clientesfijos.jsx";
 import Pagosmensuales from "./components/Pagosmensuales.jsx";
 import Pagosanticipados from "./components/Pagosanticipados.jsx";
 import Ciclodefacturacion from "./components/Ciclodefacturacion.jsx";
+import Dashboard from "./components/Dashboard.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -58,6 +59,7 @@ root.render(
       <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />
       <Route path="/pagosanticipados" element={<PageWrapper><Pagosanticipados /></PageWrapper>} />
       <Route path="/ciclodefacturacion" element={<PageWrapper><Ciclodefacturacion /></PageWrapper>} />
+      <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

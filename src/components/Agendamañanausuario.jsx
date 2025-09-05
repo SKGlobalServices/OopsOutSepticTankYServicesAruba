@@ -24,15 +24,15 @@ const Agendamañanausuario = () => {
   /**
    * Regla por fila:
    * - Si no hay realizadopor: solo se puede abrir el select de asignación (si canEdit global lo permite)
-   * - Si hay realizadopor y coincide con mi usuario: puedo editar el resto
+   * - Si hay realizadopor y coincide con mi usuario: puedo editar el resto Y desasignarme
    * - Si hay realizadopor y NO coincide: todo bloqueado
    */
   const getRowPermission = (item) => {
     const assigned = !!item.realizadopor;
     const mine = item.realizadopor === myUserId;
 
-    // Si deseas permitir asignar aunque el candado esté cerrado, cambia "canEdit &&" por "true &&"
-    const canAssign = canEdit && !assigned; // habilita select de "Realizado Por" solo si aún no está asignado
+    // Permitir asignar si no está asignado O si está asignado a mí (para poder desasignarme)
+    const canAssign = canEdit && (!assigned || mine);
     const canEditFields = canEdit && assigned && mine; // demás campos solo si está asignado a mí
     return { canAssign, canEditFields };
   };
@@ -429,11 +429,10 @@ const Agendamañanausuario = () => {
                             }
                           >
                             <option value=""></option>
-                            {users.map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {u.name}
-                              </option>
-                            ))}
+                            {/* Solo mostrar el usuario logueado */}
+                            <option key={myUserId} value={myUserId}>
+                              {users.find((u) => u.id === myUserId)?.name}
+                            </option>
                           </select>
                         ) : (
                           <p>

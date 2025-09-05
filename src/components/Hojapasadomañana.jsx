@@ -275,15 +275,10 @@ const Hojapasadomañana = () => {
     // Guarda en Firebase
     await set(newDataRef, newData).catch(console.error);
 
-    // 1) Separa tu estado actual en vacíos y con valor
+    // Reordenar datos después de agregar
     const sin = data.filter(([, it]) => !it.realizadopor);
     const con = data.filter(([, it]) => !!it.realizadopor);
-
-    // 2) Inserta el nuevo al inicio de los vacíos
-    const sinActualizado = [[newDataRef.key, newData], ...sin];
-
-    // 3) Reordena y actualiza estado
-    setData(reorderData(sinActualizado, con));
+    setData(reorderData([...sin, [newDataRef.key, newData]], con));
   };
 
   // Función para actualizar campos en Firebase
@@ -352,7 +347,7 @@ const Hojapasadomañana = () => {
   // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
   const loadClientFields = (direccion, dataId) => {
     const cli = clients.find((c) => c.direccion === direccion);
-    const dbRefItem = ref(database, `data/${dataId}`);
+    const dbRefItem = ref(database, `hojapasadomañana/${dataId}`);
     if (cli) {
       // si existe el cliente, actualiza cubicos, valor y anombrede
       update(dbRefItem, {

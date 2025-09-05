@@ -355,7 +355,15 @@ const Informedeefectivousuario = () => {
       runningBalance += parseFloat(record.efectivo) || 0;
       return { ...record, saldo: runningBalance };
     });
-    return withSaldo.reverse();
+    const reversed = withSaldo.reverse();
+    
+    // Filtrar hasta el primer saldo en 0.00 (contando desde arriba)
+    const filteredRecords = [];
+    for (const record of reversed) {
+      filteredRecords.push(record);
+      if (record.saldo <= 0) break;
+    }
+    return filteredRecords;
   }, [displayedRecords]);
 
   // Cálculos de paginación
@@ -392,8 +400,8 @@ const Informedeefectivousuario = () => {
   const getExportRecords = () => {
     const exportRecords = [];
     for (const rec of computedRecords) {
-      if (rec.saldo <= 0) break;
       exportRecords.push(rec);
+      if (rec.saldo <= 0) break;
     }
     return exportRecords;
   };

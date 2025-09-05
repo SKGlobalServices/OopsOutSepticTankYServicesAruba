@@ -201,7 +201,13 @@ const Hojadefechas = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedClients = Object.entries(snapshot.val()).map(
-          ([id, client]) => ({ id, direccion: client.direccion })
+          ([id, client]) => ({
+            id,
+            direccion: client.direccion,
+            cubicos: client.cubicos,
+            valor: client.valor,
+            anombrede: client.anombrede,
+          })
         );
         setClients(fetchedClients);
         setLoadedClients(true);
@@ -623,10 +629,10 @@ const Hojadefechas = () => {
 
   // Helpers para selección y fecha
   const handleCobranzaRowSelection = (_fecha, registroId, checked) => {
-  // ignoramos fecha, guardamos por id
-  const key = registroId;
-  setCobranzaSelectedRows((prev) => ({ ...prev, [key]: checked }));
-};
+    // ignoramos fecha, guardamos por id
+    const key = registroId;
+    setCobranzaSelectedRows((prev) => ({ ...prev, [key]: checked }));
+  };
 
   const getTodayDDMMYYYY = () => {
     const d = new Date();
@@ -638,96 +644,95 @@ const Hojadefechas = () => {
 
   // Acción principal del botón “Cobranza”
   const GestionarCobranza = async () => {
-  if (!showCobranzaSelection) {
-    setShowCobranzaSelection(true);
-    return;
-  }
+    if (!showCobranzaSelection) {
+      setShowCobranzaSelection(true);
+      return;
+    }
 
-  const haySeleccion = Object.values(cobranzaSelectedRows).some(Boolean);
-  if (!haySeleccion) {
-    setShowCobranzaSelection(false);
-    setCobranzaSelectedRows({});
-    return;
-  }
+    const haySeleccion = Object.values(cobranzaSelectedRows).some(Boolean);
+    if (!haySeleccion) {
+      setShowCobranzaSelection(false);
+      setCobranzaSelectedRows({});
+      return;
+    }
 
-  const { isConfirmed } = await Swal.fire({
-    title: "Enviar a Informe de Cobranza",
-    html: `
+    const { isConfirmed } = await Swal.fire({
+      title: "Enviar a Informe de Cobranza",
+      html: `
       <p style="margin:0 0 8px;">Se copiarán los registros seleccionados a <b>Informe De Cobranza</b>.</p>
       <p style="margin:0;">Los datos <b>NO</b> se eliminarán de Agenda Dinámica.</p>
       <p style="margin:8px 0 0;color:#d35400;font-size:0.9em;">
         Nota: si ya existía una copia para un id, será <b>actualizada</b>.
       </p>
     `,
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Sí, enviar",
-    cancelButtonText: "Cancelar",
-  });
-  if (!isConfirmed) return;
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, enviar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!isConfirmed) return;
 
-  Swal.fire({
-    title: "Enviando...",
-    text: "Se están enviando los datos a informe de cobranza",
-    allowOutsideClick: false,
-    didOpen: () => Swal.showLoading(),
-  });
+    Swal.fire({
+      title: "Enviando...",
+      text: "Se están enviando los datos a informe de cobranza",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
 
-  try {
-    // aplanar todo como ya lo haces
-    const flatAll = filteredData.flatMap((group) =>
-      group.registros.map((r) => ({ ...r, fecha: group.fecha }))
-    );
+    try {
+      // aplanar todo como ya lo haces
+      const flatAll = filteredData.flatMap((group) =>
+        group.registros.map((r) => ({ ...r, fecha: group.fecha }))
+      );
 
-    // filtrar por ids seleccionados
-    const seleccionados = flatAll.filter((r) => !!cobranzaSelectedRows[r.id]);
+      // filtrar por ids seleccionados
+      const seleccionados = flatAll.filter((r) => !!cobranzaSelectedRows[r.id]);
 
-    if (seleccionados.length === 0) {
+      if (seleccionados.length === 0) {
+        Swal.close();
+        await Swal.fire({
+          icon: "info",
+          title: "Sin registros",
+          text: "No hay registros seleccionados para cobranza.",
+        });
+        return;
+      }
+
+      // escribir 1 a 1 en informedecobranza/{id}
+      const writes = seleccionados.map((reg) => {
+        const copy = {
+          direccion: reg.direccion || "",
+          valor: reg.valor ?? "",
+          notas: reg.notas || "",
+        };
+
+        // path por ID (sin fecha)
+        const itemRef = ref(database, `informedecobranza/${reg.id}`);
+        return set(itemRef, copy); // sobrescribe/crea
+      });
+
+      await Promise.all(writes);
+
       Swal.close();
       await Swal.fire({
-        icon: "info",
-        title: "Sin registros",
-        text: "No hay registros seleccionados para cobranza.",
+        icon: "success",
+        title: "Copiados a Informe de Cobranza",
+        text: `Se copiaron ${seleccionados.length} registro(s) por id en 'Informe De Cobranza'.`,
+        timer: 2200,
       });
-      return;
+
+      setShowCobranzaSelection(false);
+      setCobranzaSelectedRows({});
+    } catch (err) {
+      console.error("Error copiando a informedecobranza:", err);
+      Swal.close();
+      await Swal.fire({
+        icon: "error",
+        title: "Error al enviar",
+        text: "No se pudo copiar a Informe de Cobranza. Intenta de nuevo.",
+      });
     }
-
-    // escribir 1 a 1 en informedecobranza/{id}
-    const writes = seleccionados.map((reg) => {
-      const copy = {
-        direccion: reg.direccion || "",
-        valor: reg.valor ?? "",
-        notas: reg.notas || "",
-      };
-
-      // path por ID (sin fecha)
-      const itemRef = ref(database, `informedecobranza/${reg.id}`);
-      return set(itemRef, copy); // sobrescribe/crea
-    });
-
-    await Promise.all(writes);
-
-    Swal.close();
-    await Swal.fire({
-      icon: "success",
-      title: "Copiados a Informe de Cobranza",
-      text: `Se copiaron ${seleccionados.length} registro(s) por id en 'Informe De Cobranza'.`,
-      timer: 2200,
-    });
-
-    setShowCobranzaSelection(false);
-    setCobranzaSelectedRows({});
-  } catch (err) {
-    console.error("Error copiando a informedecobranza:", err);
-    Swal.close();
-    await Swal.fire({
-      icon: "error",
-      title: "Error al enviar",
-      text: "No se pudo copiar a Informe de Cobranza. Intenta de nuevo.",
-    });
-  }
-};
-
+  };
 
   // Solo agrega una nueva dirección al cambiar el servicio
   const syncWithClients = (direccion, cubicos) => {
@@ -743,6 +748,63 @@ const Hojadefechas = () => {
     set(newClientRef, { direccion, cubicos }).catch((error) => {
       console.error("Error adding client: ", error);
     });
+  };
+
+  // Función para cargar campos desde clientes (cubicos, valor, anombrede)
+  const loadClientFields = (direccion, registroId, fromData, fecha) => {
+    const cli = clients.find((c) => c.direccion === direccion);
+    const path = fromData
+      ? `data/${registroId}`
+      : `registrofechas/${fecha}/${registroId}`;
+    const dbRefItem = ref(database, path);
+
+    if (cli) {
+      // si existe el cliente, actualiza cubicos, valor y anombrede
+      const updateData = {
+        cubicos: cli.cubicos ?? 0,
+        valor: cli.valor ?? 0,
+        anombrede: cli.anombrede ?? "",
+      };
+
+      update(dbRefItem, updateData).catch(console.error);
+
+      // Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId ? { ...r, ...updateData } : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+    } else {
+      // si no existe, limpia los campos
+      const updateData = { cubicos: "", valor: "", anombrede: "" };
+
+      update(dbRefItem, updateData).catch(console.error);
+
+      // Actualizar estado local
+      const updater = (r) =>
+        r.id === registroId ? { ...r, ...updateData } : r;
+
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updater));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updater) }
+              : g
+          )
+        );
+      }
+    }
   };
 
   // Función para actualizar campos (gestiona tanto los registros de "data" como de "registrofechas")
@@ -824,8 +886,12 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 5) Campos especiales: "realizadopor" y "servicio"
-    if (field === "realizadopor" || field === "servicio") {
+    // 5) Campos especiales: "realizadopor", "servicio" y "direccion"
+    if (
+      field === "realizadopor" ||
+      field === "servicio" ||
+      field === "direccion"
+    ) {
       // actualiza en Firebase
       update(dbRefItem, { [field]: safeValue }).catch(console.error);
 
@@ -838,7 +904,14 @@ const Hojadefechas = () => {
         // sincronizar clientes si cambió servicio
         if (field === "servicio") {
           const current = dataBranch.find((r) => r.id === registroId);
-          if (current) syncWithClients(current.direccion, current.cubicos);
+          if (current) {
+            syncWithClients(current.direccion, current.cubicos);
+            loadClientFields(current.direccion, registroId, true, fecha);
+          }
+        }
+        // cargar campos de clientes si cambió dirección
+        if (field === "direccion") {
+          loadClientFields(safeValue, registroId, true, fecha);
         }
       } else {
         setDataRegistroFechas((prev) =>
@@ -852,7 +925,14 @@ const Hojadefechas = () => {
           const current = dataRegistroFechas
             .find((g) => g.fecha === fecha)
             ?.registros.find((r) => r.id === registroId);
-          if (current) syncWithClients(current.direccion, current.cubicos);
+          if (current) {
+            syncWithClients(current.direccion, current.cubicos);
+            loadClientFields(current.direccion, registroId, false, fecha);
+          }
+        }
+        // cargar campos de clientes si cambió dirección
+        if (field === "direccion") {
+          loadClientFields(safeValue, registroId, false, fecha);
         }
       }
       return;
@@ -3583,7 +3663,13 @@ const Hojadefechas = () => {
                             type="checkbox"
                             style={{ width: "3ch", height: "3ch" }}
                             checked={!!cobranzaSelectedRows[registro.id]}
-onChange={(e) => handleCobranzaRowSelection(null, registro.id, e.target.checked)}
+                            onChange={(e) =>
+                              handleCobranzaRowSelection(
+                                null,
+                                registro.id,
+                                e.target.checked
+                              )
+                            }
                             // si quieres impedir cobrar ya pagados, descomenta:
                             // disabled={registro.pago === "Pago"}
                             title="Marcar para enviar a Informe de Cobranza"

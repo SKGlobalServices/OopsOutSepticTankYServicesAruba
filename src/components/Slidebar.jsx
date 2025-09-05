@@ -347,6 +347,17 @@ const Slidebar = () => {
           <div className="module-content">
             <button
               className="btn-infEfec2"
+              onClick={() => navigate("/dashboard")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe de Efectivo"
+              />
+              <span>ㅤㅤDashboard</span>
+            </button>
+            <button
+              className="btn-infEfec2"
               onClick={() => navigate("/informedeefectivo")}
             >
               <img
