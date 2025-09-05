@@ -85,7 +85,7 @@ const App = () => {
       sessionStorage.setItem('navigated', 'true');
       switch (userFound.role.toLowerCase()) {
         case "admin":
-          navigate("/agendaexpress");
+          navigate("/dashboard");
           break;
         case "user":
           navigate("/agendadeldiausuario");
@@ -413,7 +413,7 @@ const App = () => {
         sessionStorage.setItem('navigated', 'true');
         switch (userFound.role.toLowerCase()) {
           case "admin":
-            navigate("/agendaexpress");
+            navigate("/dashboard");
             break;
           case "user":
             navigate("/agendadeldiausuario");
