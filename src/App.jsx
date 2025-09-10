@@ -77,10 +77,7 @@ const App = () => {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });
       } catch (error) {
-        console.error(
-          "Error al limpiar sesión por inactividad:",
-          sanitizeForLog(error.message)
-        );
+        // Error silencioso al limpiar sesión
       }
     }
     localStorage.clear();
@@ -172,7 +169,7 @@ const App = () => {
           await processGoogleUser(result.user);
         }
       } catch (error) {
-        console.error("Error procesando redirect de Google:", error);
+  
         setMessage("Error al procesar login de Google.");
       }
     };
@@ -247,6 +244,26 @@ const App = () => {
     return false; // 01:00 ya abre
   };
 
+  // Auto-refresh cuando la plataforma se abra
+  useEffect(() => {
+    const checkPlatformStatus = () => {
+      const wasClosed = localStorage.getItem('platformWasClosed');
+      const isClosed = isPlatformClosed();
+      
+      if (isClosed) {
+        localStorage.setItem('platformWasClosed', 'true');
+      } else if (wasClosed === 'true') {
+        localStorage.removeItem('platformWasClosed');
+        window.location.reload();
+      }
+    };
+
+    const interval = setInterval(checkPlatformStatus, 60000); // Check every minute
+    checkPlatformStatus(); // Check immediately
+    
+    return () => clearInterval(interval);
+  }, []);
+
   // Función para escuchar invalidación de sesión
   const listenForSessionInvalidation = (userKey, sessionId) => {
     const sessionRef = ref(database, `users/${userKey}/activeSession`);
@@ -277,10 +294,7 @@ const App = () => {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });
       } catch (error) {
-        console.error(
-          "Error al limpiar sesión:",
-          sanitizeForLog(error.message)
-        );
+        // Error silencioso al limpiar sesión
       }
     }
   }, []);
@@ -300,7 +314,6 @@ const App = () => {
         listenForSessionInvalidation(userKey, sessionId);
       }, 1000);
     } catch (updErr) {
-      console.error("No se pudo actualizar la sesión:", updErr);
       setMessage("Error de servidor al iniciar sesión.");
     }
   };
@@ -399,14 +412,12 @@ const App = () => {
 
       await processGoogleUser(result.user);
     } catch (error) {
-      console.error("Error en login con Google:", error);
 
       if (error.code === "auth/popup-closed-by-user") {
         setMessage("Login cancelado. Intentando método alternativo...");
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectError) {
-          console.error("Error con redirect:", redirectError);
           setMessage("Error al iniciar sesión con Google. Intente nuevamente.");
         }
       } else if (error.code === "auth/popup-blocked") {
@@ -414,7 +425,6 @@ const App = () => {
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectError) {
-          console.error("Error con redirect:", redirectError);
           setMessage("Permita popups para este sitio o intente nuevamente.");
         }
       } else if (error.code === "auth/cancelled-popup-request") {
@@ -526,7 +536,6 @@ const App = () => {
     } catch (error) {
       setIsLoading(false);
       Swal.close();
-      console.error("Error en login:", error);
       setMessage("Ocurrió un error durante el login.");
     }
   };
@@ -560,7 +569,6 @@ const App = () => {
           recaptchaRef.current.reset();
           await handleLogin(token);
         } catch (error) {
-          console.error("Error al ejecutar reCAPTCHA:", error);
           setMessage("La verificación del captcha falló.");
         }
       }, 100);
@@ -576,7 +584,6 @@ const App = () => {
       recaptchaRef.current.reset();
       await handleLogin(token);
     } catch (error) {
-      console.error("Error al ejecutar reCAPTCHA:", error);
       setMessage("La verificación del captcha falló.");
     }
   };
@@ -688,11 +695,9 @@ const App = () => {
           size="invisible"
           ref={recaptchaRef}
           onErrored={() => {
-            console.error("🔴 reCAPTCHA error al cargar");
             setMessage("Error cargando reCAPTCHA. Revisa tu conexión.");
           }}
           onExpired={() => {
-            console.warn("⚠️ reCAPTCHA expirado");
             if (recaptchaRef.current) recaptchaRef.current.reset();
             setMessage("El captcha expiró. Intenta de nuevo.");
           }}
