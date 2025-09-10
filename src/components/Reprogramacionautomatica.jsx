@@ -25,40 +25,12 @@ const Reprogramacionautomatica = () => {
     activo: "",
   });
 
-  // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
 
-  // Escucha de Firebase para "reprogramacionautomatica"
-  useEffect(() => {
-    const dbRef = ref(database, "reprogramacionautomatica");
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        // Extraer y normalizar cada item.dia como array
-        const fetchedData = Object.entries(snapshot.val()).map(([id, item]) => [
-          id,
-          {
-            ...item,
-            dia: Array.isArray(item.dia) ? item.dia : [],
-          },
-        ]);
-
-        // Ordenar por dirección
-        const sortedData = fetchedData.sort(([, a], [, b]) =>
-          a.direccion.localeCompare(b.direccion)
-        );
-
-        setData(sortedData);
-      } else {
-        setData([]);
-      }
-      setLoadedData(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
+  // ---------- Helpers de fecha ----------
   const getDayName = (date) => {
     const days = [
       "Domingo",
@@ -72,146 +44,545 @@ const Reprogramacionautomatica = () => {
     return days[date.getDay()];
   };
 
-  // 2) Para cada item, genera su próxima fecha tras `baseDate`
-  const nextOccurrence = (item, baseDate, actualBase) => {
-    if (item.periodo === "dia") {
-      const next = new Date(baseDate);
-      next.setDate(baseDate.getDate() + item.rc);
-      return next;
+  const fmtYMD = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${da}`;
+  };
+
+  const parseYMD = (s) => {
+    const [y, m, d] = (s || "").split("-").map((x) => parseInt(x, 10));
+    const dt = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+    if (isNaN(dt.getTime())) return null;
+    return dt;
+  };
+
+  // ---------- Escucha principal (reprogramacionautomatica) ----------
+  useEffect(() => {
+    const dbRef = ref(database, "reprogramacionautomatica");
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetchedData = Object.entries(snapshot.val()).map(([id, item]) => [
+          id,
+          {
+            ...item,
+            dia: Array.isArray(item.dia)
+              ? item.dia
+              : item.dia && typeof item.dia === "object"
+              ? Object.values(item.dia)
+              : [],
+            exceptions: Array.isArray(item.exceptions) ? item.exceptions : [],
+            overrides:
+              item.overrides && typeof item.overrides === "object"
+                ? item.overrides
+                : {},
+            cutovers: Array.isArray(item.cutovers) ? item.cutovers : [],
+          },
+        ]);
+        const sorted = fetchedData.sort(([, a], [, b]) =>
+          (a.direccion || "").localeCompare(b.direccion || "")
+        );
+        setData(sorted);
+      } else {
+        setData([]);
+      }
+      setLoadedData(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ---------- Regla efectiva (respeta cutovers/overrides/exceptions) ----------
+  const getEffectiveScheduleForDate = (item, date) => {
+    if (item.solounavez) {
+      return { rc: null, periodo: "", dia: [] };
     }
-    if (item.periodo === "semana") {
-      for (let d = 1; d <= 7 * item.rc; d++) {
-        const cand = new Date(baseDate);
-        cand.setDate(baseDate.getDate() + d);
-        const weeksSince = Math.floor((cand - actualBase) / (7 * 86400000));
+    const ymd = fmtYMD(date);
+    const base = {
+      rc: item.rc || 1,
+      periodo: item.periodo || "",
+      dia: Array.isArray(item.dia) ? item.dia : [],
+    };
+    if (!Array.isArray(item.cutovers) || item.cutovers.length === 0) {
+      return base;
+    }
+    const applicable = [...item.cutovers]
+      .filter((c) => c && c.fromYmd && c.fromYmd <= ymd)
+      .sort((a, b) =>
+        a.fromYmd < b.fromYmd ? -1 : a.fromYmd > b.fromYmd ? 1 : 0
+      );
+    if (applicable.length === 0) return base;
+    const last = applicable[applicable.length - 1];
+    return {
+      rc: last.rc || 1,
+      periodo: last.periodo || "",
+      dia: Array.isArray(last.dia) ? last.dia : [],
+    };
+  };
+
+  const nextOccurrence = (item, baseDate, actualBase, maxLookaheadDays = 366) => {
+    const today = new Date();
+    const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // El script evalúa desde "pasado mañana" en adelante
+    const minEvalDate = new Date(todayMid);
+    minEvalDate.setDate(todayMid.getDate() + 2);
+    
+    const start = new Date(baseDate);
+
+    for (let d = 1; d <= maxLookaheadDays; d++) {
+      const cand = new Date(start);
+      cand.setDate(start.getDate() + d);
+      
+      // Solo considerar fechas >= pasado mañana
+      if (cand < minEvalDate) continue;
+
+      const ymdCand = fmtYMD(cand);
+      if (Array.isArray(item.exceptions) && item.exceptions.includes(ymdCand)) {
+        continue;
+      }
+
+      const eff = getEffectiveScheduleForDate(item, cand);
+      if (!eff.periodo) continue;
+
+      const baseRef = item.timestamp ? new Date(item.timestamp) : actualBase;
+      const diffDays = Math.floor((cand - baseRef) / 86400000);
+
+      let ok = false;
+      if (eff.periodo === "dia") {
+        if (eff.rc > 0 && diffDays % eff.rc === 0) ok = true;
+      } else if (eff.periodo === "semana") {
+        const diffWeeks = Math.floor(diffDays / 7);
         if (
-          item.dia.includes(getDayName(cand)) &&
-          item.rc > 0 &&
-          weeksSince % item.rc === 0
+          eff.dia.includes(getDayName(cand)) &&
+          eff.rc > 0 &&
+          diffWeeks % eff.rc === 0
         ) {
-          return cand;
+          ok = true;
+        }
+      } else if (eff.periodo === "mes") {
+        const monthDiff =
+          (cand.getFullYear() - baseRef.getFullYear()) * 12 +
+          (cand.getMonth() - baseRef.getMonth());
+        const dayOfMonth = String(cand.getDate());
+        if (eff.dia.includes(dayOfMonth) && eff.rc > 0 && monthDiff % eff.rc === 0) {
+          ok = true;
         }
       }
-      return null;
-    }
-    if (item.periodo === "mes") {
-      const diasMes = item.dia.map((d) => parseInt(d, 10));
-      for (let m = 1; m <= 12; m++) {
-        const year =
-          actualBase.getFullYear() +
-          Math.floor((actualBase.getMonth() + m) / 12);
-        const month = (actualBase.getMonth() + m) % 12;
-        for (let day of diasMes.sort((a, b) => a - b)) {
-          const cand = new Date(year, month, day);
-          if (cand > baseDate) {
-            const monthDiff =
-              (cand.getFullYear() - actualBase.getFullYear()) * 12 +
-              (cand.getMonth() - actualBase.getMonth());
-            if (item.rc > 0 && monthDiff % item.rc === 0) {
-              return cand;
-            }
-          }
-        }
-      }
-      return null;
+      if (!ok) continue;
+
+      return cand;
     }
     return null;
   };
 
-  // 3) Genera N ocurrencias por item y recoge todas, luego ordena y trunca a 100
+  // ---------- Predicciones (hasta 100) ----------
   const computePredictedTransfers = () => {
     const today = new Date();
     const events = [];
 
-    // 1) Añadir los “solo una vez”
-    data.forEach(([, item]) => {
+    // uno-solo
+    data.forEach(([id, item]) => {
       if (item.activo && item.solounavez && item.fechaEjecucion) {
-        const date = new Date(item.fechaEjecucion + "T00:00");
-        if (!isNaN(date) && date >= today) {
+        const ymd = item.fechaEjecucion;
+        const date = parseYMD(ymd) || new Date(item.fechaEjecucion + "T00:00");
+        const minExecDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+        if (!isNaN(date) && date >= minExecDate) {
           events.push({
+            id,
             direccion: item.direccion,
             servicio: item.servicio,
             date,
+            ymdOriginal: ymd,
             regla: "Solo una vez",
+            _meta: { seriesId: null, type: "once" },
           });
         }
       }
     });
 
-    // 2) Ahora generar los periódicos (excluyendo los one-offs)
-    const periodicItems = data.filter(
-      ([, item]) => item.activo && !item.solounavez
-    );
-    // repartimos las “ranuras” restantes entre periódicos
+    // periódicos
+    const periodic = data.filter(([, it]) => it.activo && !it.solounavez);
     const slots = Math.max(100 - events.length, 0);
-    const perItem = periodicItems.length
-      ? Math.ceil(slots / periodicItems.length)
-      : 0;
+    const perItem = periodic.length ? Math.ceil(slots / periodic.length) : 0;
 
-    for (let [, item] of periodicItems) {
-      let baseDate = item.timestamp
-        ? new Date(item.timestamp)
-        : new Date(today);
+    for (let [id, item] of periodic) {
+      let baseDate = item.timestamp ? new Date(item.timestamp) : new Date(today);
       const actualBase = new Date(item.timestamp || today);
-      for (let i = 0; i < perItem; i++) {
+      let generated = 0;
+
+      while (generated < perItem) {
         const next = nextOccurrence(item, baseDate, actualBase);
         if (!next) break;
-        events.push({
-          direccion: item.direccion,
-          servicio: item.servicio,
-          date: next,
-          regla:
-            item.periodo === "dia"
-              ? `Cada ${item.rc} día${item.rc > 1 ? "s" : ""}`
-              : item.periodo === "semana"
-              ? `Cada ${item.rc} semana${item.rc > 1 ? "s" : ""} (${getDayName(
-                  next
-                )})`
-              : `Cada ${item.rc} mes${
-                  item.rc > 1 ? "es" : ""
-                } (día ${next.getDate()})`,
-        });
+        
+        // Si la fecha calculada es anterior a pasado mañana, continuar buscando
+        const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+        if (next < minDate) {
+          baseDate = next;
+          continue;
+        }
+        const ymd = fmtYMD(next);
+        
+        // Aplicar override si existe para mostrar la fecha real
+        let finalDate = next;
+        if (item.overrides && typeof item.overrides === "object") {
+          const ov = item.overrides[ymd];
+          if (ov && ov.ymdNew) {
+            const moved = parseYMD(ov.ymdNew);
+            if (moved) {
+              finalDate = moved;
+            }
+          }
+        }
+        
+        // Solo incluir si la fecha final es desde pasado mañana
+        const minExecDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+        if (finalDate >= minExecDate) {
+          const eff = getEffectiveScheduleForDate(item, next);
+          let regla = "";
+          if (eff.periodo === "dia") {
+            regla = `Cada ${eff.rc} día${eff.rc > 1 ? "s" : ""}`;
+          } else if (eff.periodo === "semana") {
+            regla = `Cada ${eff.rc} semana${eff.rc > 1 ? "s" : ""} (${getDayName(finalDate)})`;
+          } else if (eff.periodo === "mes") {
+            regla = `Cada ${eff.rc} mes${eff.rc > 1 ? "es" : ""} (día ${finalDate.getDate()})`;
+          }
+          
+          events.push({
+            id,
+            direccion: item.direccion,
+            servicio: item.servicio,
+            date: finalDate,
+            ymdOriginal: ymd,
+            regla,
+            _meta: { seriesId: id, type: "periodic" },
+          });
+          generated++;
+        }
         baseDate = next;
       }
     }
 
-    // 3) ordenar y truncar a 100
     return events
       .sort((a, b) => a.date - b.date)
       .slice(0, 100)
       .map((e) => ({
-        direccion: e.direccion,
-        servicio: e.servicio,
+        ...e,
         fecha: e.date.toLocaleDateString(),
-        regla: e.regla,
-        date: e.date,
+        isRecurring: !e.regla.includes("Solo una vez"),
+        originalId: e.id,
+        originalItem: data.find(([id]) => id === e.id)?.[1],
       }));
   };
 
-  // 4) Modal con la lista completa (hasta 100)
-  const showFutureAppointments = () => {
-    const preds = computePredictedTransfers();
-    if (!preds.length) {
-      return Swal.fire({
-        icon: "info",
-        title: "Sin registros",
-        text: "No hay agendamientos activos.",
+  // ---------- Modificar ocurrencia (B) ----------
+  const modifyOccurrence = async (pred) => {
+    const { id, ymdOriginal } = pred;
+    const itemEntry = data.find(([k]) => k === id);
+    if (!itemEntry) {
+      await Swal.fire("Error", "No se encontró el registro.", "error");
+      return;
+    }
+    const [, item] = itemEntry;
+
+    const { value: scope } = await Swal.fire({
+      title: "Aplicar cambio a",
+      input: "radio",
+      inputOptions: {
+        only: "Solo este evento",
+        following: "Este y los siguientes",
+        next: "Los siguientes",
+      },
+      inputValidator: (v) => (!v ? "Selecciona una opción" : undefined),
+      confirmButtonText: "Continuar",
+      showCancelButton: true,
+    });
+    if (!scope) return;
+
+    if (scope === "only") {
+      const { value: newYmd } = await Swal.fire({
+        title: "Nueva fecha para este evento (solo este)",
+        html: `
+          <style>
+            .date-input-container {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 10px;
+              margin: 20px 0;
+            }
+            .date-input-container label {
+              font-weight: 600;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            .date-input-container input[type="date"] {
+              padding: 8px 12px;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+              font-size: 14px;
+              width: 200px;
+            }
+          </style>
+          <div class="date-input-container">
+            <label for="new-date">Selecciona la nueva fecha:</label>
+            <input type="date" id="new-date" value="${ymdOriginal}" min="${minExecDate}" />
+          </div>
+        `,
+        confirmButtonText: "Guardar",
+        showCancelButton: true,
+        preConfirm: () => {
+          const dateInput = document.getElementById('new-date');
+          const val = dateInput.value;
+          if (!val) {
+            Swal.showValidationMessage("Selecciona una fecha válida.");
+            return false;
+          }
+          return val;
+        },
       });
+      if (!newYmd) return;
+
+      const overrides = { ...(item.overrides || {}) };
+      overrides[ymdOriginal] = { ymdNew: newYmd };
+      await updateFields(id, { overrides });
+      await Swal.fire("Hecho", "Se movió solo esta ocurrencia.", "success");
+      return;
     }
 
-    // 1) extraemos opciones únicas
-    const uniqueDirs = Array.from(
-      new Set(preds.map((p) => p.direccion))
-    ).sort();
-    const uniqueSrv = Array.from(new Set(preds.map((p) => p.servicio))).sort();
+    if (scope === "following") {
+      const { value: periodo } = await Swal.fire({
+        title: "Nueva frecuencia (a partir de esta y las siguientes)",
+        input: "select",
+        inputOptions: { dia: "Día", semana: "Semana", mes: "Mes" },
+        inputPlaceholder: "Selecciona",
+        confirmButtonText: "Siguiente",
+        showCancelButton: true,
+        inputValidator: (v) => (!v ? "Selecciona una frecuencia" : undefined),
+      });
+      if (!periodo) return;
 
-    // 2) generamos <option> para los datalists
+      const { value: rcStr } = await Swal.fire({
+        title: 'Repetir cada… (ej: "1", "2", "3")',
+        input: "text",
+        inputValue: String(item.rc || 1),
+        confirmButtonText: "Siguiente",
+        showCancelButton: true,
+        preConfirm: (val) => {
+          const n = parseInt(val, 10);
+          if (!n || n < 1) {
+            Swal.showValidationMessage("Ingresa un entero ≥ 1");
+            return false;
+          }
+          return val;
+        },
+      });
+      if (!rcStr) return;
+      const rc = parseInt(rcStr, 10);
+
+      let newDia = [];
+      let updates = {};
+      if (periodo === "semana") {
+        const { value: diasTxt } = await Swal.fire({
+          title: "Días de la semana (coma separada)",
+          input: "text",
+          inputPlaceholder: "Lunes,Miércoles,Viernes",
+          inputValue:
+            (Array.isArray(item.dia) && item.periodo === "semana"
+              ? item.dia.join(",")
+              : "") || "",
+          confirmButtonText: "Guardar",
+          showCancelButton: true,
+        });
+        if (diasTxt === undefined) return;
+        newDia = (diasTxt || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        updates = {
+          rc,
+          periodo,
+          dia: newDia,
+          semana: `Cada ${rc} semana${rc > 1 ? "s" : ""}`,
+          mes: "",
+        };
+      } else if (periodo === "mes") {
+        const { value: diasNum } = await Swal.fire({
+          title: "Días del mes (números, coma separada)",
+          input: "text",
+          inputPlaceholder: "1,15,30",
+          inputValue:
+            (Array.isArray(item.dia) && item.periodo === "mes"
+              ? item.dia.join(",")
+              : "") || "",
+          confirmButtonText: "Guardar",
+          showCancelButton: true,
+          preConfirm: (val) => {
+            const parts = (val || "")
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean);
+            if (parts.some((p) => isNaN(parseInt(p, 10)))) {
+              Swal.showValidationMessage("Solo números separados por coma.");
+              return false;
+            }
+            return val;
+          },
+        });
+        if (diasNum === undefined) return;
+        newDia = (diasNum || "")
+          .split(",")
+          .map((s) => String(parseInt(s.trim(), 10)))
+          .filter(Boolean);
+        updates = {
+          rc,
+          periodo,
+          dia: newDia,
+          semana: "",
+          mes: `Cada ${rc} ${rc === 1 ? "Mes" : "Meses"}`,
+        };
+      } else if (periodo === "dia") {
+        newDia = ["Cada día"];
+        updates = { rc, periodo, dia: newDia, semana: "", mes: "" };
+      }
+
+      // Actualizar el registro principal inmediatamente para "Este y los siguientes"
+      const cutovers = Array.isArray(item.cutovers) ? [...item.cutovers] : [];
+      cutovers.push({ fromYmd: ymdOriginal, rc, periodo, dia: newDia });
+      
+      await updateFields(id, { ...updates, cutovers });
+      await Swal.fire(
+        "Hecho",
+        "Se actualizó la regla desde esta ocurrencia en adelante.",
+        "success"
+      );
+      return;
+    }
+
+    if (scope === "next") {
+      const { value: periodo } = await Swal.fire({
+        title: "Nueva frecuencia para los siguientes eventos",
+        input: "select",
+        inputOptions: { dia: "Día", semana: "Semana", mes: "Mes" },
+        inputPlaceholder: "Selecciona",
+        confirmButtonText: "Siguiente",
+        showCancelButton: true,
+        inputValidator: (v) => (!v ? "Selecciona una frecuencia" : undefined),
+      });
+      if (!periodo) return;
+
+      const { value: rcStr } = await Swal.fire({
+        title: 'Repetir cada… (ej: "1", "2", "3")',
+        input: "text",
+        inputValue: String(item.rc || 1),
+        confirmButtonText: "Siguiente",
+        showCancelButton: true,
+        preConfirm: (val) => {
+          const n = parseInt(val, 10);
+          if (!n || n < 1) {
+            Swal.showValidationMessage("Ingresa un entero ≥ 1");
+            return false;
+          }
+          return val;
+        },
+      });
+      if (!rcStr) return;
+      const rc = parseInt(rcStr, 10);
+
+      let newDia = [];
+      let updates = {};
+      if (periodo === "semana") {
+        const { value: diasTxt } = await Swal.fire({
+          title: "Días de la semana (coma separada)",
+          input: "text",
+          inputPlaceholder: "Lunes,Miércoles,Viernes",
+          inputValue:
+            (Array.isArray(item.dia) && item.periodo === "semana"
+              ? item.dia.join(",")
+              : "") || "",
+          confirmButtonText: "Guardar",
+          showCancelButton: true,
+        });
+        if (diasTxt === undefined) return;
+        newDia = (diasTxt || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        updates = {
+          rc,
+          periodo,
+          dia: newDia,
+          semana: `Cada ${rc} semana${rc > 1 ? "s" : ""}`,
+          mes: "",
+        };
+      } else if (periodo === "mes") {
+        const { value: diasNum } = await Swal.fire({
+          title: "Días del mes (números, coma separada)",
+          input: "text",
+          inputPlaceholder: "1,15,30",
+          inputValue:
+            (Array.isArray(item.dia) && item.periodo === "mes"
+              ? item.dia.join(",")
+              : "") || "",
+          confirmButtonText: "Guardar",
+          showCancelButton: true,
+          preConfirm: (val) => {
+            const parts = (val || "")
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean);
+            if (parts.some((p) => isNaN(parseInt(p, 10)))) {
+              Swal.showValidationMessage("Solo números separados por coma.");
+              return false;
+            }
+            return val;
+          },
+        });
+        if (diasNum === undefined) return;
+        newDia = (diasNum || "")
+          .split(",")
+          .map((s) => String(parseInt(s.trim(), 10)))
+          .filter(Boolean);
+        updates = {
+          rc,
+          periodo,
+          dia: newDia,
+          semana: "",
+          mes: `Cada ${rc} ${rc === 1 ? "Mes" : "Meses"}`,
+        };
+      } else if (periodo === "dia") {
+        newDia = ["Cada día"];
+        updates = { rc, periodo, dia: newDia, semana: "", mes: "" };
+      }
+      
+      // Solo agregar cutover para "Los siguientes", NO actualizar registro principal ahora
+      const today = new Date();
+      const nextEventYmd = fmtYMD(new Date(today.getTime() + 24 * 60 * 60 * 1000)); // mañana
+      
+      const cutovers = Array.isArray(item.cutovers) ? [...item.cutovers] : [];
+      cutovers.push({ fromYmd: nextEventYmd, rc, periodo, dia: newDia });
+      
+      await updateFields(id, { cutovers });
+      await Swal.fire("Hecho", "Se actualizaron los siguientes eventos.", "success");
+    }
+  };
+
+  // ---------- FUTUROS con FILTROS (A) + Modificar (B) ----------
+  const showFutureAppointments = async () => {
+    const preds = computePredictedTransfers();
+    if (!preds.length) {
+      await Swal.fire("Sin registros", "No hay agendamientos activos.", "info");
+      return;
+    }
+
+    // opciones únicas
+    const uniqueDirs = Array.from(new Set(preds.map((p) => p.direccion))).sort();
+
     const dirOptions = uniqueDirs.map((d) => `<option value="${d}">`).join("");
-    const srvOptions = uniqueSrv.map((s) => `<option value="${s}">`).join("");
 
-    // 3) sección de filtros con CSS inline
     const filterSection = `
   <style>
+    /* Sección de filtros */
     #filter-section {
       display: none;
       background: #fafafa;
@@ -221,27 +592,29 @@ const Reprogramacionautomatica = () => {
       padding: 1rem;
     }
     
+    /* Layout de filtros */
     .filter-row {
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
       align-items: flex-end;
     }
-
-    #filter-section .filter-field {
+    
+    /* Campos de filtro */
+    .filter-field {
       display: flex;
       flex-direction: column;
       flex: 1;
       min-width: 140px;
     }
-
-    #filter-section .filter-field label {
+    .filter-field label {
       font-size: 0.85rem;
       font-weight: 600;
       color: #444;
       margin-bottom: 0.25rem;
     }
-    #filter-section .filter-field input.swal2-input {
+    .filter-field input.swal2-input,
+    .filter-field select.swal2-input {
       height: 2.4em;
       padding: 0 0.75em;
       border: 1px solid #ccc;
@@ -251,235 +624,294 @@ const Reprogramacionautomatica = () => {
       width: 100%;
       box-sizing: border-box;
     }
-    #filter-section button#apply-filters {
+    
+    /* Botones de filtro */
+    .filter-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .filter-btn {
       height: 2em;
       padding: 0 1em;
+      font-weight: 600;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 14px;
+    }
+    #apply-filters {
       background: #556ee6;
       color: #fff;
-      font-weight: 600;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-size: 14px
     }
-    #filter-section button#apply-filters:hover {
+    #apply-filters:hover {
       background: #4254b5;
     }
-      #filter-section button#reset-filters {
-      height: 2em;
-      padding: 0 1em;
-      background:rgb(230, 85, 85);
+    #reset-filters {
+      background: rgb(230,85,85);
       color: #fff;
-      font-weight: 600;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-size: 14px
     }
-    #filter-section button#reset-filters:hover {
-      background:rgb(190, 74, 74);
+    #reset-filters:hover {
+      background: rgb(190,74,74);
     }
   </style>
 
-<div id="filter-section" style="display:none;">
-  <div class="filter-row">
-    <div class="filter-field">
-      <label for="filt-direccion">Dirección</label>
-      <input id="filt-direccion" class="swal2-input" list="filt-direccion-list" placeholder="Filtrar…" />
-      <datalist id="filt-direccion-list">${dirOptions}</datalist>
+  <div id="filter-section">
+    <div class="filter-row">
+      <div class="filter-field">
+        <label for="filt-direccion">Dirección</label>
+        <input id="filt-direccion" class="swal2-input" list="filt-direccion-list" placeholder="Filtrar…" />
+        <datalist id="filt-direccion-list">${dirOptions}</datalist>
+      </div>
+      <div class="filter-field">
+        <label for="filt-servicio">Servicio</label>
+        <select id="filt-servicio" class="swal2-input">
+          <option value="">Todos</option>
+          <option value="Poso">Poso</option>
+          <option value="Tuberia">Tuberia</option>
+          <option value="Poso + Tuberia">Poso + Tuberia</option>
+          <option value="Poso + Grease Trap">Poso + Grease Trap</option>
+          <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
+          <option value="Grease Trap">Grease Trap</option>
+          <option value="Water">Water</option>
+          <option value="Pool">Pool</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filt-fecha-inicio">Desde</label>
+        <input id="filt-fecha-inicio" type="date" class="swal2-input" />
+      </div>
+      <div class="filter-field">
+        <label for="filt-fecha-fin">Hasta</label>
+        <input id="filt-fecha-fin" type="date" class="swal2-input" />
+      </div>
+      <div class="filter-buttons">
+        <button id="apply-filters" class="filter-btn">Aplicar</button>
+        <button id="reset-filters" class="filter-btn">Descartar</button>
+      </div>
     </div>
-
-    <div class="filter-field">
-      <label for="filt-servicio">Servicio</label>
-      <input id="filt-servicio" class="swal2-input" list="filt-servicio-list" placeholder="Filtrar…" />
-      <datalist id="filt-servicio-list">${srvOptions}</datalist>
-    </div>
-
-    <div class="filter-field">
-      <label for="filt-fecha-inicio">Desde</label>
-      <input id="filt-fecha-inicio" type="date" class="swal2-input" />
-    </div>
-
-    <div class="filter-field">
-      <label for="filt-fecha-fin">Hasta</label>
-      <input id="filt-fecha-fin" type="date" class="swal2-input" />
-    </div>
-
-    <button id="apply-filters" class="swal2-confirm swal2-styled">
-      Aplicar
-    </button>
-    <button id="reset-filters" class="swal2-confirm" swal2-styled">Descartar</button>
   </div>
-</div>
 `;
 
     const renderList = (items) => `
-    <ul style="padding-left:1em; margin:0;">
-      ${items
-        .map(
-          (p) => `
-        <li style="margin-bottom:0.5em;">
-          <strong>${p.direccion}</strong> — ${p.servicio} — ${p.fecha}
-          <br/><small>${p.regla}</small>
-        </li>
-      `
-        )
-        .join("")}
-    </ul>
-  `;
+      <style>
+        /* Lista de agendamientos */
+        .appointments-list {
+          padding-left: 1em;
+          margin: 0;
+        }
+        .appointment-item {
+          margin-bottom: 0.8em;
+          padding: 12px;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          background: #fafafa;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .appointment-info {
+          flex: 1;
+        }
+        .appointment-info strong {
+          color: #333;
+          font-size: 14px;
+        }
+        .appointment-info small {
+          color: #666;
+          font-style: italic;
+        }
+        .appointment-actions {
+          margin-left: 15px;
+        }
+        .modify-btn {
+          padding: 6px 12px;
+          border: 1px solid #556ee6;
+          background: #556ee6;
+          color: white;
+          border-radius: 4px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .modify-btn:hover {
+          background: #4254b5;
+          border-color: #4254b5;
+        }
+      </style>
+      <ul class="appointments-list">
+        ${items
+          .map(
+            (p, idx) => `
+          <li data-idx="${idx}" class="appointment-item">
+            <div class="appointment-info">
+              <strong>${p.direccion || ""}</strong> — ${p.servicio || ""} — ${p.fecha}
+              <br/><small>${p.regla}</small>
+            </div>
+            <div class="appointment-actions">
+              <button data-action="mod" class="modify-btn">
+                Modificar
+              </button>
+            </div>
+          </li>`
+          )
+          .join("")}
+      </ul>
+    `;
 
-    Swal.fire({
-      title: "Agendamientos Futuros",
-      width: 650,
-      html: `
-    <style>
-      /* Estilos comunes para ambos botones */
-      #toggle-filters,
-      #export-btn {
-        padding: 0.6em 1.2em;
-        border-radius: 4px;
-        font-size: 0.95rem;
-        font-weight: 600;
-        border: 1px solid #ccc;
-        cursor: pointer;
-        transition: background 0.2s, border-color 0.2s;
-        margin-right: 0.5em;
-      }
-      /* Botón “Filtros” neutro */
-      #toggle-filters {
-        background: #ffffff;
-        color: #444;
-      }
-      #toggle-filters:hover {
-        background: #f5f5f5;
-        border-color: #999;
-      }
-      /* Botón “Exportar Excel” primario */
-      #export-btn {
-        background: #556ee6;
-        color: #fff;
-        border-color: #556ee6;
-      }
-      #export-btn:hover {
-        background: #4254b5;
-        border-color: #4254b5;
-      }
-        /* Botón “Aplicar” dentro de los filtros */
-      #apply-filters {
-        background: #556ee6;        /* mismo color principal */
-        color: #fff;
-        border-color: #556ee6;
-        /* lo llevamos al final del flex con auto-margin */
-        margin-left: auto;
-      }
-      #apply-filters:hover {
-        background: #4254b5;
-        border-color: #4254b5;
-      }
-    </style>
+    const modalHtml = `
+      <style>
+        /* Botones del header */
+        .modal-header {
+          text-align: center;
+          margin-bottom: 1em;
+        }
+        .header-btn {
+          padding: 0.6em 1.2em;
+          border-radius: 4px;
+          font-size: 0.95rem;
+          font-weight: 600;
+          border: 1px solid #ccc;
+          cursor: pointer;
+          transition: background 0.2s, border-color 0.2s;
+          margin-right: 0.5em;
+        }
+        #toggle-filters {
+          background: #fff;
+          color: #444;
+        }
+        #toggle-filters:hover {
+          background: #f5f5f5;
+          border-color: #999;
+        }
+        #export-btn {
+          background: #556ee6;
+          color: #fff;
+          border-color: #556ee6;
+        }
+        #export-btn:hover {
+          background: #4254b5;
+          border-color: #4254b5;
+        }
+        
+        /* Contenedor de lista */
+        .list-container {
+          max-height: 400px;
+          overflow: auto;
+          text-align: left;
+          margin: 0 1em;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          background: white;
+        }
+      </style>
 
-    <div style="text-align:center; margin-bottom:1em;">
-      <!-- fijarse en la comilla cerrada justo después de 0.5em; -->
- <button
-   id="toggle-filters"
-   class="swal2-styled"
-   style="margin-right:0.5em;"
- >
-   Filtros
- </button>
-      <button id="export-btn" class="swal2-styled">Exportar Excel</button>
-    </div>
+      <div class="modal-header">
+        <button id="toggle-filters" class="header-btn">Filtros</button>
+        <button id="export-btn" class="header-btn">Exportar Excel</button>
+      </div>
       ${filterSection}
-      <div id="list-container" style="max-height:300px;overflow:auto;text-align:left;margin:0 1em;">
+      <div id="list-container" class="list-container">
         ${renderList(preds)}
       </div>
-    `,
+    `;
+
+    await Swal.fire({
+      title: "Agendamientos Futuros",
+      width: 650,
+      html: modalHtml,
       showConfirmButton: false,
       didOpen: () => {
         const listContainer = document.getElementById("list-container");
         const filtroSec = document.getElementById("filter-section");
+        const toggleBtn = document.getElementById("toggle-filters");
+        const exportBtn = document.getElementById("export-btn");
+        const dirEl = document.getElementById("filt-direccion");
+        const srvEl = document.getElementById("filt-servicio");
+        const fromEl = document.getElementById("filt-fecha-inicio");
+        const toEl = document.getElementById("filt-fecha-fin");
+        const applyBtn = document.getElementById("apply-filters");
+        const resetBtn = document.getElementById("reset-filters");
 
-        // Toggle sección de filtros
-        document
-          .getElementById("toggle-filters")
-          .addEventListener("click", () => {
-            filtroSec.style.display =
-              filtroSec.style.display === "none" ? "block" : "none";
-          });
+        let current = preds.slice(); // estado actual mostrado
 
-        // Aplicar filtros usando los selects
-        document
-          .getElementById("apply-filters")
-          .addEventListener("click", () => {
-            const dirVal = document.getElementById("filt-direccion").value;
-            const srvVal = document.getElementById("filt-servicio").value;
-            const fechaInicioVal = document.getElementById("filt-fecha-inicio").value;
-            const fechaFinVal = document.getElementById("filt-fecha-fin").value;
-
-            const filtered = preds.filter(
-              (p) => {
-                const matchDir = !dirVal || p.direccion === dirVal;
-                const matchSrv = !srvVal || p.servicio === srvVal;
+        const attachModifyHandlers = () => {
+          listContainer
+            .querySelectorAll("button[data-action='mod']")
+            .forEach((btn) => {
+              btn.addEventListener("click", async (e) => {
+                const li = e.currentTarget.closest("[data-idx]");
+                const idx = parseInt(li.getAttribute("data-idx"), 10);
+                const pred = current[idx];
+                await modifyOccurrence(pred);
                 
-                let matchDate = true;
-                if (fechaInicioVal || fechaFinVal) {
-                    const eventDate = p.date;
-                    if (fechaInicioVal) {
-                        const startDate = new Date(fechaInicioVal + "T00:00:00");
-                        if (eventDate < startDate) {
-                            matchDate = false;
-                        }
-                    }
-                    if (matchDate && fechaFinVal) {
-                        const endDate = new Date(fechaFinVal + "T23:59:59");
-                        if (eventDate > endDate) {
-                            matchDate = false;
-                        }
-                    }
-                }
-
-                return matchDir && matchSrv && matchDate;
-              }
-            );
-            listContainer.innerHTML = renderList(filtered);
-          });
-
-        document
-          .getElementById("reset-filters")
-          .addEventListener("click", () => {
-            document.getElementById("filt-direccion").value = "";
-            document.getElementById("filt-servicio").value = "";
-            document.getElementById("filt-fecha-inicio").value = "";
-            document.getElementById("filt-fecha-fin").value = "";
-            listContainer.innerHTML = renderList(preds);
-          });
-
-        // Exportar a Excel...
-        document.getElementById("export-btn").addEventListener("click", () => {
-          const tableData = [];
-          listContainer.querySelectorAll("li").forEach((li) => {
-            const txt = li.textContent.split("—").map((s) => s.trim());
-            tableData.push({
-              Dirección: txt[0],
-              Servicio: txt[1],
-              "Fecha Y Condicion": txt[2],
+                // Actualizar la lista automáticamente
+                const newPreds = computePredictedTransfers();
+                current = newPreds.slice();
+                listContainer.innerHTML = renderList(current);
+                attachModifyHandlers();
+              });
             });
+        };
+
+        toggleBtn.addEventListener("click", () => {
+          filtroSec.style.display =
+            filtroSec.style.display === "none" ? "block" : "none";
+        });
+
+        applyBtn.addEventListener("click", () => {
+          const dirVal = dirEl.value.trim();
+          const srvVal = srvEl.value;
+          const fi = fromEl.value ? new Date(fromEl.value + "T00:00:00") : null;
+          const ff = toEl.value ? new Date(toEl.value + "T23:59:59") : null;
+
+          current = preds.filter((p) => {
+            const mDir = !dirVal || p.direccion === dirVal;
+            const mSrv = !srvVal || p.servicio === srvVal;
+            let mDate = true;
+            if (fi && p.date < fi) mDate = false;
+            if (ff && p.date > ff) mDate = false;
+            return mDir && mSrv && mDate;
           });
-          const ws = XLSX.utils.json_to_sheet(tableData);
+
+          listContainer.innerHTML = renderList(current);
+          attachModifyHandlers();
+        });
+
+        resetBtn.addEventListener("click", () => {
+          dirEl.value = "";
+          srvEl.value = "";
+          fromEl.value = "";
+          toEl.value = "";
+          current = preds.slice();
+          listContainer.innerHTML = renderList(current);
+          attachModifyHandlers();
+        });
+
+        exportBtn.addEventListener("click", () => {
+          const rows = current.map((p) => ({
+            Dirección: p.direccion,
+            Servicio: p.servicio,
+            Fecha: p.fecha,
+            Regla: p.regla,
+          }));
+          const ws = XLSX.utils.json_to_sheet(rows);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Agendamientos");
           XLSX.writeFile(wb, "agendamientos_futuros.xlsx");
         });
+
+        // initial
+        attachModifyHandlers();
       },
     });
   };
 
-  // Función para actualizar uno o varios campos de un registro
+  // ---------- Actualizar en Firebase y estado local ----------
   const updateFields = (id, updates) => {
     const dbRef = ref(database, `reprogramacionautomatica/${id}`);
-    update(dbRef, updates).catch((error) =>
+    update(dbRef, { ...updates, updatedAt: Date.now() }).catch((error) =>
       console.error("Error actualizando en Firebase:", error)
     );
     setData((prev) =>
@@ -487,11 +919,13 @@ const Reprogramacionautomatica = () => {
         .map(([itemId, item]) =>
           itemId === id ? [itemId, { ...item, ...updates }] : [itemId, item]
         )
-        .sort(([, a], [, b]) => a.direccion.localeCompare(b.direccion))
+        .sort(([, a], [, b]) =>
+          (a.direccion || "").localeCompare(b.direccion || "")
+        )
     );
   };
 
-  // Escucha de Firebase para "clientes"
+  // ---------- Clientes (para datalist de Dirección) ----------
   useEffect(() => {
     const dbRef = ref(database, "clientes");
     const unsubscribe = onValue(dbRef, (snapshot) => {
@@ -511,12 +945,10 @@ const Reprogramacionautomatica = () => {
     return () => unsubscribe();
   }, []);
 
-  // Opciones de direcciones de todos los clientes para datalists
   const direccionOptions = Array.from(
-    new Set(clients.map((client) => client.direccion).filter(Boolean))
+    new Set(clients.map((c) => c.direccion).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
-  // Opciones para filtro de dirección (solo direcciones presentes en tabla)
   const direccionFilterOptions = Array.from(
     new Set(data.map(([, item]) => item.direccion).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
@@ -525,6 +957,16 @@ const Reprogramacionautomatica = () => {
     new Set(data.map(([, item]) => item.servicio).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
+  const dayOptions = [
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+    "Domingo",
+  ];
+
   const diaFilterOptions = Array.from(
     new Set(
       data
@@ -532,7 +974,6 @@ const Reprogramacionautomatica = () => {
         .filter(Boolean)
     )
   ).sort((a, b) => {
-    // Para mantener el orden Lunes...Domingo:
     const orden = [
       "Lunes",
       "Martes",
@@ -552,30 +993,67 @@ const Reprogramacionautomatica = () => {
   const mesFilterOptions = Array.from(
     new Set(data.map(([, item]) => item.mes).filter(Boolean))
   ).sort((a, b) => {
-    // Para ordenar "Cada 1 Mes", "Cada 2 Meses", ... por número
     const numA = parseInt(a.match(/\d+/)?.[0] ?? "0", 10);
     const numB = parseInt(b.match(/\d+/)?.[0] ?? "0", 10);
     return numA - numB;
   });
 
-  const dayOptions = [
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-    "Domingo",
-  ];
-  const weekOptions = ["Semanal", "Cada 2 Semanas", "Cada 3 Semanas"];
-  const monthOptions = Array.from(
-    { length: 12 },
-    (_, i) => `Cada ${i + 1} ${i + 1 === 1 ? "Mes" : "Meses"}`
-  );
+  // ---------- Filtro de tabla principal ----------
+  const filteredData = data.filter(([id, item]) => {
+    if (
+      filters.direccion &&
+      (!item.direccion ||
+        !item.direccion.toLowerCase().includes(filters.direccion.toLowerCase()))
+    )
+      return false;
+    if (
+      filters.servicio &&
+      item.servicio.toLowerCase() !== filters.servicio.toLowerCase()
+    )
+      return false;
+    if (filters.dia) {
+      if (!item.dia || !item.dia.includes(filters.dia)) return false;
+    }
+    if (filters.semana && item.semana !== filters.semana) return false;
+    if (filters.mes && item.mes !== filters.mes) return false;
+    if (filters.activo !== "") {
+      const activoBool = filters.activo === "true";
+      if (
+        (item.activo === undefined && activoBool) ||
+        (item.activo !== undefined && item.activo !== activoBool)
+      )
+        return false;
+    }
+    return true;
+  });
 
-  // Función para mostrar el formulario de agregar servicio
+  // ---------- Auto-desactivar "solo una vez" vencidos ----------
+  const checkAndDeactivateExecutedOnce = () => {
+    const todayYmd = fmtYMD(new Date());
+    data.forEach(([id, item]) => {
+      if (item.solounavez && item.activo && item.fechaEjecucion) {
+        if (item.fechaEjecucion <= todayYmd) {
+          updateFields(id, { activo: false });
+        }
+      }
+    });
+  };
+
+  const minExecDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2); // pasado mañana
+    return fmtYMD(d);
+  })();
+
+  useEffect(() => {
+    if (loadedData && loadedClients) {
+      setLoading(false);
+      checkAndDeactivateExecutedOnce();
+    }
+  }, [loadedData, loadedClients]);
+
+  // ---------- Alta (A) en un único modal con validaciones y grids ----------
   const showAddSwal = () => {
-    // Valores por defecto
     let formData = {
       direccion: "",
       servicio: "",
@@ -589,60 +1067,57 @@ const Reprogramacionautomatica = () => {
       fechaEjecucion: null,
     };
 
-    // HTML del formulario SIN el select de frecuencia mensual
     const formHtml = `
       <div class="swal-form">
-        <!-- Dirección -->
         <div class="form-group">
           <label for="direccion">Dirección:</label>
           <input id="direccion" class="swal2-input" placeholder="Dirección" list="direcciones-list"/>
           <datalist id="direcciones-list">
-            ${direccionOptions
-              .map((dir) => `<option value="${dir}"/>`)
-              .join("")}
+            ${direccionOptions.map((dir) => `<option value="${dir}"/>`).join("")}
           </datalist>
         </div>
-        <!-- Servicio -->
+
         <div class="form-group">
-        <label for="servicio">Servicio:</label>
-        <select id="servicio" class="swal2-select">
-          <option value=""></option>
-          <option value="Poso">Poso</option>
-          <option value="Tuberia">Tuberia</option>
-          <option value="Poso + Tuberia">Poso + Tuberia</option>
-          <option value="Poso + Grease Trap">Poso + Grease Trap</option>
-          <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
-          <option value="Grease Trap">Grease Trap</option>
-          <option value="Water">Water</option>
-          <option value="Pool">Pool</option>
-        </select>
-      </div>
-        <!-- Cúbicos -->
+          <label for="servicio">Servicio:</label>
+          <select id="servicio" class="swal2-select">
+            <option value=""></option>
+            <option value="Poso">Poso</option>
+            <option value="Tuberia">Tuberia</option>
+            <option value="Poso + Tuberia">Poso + Tuberia</option>
+            <option value="Poso + Grease Trap">Poso + Grease Trap</option>
+            <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
+            <option value="Grease Trap">Grease Trap</option>
+            <option value="Water">Water</option>
+            <option value="Pool">Pool</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="cubicos">Cúbicos:</label>
           <input id="cubicos" type="number" class="swal2-input" placeholder="Cúbicos"/>
         </div>
-        <!-- Repetir cada -->
+
         <div class="form-group">
           <label for="repetirCada">Repetir cada:</label>
           <input id="repetirCada" type="number" min="1" class="swal2-input" placeholder="Intervalo"/>
         </div>
+
         <div class="form-group">
           <label for="tipoRepeticion">Frecuencia:</label>
           <select id="tipoRepeticion" class="swal2-select">
-          <option value=""></option>
+            <option value=""></option>
             <option value="dia">Día</option>
             <option value="semana">Semana</option>
             <option value="mes">Mes</option>
           </select>
         </div>
-        <!-- Día -->
+
         <div id="dia-container" class="form-group">
-        <label>Día</label>
-          <input type="checkbox" id="checkbox-dia"/> 
+          <label>Día</label>
+          <input type="checkbox" id="checkbox-dia"/>
         </div>
-        <!-- Semanal -->
-        <div id="semanal-container" class="form-group" style="display: none;">
+
+        <div id="semanal-container" class="form-group" style="display:none;">
           <label>Días de la semana:</label>
           <div class="dias-semana">
             ${dayOptions
@@ -657,8 +1132,8 @@ const Reprogramacionautomatica = () => {
               .join("")}
           </div>
         </div>
-        <!-- Mensual: solo calendario -->
-        <div id="mes-container" class="form-group" style="display: none;">
+
+        <div id="mes-container" class="form-group" style="display:none;">
           <label>Selecciona días del mes:</label>
           <div class="dias-mes-grid">
             ${Array.from({ length: 31 }, (_, i) => i + 1)
@@ -672,106 +1147,44 @@ const Reprogramacionautomatica = () => {
               )
               .join("")}
           </div>
-          </div>
-            <!-- Solo una vez -->
-          <div class="form-group">
-            <label for="solounavez">Solo realizarse una vez:</label>
-            <input type="checkbox" id="solounavez"/> 
-          </div>
-          
-          <!-- Fecha específica (solo si solounavez está marcado) -->
-          <div id="fecha-container" class="form-group" style="display: none;">
-            <label for="fechaEjecucion">Fecha de ejecución:</label>
-            <input id="fechaEjecucion" type="date" class="swal2-input"/>
-          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="solounavez">Solo realizarse una vez:</label>
+          <input type="checkbox" id="solounavez"/>
+        </div>
+
+        <div id="fecha-container" class="form-group" style="display:none;">
+          <label for="fechaEjecucion">Fecha de ejecución:</label>
+          <input id="fechaEjecucion" type="date" class="swal2-input"/>
+        </div>
       </div>
     `;
 
     const formStyles = `
-  <style>
-    /* quita cualquier overflow horizontal */
-    .swal2-html-container { overflow-x: hidden !important; }
-
-    .swal-form { margin-top: 20px; }
-
-    /* todos los fields de una sola línea (label + control) */
-    .form-group {
-      display: flex;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    .form-group label {
-      width: 50%;
-      margin: 0;
-      font-weight: 500;
-    }
-    .swal-form .swal2-input,
-    .swal-form .swal2-select {
-      width: 50%;
-      box-sizing: border-box;
-      height: 2.5em;
-      padding: 0.5em 0.75em;
-      font-size: 1rem;
-      margin: 0;
-      border: 1px solid #ccc;
-    }
-    .swal-form input[type="checkbox"] {
-      transform: scale(1.5);
-      cursor: pointer;
-      margin: 0;
-    }
-
-    /* para los contenedores de multi-checkbox: ponemos label arriba y grid abajo */
-    #semanal-container.form-group,
-    #mes-container.form-group {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    /* label de esos contenedores en bloque */
-    #semanal-container label,
-    #mes-container label {
-      width: auto;
-      margin-bottom: 8px;
-    }
-
-    /* grid de días de la semana en full width, con wrap */
-    .dias-semana {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 8px;
-      width: 100% !important;
-      margin: 0 0 10px;
-    }
-
-    /* grid de días del mes full width, 7 cols, items centrados */
-    .dias-mes-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 8px;
-      justify-items: center;
-      width: 100% !important;
-      margin: 0;
-    }
-
-    .dia-checkbox
-     {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .dia-mes {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .swal-form .swal2-input:disabled,
-    .swal-form .swal2-select:disabled {
-  cursor: not-allowed !important;
-}
-  </style>
-`;
+      <style>
+        .swal2-html-container { overflow-x: hidden !important; }
+        .swal-form { margin-top: 20px; }
+        .form-group { display:flex; align-items:center; margin-bottom:15px; }
+        .form-group label { width:50%; margin:0; font-weight:500; }
+        .swal-form .swal2-input, .swal-form .swal2-select {
+          width:50%; box-sizing:border-box; height:2.5em; padding:.5em .75em; font-size:1rem; margin:0; border:1px solid #ccc;
+        }
+        .swal-form input[type="checkbox"] { transform: scale(1.5); cursor:pointer; margin:0; }
+        #semanal-container.form-group, #mes-container.form-group {
+          flex-direction:column; align-items:flex-start;
+        }
+        #semanal-container label, #mes-container label { width:auto; margin-bottom:8px; }
+        .dias-semana {
+          display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; width:100% !important; margin:0 0 10px;
+        }
+        .dias-mes-grid {
+          display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; justify-items:center; width:100% !important; margin:0;
+        }
+        .dia-checkbox, .dia-mes { display:flex; flex-direction:column; align-items:center; }
+        .swal-form .swal2-input:disabled, .swal-form .swal2-select:disabled { cursor: not-allowed !important; }
+      </style>
+    `;
 
     Swal.fire({
       title: "Agregar Servicio Programado",
@@ -791,57 +1204,34 @@ const Reprogramacionautomatica = () => {
         const semCtr = document.getElementById("semanal-container");
         const mesCtr = document.getElementById("mes-container");
         const fechaInput = document.getElementById("fechaEjecucion");
-        const minDate = new Date();
-        minDate.setDate(minDate.getDate() + 2); // día después de mañana
-        const minExecDate = minDate.toISOString().split("T")[0];
 
+        // mínimo: pasado mañana
         fechaInput.setAttribute("min", minExecDate);
 
-        // Mostrar/ocultar contenedores según el tipo de repetición
-        sel.addEventListener("change", () => {
-          diaCtr.style.display = sel.value === "dia" ? "block" : "none";
-          semCtr.style.display = sel.value === "semana" ? "block" : "none";
-          mesCtr.style.display = sel.value === "mes" ? "block" : "none";
-        });
+        const updateContainers = () => {
+          const once = solounavezCheckbox.checked;
+          diaCtr.style.display = once ? "none" : sel.value === "dia" ? "block" : "none";
+          semCtr.style.display = once ? "none" : sel.value === "semana" ? "block" : "none";
+          mesCtr.style.display = once ? "none" : sel.value === "mes" ? "block" : "none";
+        };
 
-        // Cuando marque "Solo una vez"
+        sel.addEventListener("change", updateContainers);
+
         solounavezCheckbox.addEventListener("change", () => {
           const once = solounavezCheckbox.checked;
-
-          // 2) Fecha de ejecución
           fechaContainer.style.display = once ? "block" : "none";
-          if (!once) document.getElementById("fechaEjecucion").value = "";
+          if (!once) fechaInput.value = "";
 
-          // 3) Deshabilitar intervalo y frecuencia
           if (once) {
             rcInput.value = "";
             periodoEl.value = "";
           }
           rcInput.disabled = once;
           periodoEl.disabled = once;
-
-          // 4) forzar cursor en JS (complementario al CSS)
           rcInput.style.cursor = once ? "not-allowed" : "auto";
           periodoEl.style.cursor = once ? "not-allowed" : "auto";
 
-          // 5) Ocultar containers de frecuencia
-          diaCtr.style.display = once
-            ? "none"
-            : sel.value === "dia"
-            ? "block"
-            : "none";
-          semCtr.style.display = once
-            ? "none"
-            : sel.value === "semana"
-            ? "block"
-            : "none";
-          mesCtr.style.display = once
-            ? "none"
-            : sel.value === "mes"
-            ? "block"
-            : "none";
-
-          // 6) Desmarcar y deshabilitar todos los checkboxes de día/semana/mes
+          // desmarcar / deshabilitar todo
           const allBoxes = [
             ...diaCtr.querySelectorAll("input[type=checkbox]"),
             ...semCtr.querySelectorAll("input[type=checkbox]"),
@@ -851,7 +1241,11 @@ const Reprogramacionautomatica = () => {
             cb.checked = false;
             cb.disabled = once;
           });
+
+          updateContainers();
         });
+
+        updateContainers();
       },
       preConfirm: () => {
         const direccion = document.getElementById("direccion").value.trim();
@@ -862,7 +1256,7 @@ const Reprogramacionautomatica = () => {
 
         const servicio = document.getElementById("servicio").value;
         const cubicos = document.getElementById("cubicos").value;
-        const rc = parseInt(document.getElementById("repetirCada").value, 10);
+        const rcVal = document.getElementById("repetirCada").value;
         const solounavez = document.getElementById("solounavez").checked;
         const fechaEjecucion = document.getElementById("fechaEjecucion").value;
 
@@ -872,16 +1266,12 @@ const Reprogramacionautomatica = () => {
         }
 
         let periodo = document.getElementById("tipoRepeticion").value;
-        let dia = [],
-          semana = "",
-          mes = "";
+        let rc = parseInt(rcVal, 10);
+        let dia = [], semana = "", mes = "";
 
         if (!solounavez) {
-          // Solo valido rc/frecuencia si NO es "solo una vez"
           if (!rc || rc < 1) {
-            Swal.showValidationMessage(
-              'Ingresa un valor válido en "Repetir cada"'
-            );
+            Swal.showValidationMessage('Ingresa un valor válido en "Repetir cada"');
             return false;
           }
           if (!periodo) {
@@ -898,13 +1288,10 @@ const Reprogramacionautomatica = () => {
           } else if (periodo === "semana") {
             const seleccion = [];
             dayOptions.forEach((day) => {
-              if (document.getElementById(`dia-${day}`).checked)
-                seleccion.push(day);
+              if (document.getElementById(`dia-${day}`).checked) seleccion.push(day);
             });
             if (seleccion.length === 0) {
-              Swal.showValidationMessage(
-                "Selecciona al menos un día de la semana"
-              );
+              Swal.showValidationMessage("Selecciona al menos un día de la semana");
               return false;
             }
             semana = `Cada ${rc} semana${rc > 1 ? "s" : ""}`;
@@ -912,8 +1299,7 @@ const Reprogramacionautomatica = () => {
           } else if (periodo === "mes") {
             const diasMes = [];
             for (let i = 1; i <= 31; i++) {
-              if (document.getElementById(`dia-mes-${i}`).checked)
-                diasMes.push(String(i));
+              if (document.getElementById(`dia-mes-${i}`).checked) diasMes.push(String(i));
             }
             if (diasMes.length === 0) {
               Swal.showValidationMessage("Selecciona al menos un día del mes");
@@ -922,15 +1308,17 @@ const Reprogramacionautomatica = () => {
             dia = diasMes;
             mes = `Cada ${rc} ${rc === 1 ? "Mes" : "Meses"}`;
           }
+        } else {
+          rc = null;
+          periodo = "";
         }
 
-        // todo validado, devolvemos objeto
         return {
           direccion,
           servicio,
           cubicos,
-          rc: solounavez ? null : rc,
-          periodo: solounavez ? "" : periodo,
+          rc,
+          periodo,
           dia,
           semana,
           mes,
@@ -938,34 +1326,35 @@ const Reprogramacionautomatica = () => {
           fechaEjecucion,
         };
       },
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        addData(
-          result.value.direccion,
-          result.value.servicio,
-          result.value.cubicos,
-          result.value.rc,
-          result.value.periodo,
-          result.value.dia,
-          result.value.semana,
-          result.value.mes,
-          result.value.solounavez,
-          result.value.fechaEjecucion
+        const v = result.value;
+        await addData(
+          v.direccion,
+          v.servicio,
+          v.cubicos,
+          v.rc,
+          v.periodo,
+          v.dia,
+          v.semana,
+          v.mes,
+          v.solounavez,
+          v.fechaEjecucion
         );
-        Swal.fire({
+        await Swal.fire({
           title: "¡Guardado!",
           text: "El servicio ha sido programado correctamente",
           icon: "success",
           toast: true,
           position: "center-end",
           showConfirmButton: false,
-          timer: 3000,
+          timer: 2500,
         });
       }
     });
   };
 
-  // Función para agregar un nuevo registro en "reprogramacionautomatica"
+  // ---------- Alta en Firebase ----------
   const addData = async (
     direccion,
     servicio,
@@ -985,8 +1374,8 @@ const Reprogramacionautomatica = () => {
       direccion,
       servicio,
       cubicos,
-      rc,
-      periodo,
+      rc: solounavez ? null : rc,
+      periodo: solounavez ? "" : periodo,
       dia,
       semana,
       mes,
@@ -994,39 +1383,47 @@ const Reprogramacionautomatica = () => {
       fechaEjecucion,
       activo,
       timestamp: Date.now(),
+      exceptions: [],
+      overrides: {},
+      cutovers: [],
+      updatedAt: Date.now(),
     };
     await set(newRef, newData);
   };
 
-  // Función para actualizar campos en Firebase y en el estado local
+  // ---------- Cambios por celda ----------
   const handleFieldChange = (id, field, value) => {
     const safeValue = value === undefined ? "" : value;
-    const dbRef = ref(database, `reprogramacionautomatica/${id}`);
-    update(dbRef, { [field]: safeValue }).catch((error) => {
+    update(ref(database, `reprogramacionautomatica/${id}`), {
+      [field]: safeValue,
+      updatedAt: Date.now(),
+    }).catch((error) => {
       console.error("Error updating data: ", error);
     });
-    const updatedData = data.map(([itemId, item]) =>
-      itemId === id ? [itemId, { ...item, [field]: safeValue }] : [itemId, item]
-    );
-    updatedData.sort(([idA, itemA], [idB, itemB]) =>
-      itemA.direccion.localeCompare(itemB.direccion)
-    );
+    const updatedData = data
+      .map(([itemId, item]) =>
+        itemId === id ? [itemId, { ...item, [field]: safeValue }] : [itemId, item]
+      )
+      .sort(([, a], [, b]) =>
+        (a.direccion || "").localeCompare(b.direccion || "")
+      );
     setData(updatedData);
   };
 
-  // Función para eliminar un registro
   const deleteData = (id) => {
     const dbRef = ref(database, `reprogramacionautomatica/${id}`);
     remove(dbRef).catch((error) => {
       console.error("Error deleting data: ", error);
     });
-    const updatedData = data.filter(([itemId]) => itemId !== id);
-    updatedData.sort(([idA, itemA], [idB, itemB]) =>
-      itemA.direccion.localeCompare(itemB.direccion)
-    );
+    const updatedData = data
+      .filter(([itemId]) => itemId !== id)
+      .sort(([, a], [, b]) =>
+        (a.direccion || "").localeCompare(b.direccion || "")
+      );
     setData(updatedData);
   };
 
+  // ---------- UI: Slidebars ----------
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
   const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
 
@@ -1060,66 +1457,6 @@ const Reprogramacionautomatica = () => {
       document.removeEventListener("mousedown", handleClickOutsideFilter);
   }, []);
 
-  // Filtrado de registros según los filtros seleccionados
-  const filteredData = data.filter(([id, item]) => {
-    if (
-      filters.direccion &&
-      (!item.direccion ||
-        !item.direccion.toLowerCase().includes(filters.direccion.toLowerCase()))
-    )
-      return false;
-    if (
-      filters.servicio &&
-      item.servicio.toLowerCase() !== filters.servicio.toLowerCase()
-    )
-      return false;
-    if (filters.dia) {
-      if (!item.dia || !item.dia.includes(filters.dia)) return false;
-    }
-    if (filters.semana && item.semana !== filters.semana) return false;
-    if (filters.mes && item.mes !== filters.mes) return false;
-    if (filters.activo !== "") {
-      const activoBool = filters.activo === "true";
-      if (
-        (item.activo === undefined && activoBool) ||
-        (item.activo !== undefined && item.activo !== activoBool)
-      )
-        return false;
-    }
-
-    return true;
-  });
-
-  const checkAndDeactivateExecutedOnce = () => {
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0]; // formato YYYY-MM-DD
-
-    data.forEach(([id, item]) => {
-      if (
-        item.solounavez &&
-        item.activo &&
-        item.fechaEjecucion &&
-        item.fechaEjecucion <= todayStr
-      ) {
-        // Desactivar el registro porque ya se ejecutó
-        updateFields(id, { activo: false });
-      }
-    });
-  };
-
-  const minExecDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2);
-    return d.toISOString().split("T")[0]; // “YYYY-MM-DD”
-  })();
-
-  useEffect(() => {
-    if (loadedData && loadedClients) {
-      setLoading(false);
-      checkAndDeactivateExecutedOnce();
-    }
-  }, [loadedData, loadedClients]);
-
   if (loading) {
     return (
       <div className="loader-container">
@@ -1138,35 +1475,32 @@ const Reprogramacionautomatica = () => {
           alt="Filtros"
         />
       </div>
+
       <div
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
 
-        {/* Dirección */}
         <label>Dirección</label>
         <input
           id="direccion-filter"
           type="text"
           list="direccion-filter-list"
           value={filters.direccion}
-          onChange={(e) =>
-            setFilters({ ...filters, direccion: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, direccion: e.target.value })}
           placeholder="Todas"
           className="filter-input"
         />
         <datalist id="direccion-filter-list">
-          <option value="" /> {/* equivale a “Todas” */}
+          <option value="" />
           {direccionFilterOptions.map((dir, i) => (
             <option key={i} value={dir} />
           ))}
         </datalist>
 
-        {/* Servicio */}
         <label>Servicio</label>
         <select
           value={filters.servicio}
@@ -1180,21 +1514,15 @@ const Reprogramacionautomatica = () => {
           ))}
         </select>
 
-        {/* Día */}
         <label>Día</label>
         <Select
           isClearable
           options={diaFilterOptions.map((day) => ({ value: day, label: day }))}
-          value={
-            filters.dia ? { value: filters.dia, label: filters.dia } : null
-          }
-          onChange={(opt) =>
-            setFilters({ ...filters, dia: opt ? opt.value : "" })
-          }
+          value={filters.dia ? { value: filters.dia, label: filters.dia } : null}
+          onChange={(opt) => setFilters({ ...filters, dia: opt ? opt.value : "" })}
           placeholder="Todos"
         />
 
-        {/* Semana */}
         <label>Semana</label>
         <select
           value={filters.semana}
@@ -1208,7 +1536,6 @@ const Reprogramacionautomatica = () => {
           ))}
         </select>
 
-        {/* Mes */}
         <label>Mes</label>
         <select
           value={filters.mes}
@@ -1251,7 +1578,7 @@ const Reprogramacionautomatica = () => {
 
       <div className="homepage-title">
         <div className="homepage-card">
-          <h1 className="title-page">Reprogramación Automatica</h1>
+          <h1 className="title-page">Reprogramación Automática</h1>
           <div className="current-date">
             <div>{new Date().toLocaleDateString()}</div>
             <Clock />
@@ -1285,15 +1612,17 @@ const Reprogramacionautomatica = () => {
                     <td className="direccion-fixed-td">
                       <div className="custom-select-container">
                         <input
-                          className="direccion-fixed-input "
+                          className="direccion-fixed-input"
                           type="text"
                           style={{ width: "18ch" }}
-                          value={localValues[`${id}_direccion`] ?? item.direccion ?? ""}
+                          value={
+                            localValues[`${id}_direccion`] ?? item.direccion ?? ""
+                          }
                           list={`direccion-options-${id}`}
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${id}_direccion`]: e.target.value
+                              [`${id}_direccion`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
@@ -1315,22 +1644,17 @@ const Reprogramacionautomatica = () => {
                       <select
                         value={item.servicio}
                         style={{ width: "22ch" }}
-                        onChange={(e) =>
-                          handleFieldChange(id, "servicio", e.target.value)
-                        }
+                        onChange={(e) => handleFieldChange(id, "servicio", e.target.value)}
                       >
                         <option value=""></option>
                         <option value="Poso">Poso</option>
                         <option value="Tuberia">Tuberia</option>
                         <option value="Poso + Tuberia">Poso + Tuberia</option>
-                        <option value="Poso + Grease Trap">
-                          Poso + Grease Trap
-                        </option>
-                        <option value="Tuberia + Grease Trap">
-                          Tuberia + Grease Trap
-                        </option>
+                        <option value="Poso + Grease Trap">Poso + Grease Trap</option>
+                        <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
                         <option value="Grease Trap">Grease Trap</option>
                         <option value="Water">Water</option>
+                        <option value="Pool">Pool</option>
                       </select>
                     </td>
 
@@ -1341,9 +1665,9 @@ const Reprogramacionautomatica = () => {
                         style={{ width: "12ch", textAlign: "center" }}
                         value={localValues[`${id}_cubicos`] ?? item.cubicos ?? ""}
                         onChange={(e) =>
-                          setLocalValues(prev => ({
+                          setLocalValues((prev) => ({
                             ...prev,
-                            [`${id}_cubicos`]: e.target.value
+                            [`${id}_cubicos`]: e.target.value,
                           }))
                         }
                         onBlur={(e) => {
@@ -1355,26 +1679,27 @@ const Reprogramacionautomatica = () => {
                     </td>
 
                     {/* Repetir Cada */}
-                    <td style={{ textAlign: "center" }}>
+                    <td>
                       <input
                         type="number"
-                        style={{ width: "6ch" }}
-                        value={localValues[`${id}_rc`] ?? (item.solounavez ? "" : item.rc ?? "")}
+                        style={{ minWidth: "12ch", textAlign: "center" }}
+                        value={
+                          localValues[`${id}_rc`] ??
+                          (item.solounavez ? "" : item.rc ?? "")
+                        }
                         disabled={item.solounavez}
-                        onChange={(e) => {
-                          setLocalValues(prev => ({
+                        onChange={(e) =>
+                          setLocalValues((prev) => ({
                             ...prev,
-                            [`${id}_rc`]: e.target.value
-                          }));
-                        }}
+                            [`${id}_rc`]: e.target.value,
+                          }))
+                        }
                         onBlur={(e) => {
                           const rc = parseInt(e.target.value, 10) || 0;
                           const updates = { rc };
-                          // si está en "mes", regenero leyenda mes
                           if (item.periodo === "mes") {
                             updates.mes = `Cada ${rc} ${rc === 1 ? "Mes" : "Meses"}`;
                           }
-                          // si está en "semana", regenero leyenda semana
                           if (item.periodo === "semana") {
                             updates.semana = `Cada ${rc} semana${rc > 1 ? "s" : ""}`;
                           }
@@ -1387,11 +1712,7 @@ const Reprogramacionautomatica = () => {
                     <td>
                       <input
                         type="checkbox"
-                        style={{
-                          width: "3ch",
-                          height: "3ch",
-                          marginLeft: "40%",
-                        }}
+                        style={{ width: "3ch", height: "3ch", marginLeft: "25%" }}
                         checked={item.periodo === "dia"}
                         disabled={
                           item.solounavez ||
@@ -1433,18 +1754,14 @@ const Reprogramacionautomatica = () => {
                               lineHeight: 1,
                             }}
                           >
-                            {/* La letra arriba */}
                             <span className="small-text-mobile">
                               {day.substring(0, 1)}
                             </span>
-
-                            {/* La casilla debajo */}
                             <input
                               type="checkbox"
                               style={{ width: "3ch", height: "3ch" }}
                               checked={
-                                item.periodo === "semana" &&
-                                item.dia.includes(day)
+                                item.periodo === "semana" && item.dia.includes(day)
                               }
                               disabled={
                                 item.periodo === "dia" ||
@@ -1484,51 +1801,47 @@ const Reprogramacionautomatica = () => {
                           paddingLeft: "10px",
                         }}
                       >
-                        {Array.from({ length: 31 }, (_, i) =>
-                          String(i + 1)
-                        ).map((day) => (
-                          <label key={day} style={{ textAlign: "start" }}>
-                            <input
-                              style={{ width: "2.8ch", height: "2.8ch" }}
-                              type="checkbox"
-                              checked={
-                                item.periodo === "mes" && item.dia.includes(day)
-                              }
-                              disabled={
-                                item.periodo === "dia" ||
-                                item.periodo === "semana" ||
-                                item.solounavez
-                              }
-                              onChange={(e) => {
-                                const dias = e.target.checked
-                                  ? [...item.dia, day]
-                                  : item.dia.filter((d) => d !== day);
-                                updateFields(id, {
-                                  periodo: dias.length ? "mes" : "",
-                                  dia: dias,
-                                  semana: "",
-                                  mes: dias.length
-                                    ? `Cada ${item.rc || 1} ${
-                                        (item.rc || 1) === 1 ? "Mes" : "Meses"
-                                      }`
-                                    : "",
-                                });
-                              }}
-                            />
-                            {day}
-                          </label>
-                        ))}
+                        {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(
+                          (day) => (
+                            <label key={day} style={{ textAlign: "start" }}>
+                              <input
+                                style={{ width: "2.8ch", height: "2.8ch" }}
+                                type="checkbox"
+                                checked={
+                                  item.periodo === "mes" && item.dia.includes(day)
+                                }
+                                disabled={
+                                  item.periodo === "dia" ||
+                                  item.periodo === "semana" ||
+                                  item.solounavez
+                                }
+                                onChange={(e) => {
+                                  const dias = e.target.checked
+                                    ? [...item.dia, day]
+                                    : item.dia.filter((d) => d !== day);
+                                  updateFields(id, {
+                                    periodo: dias.length ? "mes" : "",
+                                    dia: dias,
+                                    semana: "",
+                                    mes: dias.length
+                                      ? `Cada ${item.rc || 1} ${
+                                          (item.rc || 1) === 1 ? "Mes" : "Meses"
+                                        }`
+                                      : "",
+                                  });
+                                }}
+                              />
+                              {day}
+                            </label>
+                          )
+                        )}
                       </div>
                     </td>
 
                     {/* Solo Una Vez */}
                     <td>
                       <input
-                        style={{
-                          width: "3ch",
-                          height: "3ch",
-                          marginLeft: "40%",
-                        }}
+                        style={{ width: "3ch", height: "3ch", marginLeft: "40%" }}
                         type="checkbox"
                         checked={!!item.solounavez}
                         disabled={
@@ -1552,11 +1865,12 @@ const Reprogramacionautomatica = () => {
                         }}
                       />
                     </td>
+
                     {/* Fecha de Ejecución */}
                     <td>
                       <input
                         type="date"
-                        style={{ width: "12ch" }}
+                        style={{ minWidth: "12ch" }}
                         value={item.fechaEjecucion || ""}
                         disabled={!item.solounavez}
                         min={minExecDate}
@@ -1565,38 +1879,38 @@ const Reprogramacionautomatica = () => {
                         }
                       />
                     </td>
+
                     {/* Acciones */}
                     <td>
                       <button
                         className="delete-button"
                         onClick={() => {
                           Swal.fire({
-                            title: "¿Estás seguro de borrar este servicio?",
-                             html: `
-                                <div>Esta acción no se puede deshacer.</div>
-                                <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
-                                  <strong>Dirección:</strong> ${item.direccion || "N/A"}<br>
-                                  <strong>Servicio:</strong> ${item.servicio || "N/A"}
-                                </div>
-                              `,
+                            title: "¿Borrar este servicio?",
+                            html: `
+                              <div>Esta acción no se puede deshacer.</div>
+                              <div style="text-align: left; margin-top: 1em; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">
+                                <strong>Dirección:</strong> ${item.direccion || "N/A"}<br>
+                                <strong>Servicio:</strong> ${item.servicio || "N/A"}
+                              </div>
+                            `,
                             icon: "warning",
                             showCancelButton: true,
-                            confirmButtonColor: "#d33",
-                            cancelButtonColor: "#3085d6",
                             confirmButtonText: "Sí, borrar",
                             cancelButtonText: "Cancelar",
+                            confirmButtonColor: "#d33",
+                            cancelButtonColor: "#3085d6",
                             position: "center",
                             backdrop: "rgba(0,0,0,0.4)",
                             allowOutsideClick: false,
                             allowEscapeKey: false,
-                            stopKeydownPropagation: false,
                             heightAuto: false,
-                          }).then((result) => {
-                            if (result.isConfirmed) {
+                          }).then((res) => {
+                            if (res.isConfirmed) {
                               deleteData(id);
                               Swal.fire({
                                 title: "¡Borrado!",
-                                text: "El servicio ha sido eliminado.",
+                                text: "Registro eliminado.",
                                 icon: "success",
                                 position: "center",
                                 backdrop: "rgba(0,0,0,0.4)",
@@ -1611,36 +1925,32 @@ const Reprogramacionautomatica = () => {
                       </button>
                     </td>
 
+                    {/* Activar / Desactivar */}
                     <td>
                       <input
-                        style={{
-                          width: "3ch",
-                          height: "3ch",
-                          marginLeft: "40%",
-                        }}
+                        style={{ width: "3ch", height: "3ch", marginLeft: "40%" }}
                         type="checkbox"
                         checked={item.activo === true}
-                        onChange={(e) =>
-                          handleFieldChange(id, "activo", e.target.checked)
-                        }
+                        onChange={(e) => handleFieldChange(id, "activo", e.target.checked)}
                       />
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr className="no-data">
-                  <td colSpan="8">No hay datos disponibles.</td>
+                  <td colSpan="11">No hay datos disponibles.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
       <button className="generate-button3" onClick={showFutureAppointments}>
         <img
           className="agendamientosfuturos_icon"
           src={agendamientosfuturos}
-          alt="Generar y Emitir Factura"
+          alt="Agendamientos Futuros"
         />
       </button>
 

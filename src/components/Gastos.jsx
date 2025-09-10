@@ -27,37 +27,57 @@ const Gastos = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState(50);
   const [gastos, setGastos] = useState([]);
-  
+
   // Función para agregar gasto con SweetAlert
   const agregarGastoSwal = async () => {
     const { value: formValues } = await Swal.fire({
       title: "Agregar nuevo gasto",
       html: `
-        <input id="swal-fecha" type="date" class="swal2-input" placeholder="Fecha">
-        <input id="swal-categoria" class="swal2-input" placeholder="Categoría">
-        <input id="swal-descripcion" class="swal2-input" placeholder="Descripción">
-        <input id="swal-proveedor" class="swal2-input" placeholder="Proveedor">
-        <select id="swal-metodo" class="swal2-input">
-          <option value="">Método de pago...</option>
-          ${METODOS_PAGO.map(
-            (m) => `<option value="${m}">${m}</option>`
-          ).join("")}
-        </select>
-        <select id="swal-banco" class="swal2-input">
-          <option value="">Banco...</option>
-          <option value="Aruba Bank N.V.">Aruba Bank N.V.</option>
-          <option value="Caribbean Mercantile Bank N.V.">Caribbean Mercantile Bank N.V.</option>
-          <option value="RBC Royal Bank N.V.">RBC Royal Bank N.V.</option>
-        </select>
-        <input id="swal-idBanco" type="number" class="swal2-input" placeholder="Id banco">
-        <input id="swal-monto" type="number" class="swal2-input" placeholder="Monto">
-        <input id="swal-numFactura" class="swal2-input" placeholder="N° Factura">
-        <input id="swal-responsable" class="swal2-input" placeholder="Responsable">
-      `,
+      <input id="swal-fecha" type="date" class="swal2-input swal-input-sm" placeholder="Fecha" style="font-size:13px">
+      
+      <select id="swal-categoria" class="swal2-select swal-select-lg" style="font-size:16px">
+        <option value="">Categoría...</option>
+        ${CATEGORIAS_PREDEFINIDAS.map(
+          (c) => `<option value="${c}">${c}</option>`
+        ).join("")}
+      </select>
+
+      <input id="swal-descripcion" class="swal2-input swal-input-sm" placeholder="Descripción" style="font-size:14px">
+      <input id="swal-proveedor" class="swal2-input swal-input-sm" placeholder="Proveedor" style="font-size:14px">
+      
+      <select id="swal-metodo" class="swal2-select swal-select-lg" style="font-size:16px">
+        <option value="">Método de pago...</option>
+        ${METODOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join(
+          ""
+        )}
+      </select>
+
+      <select id="swal-banco" class="swal2-select swal-select-lg" style="font-size:16px">
+        <option value="">Banco...</option>
+        <option value="Aruba Bank N.V.">Aruba Bank N.V.</option>
+        <option value="Caribbean Mercantile Bank N.V.">Caribbean Mercantile Bank N.V.</option>
+        <option value="RBC Royal Bank N.V.">RBC Royal Bank N.V.</option>
+      </select>
+
+      <input id="swal-idBanco" type="number" class="swal2-input swal-input-sm" placeholder="Id banco" style="font-size:14px">
+      <input id="swal-monto" type="number" class="swal2-input swal-input-sm" placeholder="Monto" style="font-size:14px">
+      <input id="swal-numFactura" class="swal2-input swal-input-sm" placeholder="N° Factura" style="font-size:14px">
+      <input id="swal-responsable" class="swal2-input swal-input-sm" placeholder="Responsable" style="font-size:14px">
+    `,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: "Agregar",
       cancelButtonText: "Cancelar",
+      didOpen: (popup) => {
+        // Ajustes finos (alto de select y coherencia visual)
+        const style = document.createElement("style");
+        style.textContent = `
+        .swal2-popup .swal-input-sm { font-size:13px !important; }
+        .swal2-popup .swal-select-lg { font-size:16px !important; }
+        .swal2-popup .swal2-select { height: 2.6em; } /* más alto para selects */
+      `;
+        popup.appendChild(style);
+      },
       preConfirm: () => {
         return {
           fecha: document.getElementById("swal-fecha").value,
@@ -75,29 +95,31 @@ const Gastos = () => {
     });
 
     if (formValues) {
-      if (!formValues.fecha || !formValues.categoria || !formValues.monto) {
-        Swal.fire("Campos obligatorios", "Completa fecha, categoría y monto.", "warning");
-        return;
+      let fechaFormateada = formValues.fecha;
+      if (formValues.fecha) {
+        const [y, m, d] = formValues.fecha.split("-");
+        fechaFormateada = `${d}-${m}-${y}`;
       }
-      // Formatear fecha a dd-mm-yyyy
-      const [y, m, d] = formValues.fecha.split("-");
-      const fechaFormateada = `${d}-${m}-${y}`;
       const nuevoRef = push(ref(database, "gastos"));
       await set(nuevoRef, {
-        fecha: fechaFormateada,
-        categoria: formValues.categoria,
-        descripcion: formValues.descripcion,
-        proveedor: formValues.proveedor,
-        metodoPago: formValues.metodoPago,
-        banco: formValues.banco,
-        idBanco: formValues.idBanco,
-        monto: formValues.monto,
+        fecha: fechaFormateada || "",
+        categoria: formValues.categoria || "",
+        descripcion: formValues.descripcion || "",
+        proveedor: formValues.proveedor || "",
+        metodoPago: formValues.metodoPago || "",
+        banco: formValues.banco || "",
+        idBanco: formValues.idBanco || "",
+        monto: formValues.monto || "",
         moneda: "AWS",
-        numFactura: formValues.numFactura,
-        responsable: formValues.responsable,
+        numFactura: formValues.numFactura || "",
+        responsable: formValues.responsable || "",
         timestamp: Date.now(),
       });
-      Swal.fire("¡Agregado!", "El gasto fue registrado correctamente.", "success");
+      Swal.fire(
+        "¡Agregado!",
+        "El gasto fue registrado correctamente.",
+        "success"
+      );
     }
   };
 
@@ -131,43 +153,22 @@ const Gastos = () => {
     return `${day}-${month}-${year}`;
   };
 
-  // Funciones de conversión de fecha (como en Fastmark)
-  const parseFecha = (dmy) => {
-    if (!/^\d{2}-\d{2}-\d{4}$/.test(dmy)) return null;
-    const [dd, mm, yyyy] = dmy.split("-").map((x) => parseInt(x, 10));
-    const date = new Date(yyyy, mm - 1, dd);
-    if (
-      date.getFullYear() !== yyyy ||
-      date.getMonth() !== mm - 1 ||
-      date.getDate() !== dd
-    )
-      return null;
-    return date;
-  };
-
-  const dmyToInput = (dmy) => {
-    const d = parseFecha(dmy);
-    if (!d) return "";
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const inputToDmy = (ymd) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "";
-    const [yyyy, mm, dd] = ymd.split("-");
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    if (
-      d.getFullYear() !== Number(yyyy) ||
-      d.getMonth() !== Number(mm) - 1 ||
-      d.getDate() !== Number(dd)
-    )
-      return "";
-    return `${dd}-${mm}-${yyyy}`;
-  };
-
   const METODOS_PAGO = ["Efectivo", "Transferencia", "Tarjeta"];
+
+  const CATEGORIAS_PREDEFINIDAS = [
+    "Combustible",
+    "Comida",
+    "Equipos",
+    "Herramientas",
+    "Mantenimiento",
+    "Materiales",
+    "Oficina",
+    "Repuestos",
+    "Servicios",
+    "Transporte",
+    "Uniformes",
+    "Otros",
+  ];
 
   /* ---------- Cargar desde Firebase ---------- */
   useEffect(() => {
@@ -195,13 +196,17 @@ const Gastos = () => {
   }, []);
 
   /* ---------- Opciones dinámicas para filtros ---------- */
-  const opcionesCategoria = useMemo(
-    () =>
-      Array.from(new Set(gastos.map((g) => g.categoria).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b))
-        .map((v) => ({ value: v, label: v })),
-    [gastos]
-  );
+  const opcionesCategoria = useMemo(() => {
+    const categoriasExistentes = Array.from(
+      new Set(gastos.map((g) => g.categoria).filter(Boolean))
+    );
+    const todasCategorias = Array.from(
+      new Set([...CATEGORIAS_PREDEFINIDAS, ...categoriasExistentes])
+    );
+    return todasCategorias
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
+  }, [gastos]);
 
   const opcionesMetodo = useMemo(
     () =>
@@ -585,7 +590,7 @@ const Gastos = () => {
         ref={refSlidebarFiltros}
         className={`filter-slidebar ${mostrarSlidebarFiltros ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
+        <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
         <button
@@ -867,46 +872,41 @@ const Gastos = () => {
                     <tr key={r.id}>
                       {/* Fecha */}
                       <td>
-                        <input
-                          type="date"
-                          value={
-                            valoresLocales[`${r.id}_fecha`] !== undefined
-                              ? valoresLocales[`${r.id}_fecha`]
-                              : dmyToInput(r.fecha)
+                        <DatePicker
+                          selected={
+                            valoresLocales[`${r.id}_fecha`]
+                              ? new Date(valoresLocales[`${r.id}_fecha`])
+                              : r.fecha
+                              ? (() => {
+                                  const [d, m, y] = r.fecha.split("-");
+                                  return new Date(y, m - 1, d);
+                                })()
+                              : null
                           }
-                          onChange={(e) =>
+                          onChange={(date) => {
+                            const fechaStr = formatearFecha(date);
                             setValoresLocales((prev) => ({
                               ...prev,
-                              [`${r.id}_fecha`]: e.target.value,
-                            }))
+                              [`${r.id}_fecha`]: fechaStr,
+                            }));
+                            actualizarCampo(r.id, "fecha", fechaStr);
+                          }}
+                          dateFormat="dd-MM-yyyy"
+                          customInput={
+                            <input
+                              style={{
+                                width: "10ch",
+                                textAlign: "center",
+                                fontWeight: "bold",
+                              }}
+                              readOnly
+                            />
                           }
-                          onBlur={(e) => {
-                            const oldDmy = r.fecha;
-                            const newYmd = e.target.value;
-                            const newDmy = inputToDmy(newYmd);
-
-                            if (!newDmy) {
-                              setValoresLocales((prev) => ({
-                                ...prev,
-                                [`${r.id}_fecha`]: dmyToInput(oldDmy),
-                              }));
-                              alert("Fecha inválida.");
-                              return;
-                            }
-                            if (newDmy === oldDmy) return;
-
-                            actualizarCampo(r.id, "fecha", newDmy);
-                          }}
-                          style={{
-                            width: "14ch",
-                            textAlign: "center",
-                          }}
                         />
                       </td>
                       {/* Categoría */}
                       <td>
-                        <input
-                          type="text"
+                        <select
                           value={
                             valoresLocales[`${r.id}_categoria`] ??
                             r.categoria ??
@@ -928,7 +928,14 @@ const Gastos = () => {
                             }
                           }}
                           style={{ width: "14ch" }}
-                        />
+                        >
+                          <option value=""></option>
+                          {opcionesCategoria.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       {/* Descripción */}
                       <td>
@@ -954,7 +961,7 @@ const Gastos = () => {
                               );
                             }
                           }}
-                          style={{ width: "24ch" }}
+                          style={{ width: "24ch", fontSize: "13px" }}
                         />
                       </td>
                       {/* Proveedor */}
@@ -981,7 +988,7 @@ const Gastos = () => {
                               );
                             }
                           }}
-                          style={{ width: "14ch" }}
+                          style={{ width: "14ch", fontSize: "13px" }}
                         />
                       </td>
                       {/* Método de Pago */}
@@ -1040,7 +1047,11 @@ const Gastos = () => {
                               actualizarCampo(r.id, "idBanco", e.target.value);
                             }
                           }}
-                          style={{ width: "10ch", textAlign: "center" }}
+                          style={{
+                            width: "10ch",
+                            textAlign: "center",
+                            fontSize: "13px",
+                          }}
                         />
                       </td>
                       {/* Monto */}
@@ -1062,7 +1073,11 @@ const Gastos = () => {
                               actualizarCampo(r.id, "monto", e.target.value);
                             }
                           }}
-                          style={{ width: "10ch", textAlign: "right" }}
+                          style={{
+                            width: "10ch",
+                            textAlign: "right",
+                            fontSize: "13px",
+                          }}
                         />
                       </td>
                       {/* N° Factura */}
@@ -1089,7 +1104,7 @@ const Gastos = () => {
                               );
                             }
                           }}
-                          style={{ width: "10ch" }}
+                          style={{ width: "10ch", fontSize: "13px" }}
                         />
                       </td>
                       {/* Responsable */}
@@ -1116,7 +1131,7 @@ const Gastos = () => {
                               );
                             }
                           }}
-                          style={{ width: "14ch" }}
+                          style={{ width: "14ch", fontSize: "13px" }}
                         />
                       </td>
                       {/* Eliminar */}
@@ -1238,14 +1253,11 @@ const Gastos = () => {
         <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
       </button>
 
-      <button
-        className="create-table-button"
-        onClick={agregarGastoSwal}
-      >
+      <button className="create-table-button" onClick={agregarGastoSwal}>
         +
       </button>
     </div>
   );
 };
 
-export default React.memo(Gastos);
+export default Gastos;

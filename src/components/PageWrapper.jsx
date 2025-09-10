@@ -34,7 +34,7 @@ const PageWrapper = ({ children }) => {
     await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
-      html: `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
+      html: `La plataforma está cerrada en este horario 11:30pm a 1:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
       confirmButtonText: "Aceptar",
       allowOutsideClick: false,
       allowEscapeKey: false,
@@ -43,7 +43,7 @@ const PageWrapper = ({ children }) => {
       didOpen: () => {
         const timer = setInterval(() => {
           countdown--;
-          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:00pm a 12:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
+          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:30pm a 1:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
           if (countdown <= 0) clearInterval(timer);
         }, 1000);
       },
@@ -55,7 +55,11 @@ const PageWrapper = ({ children }) => {
   useEffect(() => {
     const checkPlatformClosure = () => {
       const now = new Date();
-      if (now.getHours() === 23) {
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      
+      // De 23:30 a 23:59 o de 00:00 a 00:59
+      if ((hour === 23 && minute >= 30) || hour === 0) {
         handleAutomaticLogout();
       }
     };

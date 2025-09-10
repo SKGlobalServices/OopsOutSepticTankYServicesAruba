@@ -698,7 +698,7 @@ const Hojadefechas = () => {
         return;
       }
 
-      // escribir 1 a 1 en informedecobranza/{id}
+      // escribir 1 a 1 en cobranzapendientes/{id}
       const writes = seleccionados.map((reg) => {
         const copy = {
           direccion: reg.direccion || "",
@@ -707,7 +707,7 @@ const Hojadefechas = () => {
         };
 
         // path por ID (sin fecha)
-        const itemRef = ref(database, `informedecobranza/${reg.id}`);
+        const itemRef = ref(database, `cobranzapendientes/${reg.id}`);
         return set(itemRef, copy); // sobrescribe/crea
       });
 
@@ -724,7 +724,7 @@ const Hojadefechas = () => {
       setShowCobranzaSelection(false);
       setCobranzaSelectedRows({});
     } catch (err) {
-      console.error("Error copiando a informedecobranza:", err);
+      console.error("Error copiando a cobranzapendientes:", err);
       Swal.close();
       await Swal.fire({
         icon: "error",
