@@ -54,7 +54,7 @@ const Slidebaruser = () => {
     const minute = now.getMinutes();
     
     // De 23:30 a 23:59 o de 00:00 a 01:59
-    return (hour === 23 && minute >= 30) || hour === 0;
+    return (hour === 23 && minute >= 30) || hour === 0 || hour === 1;
   };
 
   // Función para cerrar sesión automáticamente

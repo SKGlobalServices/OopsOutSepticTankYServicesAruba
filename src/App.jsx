@@ -64,7 +64,7 @@ const App = () => {
     Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
-      text: "La plataforma está cerrada de 11:30 PM a 1:00 AM. Vuelve después de la 1:00 AM.",
+      text: "La plataforma está cerrada de 11:30 PM a 2:00 AM. Vuelve después de las 2:00 AM.",
       confirmButtonText: "Entendido",
     });
   }, []);
@@ -233,15 +233,15 @@ const App = () => {
     []
   );
 
-  // Cerrar plataforma exactamente de 23:30 a 01:00
-  // Cerrada de 23:30 a 01:00 (excluyendo 01:00)
+  // Cerrar plataforma exactamente de 23:30 a 02:00
+  // Cerrada de 23:30 a 02:00 (excluyendo 02:00)
   const isPlatformClosed = () => {
     const now = new Date();
     const h = now.getHours();
     const m = now.getMinutes();
     if (h === 23 && m >= 30) return true; // 23:30–23:59
-    if (h === 0) return true; // 00:00–00:59
-    return false; // 01:00 ya abre
+    if (h === 0 || h === 1) return true; // 00:00–01:59
+    return false; // 02:00 ya abre
   };
 
   // Auto-refresh cuando la plataforma se abra

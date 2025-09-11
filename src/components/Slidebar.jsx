@@ -97,8 +97,8 @@ const Slidebar = () => {
     const hour = now.getHours();
     const minute = now.getMinutes();
     
-    // De 23:30 a 23:59 o de 00:00 a 00:59
-    return (hour === 23 && minute >= 30) || hour === 0;
+    // De 23:30 a 23:59 o de 00:00 a 01:59
+    return (hour === 23 && minute >= 30) || hour === 0 || hour === 1;
   };
 
   // Función para cerrar sesión automáticamente
@@ -108,7 +108,7 @@ const Slidebar = () => {
     await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
-      html: `La plataforma está cerrada en este horario 11:30pm a 1:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
+      html: `La plataforma está cerrada en este horario 11:30pm a 2:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`,
       confirmButtonText: "Aceptar",
       allowOutsideClick: false,
       allowEscapeKey: false,
@@ -117,7 +117,7 @@ const Slidebar = () => {
       didOpen: () => {
         const timer = setInterval(() => {
           countdown--;
-          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:30pm a 1:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
+          Swal.getHtmlContainer().innerHTML = `La plataforma está cerrada en este horario 11:30pm a 2:00am, serás redireccionado al login.<br><br>Cerrando sesión en <b>${countdown}</b> segundos`;
           if (countdown <= 0) clearInterval(timer);
         }, 1000);
       },
