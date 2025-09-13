@@ -3,17 +3,119 @@
  */
 
 /**
- * Genera un array de años desde 2000 hasta el año actual
+ * Extrae todos los años únicos de los datos de Firebase
+ * @param {Object} registroFechas - Datos de registrofechas
+ * @param {Object} dataTable - Datos de data
+ * @returns {number[]} Array de años únicos ordenados
+ */
+export const extractYearsFromData = (registroFechas = {}, dataTable = {}) => {
+  const years = new Set();
+
+  // Extraer años de registroFechas (estructura anidada por fecha)
+  Object.entries(registroFechas).forEach(([fecha, registros]) => {
+    // Parsear fecha en formato DD-MM-YYYY
+    if (fecha.includes("-") && fecha.split("-").length === 3) {
+      const [, , year] = fecha.split("-");
+      const yearNum = parseInt(year);
+      if (yearNum && yearNum > 1900) {
+        years.add(yearNum);
+      }
+    }
+
+    // También revisar fechas en los registros individuales
+    Object.values(registros).forEach((record) => {
+      const recordFecha = record.fecha || record.fechaEjecucion;
+      if (recordFecha) {
+        const yearFromRecord = extractYearFromDate(recordFecha);
+        if (yearFromRecord) years.add(yearFromRecord);
+      }
+    });
+  });
+
+  // Extraer años de data (estructura plana)
+  Object.values(dataTable).forEach((record) => {
+    const recordFecha = record.fecha || record.fechaEjecucion;
+    if (recordFecha) {
+      const yearFromRecord = extractYearFromDate(recordFecha);
+      if (yearFromRecord) years.add(yearFromRecord);
+    }
+  });
+
+  // Convertir Set a Array y ordenar
+  return Array.from(years).sort((a, b) => a - b);
+};
+
+/**
+ * Extrae el año de una fecha en diferentes formatos
+ * @param {string} fecha - Fecha en formato DD-MM-YYYY o estándar
+ * @returns {number|null} Año extraído o null si no es válido
+ */
+const extractYearFromDate = (fecha) => {
+  if (!fecha) return null;
+
+  // Formato DD-MM-YYYY
+  if (fecha.includes("-") && fecha.split("-").length === 3) {
+    const [, , year] = fecha.split("-");
+    const yearNum = parseInt(year);
+    return yearNum && yearNum > 1900 ? yearNum : null;
+  }
+
+  // Formato de fecha estándar
+  try {
+    const date = new Date(fecha);
+    const year = date.getFullYear();
+    return year && year > 1900 ? year : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Genera un array de años basado en los datos disponibles
+ * @param {Object} registroFechas - Datos de registrofechas (opcional)
+ * @param {Object} dataTable - Datos de data (opcional)
  * @returns {number[]} Array de años ordenados del más reciente al más antiguo
  */
-export const generateYears = () => {
+export const generateYears = (registroFechas = {}, dataTable = {}) => {
+  // Si no hay datos, usar rango por defecto
+  if (
+    Object.keys(registroFechas).length === 0 &&
+    Object.keys(dataTable).length === 0
+  ) {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+
+    for (let year = 2020; year <= currentYear; year++) {
+      years.push(year);
+    }
+
+    return years.reverse();
+  }
+
+  // Extraer años de los datos
+  const dataYears = extractYearsFromData(registroFechas, dataTable);
+
+  if (dataYears.length === 0) {
+    // Si no se encontraron años válidos, usar rango por defecto
+    const currentYear = new Date().getFullYear();
+    const years = [];
+
+    for (let year = 2020; year <= currentYear; year++) {
+      years.push(year);
+    }
+
+    return years.reverse();
+  }
+
+  // Usar el año mínimo encontrado hasta el año actual
+  const minYear = Math.min(...dataYears);
   const currentYear = new Date().getFullYear();
   const years = [];
-  
-  for (let year = 2000; year <= currentYear; year++) {
+
+  for (let year = minYear; year <= currentYear; year++) {
     years.push(year);
   }
-  
+
   return years.reverse(); // Años más recientes primero
 };
 
@@ -33,7 +135,7 @@ export const getMonths = () => [
   { value: 9, label: "Septiembre" },
   { value: 10, label: "Octubre" },
   { value: 11, label: "Noviembre" },
-  { value: 12, label: "Diciembre" }
+  { value: 12, label: "Diciembre" },
 ];
 
 /**
@@ -59,8 +161,8 @@ export const getCurrentYear = () => {
  */
 export const getMonthName = (monthNumber) => {
   const months = getMonths();
-  const month = months.find(m => m.value === monthNumber);
-  return month ? month.label : 'Mes inválido';
+  const month = months.find((m) => m.value === monthNumber);
+  return month ? month.label : "Mes inválido";
 };
 
 /**

@@ -1,22 +1,121 @@
-// TODO: me traigo fecha, formadepago = efectivo, valor, banco de registro de fechas y data,  agregar filtros para mes y año y banco
 import React from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { useChartData } from "../../../utils/useChartData";
+import {
+  processEfectivoData,
+  formatCurrency,
+  formatTooltip,
+} from "../../../utils/chartDataUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
+import "./Styles/GraficaEfectivo.css";
 
 export const GraficaEfectivo = ({ filters }) => {
-  // TODO: Implementar lógica de filtros
-  // filters.type: "mes" o "año"
-  // filters.month: número del mes (1-12)
-  // filters.year: año seleccionado
+  const { loading, error, data } = useChartData();
 
-  return (
-    <div className="chart-placeholder-large">
-      <div className="large-chart-pie" style={{ background: 'conic-gradient(#3b82f6 0deg 120deg, #10b981 120deg 240deg, #f59e0b 240deg 360deg)' }}>
-        <div style={{ background: 'white', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>
-          Efectivo
+  if (loading) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="efectivo-chart-loading">Cargando datos...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="efectivo-chart-error">Error: {error}</div>
+      </div>
+    );
+  }
+
+  const chartData = processEfectivoData(
+    data.registroFechas,
+    data.data,
+    filters
+  );
+
+  // Debug: Log para ver qué datos tenemos
+  console.log("🔍 Debug Efectivo:", {
+    chartData,
+    chartDataLength: chartData?.length,
+    filters,
+  });
+
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="efectivo-chart-no-data">
+          No hay datos de efectivo para los filtros seleccionados
         </div>
       </div>
-      {/* Indicador de filtros activos para desarrollo */}
-      <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: '#64748b', background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: '4px' }}>
+    );
+  }
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="efectivo-tooltip">
+          <p className="efectivo-tooltip-title">{label}</p>
+          <p className="efectivo-tooltip-value">
+            {formatTooltip(data.valor, data.cantidad)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Calcular totales
+  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
+  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
+
+  return (
+    <div className="efectivo-chart-container">
+      {/* Indicador de totales */}
+      <div className="efectivo-totals-indicator">
+        <div>Total: {formatCurrency(totalValor)}</div>
+        <div className="efectivo-totals-count">{totalCantidad} registros</div>
+      </div>
+
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis
+            dataKey="name"
+            tick={{ fontSize: 12, fill: "#64748b" }}
+            stroke="#e2e8f0"
+          />
+          <YAxis
+            tick={{ fontSize: 12, fill: "#64748b" }}
+            stroke="#e2e8f0"
+            tickFormatter={(value) => formatCurrency(value)}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Bar
+            dataKey="valor"
+            fill="#10b981"
+            name="Efectivo"
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Indicador de filtros activos */}
+      <div className="efectivo-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>
     </div>

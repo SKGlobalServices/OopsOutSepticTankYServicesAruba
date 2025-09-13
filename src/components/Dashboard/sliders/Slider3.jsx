@@ -1,11 +1,19 @@
-
 import React, { useState } from "react";
 import { GraficaServicios } from "../charts/GraficaServicios";
 import { GraficaFacturasDeudas } from "../charts/GraficaFacturasDeudas";
 import { GraficaGarantias } from "../charts/GraficaGarantias";
-import { generateYears, getMonths, getCurrentMonth, getCurrentYear } from "../../../utils/dateUtils";
+import {
+  generateYears,
+  getMonths,
+  getCurrentMonth,
+  getCurrentYear,
+} from "../../../utils/dateUtils";
+import { useChartData } from "../../../utils/useChartData";
 
 export const Slider3 = () => {
+  // Obtener datos para generar años dinámicos
+  const { data, availableYears, loading } = useChartData();
+
   // Estados para filtros de Servicios
   const [serviciosFilterType, setServiciosFilterType] = useState("mes");
   const [serviciosMonth, setServiciosMonth] = useState(getCurrentMonth());
@@ -22,26 +30,49 @@ export const Slider3 = () => {
   const [garantiasYear, setGarantiasYear] = useState(getCurrentYear());
 
   const months = getMonths();
-  const years = generateYears();
+  // Usar años dinámicos si están disponibles, sino generar con datos disponibles
+  const years =
+    availableYears.length > 0
+      ? availableYears.slice().reverse() // Años más recientes primero
+      : generateYears(data.registroFechas, data.data);
 
   // Filtros para cada gráfica
   const serviciosFilters = {
     type: serviciosFilterType,
     month: serviciosMonth,
-    year: serviciosYear
+    year: serviciosYear,
   };
 
   const facturasFilters = {
     type: facturasFilterType,
     month: facturasMonth,
-    year: facturasYear
+    year: facturasYear,
   };
 
   const garantiasFilters = {
     type: garantiasFilterType,
     month: garantiasMonth,
-    year: garantiasYear
+    year: garantiasYear,
   };
+
+  // Mostrar indicador de carga mientras se cargan los años
+  if (loading && years.length === 0) {
+    return (
+      <div className="charts-grid">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "200px",
+            color: "#64748b",
+          }}
+        >
+          Cargando años disponibles desde los datos...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="charts-grid">
@@ -50,7 +81,7 @@ export const Slider3 = () => {
         <div className="chart-item-header">
           <h3>Servicios</h3>
           <div className="chart-filters">
-            <select 
+            <select
               className="small-filter"
               value={serviciosFilterType}
               onChange={(e) => setServiciosFilterType(e.target.value)}
@@ -59,24 +90,24 @@ export const Slider3 = () => {
               <option value="año">Año</option>
             </select>
             {serviciosFilterType === "mes" && (
-              <select 
+              <select
                 className="small-filter"
                 value={serviciosMonth}
                 onChange={(e) => setServiciosMonth(parseInt(e.target.value))}
               >
-                {months.map(month => (
+                {months.map((month) => (
                   <option key={month.value} value={month.value}>
                     {month.label}
                   </option>
                 ))}
               </select>
             )}
-            <select 
+            <select
               className="small-filter"
               value={serviciosYear}
               onChange={(e) => setServiciosYear(parseInt(e.target.value))}
             >
-              {years.map(year => (
+              {years.map((year) => (
                 <option key={year} value={year}>
                   {year}
                 </option>
@@ -94,7 +125,7 @@ export const Slider3 = () => {
         <div className="chart-item-header">
           <h3>Facturas y Deudas</h3>
           <div className="chart-filters">
-            <select 
+            <select
               className="small-filter"
               value={facturasFilterType}
               onChange={(e) => setFacturasFilterType(e.target.value)}
@@ -103,24 +134,24 @@ export const Slider3 = () => {
               <option value="año">Año</option>
             </select>
             {facturasFilterType === "mes" && (
-              <select 
+              <select
                 className="small-filter"
                 value={facturasMonth}
                 onChange={(e) => setFacturasMonth(parseInt(e.target.value))}
               >
-                {months.map(month => (
+                {months.map((month) => (
                   <option key={month.value} value={month.value}>
                     {month.label}
                   </option>
                 ))}
               </select>
             )}
-            <select 
+            <select
               className="small-filter"
               value={facturasYear}
               onChange={(e) => setFacturasYear(parseInt(e.target.value))}
             >
-              {years.map(year => (
+              {years.map((year) => (
                 <option key={year} value={year}>
                   {year}
                 </option>
@@ -138,7 +169,7 @@ export const Slider3 = () => {
         <div className="chart-item-header">
           <h3>Garantías</h3>
           <div className="chart-filters">
-            <select 
+            <select
               className="small-filter"
               value={garantiasFilterType}
               onChange={(e) => setGarantiasFilterType(e.target.value)}
@@ -147,24 +178,24 @@ export const Slider3 = () => {
               <option value="año">Año</option>
             </select>
             {garantiasFilterType === "mes" && (
-              <select 
+              <select
                 className="small-filter"
                 value={garantiasMonth}
                 onChange={(e) => setGarantiasMonth(parseInt(e.target.value))}
               >
-                {months.map(month => (
+                {months.map((month) => (
                   <option key={month.value} value={month.value}>
                     {month.label}
                   </option>
                 ))}
               </select>
             )}
-            <select 
+            <select
               className="small-filter"
               value={garantiasYear}
               onChange={(e) => setGarantiasYear(parseInt(e.target.value))}
             >
-              {years.map(year => (
+              {years.map((year) => (
                 <option key={year} value={year}>
                   {year}
                 </option>

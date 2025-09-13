@@ -1,28 +1,129 @@
-// TODO: me traigo fecha, formadepago, valor, banco de registro de fechas y data,  agregar filtros para mes y año y banco
 import React from "react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { useChartData } from "../../../utils/useChartData";
+import {
+  processTransferenciasData,
+  formatCurrency,
+  formatTooltip,
+} from "../../../utils/chartDataUtils";
 import { getBankShortName } from "../../../utils/bankUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
+import "./Styles/GraficaTransferencias.css";
 
 export const GraficaTransferencias = ({ filters }) => {
-  // TODO: Implementar lógica de filtros
-  // filters.banco: "todos", "aruba_bank", "caribbean_mercantile", "rbc_royal"
-  // filters.type: "mes" o "año"
-  // filters.month: número del mes (1-12)
-  // filters.year: año seleccionado
+  const { loading, error, data } = useChartData();
+
+  if (loading) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="transferencias-chart-loading">Cargando datos...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="transferencias-chart-error">Error: {error}</div>
+      </div>
+    );
+  }
+
+  const chartData = processTransferenciasData(
+    data.registroFechas,
+    data.data,
+    filters
+  );
+
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="chart-placeholder-large">
+        <div className="transferencias-chart-no-data">
+          No hay datos de transferencias para los filtros seleccionados
+        </div>
+      </div>
+    );
+  }
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="transferencias-tooltip">
+          <p className="transferencias-tooltip-title">{label}</p>
+          <p className="transferencias-tooltip-value">
+            {formatTooltip(data.valor, data.cantidad)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Calcular totales
+  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
+  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
 
   return (
-    <div className="chart-placeholder-large">
-      <div className="large-chart-bars">
-        <div className="large-bar" style={{ height: '60%', background: '#3b82f6' }}></div>
-        <div className="large-bar" style={{ height: '80%', background: '#10b981' }}></div>
-        <div className="large-bar" style={{ height: '45%', background: '#f59e0b' }}></div>
-        <div className="large-bar" style={{ height: '90%', background: '#8b5cf6' }}></div>
-        <div className="large-bar" style={{ height: '70%', background: '#ef4444' }}></div>
+    <div className="transferencias-chart-container">
+      {/* Indicador de totales */}
+      <div className="transferencias-totals-indicator">
+        <div>Total: {formatCurrency(totalValor)}</div>
+        <div className="transferencias-totals-count">
+          {totalCantidad} registros
+        </div>
       </div>
-      {/* Indicador de filtros activos para desarrollo */}
-      <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: '#64748b', background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: '4px', maxWidth: '150px', textAlign: 'right' }}>
+
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis
+            dataKey="name"
+            tick={{ fontSize: 12, fill: "#64748b" }}
+            stroke="#e2e8f0"
+          />
+          <YAxis
+            tick={{ fontSize: 12, fill: "#64748b" }}
+            stroke="#e2e8f0"
+            tickFormatter={(value) => formatCurrency(value)}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="valor"
+            stroke="#3b82f6"
+            strokeWidth={3}
+            dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+            activeDot={{
+              r: 6,
+              stroke: "#3b82f6",
+              strokeWidth: 2,
+              fill: "white",
+            }}
+            name="Transferencias"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Indicador de filtros activos */}
+      <div className="transferencias-filter-indicator">
         <div>{getBankShortName(filters?.banco)}</div>
-        <div>{formatFilterDate(filters?.type, filters?.month, filters?.year)}</div>
+        <div>
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
       </div>
     </div>
   );

@@ -1,23 +1,54 @@
-
 import React, { useState } from "react";
 import { GraficaGananciaPerdida } from "../charts/GraficaGananciaPerdida";
 import { GraficaIngresosTotales } from "../charts/GraficaIngresosTotales";
 import { GraficaTotalGastos } from "../charts/GraficaTotalGastos";
-import { generateYears, getMonths, getCurrentMonth, getCurrentYear } from "../../../utils/dateUtils";
+import {
+  generateYears,
+  getMonths,
+  getCurrentMonth,
+  getCurrentYear,
+} from "../../../utils/dateUtils";
+import { useChartData } from "../../../utils/useChartData";
 
 export const Slider1 = () => {
+  // Obtener datos para generar años dinámicos
+  const { data, availableYears, loading } = useChartData();
+
   const [filterType, setFilterType] = useState("mes");
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedYear, setSelectedYear] = useState(getCurrentYear());
 
   const months = getMonths();
-  const years = generateYears();
+  // Usar años dinámicos si están disponibles, sino generar con datos disponibles
+  const years =
+    availableYears.length > 0
+      ? availableYears.slice().reverse() // Años más recientes primero
+      : generateYears(data.registroFechas, data.data);
 
   const filters = {
     type: filterType,
     month: selectedMonth,
-    year: selectedYear
+    year: selectedYear,
   };
+
+  // Mostrar indicador de carga mientras se cargan los años
+  if (loading && years.length === 0) {
+    return (
+      <div className="slider1-container">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "200px",
+            color: "#64748b",
+          }}
+        >
+          Cargando años disponibles desde los datos...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="slider1-container">
@@ -25,7 +56,7 @@ export const Slider1 = () => {
       <div className="global-chart-filters">
         <div className="filter-group">
           <label>Tipo de Vista:</label>
-          <select 
+          <select
             className="filter-select-global"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -38,12 +69,12 @@ export const Slider1 = () => {
         {filterType === "mes" && (
           <div className="filter-group">
             <label>Mes:</label>
-            <select 
+            <select
               className="filter-select-global"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
             >
-              {months.map(month => (
+              {months.map((month) => (
                 <option key={month.value} value={month.value}>
                   {month.label}
                 </option>
@@ -54,12 +85,12 @@ export const Slider1 = () => {
 
         <div className="filter-group">
           <label>Año:</label>
-          <select 
+          <select
             className="filter-select-global"
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
           >
-            {years.map(year => (
+            {years.map((year) => (
               <option key={year} value={year}>
                 {year}
               </option>
