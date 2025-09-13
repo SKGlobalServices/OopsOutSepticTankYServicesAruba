@@ -8,6 +8,7 @@ import {
   getMonths,
   getCurrentMonth,
   getCurrentYear,
+  getFilterOptions,
 } from "../../../utils/dateUtils";
 import { getArubanBanks } from "../../../utils/bankUtils";
 import { useChartData } from "../../../utils/useChartData";
@@ -19,7 +20,7 @@ export const Slider2 = () => {
   // Estados para filtros de Transferencias
   const [transferenciasBanco, setTransferenciasBanco] = useState("todos");
   const [transferenciasFilterType, setTransferenciasFilterType] =
-    useState("mes");
+    useState("meses");
   const [transferenciasMonth, setTransferenciasMonth] = useState(
     getCurrentMonth()
   );
@@ -28,12 +29,12 @@ export const Slider2 = () => {
   );
 
   // Estados para filtros de Efectivo
-  const [efectivoFilterType, setEfectivoFilterType] = useState("mes");
+  const [efectivoFilterType, setEfectivoFilterType] = useState("meses");
   const [efectivoMonth, setEfectivoMonth] = useState(getCurrentMonth());
   const [efectivoYear, setEfectivoYear] = useState(getCurrentYear());
 
   // Estados para filtros de Intercambios
-  const [intercambioFilterType, setIntercambioFilterType] = useState("mes");
+  const [intercambioFilterType, setIntercambioFilterType] = useState("meses");
   const [intercambioMonth, setIntercambioMonth] = useState(getCurrentMonth());
   const [intercambioYear, setIntercambioYear] = useState(getCurrentYear());
 
@@ -45,6 +46,13 @@ export const Slider2 = () => {
     availableYears.length > 0
       ? availableYears.slice().reverse() // Años más recientes primero
       : generateYears(data.registroFechas, data.data);
+
+  // Obtener opciones de filtro para cada gráfica
+  const transferenciasFilterOptions = getFilterOptions(
+    transferenciasFilterType
+  );
+  const efectivoFilterOptions = getFilterOptions(efectivoFilterType);
+  const intercambioFilterOptions = getFilterOptions(intercambioFilterType);
 
   // Filtros para cada gráfica
   const transferenciasFilters = {
@@ -108,10 +116,11 @@ export const Slider2 = () => {
               value={transferenciasFilterType}
               onChange={(e) => setTransferenciasFilterType(e.target.value)}
             >
-              <option value="mes">Mes</option>
-              <option value="año">Año</option>
+              <option value="semanas">Semanas</option>
+              <option value="meses">Meses</option>
+              <option value="años">Años</option>
             </select>
-            {transferenciasFilterType === "mes" && (
+            {transferenciasFilterOptions.needsMonth && (
               <select
                 className="small-filter"
                 value={transferenciasMonth}
@@ -126,17 +135,21 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
-            <select
-              className="small-filter"
-              value={transferenciasYear}
-              onChange={(e) => setTransferenciasYear(parseInt(e.target.value))}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            {transferenciasFilterOptions.needsYear && (
+              <select
+                className="small-filter"
+                value={transferenciasYear}
+                onChange={(e) =>
+                  setTransferenciasYear(parseInt(e.target.value))
+                }
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
         <div className="chart-container-large">
@@ -154,10 +167,11 @@ export const Slider2 = () => {
               value={efectivoFilterType}
               onChange={(e) => setEfectivoFilterType(e.target.value)}
             >
-              <option value="mes">Mes</option>
-              <option value="año">Año</option>
+              <option value="semanas">Semanas</option>
+              <option value="meses">Meses</option>
+              <option value="años">Años</option>
             </select>
-            {efectivoFilterType === "mes" && (
+            {efectivoFilterOptions.needsMonth && (
               <select
                 className="small-filter"
                 value={efectivoMonth}
@@ -170,17 +184,19 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
-            <select
-              className="small-filter"
-              value={efectivoYear}
-              onChange={(e) => setEfectivoYear(parseInt(e.target.value))}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            {efectivoFilterOptions.needsYear && (
+              <select
+                className="small-filter"
+                value={efectivoYear}
+                onChange={(e) => setEfectivoYear(parseInt(e.target.value))}
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
         <div className="chart-container-large">
@@ -198,10 +214,11 @@ export const Slider2 = () => {
               value={intercambioFilterType}
               onChange={(e) => setIntercambioFilterType(e.target.value)}
             >
-              <option value="mes">Mes</option>
-              <option value="año">Año</option>
+              <option value="semanas">Semanas</option>
+              <option value="meses">Meses</option>
+              <option value="años">Años</option>
             </select>
-            {intercambioFilterType === "mes" && (
+            {intercambioFilterOptions.needsMonth && (
               <select
                 className="small-filter"
                 value={intercambioMonth}
@@ -214,17 +231,19 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
-            <select
-              className="small-filter"
-              value={intercambioYear}
-              onChange={(e) => setIntercambioYear(parseInt(e.target.value))}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            {intercambioFilterOptions.needsYear && (
+              <select
+                className="small-filter"
+                value={intercambioYear}
+                onChange={(e) => setIntercambioYear(parseInt(e.target.value))}
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
         <div className="chart-container-large">

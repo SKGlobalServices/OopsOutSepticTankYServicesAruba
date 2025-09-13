@@ -186,14 +186,52 @@ export const isValidMonth = (month) => {
 
 /**
  * Formatea una fecha para mostrar en los filtros
- * @param {string} type - Tipo de filtro ("mes" o "año")
- * @param {number} month - Número del mes
- * @param {number} year - Año
+ * @param {string} type - Tipo de filtro ("semanas", "meses" o "años")
+ * @param {number} month - Número del mes (para filtros de semanas)
+ * @param {number} year - Año (para filtros de semanas y meses)
  * @returns {string} Fecha formateada
  */
 export const formatFilterDate = (type, month, year) => {
-  if (type === "mes") {
-    return `${month}/${year}`;
+  if (type === "semanas") {
+    return `${getMonthName(month)} ${year}`;
+  } else if (type === "meses") {
+    return `Año ${year}`;
+  } else if (type === "años") {
+    return "Comparación anual";
   }
   return year.toString();
+};
+
+/**
+ * Obtiene las opciones de filtro según el tipo seleccionado
+ * @param {string} filterType - Tipo de filtro ("semanas", "meses", "años")
+ * @returns {Object} Configuración de filtros disponibles
+ */
+export const getFilterOptions = (filterType) => {
+  switch (filterType) {
+    case "semanas":
+      return {
+        needsMonth: true,
+        needsYear: true,
+        description: "Comparar semanas dentro del mes seleccionado",
+      };
+    case "meses":
+      return {
+        needsMonth: false,
+        needsYear: true,
+        description: "Comparar meses dentro del año seleccionado",
+      };
+    case "años":
+      return {
+        needsMonth: false,
+        needsYear: false,
+        description: "Comparar diferentes años",
+      };
+    default:
+      return {
+        needsMonth: false,
+        needsYear: true,
+        description: "Filtro por defecto",
+      };
+  }
 };

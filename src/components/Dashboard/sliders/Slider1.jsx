@@ -7,6 +7,7 @@ import {
   getMonths,
   getCurrentMonth,
   getCurrentYear,
+  getFilterOptions,
 } from "../../../utils/dateUtils";
 import { useChartData } from "../../../utils/useChartData";
 
@@ -14,7 +15,7 @@ export const Slider1 = () => {
   // Obtener datos para generar años dinámicos
   const { data, availableYears, loading } = useChartData();
 
-  const [filterType, setFilterType] = useState("mes");
+  const [filterType, setFilterType] = useState("meses");
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedYear, setSelectedYear] = useState(getCurrentYear());
 
@@ -24,6 +25,8 @@ export const Slider1 = () => {
     availableYears.length > 0
       ? availableYears.slice().reverse() // Años más recientes primero
       : generateYears(data.registroFechas, data.data);
+
+  const filterOptions = getFilterOptions(filterType);
 
   const filters = {
     type: filterType,
@@ -61,12 +64,13 @@ export const Slider1 = () => {
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
-            <option value="mes">Por Mes</option>
-            <option value="año">Por Año</option>
+            <option value="semanas">Por Semanas</option>
+            <option value="meses">Por Meses</option>
+            <option value="años">Por Años</option>
           </select>
         </div>
 
-        {filterType === "mes" && (
+        {filterOptions.needsMonth && (
           <div className="filter-group">
             <label>Mes:</label>
             <select
@@ -83,19 +87,29 @@ export const Slider1 = () => {
           </div>
         )}
 
+        {filterOptions.needsYear && (
+          <div className="filter-group">
+            <label>Año:</label>
+            <select
+              className="filter-select-global"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="filter-group">
-          <label>Año:</label>
-          <select
-            className="filter-select-global"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+          <span
+            style={{ fontSize: "12px", color: "#64748b", fontStyle: "italic" }}
           >
-            {years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
+            {filterOptions.description}
+          </span>
         </div>
       </div>
 
