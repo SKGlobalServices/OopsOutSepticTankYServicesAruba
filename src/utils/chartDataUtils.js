@@ -826,10 +826,7 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
     const pago = (record.pago || "").toLowerCase().trim();
     const deuda = parseFloat(record.deuda) || 0;
 
-    return (
-      (!pago || pago === "debe" || pago === "pendiente") &&
-      deuda > 0
-    );
+    return (!pago || pago === "debe" || pago === "pendiente") && deuda > 0;
   });
 
   console.log(
@@ -1102,4 +1099,567 @@ export const formatCurrency = (value) => {
  */
 export const formatTooltip = (value, cantidad) => {
   return `${formatCurrency(value)} (${cantidad} registros)`;
+};
+
+/**
+ * Procesa datos para obtener total de gastos
+ * @param {Object} gastos - Datos de la tabla gastos
+ * @param {Object} filters - Filtros aplicados (type, month, year)
+ * @returns {Array} Array de datos procesados para gráfica de gastos
+ */
+export const processGastosData = (gastos = {}, filters = {}) => {
+  console.log("=== DEBUG processGastosData ===");
+  console.log("Gastos recibidos:", gastos);
+  console.log("Tipo de gastos:", typeof gastos);
+  console.log("Es array?", Array.isArray(gastos));
+  console.log("Keys de gastos:", Object.keys(gastos));
+  console.log("Filtros aplicados:", filters);
+
+  // Convertir el objeto de gastos a array si no es array
+  let gastosArray;
+  if (Array.isArray(gastos)) {
+    gastosArray = gastos;
+  } else {
+    gastosArray = Object.entries(gastos).map(([id, gasto]) => ({
+      ...gasto,
+      id,
+    }));
+  }
+
+  // Filtrar gastos por fecha
+  const filteredGastos = filterGastosByDateRange(gastosArray, filters);
+
+  // Procesar datos según el tipo de filtro (semanas, meses o años)
+  let processedData;
+  if (filters.type === "semanas") {
+    processedData = processGastosByWeeks(
+      filteredGastos,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "meses") {
+    processedData = processGastosByMonths(filteredGastos, filters.year);
+  } else {
+    processedData = processGastosByYears(filteredGastos);
+  }
+
+  return processedData;
+}
+
+/**
+ * Procesa datos para obtener total de ingresos (transferencias + efectivo + intercambio)
+ * @param {Object} registroFechas - Datos de la tabla registrofechas
+ * @param {Object} dataTable - Datos de la tabla data
+ * @param {Object} filters - Filtros aplicados (type, month, year)
+ * @returns {Array} Array de datos procesados para gráfica de ingresos totales
+ */
+export const processIngresosTotalesData = (
+  registroFechas = {},
+  dataTable = {},
+  filters = {}
+) => {
+  // Obtener datos de cada tipo de ingreso
+  const transferenciasData = processTransferenciasData(
+    registroFechas,
+    dataTable,
+    filters
+  );
+  const efectivoData = processEfectivoData(registroFechas, dataTable, filters);
+  const intercambiosData = processIntercambiosData(
+    registroFechas,
+    dataTable,
+    filters
+  );
+
+  // Combinar todos los datos por período
+  const periodosMap = new Map();
+
+  // Agregar transferencias
+  transferenciasData.forEach((item) => {
+    const key = item.name;
+    if (!periodosMap.has(key)) {
+      periodosMap.set(key, {
+        name: key,
+        transferencias: 0,
+        efectivo: 0,
+        intercambios: 0,
+        total: 0,
+      });
+    }
+    const periodo = periodosMap.get(key);
+    periodo.transferencias = item.valor || 0;
+  });
+
+  // Agregar efectivo
+  efectivoData.forEach((item) => {
+    const key = item.name;
+    if (!periodosMap.has(key)) {
+      periodosMap.set(key, {
+        name: key,
+        transferencias: 0,
+        efectivo: 0,
+        intercambios: 0,
+        total: 0,
+      });
+    }
+    const periodo = periodosMap.get(key);
+    periodo.efectivo = item.valor || 0;
+  });
+
+  // Agregar intercambios
+  intercambiosData.forEach((item) => {
+    const key = item.name;
+    if (!periodosMap.has(key)) {
+      periodosMap.set(key, {
+        name: key,
+        transferencias: 0,
+        efectivo: 0,
+        intercambios: 0,
+        total: 0,
+      });
+    }
+    const periodo = periodosMap.get(key);
+    periodo.intercambios = item.valor || 0;
+  });
+
+  // Calcular totales y retornar array
+  return Array.from(periodosMap.values()).map((periodo) => ({
+    ...periodo,
+    total: periodo.transferencias + periodo.efectivo + periodo.intercambios,
+  }));
+};
+
+/**
+ * Procesa datos para obtener ganancia o pérdida (ingresos - gastos)
+ * @param {Object} registroFechas - Datos de la tabla registrofechas
+ * @param {Object} dataTable - Datos de la tabla data
+ * @param {Object} gastos - Datos de la tabla gastos
+ * @param {Object} filters - Filtros aplicados (type, month, year)
+ * @returns {Array} Array de datos procesados para gráfica de ganancia/pérdida
+ */
+export const processGananciaPerdidaData = (
+  registroFechas = {},
+  dataTable = {},
+  gastos = {},
+  filters = {}
+) => {
+  // Obtener datos de ingresos y gastos
+  const ingresosData = processIngresosTotalesData(
+    registroFechas,
+    dataTable,
+    filters
+  );
+  const gastosData = processGastosData(gastos, filters);
+
+  // Combinar datos por período
+  const periodosMap = new Map();
+
+  // Agregar ingresos
+  ingresosData.forEach((item) => {
+    periodosMap.set(item.name, {
+      name: item.name,
+      ingresos: item.total,
+      gastos: 0,
+      ganancia: 0,
+      esGanancia: true,
+    });
+  });
+
+  // Agregar gastos
+  gastosData.forEach((item) => {
+    const key = item.name;
+    if (!periodosMap.has(key)) {
+      periodosMap.set(key, {
+        name: key,
+        ingresos: 0,
+        gastos: 0,
+        ganancia: 0,
+        esGanancia: true,
+      });
+    }
+    const periodo = periodosMap.get(key);
+    periodo.gastos = item.total || 0;
+  });
+
+  // Calcular ganancia/pérdida
+  return Array.from(periodosMap.values()).map((periodo) => {
+    const ganancia = periodo.ingresos - periodo.gastos;
+    return {
+      ...periodo,
+      ganancia: Math.abs(ganancia),
+      esGanancia: ganancia >= 0,
+    };
+  });
+};
+
+/**
+ * Filtra gastos por rango de fechas usando fecha del gasto
+ * @param {Array} records - Array de gastos
+ * @param {Object} filters - Filtros con type, month, year
+ * @returns {Array} Gastos filtrados
+ */
+const filterGastosByDateRange = (records, filters) => {
+  console.log("=== DEBUG filterGastosByDateRange ===");
+  console.log("Records a filtrar:", records.length);
+  console.log("Filtros:", filters);
+
+  const filteredResults = records.filter((record) => {
+    const fecha = record.fecha;
+    console.log(
+      "Procesando gasto ID:",
+      record.id,
+      "con fecha:",
+      fecha,
+      "tipo:",
+      typeof fecha
+    );
+
+    if (!fecha) {
+      console.log("Gasto sin fecha, descartado");
+      return false;
+    }
+
+    let gastoDate;
+    let gastoMonth, gastoYear;
+
+    try {
+      // Intentar múltiples formatos de fecha
+      if (typeof fecha === "string") {
+        if (fecha.includes("-") && fecha.split("-").length === 3) {
+          // Formato DD-MM-YYYY o YYYY-MM-DD
+          const parts = fecha.split("-");
+          if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            gastoDate = new Date(
+              parseInt(parts[0]),
+              parseInt(parts[1]) - 1,
+              parseInt(parts[2])
+            );
+          } else {
+            // DD-MM-YYYY
+            gastoDate = new Date(
+              parseInt(parts[2]),
+              parseInt(parts[1]) - 1,
+              parseInt(parts[0])
+            );
+          }
+        } else {
+          // Intentar parseo directo
+          gastoDate = new Date(fecha);
+        }
+      } else if (fecha instanceof Date) {
+        gastoDate = fecha;
+      } else {
+        // Intentar convertir a Date
+        gastoDate = new Date(fecha);
+      }
+
+      if (isNaN(gastoDate.getTime())) {
+        console.log("Fecha inválida después del parseo:", fecha);
+        return false;
+      }
+
+      gastoMonth = gastoDate.getMonth() + 1;
+      gastoYear = gastoDate.getFullYear();
+
+      console.log(
+        "Fecha parseada exitosamente:",
+        gastoDate,
+        `(${gastoMonth}/${gastoYear})`
+      );
+    } catch (error) {
+      console.log("Error parseando fecha:", error, "fecha original:", fecha);
+      return false;
+    }
+
+    console.log(
+      `Comparando: gasto(${gastoMonth}/${gastoYear}) vs filtro(${filters.month}/${filters.year})`
+    );
+
+    if (filters.type === "semanas") {
+      const shouldInclude =
+        gastoMonth === filters.month && gastoYear === filters.year;
+      console.log("Resultado filtro semanas:", shouldInclude);
+      return shouldInclude;
+    } else if (filters.type === "meses") {
+      const shouldInclude = gastoYear === filters.year;
+      console.log("Resultado filtro meses:", shouldInclude);
+      return shouldInclude;
+    } else {
+      // Para vista por años, incluir todos los registros
+      console.log("Resultado filtro años: true (incluir todo)");
+      return true;
+    }
+  });
+
+  console.log("Total filtrados:", filteredResults.length);
+  console.log("=== FIN DEBUG filterGastosByDateRange ===");
+
+  return filteredResults;
+};
+
+/**
+ * Procesa gastos agrupándolos por semanas del mes
+ * @param {Array} records - Gastos filtrados
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por semanas
+ */
+const processGastosByWeeks = (records, month, year) => {
+  console.log("=== DEBUG processGastosByWeeks ===");
+  console.log("Records:", records.length, "Month:", month, "Year:", year);
+
+  const weeks = {
+    "Semana 1": 0,
+    "Semana 2": 0,
+    "Semana 3": 0,
+    "Semana 4": 0,
+  };
+
+  records.forEach((gasto, index) => {
+    console.log(`Procesando gasto ${index + 1}:`, gasto);
+    const fecha = gasto.fecha;
+    const monto = parseFloat(gasto.monto) || 0;
+    console.log(`Fecha: ${fecha}, Monto: ${monto}`);
+
+    if (!fecha) {
+      console.log("Gasto sin fecha, saltando");
+      return;
+    }
+
+    let gastoDate;
+    try {
+      if (typeof fecha === "string") {
+        if (fecha.includes("-") && fecha.split("-").length === 3) {
+          const parts = fecha.split("-");
+          if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            gastoDate = new Date(
+              parseInt(parts[0]),
+              parseInt(parts[1]) - 1,
+              parseInt(parts[2])
+            );
+          } else {
+            // DD-MM-YYYY
+            gastoDate = new Date(
+              parseInt(parts[2]),
+              parseInt(parts[1]) - 1,
+              parseInt(parts[0])
+            );
+          }
+        } else {
+          gastoDate = new Date(fecha);
+        }
+      } else {
+        gastoDate = new Date(fecha);
+      }
+
+      if (isNaN(gastoDate.getTime())) {
+        console.log("Fecha inválida:", fecha);
+        return;
+      }
+    } catch (error) {
+      console.log("Error parseando fecha:", error);
+      return;
+    }
+
+    const gastoMonth = gastoDate.getMonth() + 1;
+    const gastoYear = gastoDate.getFullYear();
+    const day = gastoDate.getDate();
+
+    console.log(`Gasto: ${monto} en fecha ${day}/${gastoMonth}/${gastoYear}`);
+
+    if (gastoMonth === month && gastoYear === year) {
+      let weekKey;
+      if (day <= 7) weekKey = "Semana 1";
+      else if (day <= 14) weekKey = "Semana 2";
+      else if (day <= 21) weekKey = "Semana 3";
+      else weekKey = "Semana 4";
+
+      console.log(`Agregando ${monto} a ${weekKey}`);
+      weeks[weekKey] += monto;
+    } else {
+      console.log(
+        `Gasto no coincide con filtro: ${gastoMonth}/${gastoYear} vs ${month}/${year}`
+      );
+    }
+  });
+
+  const result = Object.entries(weeks).map(([week, total]) => ({
+    name: week,
+    total: total,
+    cantidad: records.filter((r) => {
+      const fecha = r.fecha;
+      if (!fecha) return false;
+
+      try {
+        let gastoDate;
+        if (typeof fecha === "string") {
+          if (fecha.includes("-") && fecha.split("-").length === 3) {
+            const parts = fecha.split("-");
+            if (parts[0].length === 4) {
+              gastoDate = new Date(
+                parseInt(parts[0]),
+                parseInt(parts[1]) - 1,
+                parseInt(parts[2])
+              );
+            } else {
+              gastoDate = new Date(
+                parseInt(parts[2]),
+                parseInt(parts[1]) - 1,
+                parseInt(parts[0])
+              );
+            }
+          } else {
+            gastoDate = new Date(fecha);
+          }
+        } else {
+          gastoDate = new Date(fecha);
+        }
+
+        if (isNaN(gastoDate.getTime())) return false;
+
+        const gastoMonth = gastoDate.getMonth() + 1;
+        const gastoYear = gastoDate.getFullYear();
+        const day = gastoDate.getDate();
+
+        if (gastoMonth === month && gastoYear === year) {
+          let weekRange;
+          if (day <= 7) weekRange = "Semana 1";
+          else if (day <= 14) weekRange = "Semana 2";
+          else if (day <= 21) weekRange = "Semana 3";
+          else weekRange = "Semana 4";
+
+          return weekRange === week;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    }).length,
+  }));
+
+  console.log("Resultado processGastosByWeeks:", result);
+  console.log("=== FIN DEBUG processGastosByWeeks ===");
+  return result;
+};
+
+/**
+ * Procesa gastos agrupándolos por meses del año
+ * @param {Array} records - Gastos filtrados
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por meses
+ */
+const processGastosByMonths = (records, year) => {
+  const months = {};
+
+  // Inicializar todos los meses en 0
+  for (let i = 1; i <= 12; i++) {
+    months[i] = 0;
+  }
+
+  records.forEach((gasto) => {
+    const fecha = gasto.fecha;
+    if (!fecha) return;
+
+    let gastoDate;
+    try {
+      const [day, month_str, year_str] = fecha.split("-");
+      gastoDate = new Date(
+        parseInt(year_str),
+        parseInt(month_str) - 1,
+        parseInt(day)
+      );
+    } catch {
+      return;
+    }
+
+    const gastoYear = gastoDate.getFullYear();
+    if (gastoYear === year) {
+      const month = gastoDate.getMonth() + 1;
+      months[month] += parseFloat(gasto.monto) || 0;
+    }
+  });
+
+  return Object.entries(months)
+    .filter(([month, total]) => total > 0)
+    .map(([month, total]) => ({
+      name: getMonthName(parseInt(month)),
+      total: total,
+      cantidad: records.filter((r) => {
+        const fecha = r.fecha;
+        if (!fecha) return false;
+
+        try {
+          const [day, month_str, year_str] = fecha.split("-");
+          const gastoDate = new Date(
+            parseInt(year_str),
+            parseInt(month_str) - 1,
+            parseInt(day)
+          );
+          const gastoYear = gastoDate.getFullYear();
+          const gastoMonth = gastoDate.getMonth() + 1;
+
+          return gastoYear === year && gastoMonth === parseInt(month);
+        } catch {
+          return false;
+        }
+      }).length,
+    }));
+};
+
+/**
+ * Procesa gastos agrupándolos por años
+ * @param {Array} records - Gastos filtrados
+ * @returns {Array} Datos agrupados por años
+ */
+const processGastosByYears = (records) => {
+  const years = {};
+
+  records.forEach((gasto) => {
+    const fecha = gasto.fecha;
+    if (!fecha) return;
+
+    let gastoDate;
+    try {
+      const [day, month_str, year_str] = fecha.split("-");
+      gastoDate = new Date(
+        parseInt(year_str),
+        parseInt(month_str) - 1,
+        parseInt(day)
+      );
+    } catch {
+      return;
+    }
+
+    const year = gastoDate.getFullYear();
+    if (!years[year]) {
+      years[year] = 0;
+    }
+    years[year] += parseFloat(gasto.monto) || 0;
+  });
+
+  return Object.entries(years)
+    .filter(([year, total]) => total > 0)
+    .map(([year, total]) => ({
+      name: year,
+      total: total,
+      cantidad: records.filter((r) => {
+        const fecha = r.fecha;
+        if (!fecha) return false;
+
+        try {
+          const [day, month_str, year_str] = fecha.split("-");
+          const gastoDate = new Date(
+            parseInt(year_str),
+            parseInt(month_str) - 1,
+            parseInt(day)
+          );
+          return gastoDate.getFullYear() === parseInt(year);
+        } catch {
+          return false;
+        }
+      }).length,
+    }))
+    .sort((a, b) => parseInt(a.name) - parseInt(b.name));
 };

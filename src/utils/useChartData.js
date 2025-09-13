@@ -13,11 +13,13 @@ export const useChartData = () => {
     registroFechas: {},
     data: {},
     facturas: {},
+    gastos: {},
   });
   const [error, setError] = useState(null);
   const [loadedRegistro, setLoadedRegistro] = useState(false);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedFacturas, setLoadedFacturas] = useState(false);
+  const [loadedGastos, setLoadedGastos] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
 
   useEffect(() => {
@@ -90,17 +92,42 @@ export const useChartData = () => {
       }
     });
 
+    // Cargar datos de gastos
+    const gastosRef = ref(database, "gastos");
+    console.log("gastosRef:", gastosRef);
+    const unsubscribeGastos = onValue(gastosRef, (snapshot) => {
+      try {
+        if (snapshot.exists()) {
+          setData((prev) => ({
+            ...prev,
+            gastos: snapshot.val(),
+          }));
+        } else {
+          setData((prev) => ({
+            ...prev,
+            gastos: {},
+          }));
+        }
+        setLoadedGastos(true);
+      } catch (err) {
+        console.error("Error loading gastos:", err);
+        setError(err.message);
+        setLoadedGastos(true);
+      }
+    });
+
     // Cleanup function
     return () => {
       unsubscribeRegistro();
       unsubscribeData();
       unsubscribeFacturas();
+      unsubscribeGastos();
     };
   }, []);
 
   // Actualizar años disponibles cuando cambien los datos
   useEffect(() => {
-    if (loadedRegistro && loadedData && loadedFacturas) {
+    if (loadedRegistro && loadedData && loadedFacturas && loadedGastos) {
       const years = extractYearsFromData(data.registroFechas, data.data);
       setAvailableYears(years);
       setLoading(false);
@@ -109,9 +136,11 @@ export const useChartData = () => {
     data.registroFechas,
     data.data,
     data.facturas,
+    data.gastos,
     loadedRegistro,
     loadedData,
     loadedFacturas,
+    loadedGastos,
   ]);
 
   return {
@@ -123,6 +152,7 @@ export const useChartData = () => {
       setLoadedRegistro(false);
       setLoadedData(false);
       setLoadedFacturas(false);
+      setLoadedGastos(false);
       setLoading(true);
     },
   };

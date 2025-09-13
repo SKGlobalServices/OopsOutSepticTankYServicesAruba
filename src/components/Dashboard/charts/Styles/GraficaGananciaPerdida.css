@@ -1,0 +1,309 @@
+/* Estilos para GraficaGananciaPerdida */
+.ganancia-chart-container {
+  position: relative;
+  max-width: 100%;
+  height: 100%;
+  max-height: 500px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ganancia-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.ganancia-chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ganancia-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.ganancia-result {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ganancia-result.profit {
+  color: #10b981;
+}
+
+.ganancia-result.loss {
+  color: #ef4444;
+}
+
+.ganancia-result.neutral {
+  color: #64748b;
+  font-size: 16px;
+}
+
+.ganancia-label {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ganancia-chart-content {
+  flex: 1;
+  position: relative;
+  min-height: 240px;
+  max-height: 320px;
+  overflow: hidden;
+}
+
+.ganancia-chart-loading,
+.ganancia-chart-no-data {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.ganancia-chart-no-data div:first-child {
+  font-size: 36px;
+  margin-bottom: 6px;
+  opacity: 0.6;
+}
+
+.ganancia-chart-no-data div:not(:first-child) {
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.ganancia-chart-loading {
+  font-size: 14px;
+  color: #6366f1;
+}
+
+/* Tooltip personalizado */
+.ganancia-tooltip {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-size: 11px;
+  min-width: 180px;
+  z-index: 1000;
+}
+
+.ganancia-tooltip-header {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+}
+
+.ganancia-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ganancia-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  color: #475569;
+  font-size: 10px;
+}
+
+.ganancia-tooltip-row.ingresos {
+  color: #10b981;
+}
+
+.ganancia-tooltip-row.gastos {
+  color: #ef4444;
+}
+
+.ganancia-tooltip-result {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 11px;
+}
+
+.ganancia-tooltip-result.profit {
+  color: #10b981;
+}
+
+.ganancia-tooltip-result.loss {
+  color: #ef4444;
+}
+
+/* Resumen de totales */
+.ganancia-totales-summary {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.ganancia-total-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ganancia-total-item.resultado {
+  position: relative;
+}
+
+.ganancia-total-item.resultado::before {
+  content: "";
+  position: absolute;
+  left: -15px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.ganancia-total-label {
+  font-size: 9px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.ganancia-total-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ganancia-total-value.ingresos {
+  color: #10b981;
+}
+
+.ganancia-total-value.gastos {
+  color: #ef4444;
+}
+
+.ganancia-total-value.profit {
+  color: #10b981;
+}
+
+.ganancia-total-value.loss {
+  color: #ef4444;
+}
+
+/* Indicador de filtros */
+.ganancia-filter-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 9px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  z-index: 10;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ganancia-chart-container {
+    max-height: 420px;
+    padding: 12px;
+  }
+
+  .ganancia-chart-title {
+    font-size: 14px;
+  }
+
+  .ganancia-result {
+    font-size: 18px;
+  }
+
+  .ganancia-chart-content {
+    min-height: 200px;
+    max-height: 260px;
+  }
+
+  .ganancia-totales-summary {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .ganancia-total-item.resultado::before {
+    display: none;
+  }
+
+  .ganancia-tooltip {
+    font-size: 10px;
+    padding: 8px;
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ganancia-chart-container {
+    max-height: 380px;
+    padding: 10px;
+  }
+
+  .ganancia-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .ganancia-summary {
+    align-items: flex-start;
+  }
+
+  .ganancia-chart-content {
+    min-height: 180px;
+    max-height: 220px;
+  }
+
+  .ganancia-totales-summary {
+    padding: 6px;
+  }
+
+  .ganancia-total-value {
+    font-size: 12px;
+  }
+
+  .ganancia-total-label {
+    font-size: 8px;
+  }
+}

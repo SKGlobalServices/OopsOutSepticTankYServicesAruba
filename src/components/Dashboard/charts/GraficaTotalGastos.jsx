@@ -1,46 +1,154 @@
 import React from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
+import {
+  processGastosData,
+  formatCurrency,
+} from "../../../utils/chartDataUtils";
+import { useChartData } from "../../../utils/useChartData";
+import "./Styles/GraficaTotalGastos.css";
 
-// TODO: total gastos + mes se muestran las semanas y si es año se muestran los meses
+// Componente de tooltip personalizado
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="gastos-tooltip">
+        <div className="gastos-tooltip-header">{label}</div>
+        <div className="gastos-tooltip-content">
+          <div>Total: {formatCurrency(data.total)}</div>
+          <div>{data.cantidad} gastos</div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const GraficaTotalGastos = ({ filters }) => {
-  // Datos de ejemplo que cambiarían según los filtros
-  const getDataByFilter = () => {
-    if (filters?.type === "mes") {
-      // Datos por semanas del mes
-      return [
-        { name: "Semana 1", gastos: 1200 },
-        { name: "Semana 2", gastos: 980 },
-        { name: "Semana 3", gastos: 1500 },
-        { name: "Semana 4", gastos: 1100 },
-      ];
-    } else {
-      // Datos por meses del año
-      return [
-        { name: "Enero", gastos: 4000 },
-        { name: "Febrero", gastos: 3200 },
-        { name: "Marzo", gastos: 4500 },
-        { name: "Abril", gastos: 3800 },
-        { name: "Mayo", gastos: 4200 },
-        { name: "Junio", gastos: 3900 },
-      ];
-    }
-  };
+  const { data, loading, error } = useChartData();
 
-  const data = getDataByFilter();
+  // Procesar datos solo cuando tenemos información y filtros
+  const chartData = React.useMemo(() => {
+    const processed = processGastosData(data.gastos, filters);
+    console.log("Datos procesados en memo:", processed);
+    return processed;
+  }, [data, filters]);
+
+  // Calcular total
+  const totalGastos = chartData.reduce((sum, item) => sum + item.total, 0);
+
+  // Mostrar estado de carga
+  if (loading) {
+    return (
+      <div className="gastos-chart-container">
+        <div className="gastos-chart-content">
+          <div className="gastos-chart-loading">
+            Cargando datos de gastos...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si existe
+  if (error) {
+    return (
+      <div className="gastos-chart-container">
+        <div className="gastos-chart-content">
+          <div className="gastos-chart-no-data">
+            <div>⚠️</div>
+            <div>Error al cargar datos: {error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar mensaje cuando no hay datos
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="gastos-chart-container">
+        <div className="gastos-chart-header">
+          <div className="gastos-chart-title">Total de Gastos</div>
+          <div className="gastos-totals-summary">
+            <span className="gastos-total-value">{formatCurrency(0)}</span>
+          </div>
+        </div>
+        <div className="gastos-chart-content">
+          <div className="gastos-chart-no-data">
+            <div>📊</div>
+            <div>No hay gastos registrados</div>
+            <div>para el período seleccionado</div>
+          </div>
+        </div>
+        <div className="gastos-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data}>
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip />
-          <Bar dataKey="gastos" fill="#f43f5e" />
-        </BarChart>
-      </ResponsiveContainer>
-      {/* Indicador de filtros activos para desarrollo */}
-      <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: '#64748b', background: 'rgba(255,255,255,0.8)', padding: '4px 8px', borderRadius: '4px' }}>
+    <div className="gastos-chart-container">
+      <div className="gastos-chart-header">
+        <div className="gastos-chart-title">Total de Gastos</div>
+        <div className="gastos-totals-summary">
+          <span className="gastos-total-value">
+            {formatCurrency(totalGastos)}
+          </span>
+          <span className="gastos-total-label">Total Gastado</span>
+        </div>
+      </div>
+
+      <div className="gastos-chart-content">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{
+              top: 20,
+              right: 30,
+              left: 20,
+              bottom: 20,
+            }}
+          >
+            <CartesianGrid
+              strokeDasharray="2 2"
+              stroke="#f1f5f9"
+              opacity={0.6}
+            />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar
+              dataKey="total"
+              fill="#ef4444"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={60}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="gastos-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>
     </div>
