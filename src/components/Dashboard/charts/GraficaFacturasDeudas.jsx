@@ -1,22 +1,216 @@
-// TODO:Conteo de todas las casillas en blanco y conteo total de deudas de esas
+// Gráfica de facturas pendientes y deudas de la tabla facturas
 import React from "react";
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
+import {
+  processFacturasData,
+  formatCurrency,
+} from "../../../utils/chartDataUtils";
+import { useChartData } from "../../../utils/useChartData";
+import "./Styles/GraficaFacturasDeudas.css";
 
-export const GraficaFacturasDeudas = ({ filters }) => {
-  // TODO: Implementar lógica de filtros
-  // filters.type: "mes" o "año"
-  // filters.month: número del mes (1-12)
-  // filters.year: año seleccionado
-
-  return (
-    <div className="chart-placeholder-large">
-      <div className="large-chart-pie" style={{ background: 'conic-gradient(#ef4444 0deg 180deg, #f59e0b 180deg 270deg, #10b981 270deg 360deg)' }}>
-        <div style={{ background: 'white', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>
-          Facturas
+// Componente de tooltip personalizado más limpio
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="facturas-tooltip">
+        <div className="facturas-tooltip-header">{label}</div>
+        <div className="facturas-tooltip-content">
+          <div className="facturas-tooltip-row">
+            <div className="facturas-tooltip-color facturas-color"></div>
+            <span>Pendientes: {data.facturas}</span>
+          </div>
+          <div className="facturas-tooltip-row">
+            <div className="facturas-tooltip-color deuda-color"></div>
+            <span>Deuda: {formatCurrency(data.deuda)}</span>
+          </div>
         </div>
       </div>
-      {/* Indicador de filtros activos para desarrollo */}
-      <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: '#64748b', background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: '4px' }}>
+    );
+  }
+  return null;
+};
+
+export const GraficaFacturasDeudas = ({ filters }) => {
+  const { data, loading, error } = useChartData();
+
+  // Debug: mostrar qué datos estamos recibiendo
+  React.useEffect(() => {
+    console.log("🔍 GraficaFacturasDeudas - Estado del hook:", {
+      loading,
+      error,
+      dataStructure: data,
+      facturasFromData: data?.facturas ? Object.keys(data.facturas).length : 0,
+      filters,
+    });
+  }, [data, loading, error, filters]);
+
+  // Procesar datos solo cuando tenemos información y filtros
+  const chartData = React.useMemo(() => {
+    if (!data?.facturas || !filters) return [];
+
+    return processFacturasData(data.facturas, filters);
+  }, [data, filters]);
+
+  // Calcular totales
+  const totales = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) return { facturas: 0, deuda: 0 };
+
+    return {
+      facturas: chartData.reduce((sum, item) => sum + item.facturas, 0),
+      deuda: chartData.reduce((sum, item) => sum + item.deuda, 0),
+    };
+  }, [chartData]);
+
+  // Mostrar estado de carga
+  if (loading) {
+    return (
+      <div className="facturas-chart-container">
+        <div className="facturas-chart-title">Facturas Pendientes y Deudas</div>
+        <div className="facturas-chart-content">
+          <div className="facturas-chart-loading">
+            Cargando datos de facturas...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si existe
+  if (error) {
+    return (
+      <div className="facturas-chart-container">
+        <div className="facturas-chart-title">Facturas Pendientes y Deudas</div>
+        <div className="facturas-chart-content">
+          <div className="facturas-chart-no-data">
+            <div className="facturas-chart-no-data-icon">⚠️</div>
+            <div>Error al cargar datos: {error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar mensaje cuando no hay datos
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="facturas-chart-container">
+        <div className="facturas-chart-title">Facturas Pendientes y Deudas</div>
+        <div className="facturas-chart-content">
+          <div className="facturas-chart-no-data">
+            <div className="facturas-chart-no-data-icon">📄</div>
+            <div>No hay facturas pendientes</div>
+            <div>para el período seleccionado</div>
+          </div>
+        </div>
+        {/* Indicador de filtros activos */}
+        <div className="facturas-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="facturas-chart-container">
+      <div className="facturas-chart-header">
+        <div className="facturas-chart-title">Facturas Pendientes y Deudas</div>
+
+        {/* Indicador de totales más limpio */}
+        <div className="facturas-totals-summary">
+          <div className="facturas-total-item">
+            <span className="facturas-total-value">{totales.facturas}</span>
+            <span className="facturas-total-label">Pendientes</span>
+          </div>
+          <div className="facturas-total-divider"></div>
+          <div className="facturas-total-item">
+            <span className="facturas-total-value">
+              {formatCurrency(totales.deuda)}
+            </span>
+            <span className="facturas-total-label">Total Deuda</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="facturas-chart-content">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
+            data={chartData}
+            margin={{
+              top: 30,
+              right: 40,
+              left: 40,
+              bottom: 20,
+            }}
+            barGap={10}
+          >
+            <CartesianGrid
+              strokeDasharray="2 2"
+              stroke="#f1f5f9"
+              opacity={0.6}
+            />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              angle={chartData.length > 4 ? -45 : 0}
+              textAnchor={chartData.length > 4 ? "end" : "middle"}
+              height={chartData.length > 4 ? 50 : 25}
+            />
+            <YAxis
+              yAxisId="facturas"
+              orientation="left"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+              width={35}
+            />
+            <YAxis
+              yAxisId="deuda"
+              orientation="right"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+              width={40}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar
+              yAxisId="facturas"
+              dataKey="facturas"
+              fill="#3b82f6"
+              radius={[3, 3, 0, 0]}
+              name="Facturas Pendientes"
+              maxBarSize={60}
+            />
+            <Bar
+              yAxisId="deuda"
+              dataKey="deuda"
+              fill="#f59e0b"
+              radius={[3, 3, 0, 0]}
+              name="Total Deuda"
+              maxBarSize={60}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Indicador de filtros más discreto */}
+      <div className="facturas-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>
     </div>

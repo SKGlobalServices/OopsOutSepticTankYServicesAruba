@@ -1,0 +1,206 @@
+/* Estilos mejorados para la gráfica de facturas y deudas */
+.facturas-chart-container {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.02);
+  border: 1px solid #f1f5f9;
+}
+
+.facturas-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.facturas-chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Nuevo diseño de totales más limpio */
+.facturas-totals-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.facturas-total-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.facturas-total-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.facturas-total-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.facturas-total-divider {
+  width: 1px;
+  height: 32px;
+  background: #cbd5e1;
+}
+
+.facturas-chart-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+
+.facturas-chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.facturas-chart-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.facturas-chart-no-data-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* Tooltip mejorado */
+.facturas-tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #ffffff;
+  font-size: 13px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.facturas-tooltip-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.facturas-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.facturas-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.facturas-tooltip-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.facturas-color {
+  background-color: #3b82f6;
+}
+
+.deuda-color {
+  background-color: #f59e0b;
+}
+
+/* Indicador de filtros más discreto */
+.facturas-filter-indicator {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(248, 250, 252, 0.8);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  backdrop-filter: blur(4px);
+}
+
+/* Estilos para las barras del gráfico */
+.recharts-bar-rectangle {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  transition: all 0.2s ease;
+}
+
+.recharts-bar-rectangle:hover {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
+  transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .facturas-chart-container {
+    padding: 16px;
+  }
+
+  .facturas-chart-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .facturas-chart-title {
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .facturas-totals-summary {
+    justify-content: center;
+  }
+
+  .facturas-chart-content {
+    min-height: 220px;
+  }
+
+  .facturas-total-value {
+    font-size: 16px;
+  }
+
+  .facturas-total-label {
+    font-size: 10px;
+  }
+}
