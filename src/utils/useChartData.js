@@ -12,10 +12,12 @@ export const useChartData = () => {
   const [data, setData] = useState({
     registroFechas: {},
     data: {},
+    facturas: {},
   });
   const [error, setError] = useState(null);
   const [loadedRegistro, setLoadedRegistro] = useState(false);
   const [loadedData, setLoadedData] = useState(false);
+  const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
 
   useEffect(() => {
@@ -65,21 +67,52 @@ export const useChartData = () => {
       }
     });
 
+    // Cargar datos de facturas
+    const facturasRef = ref(database, "facturas");
+    const unsubscribeFacturas = onValue(facturasRef, (snapshot) => {
+      try {
+        if (snapshot.exists()) {
+          setData((prev) => ({
+            ...prev,
+            facturas: snapshot.val(),
+          }));
+        } else {
+          setData((prev) => ({
+            ...prev,
+            facturas: {},
+          }));
+        }
+        setLoadedFacturas(true);
+      } catch (err) {
+        console.error("Error loading facturas:", err);
+        setError(err.message);
+        setLoadedFacturas(true);
+      }
+    });
+
     // Cleanup function
     return () => {
       unsubscribeRegistro();
       unsubscribeData();
+      unsubscribeFacturas();
     };
   }, []);
 
   // Actualizar años disponibles cuando cambien los datos
   useEffect(() => {
-    if (loadedRegistro && loadedData) {
+    if (loadedRegistro && loadedData && loadedFacturas) {
       const years = extractYearsFromData(data.registroFechas, data.data);
       setAvailableYears(years);
       setLoading(false);
     }
-  }, [data.registroFechas, data.data, loadedRegistro, loadedData]);
+  }, [
+    data.registroFechas,
+    data.data,
+    data.facturas,
+    loadedRegistro,
+    loadedData,
+    loadedFacturas,
+  ]);
 
   return {
     loading,
@@ -89,6 +122,7 @@ export const useChartData = () => {
     refetch: () => {
       setLoadedRegistro(false);
       setLoadedData(false);
+      setLoadedFacturas(false);
       setLoading(true);
     },
   };

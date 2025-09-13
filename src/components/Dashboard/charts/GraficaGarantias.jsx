@@ -1,23 +1,142 @@
-// TODO: registrofecha y data, traer fecha, valor, banco, forma de pago, tipo de garantia, descripcion, estado, agregar filtros para mes y año y banco
+// Gráfica de conteo de garantías de las tablas registrofechas y data
 import React from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
+import { processGarantiasData } from "../../../utils/chartDataUtils";
+import { useChartData } from "../../../utils/useChartData";
+import "./Styles/GraficaGarantias.css";
+
+// Componente de tooltip personalizado
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="garantias-tooltip">
+        <div className="garantias-tooltip-label">{label}</div>
+        <div className="garantias-tooltip-value">
+          {`Garantías: ${data.garantias}`}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 export const GraficaGarantias = ({ filters }) => {
-  // TODO: Implementar lógica de filtros
-  // filters.type: "mes" o "año"
-  // filters.month: número del mes (1-12)
-  // filters.year: año seleccionado
+  const { data, loading, error } = useChartData();
+
+  // Procesar datos solo cuando tenemos información y filtros
+  const chartData = React.useMemo(() => {
+    if (!data?.registroFechas || !data?.data || !filters) return [];
+
+    return processGarantiasData(data.registroFechas, data.data, filters);
+  }, [data, filters]);
+
+  // Mostrar estado de carga
+  if (loading) {
+    return (
+      <div className="garantias-chart-container">
+        <div className="garantias-chart-title">Conteo de Garantías</div>
+        <div className="garantias-chart-content">
+          <div className="garantias-chart-loading">
+            Cargando datos de garantías...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si existe
+  if (error) {
+    return (
+      <div className="garantias-chart-container">
+        <div className="garantias-chart-title">Conteo de Garantías</div>
+        <div className="garantias-chart-content">
+          <div className="garantias-chart-no-data">
+            <div className="garantias-chart-no-data-icon">⚠️</div>
+            <div>Error al cargar datos: {error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar mensaje cuando no hay datos
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="garantias-chart-container">
+        <div className="garantias-chart-title">Conteo de Garantías</div>
+        <div className="garantias-chart-content">
+          <div className="garantias-chart-no-data">
+            <div className="garantias-chart-no-data-icon">🛡️</div>
+            <div>No hay garantías registradas</div>
+            <div>para el período seleccionado</div>
+          </div>
+        </div>
+        {/* Indicador de filtros activos */}
+        <div className="garantias-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="chart-placeholder-large">
-      <div className="large-chart-bars">
-        <div className="large-bar" style={{ height: '50%', background: '#06b6d4' }}></div>
-        <div className="large-bar" style={{ height: '75%', background: '#3b82f6' }}></div>
-        <div className="large-bar" style={{ height: '40%', background: '#8b5cf6' }}></div>
-        <div className="large-bar" style={{ height: '85%', background: '#10b981' }}></div>
+    <div className="garantias-chart-container">
+      <div className="garantias-chart-title">Conteo de Garantías</div>
+
+      {/* Indicador de totales - similar al de servicios */}
+      <div className="garantias-totals-indicator">
+        <div>
+          Total: {chartData.reduce((sum, item) => sum + item.garantias, 0)}{" "}
+          garantías
+        </div>
+        <div className="garantias-totals-count">
+          {chartData.reduce((sum, item) => sum + item.cantidad, 0)} registros
+        </div>
       </div>
-      {/* Indicador de filtros activos para desarrollo */}
-      <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: '#64748b', background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: '4px' }}>
+
+      <div className="garantias-chart-content">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{
+              top: 20,
+              right: 30,
+              left: 20,
+              bottom: 5,
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12 }}
+              interval={0}
+              angle={chartData.length > 6 ? -45 : 0}
+              textAnchor={chartData.length > 6 ? "end" : "middle"}
+              height={chartData.length > 6 ? 60 : 30}
+            />
+            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar
+              dataKey="garantias"
+              fill="#8b5cf6"
+              radius={[4, 4, 0, 0]}
+              name="Garantías"
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {/* Indicador de filtros activos */}
+      <div className="garantias-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>
     </div>
