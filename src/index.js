@@ -19,7 +19,6 @@ import Agendadinamicacontador from "./components/Agendadinamicacontador.jsx"
 import Informedeefectivousuario from "./components/Informedeefectivousuario.jsx";
 import Informedecobranza from "./components/Informedecobranza.jsx";
 import Informedetransferencias from "./components/Informedetransferencias.jsx";
-import Estadoderesultado from "./components/Estadoderesultado.jsx";
 import Nomina from "./components/Nomina.jsx";
 import Gastos from "./components/Gastos.jsx";
 import Fastmark from "./components/Fastmark.jsx";
@@ -28,6 +27,8 @@ import Pagosmensuales from "./components/Pagosmensuales.jsx";
 import Pagosanticipados from "./components/Pagosanticipados.jsx";
 import Ciclodefacturacion from "./components/Ciclodefacturacion.jsx";
 import Dashboard from "./components/Dashboard.jsx";
+import Extras from "./components/Extras.jsx";
+import Deducciones from "./components/Deducciones.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -53,13 +54,14 @@ root.render(
       <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
       <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
       <Route path="/fastmark" element={<PageWrapper><Fastmark /></PageWrapper>} />
-      <Route path="/estadoderesultado" element={<PageWrapper><Estadoderesultado /></PageWrapper>} />
       <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
       <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
       <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />
       <Route path="/pagosanticipados" element={<PageWrapper><Pagosanticipados /></PageWrapper>} />
       <Route path="/ciclodefacturacion" element={<PageWrapper><Ciclodefacturacion /></PageWrapper>} />
       <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
+      <Route path="/extras" element={<PageWrapper><Extras /></PageWrapper>} />
+      <Route path="/deducciones" element={<PageWrapper><Deducciones /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

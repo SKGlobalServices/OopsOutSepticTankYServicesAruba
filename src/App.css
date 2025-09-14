@@ -2358,13 +2358,13 @@ button.delete-button:hover {
     display: none !important;
   }
 
-  .generate-button1 {
+  .generate-button2 {
     right: 40vw;
     bottom: 1vh;
     min-height: 11vw;
     min-width: 11vw;
   }
-  .generate-button2 {
+  .generate-button1 {
     right: 25vw;
     bottom: 1vh;
     min-height: 11vw;

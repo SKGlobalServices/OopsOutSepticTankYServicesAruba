@@ -868,7 +868,7 @@ const Pagosanticipados = () => {
                           fontWeight: "bold",
                         }}
                       >
-                        {montoAFavorToShow}
+                        {montoAFavorToShow} AWG
                       </td>
                       {/* ACCIÓN: BOTÓN ELIMINAR */}
                       <td style={{ textAlign: "center" }}>

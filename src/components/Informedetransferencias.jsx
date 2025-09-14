@@ -427,13 +427,13 @@ const Informedetransferencias = () => {
     // Agregar sumas antes de la tabla
     doc.setFontSize(10);
     let yPosition = 35;
-    doc.text(`Total General: AWS ${totalGeneral.toFixed(2)}`, 20, yPosition);
+    doc.text(`Total General: AWG ${totalGeneral.toFixed(2)}`, 20, yPosition);
     yPosition += 7;
-    doc.text(`Aruba Bank N.V.: AWS ${totalAruba.toFixed(2)}`, 20, yPosition);
+    doc.text(`Aruba Bank N.V.: AWG ${totalAruba.toFixed(2)}`, 20, yPosition);
     yPosition += 7;
-    doc.text(`Caribbean Mercantile Bank N.V.: AWS ${totalCaribbean.toFixed(2)}`, 20, yPosition);
+    doc.text(`Caribbean Mercantile Bank N.V.: AWG ${totalCaribbean.toFixed(2)}`, 20, yPosition);
     yPosition += 7;
-    doc.text(`RBC Royal Bank N.V.: AWS ${totalRBC.toFixed(2)}`, 20, yPosition);
+    doc.text(`RBC Royal Bank N.V.: AWG ${totalRBC.toFixed(2)}`, 20, yPosition);
     yPosition += 10;
     
     // Headers de la tabla
@@ -660,7 +660,7 @@ const Informedetransferencias = () => {
             e.currentTarget.style.backgroundColor = '#28a745';
           }}>
             <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Total General</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
           </div>
           <div style={{
             border: '1px solid #ddd',
@@ -686,7 +686,7 @@ const Informedetransferencias = () => {
             e.currentTarget.style.backgroundColor = '#5271ff';
           }}>
             <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Aruba Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
           </div>
           <div style={{
             border: '1px solid #ddd',
@@ -712,7 +712,7 @@ const Informedetransferencias = () => {
             e.currentTarget.style.backgroundColor = '#5271ff';
           }}>
             <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Caribbean Mercantile Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
           </div>
           <div style={{
             border: '1px solid #ddd',
@@ -738,7 +738,7 @@ const Informedetransferencias = () => {
             e.currentTarget.style.backgroundColor = '#5271ff';
           }}>
             <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>RBC Royal Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWS {transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
           </div>
         </div>
         <div className="table-container">

@@ -110,7 +110,7 @@ const Gastos = () => {
         banco: formValues.banco || "",
         idBanco: formValues.idBanco || "",
         monto: formValues.monto || "",
-        moneda: "AWS",
+        moneda: "AWG",
         numFactura: formValues.numFactura || "",
         responsable: formValues.responsable || "",
         timestamp: Date.now(),
@@ -140,11 +140,11 @@ const Gastos = () => {
    ========================= */
   const formatearDinero = (n) =>
     typeof n === "number"
-      ? `AWS ${n.toLocaleString(undefined, {
+      ? `${n.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })}`
-      : "AWS 0.00";
+        })} AWG`
+      : "0.00 AWG";
 
   const formatearFecha = (d) => {
     const day = ("0" + d.getDate()).slice(-2);
@@ -466,7 +466,7 @@ const Gastos = () => {
 
     filas.forEach((r) => {
       const row = hoja.addRow(encabezados.map((h) => r[h]));
-      row.getCell(7).numFmt = '"AWS" #,##0.00';
+      row.getCell(7).numFmt = '"AWG" #,##0.00';
       row.eachCell((cell) => {
         cell.border = {
           top: { style: "thin" },

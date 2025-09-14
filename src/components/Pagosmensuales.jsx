@@ -767,27 +767,30 @@ const Pagosmensuales = () => {
 
                       {/* MONTO */}
                       <td>
-                        <input
-                          type="text"
-                          value={
-                            localValues[kMonto] !== undefined
-                              ? localValues[kMonto]
-                              : item.monto ?? ""
-                          }
-                          onChange={(e) =>
-                            setLocalValues((p) => ({
-                              ...p,
-                              [kMonto]: e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            const v = e.target.value ?? "";
-                            if (v !== (item.monto ?? "")) {
-                              handleFieldChange(item, "monto", v);
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <input
+                            type="text"
+                            value={
+                              localValues[kMonto] !== undefined
+                                ? localValues[kMonto]
+                                : item.monto ?? ""
                             }
-                          }}
-                          style={{ width: "12ch", textAlign: "center" }}
-                        />
+                            onChange={(e) =>
+                              setLocalValues((p) => ({
+                                ...p,
+                                [kMonto]: e.target.value,
+                              }))
+                            }
+                            onBlur={(e) => {
+                              const v = e.target.value ?? "";
+                              if (v !== (item.monto ?? "")) {
+                                handleFieldChange(item, "monto", v);
+                              }
+                            }}
+                            style={{ width: "10ch", textAlign: "center" }}
+                          />
+                          <span style={{ marginLeft: "5px" }}>AWG</span>
+                        </div>
                       </td>
 
                       {/* ESTADO */}

@@ -553,7 +553,7 @@ const Fastmark = () => {
             e.currentTarget.style.backgroundColor = "#5271ff";
           }}
         >
-          Total AWS{" "}
+          Total AWG{" "}
           {data
             .reduce((acc, item) => acc + Number(item.monto || 0), 0)
             .toLocaleString("en-US", {

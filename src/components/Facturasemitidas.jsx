@@ -3177,16 +3177,16 @@ const Facturasemitidas = () => {
                           ? formatCurrency(
                               facturasData[r.numerodefactura].totalAmount || 0
                             )
-                          : formatCurrency(r.valor || 0)}
+                          : formatCurrency(r.valor || 0)} AWG
                       </td>
                       <td
                         className="factura-payment-cell"
                         style={{ textAlign: "center" }}
                       >
                         {r.numerodefactura && facturasData[r.numerodefactura]
-                          ? formatCurrency(
+                          ? `${formatCurrency(
                               facturasData[r.numerodefactura].payment || 0
-                            )
+                            )} AWG`
                           : "N/A"}
                       </td>
                       <td
@@ -3194,9 +3194,9 @@ const Facturasemitidas = () => {
                         style={{ textAlign: "center" }}
                       >
                         {r.numerodefactura && facturasData[r.numerodefactura]
-                          ? formatCurrency(
+                          ? `${formatCurrency(
                               facturasData[r.numerodefactura].deuda || 0
-                            )
+                            )} AWG`
                           : "N/A"}
                       </td>
                       <td style={{ textAlign: "center" }}>

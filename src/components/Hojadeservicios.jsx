@@ -39,6 +39,8 @@ const Homepage = () => {
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
   const [showDireccionAlert, setShowDireccionAlert] = useState(true);
+  const [selectedRecords, setSelectedRecords] = useState({});
+  const [showTransferMode, setShowTransferMode] = useState(false);
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,6 +99,7 @@ const Homepage = () => {
           const fetchedUsers = Object.entries(snapshot.val())
             .filter(([_, user]) => user.role !== "admin")
             .filter(([_, user]) => user.role !== "contador")
+            .filter(([_, user]) => user.role !== "No activo")
             .map(([id, user]) => ({ id, name: user.name }));
           fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
           setUsers(fetchedUsers);
@@ -706,6 +709,104 @@ const Homepage = () => {
     });
   };
 
+  const handleRecordSelection = (recordId, isSelected) => {
+    setSelectedRecords(prev => ({
+      ...prev,
+      [recordId]: isSelected
+    }));
+  };
+
+  const handleSelectAllForSend = (selectAll) => {
+    const newSelectedRecords = {};
+    if (selectAll) {
+      filteredData.forEach(([id]) => {
+        newSelectedRecords[id] = true;
+      });
+    }
+    setSelectedRecords(newSelectedRecords);
+  };
+
+  const sendSelectedRecords = async () => {
+    const selectedIds = Object.keys(selectedRecords).filter(id => selectedRecords[id]);
+    
+    if (selectedIds.length === 0) {
+      Swal.fire("Sin selección", "Debes seleccionar al menos un registro", "warning");
+      return;
+    }
+
+    const selectedData = filteredData.filter(([id]) => selectedIds.includes(id));
+    
+    const result = await Swal.fire({
+      title: "Transferir Registros",
+      html: `
+        <p>¿A dónde deseas enviar los <strong>${selectedIds.length}</strong> registro(s) seleccionado(s)?</p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+          <button id="hoy-btn" disabled style="background:#6c757d;color:white;border:none;padding:10px 20px;border-radius:5px;opacity:0.5;cursor:not-allowed;">Servicios De Hoy</button>
+          <button id="manana-btn" style="background:#007bff;color:white;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;">Servicios De Mañana</button>
+          <button id="pasado-btn" style="background:#007bff;color:white;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;">Servicios De Pasado Mañana</button>
+        </div>
+      `,
+      showCancelButton: true,
+      cancelButtonText: "Cancelar",
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      didOpen: () => {
+        document.getElementById('manana-btn').onclick = () => {
+          Swal.close();
+          processRecordTransfer(selectedData, 'hojamañana').then(() => setSelectedRecords({}));
+        };
+        document.getElementById('pasado-btn').onclick = () => {
+          Swal.close();
+          processRecordTransfer(selectedData, 'hojapasadomañana').then(() => setSelectedRecords({}));
+        };
+      }
+    });
+
+
+  };
+
+  const processRecordTransfer = async (records, targetTable) => {
+    try {
+      for (const [id, record] of records) {
+        const serviceRecord = {
+          realizadopor: record.realizadopor || "",
+          anombrede: record.anombrede || "",
+          direccion: record.direccion || "",
+          servicio: record.servicio || "",
+          cubicos: record.cubicos || "",
+          valor: record.valor || "",
+          pago: record.pago || "",
+          formadepago: record.formadepago || "",
+          banco: record.banco || "",
+          notas: record.notas || "",
+          metododepago: record.metododepago || "",
+          efectivo: record.efectivo || "",
+          factura: record.factura || false
+        };
+        
+        await set(push(ref(database, targetTable)), serviceRecord);
+        await remove(ref(database, `data/${id}`));
+      }
+      
+      const targetName = targetTable === 'hojamañana' ? 'Servicios De Mañana' : 'Servicios De Pasado Mañana';
+      Swal.fire({
+        title: "¡Transferencia Exitosa!",
+        text: `Se enviaron ${records.length} registro(s) a ${targetName}`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire({
+        title: "Error en la transferencia",
+        text: `No se pudieron transferir los registros: ${error.message}`,
+        icon: "error",
+        confirmButtonText: "Entendido"
+      });
+    }
+  };
+
   const TotalServiciosPorTrabajador = () => {
     // 1) Calculamos los totales por trabajador asignado
     const counts = filteredData.reduce((acc, [_, item]) => {
@@ -1055,6 +1156,22 @@ const Homepage = () => {
           <table className="service-table">
             <thead>
               <tr>
+                {showTransferMode && (
+                  <th style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredData.length > 0 &&
+                        filteredData.every(([id]) => selectedRecords[id])
+                      }
+                      onChange={(e) => handleSelectAllForSend(e.target.checked)}
+                      style={{
+                        width: "2.6ch",
+                        height: "2.6ch",
+                      }}
+                    />
+                  </th>
+                )}
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
                 <th className="direccion-fixed-th">Dirección</th>
@@ -1108,6 +1225,21 @@ const Homepage = () => {
                         isDireccionDuplicada ? "direccion-duplicada" : ""
                       }`}
                     >
+                      {showTransferMode && (
+                        <td style={{ textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedRecords[id] || false}
+                            onChange={(e) =>
+                              handleRecordSelection(id, e.target.checked)
+                            }
+                            style={{
+                              width: "2.6ch",
+                              height: "2.6ch",
+                            }}
+                          />
+                        </td>
+                      )}
                       {/* Select para "Realizado Por" */}
                       <td>
                         <select
@@ -1513,7 +1645,7 @@ const Homepage = () => {
                 })
               ) : (
                 <tr className="no-data">
-                  <td colSpan="12">No hay datos disponibles.</td>
+                  <td colSpan={showTransferMode ? "15" : "14"}>No hay datos disponibles.</td>
                 </tr>
               )}
             </tbody>
@@ -1584,9 +1716,10 @@ const Homepage = () => {
           className="button-container"
           style={{
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent: "flex-start",
             alignItems: "center",
             width: "100%",
+            gap: "10px"
           }}
         >
           <button
@@ -1596,6 +1729,27 @@ const Homepage = () => {
           >
             Servicios Por Trabajador
           </button>
+          
+          <button
+            style={{ backgroundColor: showTransferMode ? "#dc3545" : "#28a745" }}
+            onClick={() => {
+              setShowTransferMode(!showTransferMode);
+              setSelectedRecords({});
+            }}
+            className="filter-button"
+          >
+            {showTransferMode ? "Cancelar" : "Trasladar servicios"}
+          </button>
+          
+          {showTransferMode && (
+            <button
+              style={{ backgroundColor: "#17a2b8" }}
+              onClick={sendSelectedRecords}
+              className="filter-button"
+            >
+              Enviar Seleccionados
+            </button>
+          )}
         </div>
       </div>
 

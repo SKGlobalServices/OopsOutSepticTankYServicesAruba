@@ -12,9 +12,6 @@ import {
   child,
   update,
   onValue,
-  query,
-  orderByChild,
-  equalTo,
 } from "firebase/database";
 import { database, auth, provider } from "./Database/firebaseConfig";
 import {
@@ -33,9 +30,7 @@ import { debounce } from "./utils/debounce";
 import LoadingScreen from "./components/LoadingScreen";
 import { useGlobalLoading, setGlobalLoading } from "./utils/useGlobalLoading";
 import {
-  sanitizeForLog,
   validateEmail,
-  validatePassword,
   encryptData,
   decryptData,
   checkRateLimit,
@@ -244,7 +239,7 @@ const App = () => {
     return false; // 02:00 ya abre
   };
 
-  // Auto-refresh cuando la plataforma se abra
+  // // Auto-refresh cuando la plataforma se abra
   useEffect(() => {
     const checkPlatformStatus = () => {
       const wasClosed = localStorage.getItem('platformWasClosed');
@@ -358,14 +353,14 @@ const App = () => {
     }
   }, [blockedUntil]);
 
-  // Mostrar alerta si la plataforma está cerrada al hacer click en inputs o botones
+  // // Mostrar alerta si la plataforma está cerrada al hacer click en inputs o botones
   const handleInputClick = () => {
     if (isPlatformClosed()) {
       showClosedSwal();
     }
   };
 
-  // Mostrar alerta si la plataforma está cerrada al hacer click en botones
+  // // Mostrar alerta si la plataforma está cerrada al hacer click en botones
   const handleButtonClick = (e) => {
     if (isPlatformClosed()) {
       e.preventDefault();

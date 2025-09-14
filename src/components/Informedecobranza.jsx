@@ -1012,7 +1012,7 @@ const Informedecobranza = () => {
                             />
                           </td>
                           <td style={{ textAlign: "center" }}>
-                            {r.saldo !== undefined
+                            AWG {r.saldo !== undefined
                               ? formatMoney(r.saldo)
                               : "0.00"}
                           </td>
@@ -1319,7 +1319,7 @@ const Informedecobranza = () => {
                             fontWeight: "500",
                           }}
                         >
-                          {formatMoney(montoTotal)}
+                          AWG {formatMoney(montoTotal)}
                         </td>
                       </tr>
                     );

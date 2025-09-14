@@ -51,7 +51,6 @@ const Informedeefectivo = () => {
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
-
   // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -1101,6 +1100,7 @@ const Informedeefectivo = () => {
                       <td>
                         <input
                           type="number"
+                          style={{ textAlign:"center"}}
                           value={localValues[`${registro.id}_efectivo`] ?? registro.efectivo ?? ""}
                           onChange={(e) =>
                             setLocalValues(prev => ({
@@ -1127,7 +1127,7 @@ const Informedeefectivo = () => {
                       <td style={{ textAlign: "center" }}>
                         {registro.saldo !== undefined
                           ? registro.saldo.toFixed(2)
-                          : "0.00"}
+                          : "0.00"} AWG
                       </td>
                       <td style={{ minWidth: "28ch" }}>
                         {registro.origin === "informedeefectivo" && (
