@@ -22,6 +22,7 @@ const ServiciosLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#06b6d4"

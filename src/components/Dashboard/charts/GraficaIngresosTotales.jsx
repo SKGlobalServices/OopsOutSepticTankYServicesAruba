@@ -28,12 +28,13 @@ const IngresosTotalesLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x}
       y={y - 8}
       fill="#059669"
       textAnchor="middle"
       fontSize="10"
-      fontWeight="600"
+      fontWeight="700"
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -185,9 +186,13 @@ export const GraficaIngresosTotales = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "#64748b" }}
+              tick={{ fontSize: 12 }}
               axisLine={false}
               tickLine={false}
+              angle={chartData.length > 6 ? -45 : 0}
+              interval={0}
+              textAnchor={chartData.length > 6 ? "end" : "middle"}
+              height={chartData.length > 6 ? 30 : 30}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#64748b" }}

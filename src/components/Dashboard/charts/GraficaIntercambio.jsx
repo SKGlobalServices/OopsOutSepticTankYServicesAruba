@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   LabelList,
 } from "recharts";
 import { useChartData } from "../../../utils/useChartData";
@@ -26,6 +25,7 @@ const IntercambioLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#8b5cf6"
@@ -41,33 +41,60 @@ const IntercambioLabel = (props) => {
 export const GraficaIntercambio = ({ filters }) => {
   const { loading, error, data } = useChartData();
 
+  const chartData = React.useMemo(() => {
+    if (!data?.registroFechas || !data?.data || !filters) return [];
+    return processIntercambiosData(data.registroFechas, data.data, filters);
+  }, [data, filters]);
+
+  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
+  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
+
   if (loading) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="intercambio-chart-loading">Cargando datos...</div>
+      <div className="intercambio-chart-container">
+        <div className="intercambio-chart-title">Intercambios</div>
+        <div className="intercambio-chart-content">
+          <div className="intercambio-chart-loading">
+            Cargando datos de intercambios...
+          </div>
+        </div>
+        <div className="intercambio-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="intercambio-chart-error">Error: {error}</div>
+      <div className="intercambio-chart-container">
+        <div className="intercambio-chart-title">Intercambios</div>
+        <div className="intercambio-chart-content">
+          <div className="intercambio-chart-no-data">
+            <div className="intercambio-chart-no-data-icon">⚠️</div>
+            <div>Error al cargar datos: {error}</div>
+          </div>
+        </div>
+        <div className="intercambio-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
       </div>
     );
   }
 
-  const chartData = processIntercambiosData(
-    data.registroFechas,
-    data.data,
-    filters
-  );
-
   if (!chartData || chartData.length === 0) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="intercambio-chart-no-data">
-          No hay datos de intercambios para los filtros seleccionados
+      <div className="intercambio-chart-container">
+        <div className="intercambio-chart-title">Intercambios</div>
+        <div className="intercambio-chart-content">
+          <div className="intercambio-chart-no-data">
+            <div className="intercambio-chart-no-data-icon">🔄</div>
+            <div>No hay intercambios registrados</div>
+            <div>para el período seleccionado</div>
+          </div>
+        </div>
+        <div className="intercambio-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
         </div>
       </div>
     );
@@ -75,26 +102,23 @@ export const GraficaIntercambio = ({ filters }) => {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const item = payload[0].payload;
       return (
         <div className="intercambio-tooltip">
-          <p className="intercambio-tooltip-title">{label}</p>
-          <p className="intercambio-tooltip-value">
-            {formatTooltip(data.valor, data.cantidad)}
-          </p>
+          <div className="intercambio-tooltip-label">{label}</div>
+          <div className="intercambio-tooltip-value">
+            {formatTooltip(item.valor, item.cantidad)}
+          </div>
         </div>
       );
     }
     return null;
   };
 
-  // Calcular totales
-  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
-  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
-
   return (
     <div className="intercambio-chart-container">
-      {/* Indicador de totales */}
+      <div className="intercambio-chart-title">Intercambios</div>
+
       <div className="intercambio-totals-indicator">
         <div>Total: {formatCurrency(totalValor)}</div>
         <div className="intercambio-totals-count">
@@ -102,36 +126,39 @@ export const GraficaIntercambio = ({ filters }) => {
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={chartData}
-          margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            stroke="#e2e8f0"
-          />
-          <YAxis
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            stroke="#e2e8f0"
-            tickFormatter={(value) => formatCurrency(value)}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Bar
-            dataKey="valor"
-            fill="#8b5cf6"
-            name="Intercambios"
-            radius={[4, 4, 0, 0]}
+      <div className="intercambio-chart-content">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
           >
-            <LabelList content={<IntercambioLabel />} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12 }}
+              interval={0}
+              angle={chartData.length > 6 ? -45 : 0}
+              textAnchor={chartData.length > 6 ? "end" : "middle"}
+              height={chartData.length > 6 ? 60 : 30}
+            />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              allowDecimals={false}
+              tickFormatter={(value) => formatCurrency(value)}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar
+              dataKey="valor"
+              fill="#8b5cf6"
+              radius={[4, 4, 0, 0]}
+              name="Intercambios"
+            >
+              <LabelList content={<IntercambioLabel />} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-      {/* Indicador de filtros activos */}
       <div className="intercambio-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>

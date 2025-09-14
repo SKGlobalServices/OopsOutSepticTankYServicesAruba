@@ -1017,8 +1017,30 @@
   transition: color 0.2s ease;
 }
 
+.chart-bar-label {
+  font-size: 12px !important;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
 /* Estilos globales para mejorar la legibilidad de las gráficas en móviles */
 @media (max-width: 768px) {
+  .chart-bar-label {
+    font-size: 10px !important;
+    paint-order: stroke;
+    stroke: #ffffff;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    pointer-events: none;
+    transform-box: fill-box;
+    transform-origin: 50% 30%;
+    transform: rotate(-45deg);
+  }
+
   .recharts-cartesian-axis-tick-value {
     font-size: 8px !important;
     fill: #64748b !important;

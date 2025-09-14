@@ -38,6 +38,7 @@ const IngresosLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - (isMobile ? 10 : 5)}
       fill="#059669"
@@ -309,9 +310,11 @@ export const GraficaGananciaPerdida = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "#64748b" }}
-              axisLine={false}
-              tickLine={false}
+              tick={{ fontSize: 12 }}
+              interval={0}
+              angle={chartData.length > 6 ? -45 : 0}
+              height={chartData.length > 6 ? 20 : 30}
+              textAnchor={chartData.length > 6 ? "end" : "middle"}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#64748b" }}

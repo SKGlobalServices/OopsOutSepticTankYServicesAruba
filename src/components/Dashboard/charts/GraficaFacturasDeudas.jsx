@@ -27,6 +27,7 @@ const FacturasLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#3b82f6"
@@ -46,6 +47,7 @@ const DeudaLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#f59e0b"

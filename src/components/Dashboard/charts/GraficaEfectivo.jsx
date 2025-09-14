@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   LabelList,
 } from "recharts";
 import { useChartData } from "../../../utils/useChartData";
@@ -26,6 +25,7 @@ const EfectivoLabel = (props) => {
 
   return (
     <text
+      className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#059669"
@@ -41,40 +41,63 @@ const EfectivoLabel = (props) => {
 export const GraficaEfectivo = ({ filters }) => {
   const { loading, error, data } = useChartData();
 
+  // Procesar datos solo cuando existan
+  const chartData = React.useMemo(() => {
+    if (!data?.registroFechas || !data?.data || !filters) return [];
+    return processEfectivoData(data.registroFechas, data.data, filters);
+  }, [data, filters]);
+
+  // Calcular totales (aunque no haya datos para mantener consistencia)
+  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
+  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
+
+  // Estados de carga y error con estructura uniforme
   if (loading) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="efectivo-chart-loading">Cargando datos...</div>
+      <div className="efectivo-chart-container">
+        <div className="efectivo-chart-title">Efectivo</div>
+        <div className="efectivo-chart-content">
+          <div className="efectivo-chart-loading">
+            Cargando datos de efectivo...
+          </div>
+        </div>
+        <div className="efectivo-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="efectivo-chart-error">Error: {error}</div>
+      <div className="efectivo-chart-container">
+        <div className="efectivo-chart-title">Efectivo</div>
+        <div className="efectivo-chart-content">
+          <div className="efectivo-chart-no-data">
+            <div className="efectivo-chart-no-data-icon">⚠️</div>
+            <div>Error al cargar datos: {error}</div>
+          </div>
+        </div>
+        <div className="efectivo-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        </div>
       </div>
     );
   }
 
-  const chartData = processEfectivoData(
-    data.registroFechas,
-    data.data,
-    filters
-  );
-
-  // Debug: Log para ver qué datos tenemos
-  console.log("🔍 Debug Efectivo:", {
-    chartData,
-    chartDataLength: chartData?.length,
-    filters,
-  });
-
   if (!chartData || chartData.length === 0) {
     return (
-      <div className="chart-placeholder-large">
-        <div className="efectivo-chart-no-data">
-          No hay datos de efectivo para los filtros seleccionados
+      <div className="efectivo-chart-container">
+        <div className="efectivo-chart-title">Efectivo</div>
+        <div className="efectivo-chart-content">
+          <div className="efectivo-chart-no-data">
+            <div className="efectivo-chart-no-data-icon">💵</div>
+            <div>No hay efectivo registrado</div>
+            <div>para el período seleccionado</div>
+          </div>
+        </div>
+        <div className="efectivo-filter-indicator">
+          {formatFilterDate(filters?.type, filters?.month, filters?.year)}
         </div>
       </div>
     );
@@ -82,61 +105,61 @@ export const GraficaEfectivo = ({ filters }) => {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const item = payload[0].payload;
       return (
         <div className="efectivo-tooltip">
-          <p className="efectivo-tooltip-title">{label}</p>
-          <p className="efectivo-tooltip-value">
-            {formatTooltip(data.valor, data.cantidad)}
-          </p>
+          <div className="efectivo-tooltip-label">{label}</div>
+          <div className="efectivo-tooltip-value">
+            {formatTooltip(item.valor, item.cantidad)}
+          </div>
         </div>
       );
     }
     return null;
   };
 
-  // Calcular totales
-  const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
-  const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
-
   return (
     <div className="efectivo-chart-container">
-      {/* Indicador de totales */}
+      <div className="efectivo-chart-title">Efectivo</div>
+
       <div className="efectivo-totals-indicator">
         <div>Total: {formatCurrency(totalValor)}</div>
         <div className="efectivo-totals-count">{totalCantidad} registros</div>
       </div>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={chartData}
-          margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            stroke="#e2e8f0"
-          />
-          <YAxis
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            stroke="#e2e8f0"
-            tickFormatter={(value) => formatCurrency(value)}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Bar
-            dataKey="valor"
-            fill="#10b981"
-            name="Efectivo"
-            radius={[4, 4, 0, 0]}
+      <div className="efectivo-chart-content">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
           >
-            <LabelList content={<EfectivoLabel />} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12 }}
+              interval={0}
+              angle={chartData.length > 6 ? -45 : 0}
+              textAnchor={chartData.length > 6 ? "end" : "middle"}
+              height={chartData.length > 6 ? 60 : 30}
+            />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              allowDecimals={false}
+              tickFormatter={(value) => formatCurrency(value)}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar
+              dataKey="valor"
+              fill="#10b981"
+              radius={[4, 4, 0, 0]}
+              name="Efectivo"
+            >
+              <LabelList content={<EfectivoLabel />} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-      {/* Indicador de filtros activos */}
       <div className="efectivo-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>

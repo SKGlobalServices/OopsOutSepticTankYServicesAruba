@@ -1,41 +1,106 @@
-/* Estilos para GraficaTransferencias */
+/* Estilos unificados para GraficaTransferencias (alineado a GraficaServicios) */
 
 .transferencias-chart-container {
   position: relative;
   max-width: 100%;
+  max-height: 100%;
   height: 100%;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.transferencias-chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .transferencias-totals-indicator {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 8px;
+  top: 10px;
+  left: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
   padding: 8px 12px;
   font-size: 12px;
-  font-weight: bold;
-  color: #1e40af;
+  font-weight: 600;
+  color: #1d4ed8;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  text-align: center;
 }
 
 .transferencias-totals-count {
   font-size: 10px;
-  opacity: 0.8;
+  font-weight: 400;
+  color: #64748b;
+  margin-top: 2px;
 }
 
+.transferencias-chart-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.transferencias-chart-loading,
+.transferencias-chart-error,
+.transferencias-chart-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.transferencias-chart-no-data-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* Tooltip */
+.transferencias-tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.transferencias-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #3b82f6;
+}
+.transferencias-tooltip-value {
+  font-weight: 500;
+}
+
+/* Ejes y puntos */
+.recharts-cartesian-axis-tick-value {
+  font-size: 12px;
+  fill: #64748b;
+}
+.recharts-cartesian-axis-line {
+  stroke: #e2e8f0;
+}
+.recharts-cartesian-grid-horizontal line {
+  stroke: #f1f5f9;
+  opacity: 0.5;
+}
+
+/* Filtro */
 .transferencias-filter-indicator {
   position: absolute;
   top: 8px;
@@ -46,103 +111,51 @@
   padding: 4px 8px;
   border-radius: 4px;
   border: 1px solid #e2e8f0;
-  max-width: 150px;
+  z-index: 10;
+  max-width: 160px;
   text-align: right;
 }
 
-.transferencias-tooltip {
-  background: white;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.transferencias-tooltip-title {
-  margin: 0 0 4px 0;
-  font-weight: bold;
-}
-
-.transferencias-tooltip-value {
-  margin: 0;
-  color: #3b82f6;
-}
-
-.transferencias-chart-loading,
-.transferencias-chart-error,
-.transferencias-chart-no-data {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.transferencias-chart-loading {
-  color: #64748b;
-}
-
-.transferencias-chart-error {
-  color: #ef4444;
-}
-
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
   .transferencias-chart-container {
-    min-height: 250px;
-    max-height: 350px;
     padding: 8px;
+    justify-content: space-between;
+    max-height: 100%;
   }
-
-  .transferencias-totals-indicator {
-    font-size: 8px;
-    padding: 4px 6px;
-    min-width: 80px;
+  .transferencias-chart-title {
+    font-size: 12px;
+    margin-bottom: 8px;
   }
-
-  .transferencias-totals-count {
-    font-size: 7px;
+  .transferencias-chart-content {
+    min-height: 120px;
+    max-height: 160px;
   }
-
   .recharts-cartesian-axis-tick-value {
     font-size: 8px;
   }
-
-  /* Asegurar que la gráfica se vea completa */
-  .recharts-wrapper {
-    height: 100% !important;
-    min-height: 200px !important;
+  .transferencias-totals-indicator {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .transferencias-totals-count {
+    font-size: 10px;
+    text-align: center;
+  }
+  .transferencias-totals-indicator {
+    padding: 3px 4px;
+    min-width: 60px;
+    top: 6px;
+    left: 6px;
+    right: auto;
   }
 }
 
 @media (max-width: 480px) {
-  .transferencias-chart-container {
-    min-height: 220px;
-    max-height: 100%;
-    justify-content: space-between;
-
-    padding: 6px;
+  .transferencias-chart-title {
+    font-size: 11px;
   }
-
-  .transferencias-totals-indicator {
-      font-size: 10px;
-      padding: 3px 4px;
-      min-width: 60px;
-      top: 6px;
-      left: 6px;
-      right: auto;
-  }
-
-  .transferencias-totals-count {
-    font-size: 8px;
-  }
-
-  .recharts-cartesian-axis-tick-value {
-    font-size: 7px;
-  }
-
-  /* Asegurar que la gráfica se vea completa en móvil pequeño */
-  .recharts-wrapper {
-    height: 100% !important;
-    min-height: 180px !important;
+  .transferencias-filter-indicator {
+    font-size: 9px;
   }
 }
