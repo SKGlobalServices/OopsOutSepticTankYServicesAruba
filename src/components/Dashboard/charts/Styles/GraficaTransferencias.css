@@ -1,0 +1,161 @@
+/* Estilos unificados para GraficaTransferencias (alineado a GraficaServicios) */
+
+.transferencias-chart-container {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.transferencias-chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.transferencias-totals-indicator {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  z-index: 10;
+}
+
+.transferencias-totals-count {
+  font-size: 10px;
+  font-weight: 400;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.transferencias-chart-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.transferencias-chart-loading,
+.transferencias-chart-error,
+.transferencias-chart-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.transferencias-chart-no-data-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* Tooltip */
+.transferencias-tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.transferencias-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #3b82f6;
+}
+.transferencias-tooltip-value {
+  font-weight: 500;
+}
+
+/* Ejes y puntos */
+.recharts-cartesian-axis-tick-value {
+  font-size: 12px;
+  fill: #64748b;
+}
+.recharts-cartesian-axis-line {
+  stroke: #e2e8f0;
+}
+.recharts-cartesian-grid-horizontal line {
+  stroke: #f1f5f9;
+  opacity: 0.5;
+}
+
+/* Filtro */
+.transferencias-filter-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  z-index: 10;
+  max-width: 160px;
+  text-align: right;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .transferencias-chart-container {
+    padding: 8px;
+    justify-content: space-between;
+    max-height: 100%;
+  }
+  .transferencias-chart-title {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .transferencias-chart-content {
+    min-height: 120px;
+    max-height: 160px;
+  }
+  .recharts-cartesian-axis-tick-value {
+    font-size: 8px;
+  }
+  .transferencias-totals-indicator {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .transferencias-totals-count {
+    font-size: 10px;
+    text-align: center;
+  }
+  .transferencias-totals-indicator {
+    padding: 3px 4px;
+    min-width: 60px;
+    top: 6px;
+    left: 6px;
+    right: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .transferencias-chart-title {
+    font-size: 11px;
+  }
+  .transferencias-filter-indicator {
+    font-size: 9px;
+  }
+}
