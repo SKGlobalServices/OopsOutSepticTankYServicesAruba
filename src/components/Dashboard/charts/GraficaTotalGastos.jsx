@@ -7,6 +7,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import {
@@ -15,6 +16,25 @@ import {
 } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaTotalGastos.css";
+
+// Componente personalizado para etiquetas de gastos
+const GastosLabel = (props) => {
+  const { x, y, width, height, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#dc2626"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado
 const CustomTooltip = ({ active, payload, label }) => {
@@ -114,7 +134,7 @@ export const GraficaTotalGastos = ({ filters }) => {
           <BarChart
             data={chartData}
             margin={{
-              top: 20,
+              top: 30,
               right: 30,
               left: 20,
               bottom: 20,
@@ -143,7 +163,9 @@ export const GraficaTotalGastos = ({ filters }) => {
               fill="#ef4444"
               radius={[4, 4, 0, 0]}
               maxBarSize={60}
-            />
+            >
+              <LabelList content={<GastosLabel />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

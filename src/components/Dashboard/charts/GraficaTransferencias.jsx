@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  LabelList,
 } from "recharts";
 import { useChartData } from "../../../utils/useChartData";
 import {
@@ -18,6 +19,29 @@ import {
 import { getBankShortName } from "../../../utils/bankUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import "./Styles/GraficaTransferencias.css";
+
+// Componente personalizado para etiquetas de transferencias
+const TransferenciasLabel = (props) => {
+  const { x, y, value, index } = props;
+  if (!value || value === 0 || !x || !y || index === undefined) return null;
+
+  // Solo mostrar etiquetas en algunos puntos para evitar saturación
+  const showLabel = index % 2 === 0; // Mostrar cada segunda etiqueta
+  if (!showLabel) return null;
+
+  return (
+    <text
+      x={x}
+      y={y - 8}
+      fill="#3b82f6"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+    </text>
+  );
+};
 
 export const GraficaTransferencias = ({ filters }) => {
   const { loading, error, data } = useChartData();
@@ -86,7 +110,7 @@ export const GraficaTransferencias = ({ filters }) => {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
@@ -114,7 +138,9 @@ export const GraficaTransferencias = ({ filters }) => {
               fill: "white",
             }}
             name="Transferencias"
-          />
+          >
+            <LabelList content={<TransferenciasLabel />} />
+          </Line>
         </LineChart>
       </ResponsiveContainer>
 

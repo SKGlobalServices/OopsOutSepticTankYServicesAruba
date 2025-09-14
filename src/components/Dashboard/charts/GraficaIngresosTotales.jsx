@@ -7,6 +7,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import {
@@ -15,6 +16,29 @@ import {
 } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaIngresosTotales.css";
+
+// Componente personalizado para etiquetas de ingresos totales
+const IngresosTotalesLabel = (props) => {
+  const { x, y, value, index } = props;
+  if (!value || value === 0 || index === undefined) return null;
+
+  // Solo mostrar etiquetas en algunos puntos para evitar saturación
+  const showLabel = index % 2 === 0; // Mostrar cada segunda etiqueta
+  if (!showLabel) return null;
+
+  return (
+    <text
+      x={x}
+      y={y - 8}
+      fill="#059669"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado
 const CustomTooltip = ({ active, payload, label }) => {
@@ -142,7 +166,7 @@ export const GraficaIngresosTotales = ({ filters }) => {
           <AreaChart
             data={chartData}
             margin={{
-              top: 20,
+              top: 30,
               right: 30,
               left: 20,
               bottom: 20,
@@ -178,7 +202,9 @@ export const GraficaIngresosTotales = ({ filters }) => {
               stroke="#10b981"
               strokeWidth={3}
               fill="url(#totalGradient)"
-            />
+            >
+              <LabelList content={<IngresosTotalesLabel />} />
+            </Area>
           </AreaChart>
         </ResponsiveContainer>
       </div>

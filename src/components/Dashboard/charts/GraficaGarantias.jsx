@@ -8,11 +8,31 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import { processGarantiasData } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaGarantias.css";
+
+// Componente personalizado para etiquetas de garantías
+const GarantiasLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#8b5cf6"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado
 const CustomTooltip = ({ active, payload, label }) => {
@@ -109,7 +129,7 @@ export const GraficaGarantias = ({ filters }) => {
           <BarChart
             data={chartData}
             margin={{
-              top: 20,
+              top: 30,
               right: 30,
               left: 20,
               bottom: 5,
@@ -131,7 +151,9 @@ export const GraficaGarantias = ({ filters }) => {
               fill="#8b5cf6"
               radius={[4, 4, 0, 0]}
               name="Garantías"
-            />
+            >
+              <LabelList content={<GarantiasLabel />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

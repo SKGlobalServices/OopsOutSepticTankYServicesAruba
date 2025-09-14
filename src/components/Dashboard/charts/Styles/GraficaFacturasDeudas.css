@@ -174,33 +174,42 @@
 /* Responsive */
 @media (max-width: 768px) {
   .facturas-chart-container {
-    padding: 16px;
+    padding: 8px;
+    max-height: 100%;
+    justify-content: space-between;
+
   }
 
   .facturas-chart-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    text-align: center;
   }
 
   .facturas-chart-title {
-    font-size: 16px;
-    text-align: center;
+    font-size: 10px;
   }
 
   .facturas-totals-summary {
     justify-content: center;
+    padding: 8px 12px;
   }
 
   .facturas-chart-content {
-    min-height: 220px;
+    min-height: 120px;
+    max-height: 160px;
   }
 
   .facturas-total-value {
-    font-size: 16px;
+    font-size: 10px;
   }
 
   .facturas-total-label {
-    font-size: 10px;
+    font-size: 8px;
+  }
+
+  .recharts-cartesian-axis-tick-value {
+    font-size: 8px;
   }
 }

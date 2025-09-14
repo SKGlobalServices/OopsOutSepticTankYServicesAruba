@@ -137,19 +137,42 @@
 /* Responsive */
 @media (max-width: 768px) {
   .servicios-chart-container {
-    padding: 16px;
+    padding: 8px;
+    justify-content: space-between;
+
+    max-height: 100%;
   }
 
   .servicios-chart-title {
-    font-size: 14px;
-    margin-bottom: 12px;
+    font-size: 12px;
+    margin-bottom: 8px;
   }
 
   .servicios-chart-content {
-    min-height: 250px;
+    min-height: 120px;
+    max-height: 160px;
   }
 
   .recharts-cartesian-axis-tick-value {
+    font-size: 8px;
+  }
+
+  .servicios-totals-indicator {
     font-size: 10px;
+    padding: 6px 8px;
+  }
+
+  .servicios-totals-count {
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .servicios-totals-indicator {
+    font-size: 10px;
+    padding: 3px 4px;
+    min-width: 60px;
+    top: 6px;
+    left: 6px;
+    right: auto;
   }
 }

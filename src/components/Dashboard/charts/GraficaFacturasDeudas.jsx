@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import {
@@ -18,6 +19,44 @@ import {
 } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaFacturasDeudas.css";
+
+// Componente personalizado para etiquetas de facturas
+const FacturasLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#3b82f6"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value}
+    </text>
+  );
+};
+
+// Componente personalizado para etiquetas de deuda
+const DeudaLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#f59e0b"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado más limpio
 const CustomTooltip = ({ active, payload, label }) => {
@@ -148,7 +187,7 @@ export const GraficaFacturasDeudas = ({ filters }) => {
           <ComposedChart
             data={chartData}
             margin={{
-              top: 30,
+              top: 35,
               right: 40,
               left: 40,
               bottom: 20,
@@ -196,7 +235,9 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               radius={[3, 3, 0, 0]}
               name="Facturas Pendientes"
               maxBarSize={60}
-            />
+            >
+              <LabelList content={<FacturasLabel />} />
+            </Bar>
             <Bar
               yAxisId="deuda"
               dataKey="deuda"
@@ -204,7 +245,9 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               radius={[3, 3, 0, 0]}
               name="Total Deuda"
               maxBarSize={60}
-            />
+            >
+              <LabelList content={<DeudaLabel />} />
+            </Bar>
           </ComposedChart>
         </ResponsiveContainer>
       </div>

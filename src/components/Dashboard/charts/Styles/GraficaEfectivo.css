@@ -2,8 +2,16 @@
 
 .efectivo-chart-container {
   position: relative;
-  width: 100%;
+  max-width: 100%;
   height: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .efectivo-totals-indicator {
@@ -73,4 +81,69 @@
 
 .efectivo-chart-error {
   color: #ef4444;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .efectivo-chart-container {
+    min-height: 250px;
+    max-height: 350px;
+    padding: 8px;
+  }
+
+  .efectivo-totals-indicator {
+    font-size: 8px;
+    padding: 4px 6px;
+    min-width: 80px;
+  }
+
+  .efectivo-totals-count {
+    font-size: 7px;
+  }
+
+  .recharts-cartesian-axis-tick-value {
+    font-size: 8px;
+  }
+
+  /* Asegurar que la gráfica se vea completa */
+  .recharts-wrapper {
+    height: 100% !important;
+    min-height: 200px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .efectivo-chart-container {
+    max-height: 100%;
+    justify-content: space-between;
+    padding: 6px;
+  }
+
+  .efectivo-chart-content {
+    min-height: 120px;
+    max-height: 160px;
+  }
+
+  .efectivo-totals-indicator {
+    font-size: 10px;
+    padding: 3px 4px;
+    min-width: 60px;
+    top: 6px;
+    left: 6px;
+    right: auto;
+  }
+
+  .efectivo-totals-count {
+    font-size: 8px;
+  }
+
+  .recharts-cartesian-axis-tick-value {
+    font-size: 7px;
+  }
+
+  /* Asegurar que la gráfica se vea completa en móvil pequeño */
+  .recharts-wrapper {
+    height: 100% !important;
+    min-height: 180px !important;
+  }
 }

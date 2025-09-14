@@ -116,27 +116,18 @@ export const Slider1 = () => {
       {/* Gráficas */}
       <div className="charts-grid">
         <div className="chart-item">
-          <div className="chart-item-header">
-            <h3>Ganancia/Pérdida</h3>
-          </div>
           <div className="chart-container-large">
             <GraficaGananciaPerdida filters={filters} />
           </div>
         </div>
 
         <div className="chart-item">
-          <div className="chart-item-header">
-            <h3>Ingresos Totales</h3>
-          </div>
           <div className="chart-container-large">
             <GraficaIngresosTotales filters={filters} />
           </div>
         </div>
 
         <div className="chart-item">
-          <div className="chart-item-header">
-            <h3>Total de Gastos</h3>
-          </div>
           <div className="chart-container-large">
             <GraficaTotalGastos filters={filters} />
           </div>

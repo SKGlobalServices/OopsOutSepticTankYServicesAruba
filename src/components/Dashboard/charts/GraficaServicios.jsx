@@ -8,11 +8,31 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import { processServiciosData } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaServicios.css";
+
+// Componente personalizado para etiquetas de servicios
+const ServiciosLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#06b6d4"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado
 const CustomTooltip = ({ active, payload, label }) => {
@@ -123,7 +143,7 @@ export const GraficaServicios = ({ filters }) => {
           <BarChart
             data={chartData}
             margin={{
-              top: 20,
+              top: 30,
               right: 30,
               left: 20,
               bottom: 5,
@@ -145,7 +165,9 @@ export const GraficaServicios = ({ filters }) => {
               fill="#06b6d4"
               radius={[4, 4, 0, 0]}
               name="Servicios"
-            />
+            >
+              <LabelList content={<ServiciosLabel />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

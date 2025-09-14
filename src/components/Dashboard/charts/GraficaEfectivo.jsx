@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  LabelList,
 } from "recharts";
 import { useChartData } from "../../../utils/useChartData";
 import {
@@ -17,6 +18,25 @@ import {
 } from "../../../utils/chartDataUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import "./Styles/GraficaEfectivo.css";
+
+// Componente personalizado para etiquetas de efectivo
+const EfectivoLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#059669"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="600"
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+    </text>
+  );
+};
 
 export const GraficaEfectivo = ({ filters }) => {
   const { loading, error, data } = useChartData();
@@ -90,7 +110,7 @@ export const GraficaEfectivo = ({ filters }) => {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
@@ -110,7 +130,9 @@ export const GraficaEfectivo = ({ filters }) => {
             fill="#10b981"
             name="Efectivo"
             radius={[4, 4, 0, 0]}
-          />
+          >
+            <LabelList content={<EfectivoLabel />} />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
 

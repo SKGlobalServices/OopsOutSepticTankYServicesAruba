@@ -9,6 +9,8 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
+  Cell,
+  LabelList,
 } from "recharts";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import {
@@ -17,6 +19,120 @@ import {
 } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaGananciaPerdida.css";
+
+// Componente personalizado para etiquetas de ingresos
+const IngresosLabel = (props) => {
+  const { x, y, width, value, index } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Detectar si es móvil basado en el ancho de la ventana
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const isSmallMobile =
+    typeof window !== "undefined" && window.innerWidth <= 480;
+
+  // Ajustar tamaño de fuente según el dispositivo
+  const fontSize = isSmallMobile ? "12" : isMobile ? "13" : "10";
+
+  // En móviles pequeños, mostrar solo cada segundo label para evitar saturación
+  if (isSmallMobile && index !== undefined && index % 2 !== 0) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - (isMobile ? 10 : 5)}
+      fill="#059669"
+      textAnchor="middle"
+      fontSize={fontSize}
+      fontWeight="700"
+      style={{
+        textShadow: isMobile
+          ? "2px 2px 4px rgba(255, 255, 255, 0.9)"
+          : "1px 1px 2px rgba(255, 255, 255, 0.8)",
+        filter: "drop-shadow(1px 1px 2px rgba(0,0,0,0.1))",
+      }}
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+    </text>
+  );
+};
+
+// Componente personalizado para etiquetas de gastos
+const GastosLabel = (props) => {
+  const { x, y, width, value, index } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Detectar si es móvil basado en el ancho de la ventana
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const isSmallMobile =
+    typeof window !== "undefined" && window.innerWidth <= 480;
+
+  // Ajustar tamaño de fuente según el dispositivo
+  const fontSize = isSmallMobile ? "12" : isMobile ? "13" : "10";
+
+  // En móviles pequeños, mostrar solo cada segundo label para evitar saturación
+  if (isSmallMobile && index !== undefined && index % 2 !== 0) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - (isMobile ? 10 : 5)}
+      fill="#dc2626"
+      textAnchor="middle"
+      fontSize={fontSize}
+      fontWeight="700"
+      style={{
+        textShadow: isMobile
+          ? "2px 2px 4px rgba(255, 255, 255, 0.9)"
+          : "1px 1px 2px rgba(255, 255, 255, 0.8)",
+        filter: "drop-shadow(1px 1px 2px rgba(0,0,0,0.1))",
+      }}
+    >
+      {value > 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+    </text>
+  );
+};
+
+// Componente personalizado para etiquetas de ganancia en la línea
+const GananciaLabel = (props) => {
+  const { x, y, payload, index } = props;
+  if (!payload || payload.ganancia === undefined || !x || !y) return null;
+
+  const ganancia = payload.ganancia;
+  const isPositive = ganancia >= 0;
+
+  // Detectar si es móvil basado en el ancho de la ventana
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const isSmallMobile =
+    typeof window !== "undefined" && window.innerWidth <= 480;
+
+  // Ajustar tamaño de fuente según el dispositivo
+  const fontSize = isSmallMobile ? "13" : isMobile ? "14" : "10";
+
+  // En móviles pequeños, mostrar solo cada segundo label
+  if (isSmallMobile && index !== undefined && index % 2 !== 0) return null;
+
+  return (
+    <text
+      x={x}
+      y={y - (isMobile ? 15 : 10)}
+      fill={isPositive ? "#059669" : "#dc2626"}
+      textAnchor="middle"
+      fontSize={fontSize}
+      fontWeight="800"
+      style={{
+        textShadow: isMobile
+          ? "2px 2px 4px rgba(255, 255, 255, 0.9)"
+          : "1px 1px 2px rgba(255, 255, 255, 0.8)",
+        filter: "drop-shadow(1px 1px 2px rgba(0,0,0,0.1))",
+      }}
+    >
+      {isPositive ? "+" : ""}
+      {ganancia > 1000
+        ? `${(ganancia / 1000).toFixed(1)}k`
+        : ganancia.toFixed(0)}
+    </text>
+  );
+};
 
 // Componente de tooltip personalizado
 const CustomTooltip = ({ active, payload, label }) => {
@@ -168,10 +284,22 @@ export const GraficaGananciaPerdida = ({ filters }) => {
           <ComposedChart
             data={chartData}
             margin={{
-              top: 20,
-              right: 30,
-              left: 20,
-              bottom: 20,
+              top:
+                typeof window !== "undefined" && window.innerWidth <= 768
+                  ? 45
+                  : 35,
+              right:
+                typeof window !== "undefined" && window.innerWidth <= 768
+                  ? 35
+                  : 30,
+              left:
+                typeof window !== "undefined" && window.innerWidth <= 768
+                  ? 25
+                  : 20,
+              bottom:
+                typeof window !== "undefined" && window.innerWidth <= 768
+                  ? 25
+                  : 20,
             }}
           >
             <CartesianGrid
@@ -199,14 +327,18 @@ export const GraficaGananciaPerdida = ({ filters }) => {
               name="Ingresos"
               radius={[4, 4, 0, 0]}
               opacity={0.8}
-            />
+            >
+              <LabelList content={<IngresosLabel />} />
+            </Bar>
             <Bar
               dataKey="gastos"
               fill="#ef4444"
               name="Gastos"
               radius={[4, 4, 0, 0]}
               opacity={0.8}
-            />
+            >
+              <LabelList content={<GastosLabel />} />
+            </Bar>
             <Line
               type="monotone"
               dataKey="ganancia"
@@ -215,7 +347,9 @@ export const GraficaGananciaPerdida = ({ filters }) => {
               name="Ganancia Neta"
               dot={{ fill: "#6366f1", strokeWidth: 2, r: 5 }}
               activeDot={{ r: 7, stroke: "#6366f1", strokeWidth: 2 }}
-            />
+            >
+              <LabelList content={<GananciaLabel />} />
+            </Line>
           </ComposedChart>
         </ResponsiveContainer>
       </div>
