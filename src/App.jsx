@@ -60,14 +60,14 @@ const App = () => {
   const globalLoading = useGlobalLoading();
 
   // === Helper centralizado para el Swal de plataforma cerrada
-  const showClosedSwal = useCallback(() => {
-    Swal.fire({
-      icon: "warning",
-      title: "Plataforma Cerrada",
-      text: "La plataforma está cerrada de 11:30 PM a 2:00 AM. Vuelve después de las 2:00 AM.",
-      confirmButtonText: "Entendido",
-    });
-  }, []);
+  // const showClosedSwal = useCallback(() => {
+  //   Swal.fire({
+  //     icon: "warning",
+  //     title: "Plataforma Cerrada",
+  //     text: "La plataforma está cerrada de 11:30 PM a 2:00 AM. Vuelve después de las 2:00 AM.",
+  //     confirmButtonText: "Entendido",
+  //   });
+  // }, []);
 
   // Logout por inactividad
   const handleInactivityLogout = useCallback(async () => {
@@ -361,7 +361,7 @@ const App = () => {
   // Mostrar alerta si la plataforma está cerrada al hacer click en inputs o botones
   const handleInputClick = () => {
     if (isPlatformClosed()) {
-      showClosedSwal();
+      // showClosedSwal();
     }
   };
 
@@ -369,7 +369,7 @@ const App = () => {
   const handleButtonClick = (e) => {
     if (isPlatformClosed()) {
       e.preventDefault();
-      showClosedSwal();
+      // showClosedSwal();
     }
   };
 
@@ -387,11 +387,11 @@ const App = () => {
 
   // Login con Google
   const handleGoogleLogin = async () => {
-    if (isPlatformClosed()) {
-      showClosedSwal();
-      setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
-      return;
-    }
+    // if (isPlatformClosed()) {
+    //   showClosedSwal();
+    //   setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
+    //   return;
+    // }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
       setMessage(
@@ -543,11 +543,11 @@ const App = () => {
   // Submit del formulario
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (isPlatformClosed()) {
-      showClosedSwal();
-      setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
-      return;
-    }
+    // if (isPlatformClosed()) {
+    //   showClosedSwal();
+    //   setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
+    //   return;
+    // }
     if (blockedUntil && new Date() < blockedUntil) {
       const sec = Math.ceil((blockedUntil - new Date()) / 1000);
       setMessage(
@@ -674,7 +674,7 @@ const App = () => {
             if (!isPlatformClosed()) {
               handleGoogleLogin();
             } else {
-              showClosedSwal();
+              // showClosedSwal();
             }
           }}
           // No deshabilitar por cierre; el handler lo controla
