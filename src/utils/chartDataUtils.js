@@ -814,14 +814,6 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
     source: "facturas",
   }));
 
-  // Debug: Log para ver qué datos tenemos
-  console.log("🔍 Debug Facturas - Datos:", {
-    facturasCount: Object.keys(facturas).length,
-    facturasRecordsCount: facturasRecords.length,
-    sampleRecords: facturasRecords.slice(0, 3),
-    filters,
-  });
-
   const facturasEmitidas = facturasRecords.filter((record) => {
     const pago = (record.pago || "").toLowerCase().trim();
     const deuda = parseFloat(record.deuda) || 0;
@@ -829,19 +821,8 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
     return (!pago || pago === "debe" || pago === "pendiente") && deuda > 0;
   });
 
-  console.log(
-    "🔍 Facturas pendientes encontradas (sin fechapago + deuda > 0):",
-    facturasEmitidas.length,
-    facturasEmitidas.slice(0, 3)
-  );
-
   // Filtrar por fecha usando fechaEmision
   const filteredFacturas = filterFacturasByDateRange(facturasEmitidas, filters);
-  console.log(
-    "🔍 Facturas después de filtrar por fecha:",
-    filteredFacturas.length,
-    "registros encontrados"
-  );
 
   // Procesar datos según el tipo de filtro
   let result;
@@ -859,8 +840,6 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
     // Fallback para filtros antiguos
     result = processFacturasByMonths(filteredFacturas, filters.year);
   }
-
-  console.log("🔍 Resultado final facturas:", result);
   return result;
 };
 
@@ -1108,12 +1087,6 @@ export const formatTooltip = (value, cantidad) => {
  * @returns {Array} Array de datos procesados para gráfica de gastos
  */
 export const processGastosData = (gastos = {}, filters = {}) => {
-  console.log("=== DEBUG processGastosData ===");
-  console.log("Gastos recibidos:", gastos);
-  console.log("Tipo de gastos:", typeof gastos);
-  console.log("Es array?", Array.isArray(gastos));
-  console.log("Keys de gastos:", Object.keys(gastos));
-  console.log("Filtros aplicados:", filters);
 
   // Convertir el objeto de gastos a array si no es array
   let gastosArray;
@@ -1299,23 +1272,11 @@ export const processGananciaPerdidaData = (
  * @returns {Array} Gastos filtrados
  */
 const filterGastosByDateRange = (records, filters) => {
-  console.log("=== DEBUG filterGastosByDateRange ===");
-  console.log("Records a filtrar:", records.length);
-  console.log("Filtros:", filters);
 
   const filteredResults = records.filter((record) => {
     const fecha = record.fecha;
-    console.log(
-      "Procesando gasto ID:",
-      record.id,
-      "con fecha:",
-      fecha,
-      "tipo:",
-      typeof fecha
-    );
 
     if (!fecha) {
-      console.log("Gasto sin fecha, descartado");
       return false;
     }
 
@@ -1355,45 +1316,27 @@ const filterGastosByDateRange = (records, filters) => {
       }
 
       if (isNaN(gastoDate.getTime())) {
-        console.log("Fecha inválida después del parseo:", fecha);
         return false;
       }
 
       gastoMonth = gastoDate.getMonth() + 1;
       gastoYear = gastoDate.getFullYear();
 
-      console.log(
-        "Fecha parseada exitosamente:",
-        gastoDate,
-        `(${gastoMonth}/${gastoYear})`
-      );
     } catch (error) {
-      console.log("Error parseando fecha:", error, "fecha original:", fecha);
       return false;
     }
-
-    console.log(
-      `Comparando: gasto(${gastoMonth}/${gastoYear}) vs filtro(${filters.month}/${filters.year})`
-    );
 
     if (filters.type === "semanas") {
       const shouldInclude =
         gastoMonth === filters.month && gastoYear === filters.year;
-      console.log("Resultado filtro semanas:", shouldInclude);
       return shouldInclude;
     } else if (filters.type === "meses") {
       const shouldInclude = gastoYear === filters.year;
-      console.log("Resultado filtro meses:", shouldInclude);
       return shouldInclude;
     } else {
-      // Para vista por años, incluir todos los registros
-      console.log("Resultado filtro años: true (incluir todo)");
       return true;
     }
   });
-
-  console.log("Total filtrados:", filteredResults.length);
-  console.log("=== FIN DEBUG filterGastosByDateRange ===");
 
   return filteredResults;
 };
@@ -1406,8 +1349,6 @@ const filterGastosByDateRange = (records, filters) => {
  * @returns {Array} Datos agrupados por semanas
  */
 const processGastosByWeeks = (records, month, year) => {
-  console.log("=== DEBUG processGastosByWeeks ===");
-  console.log("Records:", records.length, "Month:", month, "Year:", year);
 
   const weeks = {
     "Semana 1": 0,
@@ -1417,13 +1358,11 @@ const processGastosByWeeks = (records, month, year) => {
   };
 
   records.forEach((gasto, index) => {
-    console.log(`Procesando gasto ${index + 1}:`, gasto);
+
     const fecha = gasto.fecha;
     const monto = parseFloat(gasto.monto) || 0;
-    console.log(`Fecha: ${fecha}, Monto: ${monto}`);
 
     if (!fecha) {
-      console.log("Gasto sin fecha, saltando");
       return;
     }
 
@@ -1455,11 +1394,11 @@ const processGastosByWeeks = (records, month, year) => {
       }
 
       if (isNaN(gastoDate.getTime())) {
-        console.log("Fecha inválida:", fecha);
+        console.error("Fecha inválida:", fecha);
         return;
       }
     } catch (error) {
-      console.log("Error parseando fecha:", error);
+      console.error("Error parseando fecha:", error);
       return;
     }
 
@@ -1467,7 +1406,6 @@ const processGastosByWeeks = (records, month, year) => {
     const gastoYear = gastoDate.getFullYear();
     const day = gastoDate.getDate();
 
-    console.log(`Gasto: ${monto} en fecha ${day}/${gastoMonth}/${gastoYear}`);
 
     if (gastoMonth === month && gastoYear === year) {
       let weekKey;
@@ -1476,10 +1414,8 @@ const processGastosByWeeks = (records, month, year) => {
       else if (day <= 21) weekKey = "Semana 3";
       else weekKey = "Semana 4";
 
-      console.log(`Agregando ${monto} a ${weekKey}`);
-      weeks[weekKey] += monto;
     } else {
-      console.log(
+      console.error(
         `Gasto no coincide con filtro: ${gastoMonth}/${gastoYear} vs ${month}/${year}`
       );
     }
@@ -1539,8 +1475,6 @@ const processGastosByWeeks = (records, month, year) => {
     }).length,
   }));
 
-  console.log("Resultado processGastosByWeeks:", result);
-  console.log("=== FIN DEBUG processGastosByWeeks ===");
   return result;
 };
 

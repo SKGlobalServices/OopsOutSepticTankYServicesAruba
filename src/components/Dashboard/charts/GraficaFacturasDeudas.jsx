@@ -86,17 +86,6 @@ const CustomTooltip = ({ active, payload, label }) => {
 export const GraficaFacturasDeudas = ({ filters }) => {
   const { data, loading, error } = useChartData();
 
-  // Debug: mostrar qué datos estamos recibiendo
-  React.useEffect(() => {
-    console.log("🔍 GraficaFacturasDeudas - Estado del hook:", {
-      loading,
-      error,
-      dataStructure: data,
-      facturasFromData: data?.facturas ? Object.keys(data.facturas).length : 0,
-      filters,
-    });
-  }, [data, loading, error, filters]);
-
   // Procesar datos solo cuando tenemos información y filtros
   const chartData = React.useMemo(() => {
     if (!data?.facturas || !filters) return [];

@@ -22,7 +22,7 @@ const ServiciosLabel = (props) => {
 
   return (
     <text
-      className="chart-bar-label"
+    className="chart-bar-label"
       x={x + width / 2}
       y={y - 5}
       fill="#06b6d4"
@@ -53,20 +53,6 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export const GraficaServicios = ({ filters }) => {
   const { registroFechas, data, loading, error } = useChartData();
-
-  // Debug: mostrar qué datos estamos recibiendo
-  React.useEffect(() => {
-    console.log("🔍 GraficaServicios - Estado del hook:", {
-      loading,
-      error,
-      dataStructure: data,
-      registroFechasFromData: data?.registroFechas
-        ? Object.keys(data.registroFechas).length
-        : 0,
-      dataTableFromData: data?.data ? Object.keys(data.data).length : 0,
-      filters,
-    });
-  }, [registroFechas, data, loading, error, filters]);
 
   // Procesar datos solo cuando tenemos información y filtros
   const chartData = React.useMemo(() => {

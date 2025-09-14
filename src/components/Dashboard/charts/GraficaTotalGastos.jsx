@@ -60,7 +60,6 @@ export const GraficaTotalGastos = ({ filters }) => {
   // Procesar datos solo cuando tenemos información y filtros
   const chartData = React.useMemo(() => {
     const processed = processGastosData(data.gastos, filters);
-    console.log("Datos procesados en memo:", processed);
     return processed;
   }, [data, filters]);
 

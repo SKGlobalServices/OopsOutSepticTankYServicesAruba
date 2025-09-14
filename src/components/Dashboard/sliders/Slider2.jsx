@@ -39,7 +39,8 @@ export const Slider2 = () => {
   const [intercambioYear, setIntercambioYear] = useState(getCurrentYear());
 
   const months = getMonths();
-  const bancos = getArubanBanks();
+  // Bancos dinámicos desde los datos (si no hay data, fallback interno)
+  const bancos = React.useMemo(() => getArubanBanks(data), [data]);
 
   // Usar años dinámicos si están disponibles, sino generar con datos disponibles
   const years =

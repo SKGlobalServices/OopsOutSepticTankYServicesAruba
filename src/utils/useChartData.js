@@ -94,7 +94,6 @@ export const useChartData = () => {
 
     // Cargar datos de gastos
     const gastosRef = ref(database, "gastos");
-    console.log("gastosRef:", gastosRef);
     const unsubscribeGastos = onValue(gastosRef, (snapshot) => {
       try {
         if (snapshot.exists()) {
