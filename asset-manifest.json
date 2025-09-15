@@ -1,14 +1,13 @@
 {
   "files": {
-    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.3dd3ea23.css",
-    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.09b15842.js",
+    "main.css": "/OopsOutSepticTankYServicesAruba/static/css/main.81e62323.css",
+    "main.js": "/OopsOutSepticTankYServicesAruba/static/js/main.1a36870c.js",
     "static/js/361.be0d1f04.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js",
     "static/js/673.74e5dd47.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/673.74e5dd47.chunk.js",
     "static/js/767.75df2bb6.chunk.js": "/OopsOutSepticTankYServicesAruba/static/js/767.75df2bb6.chunk.js",
     "static/media/background.png": "/OopsOutSepticTankYServicesAruba/static/media/background.eb73f45ee6cecd0aa928.png",
     "static/media/logosolo.png": "/OopsOutSepticTankYServicesAruba/static/media/logosolo.28f62e0ec3fc97885507.png",
     "static/media/logo.png": "/OopsOutSepticTankYServicesAruba/static/media/logo.1e56a67ef92f97782d15.png",
-    "static/media/informeEfectivoIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/informeEfectivoIcon.69b1ca1120e3e2bc1dc1.jpg",
     "static/media/iconeye.jpg": "/OopsOutSepticTankYServicesAruba/static/media/iconeye.ad44a731dd56d3309e79.jpg",
     "static/media/CentraNo2-Bold.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Bold.2faff7f7d3fc92a2fcd9.ttf",
     "static/media/CentraNo2-Medium.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Medium.f94be5b326d78bb32b95.ttf",
@@ -16,11 +15,8 @@
     "static/media/CentraNo2-Book.ttf": "/OopsOutSepticTankYServicesAruba/static/media/CentraNo2-Book.2b143fa4b734a3584043.ttf",
     "static/media/pdf_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/pdf_icon.561433d01fc95dd77c93.jpg",
     "static/media/guardarfactura_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/guardarfactura_icon.44575958d62580119a8f.jpg",
-    "static/media/servicioMananaIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioMananaIcon.b08bcd4adc6dd09e84ab.jpg",
-    "static/media/servicioHoyIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/servicioHoyIcon.21758e3cb563e009107b.jpg",
     "static/media/informeEfectivoIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/informeEfectivoIcon2.08461b0fca0dc57bb3b9.png",
     "static/media/barra_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/barra_icon.b4796c2cb9f5e0086dd6.jpg",
-    "static/media/logoutIcon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/logoutIcon.4cd0d3461523c94ab90d.jpg",
     "static/media/agendarIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/agendarIcon2.5eeb0023bfc65b0748b7.png",
     "static/media/filters_icon.jpg": "/OopsOutSepticTankYServicesAruba/static/media/filters_icon.5e8b4eddfcc47788601e.jpg",
     "static/media/reprogramacionIcon2.png": "/OopsOutSepticTankYServicesAruba/static/media/reprogramacionIcon2.38cee6993543a866becc.png",
@@ -36,13 +32,13 @@
     "static/media/lock_on.png": "/OopsOutSepticTankYServicesAruba/static/media/lock_on.7dfc5090dae103303504.png",
     "static/media/agendamientosfuturos_icon.png": "/OopsOutSepticTankYServicesAruba/static/media/agendamientosfuturos_icon.04267b5cf4b647977e98.png",
     "index.html": "/OopsOutSepticTankYServicesAruba/index.html",
-    "main.3dd3ea23.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.3dd3ea23.css.map",
-    "main.09b15842.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.09b15842.js.map",
+    "main.81e62323.css.map": "/OopsOutSepticTankYServicesAruba/static/css/main.81e62323.css.map",
+    "main.1a36870c.js.map": "/OopsOutSepticTankYServicesAruba/static/js/main.1a36870c.js.map",
     "361.be0d1f04.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/361.be0d1f04.chunk.js.map",
     "767.75df2bb6.chunk.js.map": "/OopsOutSepticTankYServicesAruba/static/js/767.75df2bb6.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.3dd3ea23.css",
-    "static/js/main.09b15842.js"
+    "static/css/main.81e62323.css",
+    "static/js/main.1a36870c.js"
   ]
 }
