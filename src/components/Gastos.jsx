@@ -38,13 +38,26 @@ const Gastos = () => {
           setCargando(false);
           return;
         }
+
         const val = snap.val();
         const lista = Object.entries(val).map(([id, r]) => ({ id, ...r }));
+
         lista.forEach((g) => {
-          if (!g.fecha)
-            g.fecha = formatearFecha(new Date(g.timestamp || Date.now()));
+          if (!g.fecha) {
+            // ✅ Calcula la fecha en dd-MM-yyyy
+            const calculada = formatearFecha(
+              new Date(g.timestamp || Date.now())
+            );
+            g.fecha = calculada;
+
+            // ✅ Persiste en Firebase para uniformidad
+            set(ref(database, `gastos/${g.id}/fecha`), calculada);
+          }
         });
+
+        // Ordenar por timestamp descendente
         lista.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
         setGastos(lista);
         setCargando(false);
       });
