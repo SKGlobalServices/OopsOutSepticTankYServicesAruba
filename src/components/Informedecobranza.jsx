@@ -91,7 +91,6 @@ const Informedecobranza = () => {
   const [efectivoRows, setEfectivoRows] = useState([]);
   const [clients, setClients] = useState([]);
 
-
   // Estado para conteo de efectivo
   const [conteoEfectivo, setConteoEfectivo] = useState({});
 
@@ -286,98 +285,130 @@ const Informedecobranza = () => {
   // ======================
   // MOVERS - Mover datos entre tablas (optimizados)
   // ======================
-  const move1to2 = useCallback(async (rowId) => {
-    const row = pendientesRows.find((r) => r.id === rowId);
-    if (!row) return;
-    
-    const newRef = push(ref(database, "cobranzaconfirmacion"));
-    await Promise.all([
-      set(newRef, {
-        direccion: (row.direccion || "").trim(),
-        valor: (row.valor || "").toString().trim(),
-        notas: (row.notas || "").trim(),
-        timestamp: new Date().toISOString(),
-      }),
-      set(ref(database, `cobranzapendientes/${rowId}`), null)
-    ]);
-  }, [pendientesRows]);
+  const move1to2 = useCallback(
+    async (rowId) => {
+      const row = pendientesRows.find((r) => r.id === rowId);
+      if (!row) return;
 
-  const move2to3 = useCallback(async (rowId) => {
-    const row = confirmacionRows.find((r) => r.id === rowId);
-    if (!row) return;
-    
-    const newRef = push(ref(database, "cobranzaefectivo"));
-    await Promise.all([
-      set(newRef, {
-        direccion: (row.direccion || "").trim(),
-        valor: (row.valor || "").toString().trim(),
-        notas: (row.notas || "").trim(),
-        fecha: fmtHoy(),
-        timestamp: new Date().toISOString(),
-      }),
-      set(ref(database, `cobranzaconfirmacion/${rowId}`), null)
-    ]);
-  }, [confirmacionRows]);
+      const newRef = push(ref(database, "cobranzaconfirmacion"));
+      await Promise.all([
+        set(newRef, {
+          direccion: (row.direccion || "").trim(),
+          valor: (row.valor || "").toString().trim(),
+          notas: (row.notas || "").trim(),
+          timestamp: new Date().toISOString(),
+        }),
+        set(ref(database, `cobranzapendientes/${rowId}`), null),
+      ]);
+    },
+    [pendientesRows]
+  );
 
-  const move2to1 = useCallback(async (rowId) => {
-    const row = confirmacionRows.find((r) => r.id === rowId);
-    if (!row) return;
-    
-    const newRef = push(ref(database, "cobranzapendientes"));
-    await Promise.all([
-      set(newRef, {
-        direccion: (row.direccion || "").trim(),
-        valor: (row.valor || "").toString().trim(),
-        notas: (row.notas || "").trim(),
-        timestamp: new Date().toISOString(),
-      }),
-      set(ref(database, `cobranzaconfirmacion/${rowId}`), null)
-    ]);
-  }, [confirmacionRows]);
+  const move2to3 = useCallback(
+    async (rowId) => {
+      const row = confirmacionRows.find((r) => r.id === rowId);
+      if (!row) return;
 
-  const move3to2 = useCallback(async (rowId) => {
-    const row = efectivoRows.find((r) => r.id === rowId);
-    if (!row) return;
-    
-    const newRef = push(ref(database, "cobranzaconfirmacion"));
-    await Promise.all([
-      set(newRef, {
-        direccion: (row.direccion || "").trim(),
-        valor: (row.valor || "").toString().trim(),
-        notas: (row.notas || "").trim(),
-        timestamp: new Date().toISOString(),
-      }),
-      set(ref(database, `cobranzaefectivo/${rowId}`), null)
-    ]);
-  }, [efectivoRows]);
+      const newRef = push(ref(database, "cobranzaefectivo"));
+      await Promise.all([
+        set(newRef, {
+          direccion: (row.direccion || "").trim(),
+          valor: (row.valor || "").toString().trim(),
+          notas: (row.notas || "").trim(),
+          fecha: fmtHoy(),
+          timestamp: new Date().toISOString(),
+        }),
+        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+      ]);
+    },
+    [confirmacionRows]
+  );
+
+  const move2to1 = useCallback(
+    async (rowId) => {
+      const row = confirmacionRows.find((r) => r.id === rowId);
+      if (!row) return;
+
+      const newRef = push(ref(database, "cobranzapendientes"));
+      await Promise.all([
+        set(newRef, {
+          direccion: (row.direccion || "").trim(),
+          valor: (row.valor || "").toString().trim(),
+          notas: (row.notas || "").trim(),
+          timestamp: new Date().toISOString(),
+        }),
+        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+      ]);
+    },
+    [confirmacionRows]
+  );
+
+  const move3to2 = useCallback(
+    async (rowId) => {
+      const row = efectivoRows.find((r) => r.id === rowId);
+      if (!row) return;
+
+      const newRef = push(ref(database, "cobranzaconfirmacion"));
+      await Promise.all([
+        set(newRef, {
+          direccion: (row.direccion || "").trim(),
+          valor: (row.valor || "").toString().trim(),
+          notas: (row.notas || "").trim(),
+          timestamp: new Date().toISOString(),
+        }),
+        set(ref(database, `cobranzaefectivo/${rowId}`), null),
+      ]);
+    },
+    [efectivoRows]
+  );
 
   // ======================
   // CRUD / Guardado optimizado
   // ======================
-  const saveField = useCallback(async (rowId, field, value, table = "pendientes") => {
-    const tableName = table === "pendientes" ? "cobranzapendientes" : 
-                     table === "confirmacion" ? "cobranzaconfirmacion" : "cobranzaefectivo";
-    
-    await update(ref(database, `${tableName}/${rowId}`), { [field]: value ?? "" });
-  }, []);
+  const saveField = useCallback(
+    async (rowId, field, value, table = "pendientes") => {
+      const tableName =
+        table === "pendientes"
+          ? "cobranzapendientes"
+          : table === "confirmacion"
+          ? "cobranzaconfirmacion"
+          : "cobranzaefectivo";
+
+      await update(ref(database, `${tableName}/${rowId}`), {
+        [field]: value ?? "",
+      });
+    },
+    []
+  );
 
   // Handlers optimizados
-  const handleTextBlur = useCallback((rowId, field, table = "pendientes") => (e) => {
-    const v = (e.target.value || "").trim();
-    saveField(rowId, field, v, table);
-  }, [saveField]);
+  const handleTextBlur = useCallback(
+    (rowId, field, table = "pendientes") =>
+      (e) => {
+        const v = (e.target.value || "").trim();
+        saveField(rowId, field, v, table);
+      },
+    [saveField]
+  );
 
-  const handleMoneyBlur = useCallback((rowId, field, table = "pendientes") => (e) => {
-    const parsed = parseMoney(e.target.value);
-    saveField(rowId, field, parsed, table);
-  }, [saveField]);
+  const handleMoneyBlur = useCallback(
+    (rowId, field, table = "pendientes") =>
+      (e) => {
+        const parsed = parseMoney(e.target.value);
+        saveField(rowId, field, parsed, table);
+      },
+    [saveField]
+  );
 
-  const handleDateBlur = useCallback((rowId) => (e) => {
-    const newDmy = inputToDmy(e.target.value);
-    if (newDmy) {
-      saveField(rowId, "fecha", newDmy, "efectivo");
-    }
-  }, [saveField]);
+  const handleDateBlur = useCallback(
+    (rowId) => (e) => {
+      const newDmy = inputToDmy(e.target.value);
+      if (newDmy) {
+        saveField(rowId, "fecha", newDmy, "efectivo");
+      }
+    },
+    [saveField]
+  );
 
   // Crear registro nuevo
   const addData = useCallback(async () => {
@@ -402,8 +433,12 @@ const Informedecobranza = () => {
       cancelButtonText: "No",
     }).then((result) => {
       if (result.isConfirmed) {
-        const tableName = table === "pendientes" ? "cobranzapendientes" : 
-                         table === "confirmacion" ? "cobranzaconfirmacion" : "cobranzaefectivo";
+        const tableName =
+          table === "pendientes"
+            ? "cobranzapendientes"
+            : table === "confirmacion"
+            ? "cobranzaconfirmacion"
+            : "cobranzaefectivo";
         set(ref(database, `${tableName}/${rowId}`), null);
       }
     });
@@ -412,7 +447,7 @@ const Informedecobranza = () => {
   // Opciones de dirección para filtro
   const dir3Options = useMemo(() => {
     const dirs = new Set();
-    efectivoRows.forEach(r => {
+    efectivoRows.forEach((r) => {
       const dir = (r.direccion || "").trim();
       if (dir) dirs.add(dir);
     });
@@ -422,16 +457,22 @@ const Informedecobranza = () => {
   // Filtros y cálculo de saldo optimizado
   const computedEfectivoRows = useMemo(() => {
     let filtered = efectivoRows;
-    
+
     // Aplicar filtros
     if (dir3Filter || montoFilter || notasFilter || dateFrom || dateTo) {
       const from = startOfDay(dateFrom);
       const to = endOfDay(dateTo);
-      
+
       filtered = efectivoRows.filter((r) => {
-        if (dir3Filter && (r.direccion || "").trim() !== dir3Filter) return false;
-        if (montoFilter && !(r.valor || "").toString().includes(montoFilter)) return false;
-        if (notasFilter && !(r.notas || "").toLowerCase().includes(notasFilter.toLowerCase())) return false;
+        if (dir3Filter && (r.direccion || "").trim() !== dir3Filter)
+          return false;
+        if (montoFilter && !(r.valor || "").toString().includes(montoFilter))
+          return false;
+        if (
+          notasFilter &&
+          !(r.notas || "").toLowerCase().includes(notasFilter.toLowerCase())
+        )
+          return false;
         if (from || to) {
           const d = parseDMY(r.fecha);
           if (!d || (from && d < from) || (to && d > to)) return false;
@@ -447,7 +488,9 @@ const Informedecobranza = () => {
       if (!dateA && !dateB) return 0;
       if (!dateA) return 1;
       if (!dateB) return -1;
-      return dateA - dateB || (new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+      return (
+        dateA - dateB || new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+      );
     });
 
     let balance = 0;
@@ -517,7 +560,7 @@ const Informedecobranza = () => {
 
   const handleConteoChange = useCallback((tipo, cantidad) => {
     const newCantidad = Number(cantidad) || 0;
-    setConteoEfectivo(prev => {
+    setConteoEfectivo((prev) => {
       const newConteo = { ...prev, [tipo]: newCantidad };
       set(ref(database, "cobranzaefectivototal"), newConteo);
       return newConteo;
@@ -530,25 +573,37 @@ const Informedecobranza = () => {
   }, [dir3Filter, dateFrom, dateTo, montoFilter, notasFilter]);
 
   // Totales optimizados
-  const totalPendientes = useMemo(() => 
-    pendientesRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0), [pendientesRows]);
+  const totalPendientes = useMemo(
+    () => pendientesRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0),
+    [pendientesRows]
+  );
 
-  const totalConfirmacion = useMemo(() => 
-    confirmacionRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0), [confirmacionRows]);
+  const totalConfirmacion = useMemo(
+    () => confirmacionRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0),
+    [confirmacionRows]
+  );
 
-  const totalEfectivo = useMemo(() => 
-    computedEfectivoRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0), [computedEfectivoRows]);
+  const totalEfectivo = useMemo(
+    () =>
+      computedEfectivoRows.reduce((sum, r) => sum + (Number(r.valor) || 0), 0),
+    [computedEfectivoRows]
+  );
 
   const totalConteoEfectivo = useMemo(() => {
     let total = 0;
     Object.entries(conteoEfectivo).forEach(([tipo, cantidad]) => {
-      const valor = tipo === "050" ? 0.5 : tipo === "025" ? 0.25 : tipo === "010" ? 0.1 : Number(tipo);
+      const valor =
+        tipo === "050"
+          ? 0.5
+          : tipo === "025"
+          ? 0.25
+          : tipo === "010"
+          ? 0.1
+          : Number(tipo);
       total += valor * Number(cantidad);
     });
     return total;
   }, [conteoEfectivo]);
-
-
 
   const clearFilters = useCallback(() => {
     setDir3Filter("");
@@ -562,11 +617,57 @@ const Informedecobranza = () => {
   // Direcciones para datalist
   const direccionChoices = useMemo(() => {
     const dirs = new Set();
-    clients.forEach(c => {
+    clients.forEach((c) => {
       if (c.direccion) dirs.add(c.direccion);
     });
     return [...dirs].sort();
   }, [clients]);
+
+  // CSS embebido (no requiere archivo externo)
+  const styles = `
+    /* Utils */
+    .text-center { text-align: center; }
+
+    /* Row contenedor de tablas */
+    .tables-row { display: flex; flex-direction: row; gap: 20px; }
+
+    /* Tarjeta de paginación */
+    .pagination-card { margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; }
+    .pagination-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .page-info { color: #495057; font-size: 14px; font-weight: 500; }
+    .page-size { display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px 12px; border-radius: 6px; border: 1px solid #dee2e6; }
+    .pagination-bottom { display: flex; justify-content: center; align-items: center; gap: 6px; }
+    .page-btn { padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; background: #fff; color: #495057; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .page-btn[disabled] { background: #f8f9fa; color: #6c757d; cursor: not-allowed; }
+    .page-status { padding: 8px 16px; background: #007bff; color: #fff; border-radius: 6px; font-size: 14px; font-weight: 600; min-width: 120px; text-align: center; }
+
+    /* Inputs / Selects */
+    .input, .select { width: 100%; padding: 6px 8px; font-size: 12px; border-radius: 4px; background: #fff; box-sizing: border-box; }
+    .input-sm, .select-sm { padding: 4px 6px; font-size: 12px; }
+    .input-center { text-align: center; }
+    .input-dir { min-width: 140px; }
+    .input-notes { min-width: 100px; }
+    .input-date { width: 100%; min-width: 120px; }
+
+    /* Botones (reutilizamos tus clases) */
+    .filter-button, .delete-button, .discard-filter-button, .create-table-button {
+      border: none; color: #fff; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-weight: 600;
+    }
+    .filter-button { background: #007bff; }
+    .delete-button { background: #dc3545; }
+    .discard-filter-button { background: #6c757d; }
+    .create-table-button { background: #28a745; width: 48px; height: 48px; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+    .btn-xs { font-size: 12px; padding: 0px 10px; margin: 2px; }
+
+    /* Encabezados de tablas por color */
+    .thead-danger th { background: #b90000ff; color: #fff; }
+    .thead-info th { background: #007cb6ff; color: #fff; }
+    .thead-success th { background: #006b04ff; color: #fff; }
+    .thead-purple th { background: #6f42c1; color: #fff; }
+
+    /* Ajustes del slidebar de filtros */
+    .filter-slidebar h2, .filter-slidebar label { color: #fff; }
+  `;
 
   // Early return: mientras loading sea true, muestra el spinner
   if (loading) {
@@ -579,6 +680,9 @@ const Informedecobranza = () => {
 
   return (
     <div className="homepage-container">
+      {/* ===== CSS embebido ===== */}
+      <style>{styles}</style>
+
       <Slidebar />
       <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
 
@@ -595,7 +699,7 @@ const Informedecobranza = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{ color: "white" }}>Filtros</h2>
+        <h2>Filtros</h2>
         <br />
         <hr />
 
@@ -621,8 +725,9 @@ const Informedecobranza = () => {
         )}
 
         {/* Dirección */}
-        <label style={{ color: "white" }}>Dirección</label>
+        <label>Dirección</label>
         <select
+          className="select"
           value={dir3Filter}
           onChange={(e) => setDir3Filter(e.target.value)}
         >
@@ -635,23 +740,23 @@ const Informedecobranza = () => {
         </select>
 
         {/* Monto */}
-        <label style={{ color: "white" }}>Monto</label>
+        <label>Monto</label>
         <input
+          className="input"
           type="text"
           value={montoFilter}
           onChange={(e) => setMontoFilter(e.target.value)}
           placeholder="Filtrar por monto"
-          style={{ width: "100%", padding: "5px" }}
         />
 
         {/* Notas */}
-        <label style={{ color: "white" }}>Notas</label>
+        <label>Notas</label>
         <input
+          className="input"
           type="text"
           value={notasFilter}
           onChange={(e) => setNotasFilter(e.target.value)}
           placeholder="Filtrar por notas"
-          style={{ width: "100%", padding: "5px" }}
         />
 
         <button className="discard-filter-button" onClick={clearFilters}>
@@ -674,11 +779,7 @@ const Informedecobranza = () => {
         <div className="table-container">
           {/* === TABLAS SEPARADAS CON FLEXBOX ROW === */}
           <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              gap: "20px",
-            }}
+            className="tables-row"
             onWheel={(e) => {
               if (e.deltaY !== 0) {
                 e.preventDefault();
@@ -690,11 +791,8 @@ const Informedecobranza = () => {
             <div>
               <table className="service-table">
                 <thead>
-                  <tr>
-                    <th
-                      colSpan={5}
-                      style={{ background: "#b90000ff", color: "#fff" }}
-                    >
+                  <tr className="thead-danger">
+                    <th colSpan={5}>
                       PENDIENTES POR PAGAR - Total:{" "}
                       {formatMoney(totalPendientes)}
                     </th>
@@ -712,86 +810,72 @@ const Informedecobranza = () => {
                     <tr>
                       <td
                         colSpan={5}
-                        style={{ textAlign: "center", color: "#888" }}
+                        className="text-center"
+                        style={{ color: "#888" }}
                       >
                         Sin registros
                       </td>
                     </tr>
                   ) : (
                     pendientesRows.map((r) => (
-                        <tr key={r.id}>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "140px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.direccion || ""}
-                              onBlur={handleTextBlur(r.id, "direccion", "pendientes")}
-                              list={`dir-opt-1-${r.id}`}
-                            />
-                            <datalist id={`dir-opt-1-${r.id}`}>
-                              {direccionChoices.map((d) => (
-                                <option key={d} value={d} />
-                              ))}
-                            </datalist>
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              style={{
-                                width: "100%",
-                                textAlign: "center",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={formatMoney(r.valor || 0)}
-                              onBlur={handleMoneyBlur(r.id, "valor", "pendientes")}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "100px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.notas || ""}
-                              onBlur={handleTextBlur(r.id, "notas", "pendientes")}
-                            />
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="filter-button"
-                              style={{
-                                fontSize: "8px",
-                                padding: "4px 16px",
-                                margin: "2px",
-                              }}
-                              onClick={() => move1to2(r.id)}
-                            >
-                              →
-                            </button>
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="delete-button"
-                              style={{
-                                cursor: "pointer",
-                                padding: "2px 4px",
-                                margin: "2px",
-                              }}
-                              onClick={() =>
-                                handleDeleteRow(r.id, "pendientes")
-                              }
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
+                      <tr key={r.id}>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-dir"
+                            defaultValue={r.direccion || ""}
+                            onBlur={handleTextBlur(
+                              r.id,
+                              "direccion",
+                              "pendientes"
+                            )}
+                            list={`dir-opt-1-${r.id}`}
+                          />
+                          <datalist id={`dir-opt-1-${r.id}`}>
+                            {direccionChoices.map((d) => (
+                              <option key={d} value={d} />
+                            ))}
+                          </datalist>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="input input-sm input-center"
+                            defaultValue={formatMoney(r.valor || 0)}
+                            onBlur={handleMoneyBlur(
+                              r.id,
+                              "valor",
+                              "pendientes"
+                            )}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-notes"
+                            defaultValue={r.notas || ""}
+                            onBlur={handleTextBlur(r.id, "notas", "pendientes")}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="filter-button btn-xs"
+                            onClick={() => move1to2(r.id)}
+                            title="Mover a Confirmación"
+                          >
+                            →
+                          </button>
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="delete-button btn-xs"
+                            onClick={() => handleDeleteRow(r.id, "pendientes")}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
                     ))
                   )}
                 </tbody>
@@ -802,11 +886,8 @@ const Informedecobranza = () => {
             <div>
               <table className="service-table">
                 <thead>
-                  <tr>
-                    <th
-                      colSpan={6}
-                      style={{ background: "#007cb6ff", color: "#fff" }}
-                    >
+                  <tr className="thead-info">
+                    <th colSpan={6}>
                       CONFIRMACIÓN DE PAGOS - Total:{" "}
                       {formatMoney(totalConfirmacion)}
                     </th>
@@ -825,99 +906,87 @@ const Informedecobranza = () => {
                     <tr>
                       <td
                         colSpan={6}
-                        style={{ textAlign: "center", color: "#888" }}
+                        className="text-center"
+                        style={{ color: "#888" }}
                       >
                         Sin registros
                       </td>
                     </tr>
                   ) : (
                     confirmacionRows.map((r) => (
-                        <tr key={r.id}>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="filter-button"
-                              style={{
-                                fontSize: "8px",
-                                padding: "4px 16px",
-                                margin: "2px",
-                              }}
-                              onClick={() => move2to1(r.id)}
-                            >
-                              ←
-                            </button>
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "140px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.direccion || ""}
-                              onBlur={handleTextBlur(r.id, "direccion", "confirmacion")}
-                              list={`dir-opt-2-${r.id}`}
-                            />
-                            <datalist id={`dir-opt-2-${r.id}`}>
-                              {direccionChoices.map((d) => (
-                                <option key={d} value={d} />
-                              ))}
-                            </datalist>
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              style={{
-                                width: "100%",
-                                textAlign: "center",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={formatMoney(r.valor || 0)}
-                              onBlur={handleMoneyBlur(r.id, "valor", "confirmacion")}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "100px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.notas || ""}
-                              onBlur={handleTextBlur(r.id, "notas", "confirmacion")}
-                            />
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="filter-button"
-                              style={{
-                                fontSize: "8px",
-                                padding: "4px 16px",
-                                margin: "2px",
-                              }}
-                              onClick={() => move2to3(r.id)}
-                            >
-                              →
-                            </button>
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="delete-button"
-                              style={{
-                                cursor: "pointer",
-                                padding: "2px 4px",
-                                margin: "2px",
-                              }}
-                              onClick={() =>
-                                handleDeleteRow(r.id, "confirmacion")
-                              }
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
+                      <tr key={r.id}>
+                        <td className="text-center">
+                          <button
+                            className="filter-button btn-xs"
+                            onClick={() => move2to1(r.id)}
+                            title="Devolver a Pendientes"
+                          >
+                            ←
+                          </button>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-dir"
+                            defaultValue={r.direccion || ""}
+                            onBlur={handleTextBlur(
+                              r.id,
+                              "direccion",
+                              "confirmacion"
+                            )}
+                            list={`dir-opt-2-${r.id}`}
+                          />
+                          <datalist id={`dir-opt-2-${r.id}`}>
+                            {direccionChoices.map((d) => (
+                              <option key={d} value={d} />
+                            ))}
+                          </datalist>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="input input-sm input-center"
+                            defaultValue={formatMoney(r.valor || 0)}
+                            onBlur={handleMoneyBlur(
+                              r.id,
+                              "valor",
+                              "confirmacion"
+                            )}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-notes"
+                            defaultValue={r.notas || ""}
+                            onBlur={handleTextBlur(
+                              r.id,
+                              "notas",
+                              "confirmacion"
+                            )}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="filter-button btn-xs"
+                            onClick={() => move2to3(r.id)}
+                            title="Mover a Efectivo"
+                          >
+                            →
+                          </button>
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="delete-button btn-xs"
+                            onClick={() =>
+                              handleDeleteRow(r.id, "confirmacion")
+                            }
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
                     ))
                   )}
                 </tbody>
@@ -928,18 +997,15 @@ const Informedecobranza = () => {
             <div>
               <table className="service-table">
                 <thead>
-                  <tr>
-                    <th
-                      colSpan={7}
-                      style={{ background: "#006b04ff", color: "#fff" }}
-                    >
+                  <tr className="thead-success">
+                    <th colSpan={7}>
                       EFECTIVO RECIBIDO - Total: {formatMoney(totalEfectivo)}
                     </th>
                   </tr>
                   <tr>
                     <th style={{ width: "5%" }}>Volver</th>
                     <th style={{ width: "12%" }}>Fecha</th>
-                    <th style={{ width: "30%" }}>Dirección</th>
+                    <th style={{ width: "30%" }}>Dirección/Nota</th>
                     <th style={{ width: "12%" }}>Monto</th>
                     <th style={{ width: "12%" }}>Saldo</th>
                     <th style={{ width: "24%" }}>Notas</th>
@@ -951,291 +1017,134 @@ const Informedecobranza = () => {
                     <tr>
                       <td
                         colSpan={7}
-                        style={{ textAlign: "center", color: "#888" }}
+                        className="text-center"
+                        style={{ color: "#888" }}
                       >
                         Sin registros
                       </td>
                     </tr>
                   ) : (
                     paginatedEfectivo.map((r) => (
-                        <tr key={r.id}>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="filter-button"
-                              style={{
-                                fontSize: "8px",
-                                padding: "4px 16px",
-                                margin: "2px",
-                              }}
-                              onClick={() => move3to2(r.id)}
-                            >
-                              ←
-                            </button>
-                          </td>
-                          <td>
-                            <input
-                              type="date"
-                              defaultValue={dmyToInput(r.fecha)}
-                              onBlur={handleDateBlur(r.id)}
-                              style={{ width: "100%", fontSize: "12px" }}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "140px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.direccion || ""}
-                              onBlur={handleTextBlur(r.id, "direccion", "efectivo")}
-                              list={`dir-opt-3-${r.id}`}
-                            />
-                            <datalist id={`dir-opt-3-${r.id}`}>
-                              {direccionChoices.map((d) => (
-                                <option key={d} value={d} />
-                              ))}
-                            </datalist>
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              style={{
-                                width: "100%",
-                                textAlign: "center",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={formatMoney(r.valor || 0)}
-                              onBlur={handleMoneyBlur(r.id, "valor", "efectivo")}
-                            />
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            AWG {r.saldo !== undefined
-                              ? formatMoney(r.saldo)
-                              : "0.00"}
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              style={{
-                                width: "100%",
-                                minWidth: "100px",
-                                fontSize: "12px",
-                              }}
-                              defaultValue={r.notas || ""}
-                              onBlur={handleTextBlur(r.id, "notas", "efectivo")}
-                            />
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button
-                              className="delete-button"
-                              style={{
-                                cursor: "pointer",
-                                padding: "2px 4px",
-                                margin: "2px",
-                              }}
-                              onClick={() => handleDeleteRow(r.id, "efectivo")}
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
+                      <tr key={r.id}>
+                        <td className="text-center">
+                          <button
+                            className="filter-button btn-xs"
+                            onClick={() => move3to2(r.id)}
+                            title="Devolver a Confirmación"
+                          >
+                            ←
+                          </button>
+                        </td>
+                        <td>
+                          <input
+                            type="date"
+                            className="input input-sm input-date"
+                            defaultValue={dmyToInput(r.fecha)}
+                            onBlur={handleDateBlur(r.id)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-dir"
+                            defaultValue={r.direccion || ""}
+                            onBlur={handleTextBlur(
+                              r.id,
+                              "direccion",
+                              "efectivo"
+                            )}
+                            list={`dir-opt-3-${r.id}`}
+                          />
+                          <datalist id={`dir-opt-3-${r.id}`}>
+                            {direccionChoices.map((d) => (
+                              <option key={d} value={d} />
+                            ))}
+                          </datalist>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="input input-sm input-center"
+                            defaultValue={formatMoney(r.valor || 0)}
+                            onBlur={handleMoneyBlur(r.id, "valor", "efectivo")}
+                          />
+                        </td>
+                        <td className="text-center">
+                          AWG{" "}
+                          {r.saldo !== undefined
+                            ? formatMoney(r.saldo)
+                            : "0.00"}
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input input-sm input-notes"
+                            defaultValue={r.notas || ""}
+                            onBlur={handleTextBlur(r.id, "notas", "efectivo")}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="delete-button btn-xs"
+                            onClick={() => handleDeleteRow(r.id, "efectivo")}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
                     ))
                   )}
                 </tbody>
               </table>
+
               {/* Controles de paginación Efectivo */}
               {totalItemsEfectivo > 0 && (
-                <div
-                  style={{
-                    marginTop: "15px",
-                    padding: "12px",
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                    border: "1px solid #e9ecef",
-                  }}
-                >
-                  {/* Fila superior: Info de registros y selector */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#495057",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Mostrando {startIndexEfectivo + 1}-
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    <span>
+                      Mostrando {startIndexEfectivo + 1} a{" "}
                       {Math.min(endIndexEfectivo, totalItemsEfectivo)} de{" "}
                       {totalItemsEfectivo} registros
                     </span>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        backgroundColor: "#fff",
-                        padding: "6px 12px",
-                        borderRadius: "6px",
-                        border: "1px solid #dee2e6",
-                      }}
+                    <select
+                      value={itemsPerPageEfectivo}
+                      onChange={(e) =>
+                        handleItemsPerPageChangeEfectivo(Number(e.target.value))
+                      }
+                      className="items-per-page-select"
                     >
-                      <label
-                        style={{
-                          color: "#495057",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        Mostrar:
-                      </label>
-                      <select
-                        value={itemsPerPageEfectivo}
-                        onChange={(e) =>
-                          handleItemsPerPageChangeEfectivo(
-                            Number(e.target.value)
-                          )
-                        }
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #ced4da",
-                          fontSize: "14px",
-                          backgroundColor: "#fff",
-                        }}
-                      >
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                        <option value={200}>200</option>
-                        <option value={500}>500</option>
-                      </select>
-                      <span style={{ color: "#495057", fontSize: "14px" }}>
-                        por página
-                      </span>
-                    </div>
+                      <option value={25}>25 por página</option>
+                      <option value={50}>50 por página</option>
+                      <option value={100}>100 por página</option>
+                    </select>
                   </div>
 
-                  {/* Fila inferior: Controles de navegación */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
+                  <div className="pagination-controls">
                     <button
                       onClick={goToFirstPageEfectivo}
                       disabled={currentPageEfectivo === 1}
-                      title="Primera página"
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #ced4da",
-                        borderRadius: "6px",
-                        backgroundColor:
-                          currentPageEfectivo === 1 ? "#f8f9fa" : "#fff",
-                        color:
-                          currentPageEfectivo === 1 ? "#6c757d" : "#495057",
-                        cursor:
-                          currentPageEfectivo === 1 ? "not-allowed" : "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
                     >
                       ««
                     </button>
                     <button
                       onClick={goToPreviousPageEfectivo}
                       disabled={currentPageEfectivo === 1}
-                      title="Página anterior"
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #ced4da",
-                        borderRadius: "6px",
-                        backgroundColor:
-                          currentPageEfectivo === 1 ? "#f8f9fa" : "#fff",
-                        color:
-                          currentPageEfectivo === 1 ? "#6c757d" : "#495057",
-                        cursor:
-                          currentPageEfectivo === 1 ? "not-allowed" : "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
                     >
                       «
                     </button>
-                    <span
-                      style={{
-                        padding: "8px 16px",
-                        backgroundColor: "#007bff",
-                        color: "white",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        minWidth: "120px",
-                        textAlign: "center",
-                      }}
-                    >
+                    <span className="page-info">
                       Página {currentPageEfectivo} de {totalPagesEfectivo}
                     </span>
                     <button
                       onClick={goToNextPageEfectivo}
                       disabled={currentPageEfectivo === totalPagesEfectivo}
-                      title="Página siguiente"
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #ced4da",
-                        borderRadius: "6px",
-                        backgroundColor:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "#f8f9fa"
-                            : "#fff",
-                        color:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "#6c757d"
-                            : "#495057",
-                        cursor:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "not-allowed"
-                            : "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
                     >
                       »
                     </button>
                     <button
                       onClick={goToLastPageEfectivo}
                       disabled={currentPageEfectivo === totalPagesEfectivo}
-                      title="Última página"
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #ced4da",
-                        borderRadius: "6px",
-                        backgroundColor:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "#f8f9fa"
-                            : "#fff",
-                        color:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "#6c757d"
-                            : "#495057",
-                        cursor:
-                          currentPageEfectivo === totalPagesEfectivo
-                            ? "not-allowed"
-                            : "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
                     >
                       »»
                     </button>
@@ -1248,11 +1157,8 @@ const Informedecobranza = () => {
             <div>
               <table className="service-table">
                 <thead>
-                  <tr>
-                    <th
-                      colSpan={3}
-                      style={{ background: "#6f42c1", color: "#fff" }}
-                    >
+                  <tr className="thead-purple">
+                    <th colSpan={3}>
                       CONTEO DE EFECTIVO - Total:{" "}
                       {formatMoney(totalConteoEfectivo)}
                     </th>
@@ -1289,13 +1195,17 @@ const Informedecobranza = () => {
 
                     return (
                       <tr key={tipoKey}>
-                        <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                        <td
+                          className="text-center"
+                          style={{ fontWeight: "bold" }}
+                        >
                           {formatMoney(tipoValor)}
                         </td>
                         <td>
                           <input
                             type="number"
                             min="0"
+                            className="input input-sm input-center"
                             value={cantidad}
                             onChange={(e) =>
                               handleConteoChange(tipoKey, e.target.value)
@@ -1303,23 +1213,21 @@ const Informedecobranza = () => {
                             onBlur={(e) =>
                               handleConteoChange(tipoKey, e.target.value)
                             }
-                            style={{
-                              width: "100%",
-                              textAlign: "center",
-                              fontSize: "12px",
-                              padding: "4px",
-                            }}
                             placeholder="0"
                           />
                         </td>
                         <td
-                          style={{
-                            textAlign: "center",
-                            fontSize: "12px",
-                            fontWeight: "500",
-                          }}
+                          className="text-center"
+                          style={{ fontWeight: "bold" }}
                         >
-                          AWG {formatMoney(montoTotal)}
+                          <p
+                            style={{
+                              fontSize:
+                                window.innerWidth < 1024 ? "6px" : "12px",
+                            }}
+                          >
+                            AWG {formatMoney(montoTotal)}
+                          </p>
                         </td>
                       </tr>
                     );

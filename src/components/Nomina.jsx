@@ -934,10 +934,19 @@ const Nomina = () => {
     }
   }, [currentNomina?.id]);
 
-  // Obtener nombre de usuario
+  // Helper para obtener nombre de usuario
   const getUserName = (userId) => {
     const user = users.find((u) => u.id === userId);
     return user ? user.name : "";
+  };
+
+  // Helper para obtener nombre de usuario con fallback
+  const getUserNameWithFallback = (record) => {
+    return (
+      users.find((u) => u.id === record.nombre)?.name ||
+      users.find((u) => u.name === record.nombre)?.name ||
+      "Sin asignar"
+    );
   };
 
   // Exportar a Excel
@@ -956,12 +965,8 @@ const Nomina = () => {
       return;
     }
     const exportData = visibleRows.map((record) => {
-      const userName =
-        users.find((u) => u.id === record.nombre)?.name ||
-        users.find((u) => u.name === record.nombre)?.name ||
-        "";
       return {
-        Nombre: userName,
+        Nombre: getUserNameWithFallback(record),
         Días: Number(record.dias || 0),
         Valor: Number(record.valor || 0),
         "Total Quincena": Number(record.totalQuincena || 0),
@@ -1073,13 +1078,10 @@ const Nomina = () => {
     // Obtener lista de empleados únicos
     const empleados = visibleRows
       .map((record) => {
-        const userName =
-          users.find((u) => u.id === record.nombre)?.name ||
-          users.find((u) => u.name === record.nombre)?.name ||
-          "Sin nombre";
+        const userName = getUserNameWithFallback(record);
         return {
           id: record.nombre,
-          name: userName,
+          name: userName === "Sin asignar" ? "Sin nombre" : userName,
           record: record,
         };
       })
@@ -1417,243 +1419,343 @@ const Nomina = () => {
 
   // Generar PDF individual de nómina
   const generateIndividualNominaPDF = (record, employeeName) => {
-    // A4 horizontal
-    const doc = new jsPDF("l", "mm", "a4");
-    const pageW = doc.internal.pageSize.getWidth(); // 297
-    const pageH = doc.internal.pageSize.getHeight(); // 210
+    const doc = new jsPDF("l", "mm", "a4"); // <— landscape
+    const W = doc.internal.pageSize.getWidth(); // 297
+    const H = doc.internal.pageSize.getHeight(); // 210
 
-    // ========= Helpers =========
-    const fmtAWG = (n) => `${Number(n || 0).toFixed(2)} AWG`;
-    const ddmmaa = (isoLike) => {
-      // espera dd-mm-yyyy
-      if (!isoLike) return "--/--/--";
-      const [dd, mm, yyyy] = String(isoLike).split("-");
-      return `${dd}/${mm}/${String(yyyy).slice(-2)}`;
-    };
-
-    const drawPair = (label, value, xLabel, y, opts = {}) => {
-      const { boldLabel = false, fontSize = 9, pad = 2 } = opts;
-      const labelTxt = label.endsWith(":") ? label : `${label}:`;
-      doc.setFont("helvetica", boldLabel ? "bold" : "normal");
-      doc.setFontSize(fontSize);
-      doc.setTextColor(0, 0, 0);
-      doc.text(labelTxt, xLabel, y);
-      const xVal = xLabel + doc.getTextWidth(labelTxt) + pad;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(fontSize + 1);
-      doc.text(String(value ?? ""), xVal, y);
-    };
-
-    const center = (txt, x, y, bold = false, size = 10) => {
+    // ---------- helpers ----------
+    const nfmt = new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    const AWG = (n) => `${nfmt.format(Number(n || 0))} AWG`;
+    const text = (
+      str,
+      x,
+      y,
+      { size = 10, bold = false, align = "left", color = [0, 0, 0] } = {}
+    ) => {
       doc.setFont("helvetica", bold ? "bold" : "normal");
       doc.setFontSize(size);
-      doc.text(txt, x, y, { align: "center" });
+      doc.setTextColor(...color);
+      doc.text(String(str ?? ""), x, y, { align });
+    };
+    const line = (x1, y1, x2, y2, w = 0.4) => {
+      doc.setDrawColor(0);
+      doc.setLineWidth(w);
+      doc.line(x1, y1, x2, y2);
+    };
+    const rect = (x, y, w, h, style = null, lw = 0.4) => {
+      doc.setDrawColor(0);
+      doc.setLineWidth(lw);
+      doc.rect(x, y, w, h, style || undefined);
+    };
+    const rrect = (x, y, w, h, r = 3, style = null, lw = 0.4) => {
+      doc.setDrawColor(0);
+      doc.setLineWidth(lw);
+      doc.roundedRect(x, y, w, h, r, r, style || undefined);
     };
 
-    // ========= Marco general =========
+    // ---------- datos ----------
+    const periodo = `Nómina (${currentNomina?.fechaDesde || "DD-MM-AA"} al ${
+      currentNomina?.fechaHasta || "DD-MM-AA"
+    })`;
+    const hoy = new Date().toLocaleDateString("es-ES");
+
+    const dias = Number(record?.dias || 0);
+    const valorDia = Number(record?.valor || 0);
+    const totalQuin = Number(record?.totalQuincena ?? dias * valorDia);
+    const extras = Number(record?.extra || 0);
+    const deducs = Number(record?.deducciones || 0);
+    const totalNom = Number(record?.totalNomina ?? totalQuin + extras - deducs);
+    const efectivo = Number(record?.efectivo || 0);
+    const entregado = Number(record?.entregado || 0);
+    const saldoInicial = totalNom + efectivo;
+    const saldoFinal = saldoInicial - entregado;
+
+    // ---------- marca de agua ----------
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.06 }));
+    doc.addImage(logosolo, "PNG", (W - 105) / 2, (H - 105) / 2, 105, 105);
+    doc.restoreGraphicsState();
+
+    // ---------- encabezado ----------
+    doc.addImage(logo, "PNG", 15, 12, 60, 20);
+
+    text("COMPROBANTE DE PAGO QUINCENAL", W / 2, 24, {
+      size: 16,
+      bold: true,
+      align: "center",
+    });
+
+    // Caja fecha (arriba derecha, sin borde)
+    text("FECHA DE GENERACIÓN", W - 15 - 35, 18, {
+      size: 8,
+      bold: true,
+      align: "center",
+    });
+    rrect(W - 15 - 70 + 7, 19.5, 70 - 14, 10, 2.5, null, 0.4);
+    text(hoy.replace(/\//g, "/"), W - 15 - 35, 26.8, {
+      size: 10,
+      bold: true,
+      align: "center",
+    });
+
+    // Barra del período (sin borde, bajada)
+    text(periodo, W / 2, 43.5, { size: 12, bold: true, align: "center" });
+
+    // Banda Empleado / Empresa (sin bordes)
+    text("EMPLEADO:", 25, 57, { size: 11, bold: true});
+    text(employeeName || "Sin asignar", 65, 57, {
+      size: 11,
+      color: [0, 0, 0],
+    });
+    text("EMPRESA:", 25, 66, { size: 11, bold: true });
+    text("Oops Out Septic Tank & Services Aruba", 65, 66, {
+      size: 11,
+      color: [0, 0, 0],
+    });
+
+    // ---------- tabla 3 columnas ----------
+    const tableTop = 84;
+    const tableH = 90 - 20;
+    const cW = (W - 30) / 3;
+
+    // Marco exterior y separadores verticales
+    rect(15, tableTop, W - 30, tableH, null, 0.4);
+    line(15 + cW, tableTop, 15 + cW, tableTop + tableH, 0.4);
+    line(15 + 2 * cW, tableTop, 15 + 2 * cW, tableTop + tableH, 0.4);
+
+    const headerH = 10;
+    // Fondo gris claro para headers con bordes
+    doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0);
-    doc.setLineWidth(0.6);
-    doc.rect(5, 5, pageW - 10, pageH - 10); // borde externo
-
-    // ========= Encabezado =========
-    doc.addImage(logo, "PNG", 12, 12, 60, 18);
-
-    // Título principal
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    center("COMPROBANTE DE PAGO QUINCENAL", pageW / 2, 22);
-
-    // Caja “FECHA DE GENERACIÓN”
-    const dateBox = { x: pageW - 92, y: 10, w: 82, h: 22 };
     doc.setLineWidth(0.4);
-    doc.roundedRect(dateBox.x, dateBox.y, dateBox.w, dateBox.h, 3, 3);
-    center(
-      "FECHA DE GENERACIÓN",
-      dateBox.x + dateBox.w / 2,
-      dateBox.y + 8,
-      true,
-      9
-    );
-    center(
-      ddmmaa(
-        new Date().toLocaleDateString("en-CA").split("-").reverse().join("-")
-      ), // dd/mm/aa rápido
-      dateBox.x + dateBox.w / 2,
-      dateBox.y + 16,
-      true,
-      11
-    );
+    doc.rect(15, tableTop, cW, headerH, "FD");
+    doc.rect(15 + cW, tableTop, cW, headerH, "FD");
+    doc.rect(15 + 2 * cW, tableTop, cW, headerH, "FD");
 
-    // Barra subtítulo (rango nómina)
-    doc.setLineWidth(0.6);
-    doc.rect(12, 32, pageW - 24, 12);
-    center(
-      `Nómina (${currentNomina?.fechaDesde || "DD-MM-AA"} al ${
-        currentNomina?.fechaHasta || "DD-MM-AA"
-      })`,
-      pageW / 2,
-      40,
-      false,
-      11
-    );
-
-    // Marca de agua
-    (function drawWatermark() {
-      const WM_W = 90,
-        WM_H = 90;
-      const WM_X = (pageW - WM_W) / 2,
-        WM_Y = (pageH - WM_H) / 2 - 6;
-      if (doc.GState && doc.setGState) {
-        const gs = new doc.GState({ opacity: 0.12 });
-        doc.setGState(gs);
-        doc.addImage(logosolo, "PNG", WM_X, WM_Y, WM_W, WM_H);
-        doc.setGState(new doc.GState({ opacity: 1 }));
-      } else if (doc.setAlpha) {
-        doc.setAlpha(0.12);
-        doc.addImage(logosolo, "PNG", WM_X, WM_Y, WM_W, WM_H);
-        doc.setAlpha(1);
-      } else {
-        doc.addImage(logosolo, "PNG", WM_X, WM_Y, WM_W, WM_H);
-      }
-    })();
-
-    // Bloque EMPLEADO / EMPRESA
-    doc.rect(12, 48, pageW - 24, 24);
-    drawPair("EMPLEADO", employeeName || "—", 20, 60, {
-      boldLabel: true,
-      fontSize: 10,
+    text("Concepto", 15 + cW * 0.12, tableTop + 6.8, {
+      size: 10,
+      bold: true,
+      color: [0, 0, 0],
     });
-    drawPair("EMPRESA", "Oops Out Septic Tank & Services Aruba", 20, 70, {
-      boldLabel: true,
-      fontSize: 10,
-    });
-
-    // ========= Tabla 3 columnas (Concepto / Valor) =========
-    const table = { x: 12, y: 78, w: pageW - 24, h: 72 };
-    // marco externo horizontal de tabla
-    doc.rect(table.x, table.y, table.w, table.h);
-
-    // columnas (3)
-    const colW = table.w / 3;
-    const c1 = table.x,
-      c2 = table.x + colW,
-      c3 = table.x + 2 * colW;
-    doc.line(c2, table.y, c2, table.y + table.h);
-    doc.line(c3, table.y, c3, table.y + table.h);
-
-    // fila de cabeceras
-    const headH = 12;
-    doc.line(table.x, table.y + headH, table.x + table.w, table.y + headH);
-    // títulos
-    center("Concepto", c1 + colW / 2 - 20, table.y + 9, true, 10);
-    center("Valor", c1 + colW / 2 + 35, table.y + 9, true, 10);
-    center("Concepto", c2 + colW / 2 - 20, table.y + 9, true, 10);
-    center("Valor", c2 + colW / 2 + 35, table.y + 9, true, 10);
-    center("Concepto", c3 + colW / 2 - 20, table.y + 9, true, 10);
-    center("Valor", c3 + colW / 2 + 35, table.y + 9, true, 10);
-
-    // filas internas (3 filas de contenido)
-    const rowH = (table.h - headH) / 3;
-    const r1y = table.y + headH + rowH;
-    const r2y = table.y + headH + 2 * rowH;
-    doc.line(table.x, r1y, table.x + table.w, r1y);
-    doc.line(table.x, r2y, table.x + table.w, r2y);
-
-    // ===== Contenido por filas (según mockup) =====
-    // Fila 1 (izq: días/valor día) (centro/vacío) (der/vacío)
-    let y1 = table.y + headH + rowH / 2 + 2;
-    drawPair("DIAS LABORADOS", record.dias || 0, c1 + 13, y1);
-    drawPair("VALOR DIA", fmtAWG(record.valor), c1 + 13, y1 + 8);
-
-    // Fila 2 (centro: totales de quincena/extras/deducciones, con símbolos)
-    let y2 = table.y + headH + rowH + rowH / 2 - 4;
-    drawPair("TOTAL QUINCENA", fmtAWG(record.totalQuincena), c2 + 13, y2 - 6);
-    drawPair("TOTAL EXTRAS", fmtAWG(record.extra), c2 + 13, y2 + 2);
-    drawPair("TOTAL DEDUCCIONES", fmtAWG(record.deducciones), c2 + 13, y2 + 10);
-
-    // Fila 3 (der: total nómina / efectivo por entregar, con símbolo)
-    let y3 = table.y + headH + 2 * rowH + rowH / 2 - 4;
-    drawPair("TOTAL NOMINA", fmtAWG(record.totalNomina), c3 + 13, y3 - 2);
-    drawPair("EFECTIVO POR ENTREGAR", fmtAWG(record.efectivo), c3 + 13, y3 + 6);
-
-    // Símbolos + / − / = (entre columnas en la segunda fila)
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    const symY = table.y + headH + rowH + 6;
-    doc.text("+", c2 - 7, symY); // entre col 1 y 2
-    doc.text("−", c3 - 7, symY); // entre col 2 y 3
-    // Igual bajo la segunda fila apuntando a TOTAL NOMINA
-    doc.text("=", c3 + colW - 9, symY + 8);
-
-    // ===== Totales debajo de la tabla (banda de resumen) =====
-    const bandY = table.y + table.h + 10;
-    // 3 celdas del mismo ancho que las columnas
-    doc.setLineWidth(0.4);
-    doc.rect(c1, bandY - 8, colW, 12);
-    doc.rect(c2, bandY - 8, colW, 12);
-    doc.rect(c3, bandY - 8, colW, 12);
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL QUINCENA:", c1 + 6, bandY);
-    doc.text(fmtAWG(record.totalQuincena), c1 + colW - 6, bandY, {
+    text("Valor", 15 + cW - 6, tableTop + 6.8, {
+      size: 10,
+      bold: true,
       align: "right",
+      color: [0, 0, 0],
     });
-
-    doc.text("TOTAL NOMINA:", c2 + 6, bandY);
-    doc.text(fmtAWG(record.totalNomina), c2 + colW - 6, bandY, {
+    text("Concepto", 15 + cW + cW * 0.12, tableTop + 6.8, {
+      size: 10,
+      bold: true,
+      color: [0, 0, 0],
+    });
+    text("Valor", 15 + 2 * cW - 6, tableTop + 6.8, {
+      size: 10,
+      bold: true,
       align: "right",
+      color: [0, 0, 0],
+    });
+    text("Concepto", 15 + 2 * cW + cW * 0.12, tableTop + 6.8, {
+      size: 10,
+      bold: true,
+      color: [0, 0, 0],
+    });
+    text("Valor", 15 + 3 * cW - 6, tableTop + 6.8, {
+      size: 10,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
     });
 
-    doc.text("SALDO INICIAL:", c3 + 6, bandY);
-    const saldoInicial =
-      Number(record.totalNomina || 0) + Number(record.efectivo || 0);
-    doc.text(fmtAWG(saldoInicial), c3 + colW - 6, bandY, { align: "right" });
+    // Filas columna 1 (DÍAS / VALOR DÍA) - Sin bordes internos
+    const rH = 28;
 
-    // ===== Bloque SALDO FINAL (grande) =====
-    const blockY = bandY + 22;
-    // “SALDO INICIAL − REINTEGRO ENTREGADO = SALDO FINAL”
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    drawPair("SALDO INICIAL", fmtAWG(saldoInicial), 24, blockY, {
-      boldLabel: true,
-      fontSize: 10,
+    text("DIAS LABORADOS:", 15 + 6, tableTop + headerH + 12, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
     });
-    drawPair(
-      "REINTEGRO ENTREGADO",
-      fmtAWG(record.entregado || 0),
-      120,
-      blockY,
-      { boldLabel: true, fontSize: 10 }
+    text(String(dias), 15 + cW - 6, tableTop + headerH + 12, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+    text("X VALOR DIA:", 15 + 6, tableTop + headerH + rH - 3, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(valorDia), 15 + cW - 6, tableTop + headerH + rH - 3, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // Columna 2 (Quincena / Extras / Deducciones) - Sin bordes internos
+    text("TOTAL QUINCENA:", 15 + cW + 6, tableTop + headerH + 12, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(totalQuin), 15 + 2 * cW - 6, tableTop + headerH + 12, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // TOTAL EXTRAS sin fondo ni bordes
+    const chipY = tableTop + headerH + rH - 4;
+    text("+ TOTAL EXTRAS:", 17 + cW + 4, chipY + 1, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(extras), 15 + 2 * cW - 4, chipY + 1, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    text("- TOTAL DEDUCCIONES:", 15 + cW + 6, tableTop + headerH + 2 + rH + 8, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(deducs), 15 + 2 * cW - 6, tableTop + headerH + 2 + rH + 8, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // Columna 3 (Total nómina / Efectivo) - Sin bordes internos
+    text("TOTAL NOMINA:", 15 + 2 * cW + 6, tableTop + headerH + 12, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(totalNom), 15 + 3 * cW - 6, tableTop + headerH + 12, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    const chipY3 = tableTop + headerH + rH + 8;
+    text("+ EFECTIVO POR ENTREGAR:", 15 + 2 * cW + 6, chipY3 - 11, {
+      size: 10,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(efectivo), 15 + 3 * cW - 6, chipY3 - 11, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // Fila inferior sin fondo (tres celdas)
+    const sumY = tableTop + tableH - 12;
+    line(15, sumY, 15 + 3 * cW, sumY, 0.4);
+    text("= TOTAL QUINCENA:", 15 + 6, sumY + 6, {
+      size: 9,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(totalQuin), 15 + cW - 6, sumY + 6, {
+      size: 10,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+    text("= TOTAL NOMINA:", 15 + cW + 6, sumY + 6, {
+      size: 9,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(totalNom), 15 + 2 * cW - 6, sumY + 6, {
+      size: 10,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+    text("= SALDO INICIAL:", 15 + 2 * cW + 6, sumY +6, {
+      size: 9,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(saldoInicial), 15 + 3 * cW - 6, sumY + 6, {
+      size: 10,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // ---------- bloque de saldos (bajo la tabla) ----------
+    text("SALDO INICIAL:", 35, tableTop + tableH + 18, {
+      size: 11,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(saldoInicial), 92, tableTop + tableH + 18, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    text("- REINTEGRO ENTREGADO:", 115, tableTop + tableH + 18, {
+      size: 11,
+      bold: true,
+      color: [80, 80, 80],
+    });
+    text(AWG(entregado), 192, tableTop + tableH + 18, {
+      size: 11,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    text("= SALDO FINAL:", 202, tableTop + tableH + 18, {
+      size: 14,
+      bold: true,
+      color: [0, 0, 0],
+    });
+    text(AWG(saldoFinal), W - 20, tableTop + tableH + 18, {
+      size: 14,
+      bold: true,
+      align: "right",
+      color: [0, 0, 0],
+    });
+
+    // ---------- nota en cápsula gris (más abajo) ----------
+    const noteY = H - 22;
+    doc.setFillColor(245, 245, 245);
+    doc.setDrawColor(170, 170, 170);
+    doc.roundedRect(25, noteY, W - 50, 14, 3.5, 3.5, "FD");
+    text(
+      "NOTA: SI SALDO FINAL ES NEGATIVO, EL EMPLEADO QUEDA PENDIENTE DE ENTREGAR ESE EFECTIVO A LA EMPRESA EN LA PROXIMA QUINCENA.",
+      30,
+      noteY + 9,
+      { size: 8, color: [80, 80, 80] }
     );
 
-    const saldoFinal = (saldoInicial || 0) - Number(record.entregado || 0);
-    doc.setFontSize(15);
-    doc.text("SALDO FINAL", 208, blockY + 10);
-    doc.text(fmtAWG(saldoFinal), 288, blockY + 10, { align: "right" });
-
-    // Nota
-    const noteY = blockY + 30;
-    const noteW = pageW - 60;
-    doc.roundedRect(30, noteY, noteW, 14, 2, 2);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    center(
-      "NOTA: SI SALDO FINAL ES NEGATIVO, EL EMPLEADO QUEDA PENDIENTE DE ENTREGAR ESE EFECTIVO A LA EMPRESA EN LA PROXIMA QUINCENA",
-      30 + noteW / 2,
-      noteY + 9
-    );
-
-    // Guardar
-    const safeName = (employeeName || "Empleado").replace(/\s+/g, "_");
+    // ---------- guardar ----------
+    const safe = (employeeName || "Empleado").replace(/\s+/g, "_");
     doc.save(
-      `Nomina_${safeName}_${currentNomina?.fechaDesde || "DD-MM-YYYY"}_${
-        currentNomina?.fechaHasta || "DD-MM-YYYY"
+      `Nomina_${safe}_${currentNomina?.fechaDesde || "DD-MM-AA"}_${
+        currentNomina?.fechaHasta || "DD-MM-AA"
       }.pdf`
     );
   };
 
-  // Exportar a PDF
+  // Exportar a PDF mejorado
   const generatePDF = () => {
     if (!currentNomina) return;
     if (visibleRows.length === 0) {
@@ -1668,82 +1770,218 @@ const Nomina = () => {
       });
       return;
     }
+
     const exportData = visibleRows.map((record) => {
-      const userName =
-        users.find((u) => u.id === record.nombre)?.name ||
-        users.find((u) => u.name === record.nombre)?.name ||
-        "";
       return {
-        Nombre: userName,
+        Nombre: getUserNameWithFallback(record),
         Días: record.dias || 0,
-        Valor: `${Number(record.valor || 0).toFixed(2)} AWG`,
-        "Total Quincena": `${Number(record.totalQuincena || 0).toFixed(2)} AWG`,
-        Extra: `${Number(record.extra || 0).toFixed(2)} AWG`,
-        Deducciones: `${Number(record.deducciones || 0).toFixed(2)} AWG`,
-        "Total Nómina": `${Number(record.totalNomina || 0).toFixed(2)} AWG`,
-        Efectivo: `${Number(record.efectivo || 0).toFixed(2)} AWG`,
-        Total: `${Number(record.total || 0).toFixed(2)} AWG`,
-        Entregado: `${Number(record.entregado || 0).toFixed(2)} AWG`,
-        "Total Final": `${Number(
-          (record.total || 0) - (record.entregado || 0)
-        ).toFixed(2)} AWG`,
+        Valor: Number(record.valor || 0).toFixed(2),
+        "Total Quincena": Number(record.totalQuincena || 0).toFixed(2),
+        Extra: Number(record.extra || 0).toFixed(2),
+        Deducciones: Number(record.deducciones || 0).toFixed(2),
+        "Total Nómina": Number(record.totalNomina || 0).toFixed(2),
+        Efectivo: Number(record.efectivo || 0).toFixed(2),
+        "Saldo Inicial": Number(
+          (record.totalNomina || 0) + (record.efectivo || 0)
+        ).toFixed(2),
+        Entregado: Number(record.entregado || 0).toFixed(2),
+        "Saldo Final": Number(
+          (record.totalNomina || 0) +
+            (record.efectivo || 0) -
+            (record.entregado || 0)
+        ).toFixed(2),
       };
     });
 
     const doc = new jsPDF("l", "mm", "a4");
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
 
-    // Título
-    doc.setFontSize(16);
-    const title = `Nómina ${
-      currentNomina
-        ? `(${currentNomina.fechaDesde} - ${currentNomina.fechaHasta})`
-        : ""
-    }`;
-    doc.text(title, 148, 20, { align: "center" });
+    // Marca de agua centrada
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.08 }));
+    const logoSize = 100;
+    doc.addImage(
+      logosolo,
+      "PNG",
+      (pageW - logoSize) / 2,
+      (pageH - logoSize) / 2,
+      logoSize,
+      logoSize
+    );
+    doc.restoreGraphicsState();
 
-    // Headers de la tabla
+    // Encabezado mejorado
+    doc.addImage(logo, "PNG", 15, 10, 40, 12);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("REPORTE DE NÓMINA", pageW / 2, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    const periodo = currentNomina
+      ? `${currentNomina.fechaDesde} - ${currentNomina.fechaHasta}`
+      : "";
+    doc.text(`Período: ${periodo}`, pageW / 2, 28, { align: "center" });
+
+    // Fecha de generación
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const fechaGeneracion = new Date().toLocaleDateString("es-ES");
+    doc.text(`Generado el: ${fechaGeneracion}`, pageW - 15, 15, {
+      align: "right",
+    });
+
+    // Información de la empresa
+    doc.text("Oops Out Septic Tank & Services Aruba", pageW - 15, 25, {
+      align: "right",
+    });
+
+    // Headers de la tabla optimizados
     const headers = [
       [
-        "Nombre",
+        "Empleado",
         "Días",
-        "Valor",
-        "Total Quincena",
-        "Extra",
+        "Valor/Día",
+        "Total\nQuincena",
+        "Extras",
         "Deducciones",
-        "Total Nómina",
-        "Efectivo",
-        "Total",
-        "Entregado",
-        "Total Final",
+        "Total\nNómina",
+        "Efectivo\nEntregar",
+        "Saldo\nInicial",
+        "Reintegro\nEntregado",
+        "Saldo\nFinal",
       ],
     ];
 
     const dataRows = exportData.map((item) => [
       item.Nombre,
       item.Días,
-      item.Valor,
-      item["Total Quincena"],
-      item.Extra,
-      item.Deducciones,
-      item["Total Nómina"],
-      item.Efectivo,
-      item.Total,
-      item.Entregado,
-      item["Total Final"],
+      `${item.Valor} AWG`,
+      `${item["Total Quincena"]} AWG`,
+      `${item.Extra} AWG`,
+      `${item.Deducciones} AWG`,
+      `${item["Total Nómina"]} AWG`,
+      `${item.Efectivo} AWG`,
+      `${item["Saldo Inicial"]} AWG`,
+      `${item.Entregado} AWG`,
+      `${item["Saldo Final"]} AWG`,
+    ]);
+
+    // Calcular totales
+    const totales = {
+      totalQuincena: exportData.reduce(
+        (sum, item) => sum + Number(item["Total Quincena"]),
+        0
+      ),
+      totalExtras: exportData.reduce(
+        (sum, item) => sum + Number(item.Extra),
+        0
+      ),
+      totalDeducciones: exportData.reduce(
+        (sum, item) => sum + Number(item.Deducciones),
+        0
+      ),
+      totalNomina: exportData.reduce(
+        (sum, item) => sum + Number(item["Total Nómina"]),
+        0
+      ),
+      totalEfectivo: exportData.reduce(
+        (sum, item) => sum + Number(item.Efectivo),
+        0
+      ),
+      totalSaldoInicial: exportData.reduce(
+        (sum, item) => sum + Number(item["Saldo Inicial"]),
+        0
+      ),
+      totalEntregado: exportData.reduce(
+        (sum, item) => sum + Number(item.Entregado),
+        0
+      ),
+      totalSaldoFinal: exportData.reduce(
+        (sum, item) => sum + Number(item["Saldo Final"]),
+        0
+      ),
+    };
+
+    // Agregar fila de totales
+    dataRows.push([
+      "TOTALES",
+      "",
+      "",
+      `${totales.totalQuincena.toFixed(2)} AWG`,
+      `${totales.totalExtras.toFixed(2)} AWG`,
+      `${totales.totalDeducciones.toFixed(2)} AWG`,
+      `${totales.totalNomina.toFixed(2)} AWG`,
+      `${totales.totalEfectivo.toFixed(2)} AWG`,
+      `${totales.totalSaldoInicial.toFixed(2)} AWG`,
+      `${totales.totalEntregado.toFixed(2)} AWG`,
+      `${totales.totalSaldoFinal.toFixed(2)} AWG`,
     ]);
 
     autoTable(doc, {
       head: headers,
       body: dataRows,
-      startY: 30,
-      theme: "grid",
-      headStyles: { fillColor: [79, 129, 189], textColor: [255, 255, 255] },
-      styles: { fontSize: 7 },
-      margin: { top: 30, left: 10, right: 10 },
+      startY: 35,
+      theme: "striped",
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: [255, 255, 255],
+        fontSize: 8,
+        fontStyle: "bold",
+        halign: "center",
+        valign: "middle",
+      },
+      bodyStyles: {
+        fontSize: 7,
+        halign: "center",
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 25 }, // Nombre
+        1: { cellWidth: 12 }, // Días
+        2: { cellWidth: 18 }, // Valor
+        3: { cellWidth: 20 }, // Total Quincena
+        4: { cellWidth: 18 }, // Extras
+        5: { cellWidth: 20 }, // Deducciones
+        6: { cellWidth: 20 }, // Total Nómina
+        7: { cellWidth: 20 }, // Efectivo
+        8: { cellWidth: 20 }, // Saldo Inicial
+        9: { cellWidth: 20 }, // Entregado
+        10: { cellWidth: 20 }, // Saldo Final
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      margin: { top: 35, left: 10, right: 10 },
+      didParseCell: function (data) {
+        // Destacar la fila de totales
+        if (data.row.index === dataRows.length - 1) {
+          data.cell.styles.fillColor = [52, 152, 219];
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = "bold";
+        }
+
+        // Colorear valores negativos en rojo
+        if (
+          data.column.index === 10 &&
+          data.cell.text[0] &&
+          data.cell.text[0].includes("-")
+        ) {
+          data.cell.styles.textColor = [231, 76, 60];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
     });
 
+    // Agregar información adicional al pie
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Total de empleados: ${visibleRows.length}`, 15, finalY);
+
     doc.save(
-      `Nomina_${currentNomina?.fechaDesde || ""}_${
+      `Nomina_Resumen_${currentNomina?.fechaDesde || ""}_${
         currentNomina?.fechaHasta || ""
       }.pdf`
     );

@@ -3018,22 +3018,30 @@ const Hojadefechas = () => {
   };
 
   const TotalServiciosPorTrabajador = () => {
-    // 1) Aplano todos los registros filtrados
-    const allRecords = filteredData.flatMap((group) => group.registros);
+  // users ya viene sin admin, contador, usernotactive
+  const usersIndex = new Map(users.map(u => [u.id, u])); // id -> {id, name}
+  const visibleUserIds = new Set(users.map(u => u.id));
 
-    // 2) Calculo totales por trabajador (incluye unassigned como "__unassigned__")
-    const counts = allRecords.reduce((acc, item) => {
-      const uid = item.realizadopor || "__unassigned__";
-      acc[uid] = (acc[uid] || 0) + 1;
-      return acc;
-    }, {});
+  // 1) Aplano todos los registros filtrados
+  const allRecords = filteredData.flatMap(group => group.registros);
 
-    // 3) Extraigo el conteo de "Sin Asignar" y remuevo de los demás
-    const unassignedCount = counts["__unassigned__"] || 0;
-    delete counts["__unassigned__"];
+  // 2) Calculo totales SOLO para IDs visibles; mantengo "__unassigned__"
+  const counts = allRecords.reduce((acc, item) => {
+    const uid = item.realizadopor || "__unassigned__";
 
-    // 4) Construyo el HTML
-    let html = `
+    // Excluir registros asignados a IDs que no están en la lista visible
+    if (uid !== "__unassigned__" && !visibleUserIds.has(uid)) return acc;
+
+    acc[uid] = (acc[uid] || 0) + 1;
+    return acc;
+  }, {});
+
+  // 3) Extraigo "Sin Asignar"
+  const unassignedCount = counts["__unassigned__"] || 0;
+  delete counts["__unassigned__"];
+
+  // 4) Construyo la tabla
+  let html = `
     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:left;">
       <thead>
         <tr>
@@ -3043,48 +3051,52 @@ const Hojadefechas = () => {
       </thead>
       <tbody>
   `;
-    // 5) Fila para cada trabajador con cnt > 0
-    Object.entries(counts).forEach(([uid, cnt]) => {
-      if (cnt === 0) return;
-      const name = users.find((u) => u.id === uid)?.name || uid;
-      html += `
+
+  Object.entries(counts).forEach(([uid, cnt]) => {
+    if (cnt === 0) return;
+    const name = usersIndex.get(uid)?.name || "(desconocido)";
+    html += `
       <tr>
         <td style="padding:8px;border:1px solid #ddd;">${name}</td>
         <td style="padding:8px;border:1px solid #ddd;text-align:center;">${cnt}</td>
       </tr>
     `;
-    });
-    // 6) Fila de "Sin Asignar" (siempre)
-    html += `
+  });
+
+  html += `
     <tr>
       <td style="padding:8px;border:1px solid #ddd;">Sin Asignar</td>
       <td style="padding:8px;border:1px solid #ddd;text-align:center;">${unassignedCount}</td>
     </tr>
   `;
-    // 7) Gran total
-    const grandTotal = allRecords.length;
-    html += `
+
+  // 5) Gran total mostrado (solo visibles + sin asignar)
+  const grandTotalShown = Object.values(counts).reduce((a, b) => a + b, 0) + unassignedCount;
+
+  html += `
       <tr style="font-weight:bold;">
         <th style="padding:8px;border:1px solid #ddd;background-color:#5271ff;color:white;text-align:left;">
           Total:
         </th>
         <th style="padding:8px;border:1px solid #ddd;background-color:#5271ff;color:white;text-align:center;">
-          ${grandTotal}
+          ${grandTotalShown}
         </th>
       </tr>
     </tbody>
   </table>
   `;
-    // 8) Muestro el modal
-    Swal.fire({
-      title: "Total de servicios por trabajador",
-      html,
-      width: "600px",
-      showCloseButton: true,
-      focusConfirm: false,
-      confirmButtonText: "Cerrar",
-    });
-  };
+
+  Swal.fire({
+    title: "Total de servicios por trabajador",
+    html,
+    width: "600px",
+    showCloseButton: true,
+    focusConfirm: false,
+    confirmButtonText: "Cerrar",
+  });
+};
+
+
 
   // Reloj interno para calcular días de mora
   useEffect(() => {
@@ -4067,8 +4079,7 @@ const Hojadefechas = () => {
             </button>
           </div>
         </div>
-      </div>
-      <div
+        <div
         className="button-container"
         style={{
           display: "flex",
@@ -4109,7 +4120,8 @@ const Hojadefechas = () => {
             : "Ocultar casillas"}
         </button>
       </div>
-
+      </div>
+      
       <button
         className="generate-button3"
         onClick={generateAndMaybeEmitFactura}

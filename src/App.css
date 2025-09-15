@@ -157,7 +157,8 @@ html {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -166,7 +167,8 @@ html {
 }
 
 @keyframes fadeInOut {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.7;
   }
   50% {
@@ -181,12 +183,12 @@ html {
     margin-bottom: 1.5rem;
     padding: 8px;
   }
-  
+
   .loading-spinner {
     width: 40px;
     height: 40px;
   }
-  
+
   .loading-text {
     font-size: 1rem;
   }
@@ -909,9 +911,6 @@ body {
   border-radius: 5px;
   padding: 10px;
   height: 100%;
-  max-height: calc(
-    100vw - 2.3cm
-  ); /* 100vw menos 1cm total (0.5cm a cada lado) */
   max-width: calc(100vw - 5cm); /* 100vw menos 1cm total (0.5cm a cada lado) */
   width: 100%;
   margin: -9px auto 0; /* Se centra horizontalmente, con margen superior negativo */
@@ -2208,7 +2207,7 @@ button.delete-button:hover {
     cursor: pointer;
     transition: background-color 0.3s, transform 0.2s ease-in-out;
     font-weight: bold;
-    right: 25px;
+    right: 5px;
     font-size: 40.4px; /* Tamaño de fuente reducido */
     bottom: 1vh;
   }
@@ -2326,12 +2325,6 @@ button.delete-button:hover {
     color: white;
   }
 
-  .create-facture-button {
-    background-color: #5271ff;
-    color: white;
-    font-weight: bold;
-  }
-
   .delete-button {
     background-color: #dc3545;
     color: white;
@@ -2359,14 +2352,14 @@ button.delete-button:hover {
   }
 
   .generate-button2 {
-    right: 40vw;
-    bottom: 1vh;
+    right: 2vw;
+    bottom: 12vh;
     min-height: 11vw;
     min-width: 11vw;
   }
   .generate-button1 {
-    right: 25vw;
-    bottom: 1vh;
+    right: 2vw;
+    bottom: 6.5vh;
     min-height: 11vw;
     min-width: 11vw;
   }
@@ -3414,14 +3407,14 @@ button.delete-button:hover {
   .homepage-card {
     /* que la tarjeta llene casi todo el ancho disponible */
     width: calc(100vw - 2rem);
-    max-width: none;
+    max-width: 85%;
     /* centrarla horizontalmente */
     margin: 0.5rem auto 1rem;
     /* algo de padding interior para no pegar contenido al borde */
     max-height: calc(1000vw - 2.3cm);
   }
   .table-container {
-    width: calc(141vw - 10cm);
+    max-width: 98%;
     max-height: 78vh;
     font-size: 0.92rem;
     min-height: calc(90vh - 200px);
@@ -3460,8 +3453,8 @@ button.delete-button:hover {
   .generate-button2,
   .generate-button3,
   .generate-button4 {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
   }
 
   /* ---------- slidebar: oculto, se usa hamburguesa ---------- */
@@ -3499,12 +3492,10 @@ button.delete-button:hover {
     padding: 2rem 1.8rem;
   }
   .homepage-card {
-    max-width: 100%;
-    margin-top: 0.5rem;
+    max-width: 86%;
   }
   .table-container {
-    width: calc(100vw - 2cm);
-    max-height: 85vh;
+    max-width: 100%;
     font-size: 1rem;
   }
 
@@ -3521,10 +3512,15 @@ button.delete-button:hover {
   }
 
   /* ---------- botones flotantes ---------- */
-  .generate-button1,
+  .generate-button1{
+    right: 1vw;
+    bottom: 8vw;
+    width: 52px;
+    height: 52px;
+  }
   .generate-button2 {
-    right: 2vw;
-    bottom: px;
+    right: 1vw;
+    bottom: 15vw;
     width: 52px;
     height: 52px;
   }
@@ -3591,19 +3587,6 @@ h1,
 .btn-action:hover {
   color: #004999;
 }
-
-/* 5. Scrollbar sutil */
-.table-container {
-  overflow: auto;
-}
-.table-container::-webkit-scrollbar {
-  width: 4px;
-}
-.table-container::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 2px;
-}
-
 /* ================================ */
 /* COLORES BÁSICOS PARA .form-login */
 /* Solo texto negro y bordes bien visibles */

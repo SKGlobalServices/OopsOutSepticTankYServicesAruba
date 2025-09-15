@@ -11,8 +11,8 @@ import Swal from "sweetalert2";
 
 const Pagosmensuales = () => {
   // LOADER
-  const [loading, setLoading] = useState(true);
-  const [loadedData, setLoadedData] = useState(false);
+  // const [loading, setLoading] = useState(true);
+  // const [loadedData, setLoadedData] = useState(false);
   
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
@@ -60,17 +60,17 @@ const Pagosmensuales = () => {
         estado: r?.estado ?? "",
       }));
       setData(sortByFechaDesc(arr));
-      setLoadedData(true);
+      // setLoadedData(true);
     });
     return unsubscribe;
   }, []);
 
   // Cuando los datos estén cargados, oculta el loader
-  useEffect(() => {
-    if (loadedData) {
-      setLoading(false);
-    }
-  }, [loadedData]);
+  // useEffect(() => {
+  //   if (loadedData) {
+  //     setLoading(false);
+  //   }
+  // }, [loadedData]);
 
   // ====== Utils fecha ======
   const parseFecha = (dmy) => {
@@ -420,13 +420,13 @@ const Pagosmensuales = () => {
   };
 
   // Loading
-  if (loading) {
-    return (
-      <div className="loader-container">
-        <div className="loader" />
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="loader-container">
+  //       <div className="loader" />
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="homepage-container">

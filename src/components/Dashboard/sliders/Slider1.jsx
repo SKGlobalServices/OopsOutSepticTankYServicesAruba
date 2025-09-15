@@ -117,12 +117,6 @@ export const Slider1 = () => {
       <div className="charts-grid">
         <div className="chart-item">
           <div className="chart-container-large">
-            <GraficaGananciaPerdida filters={filters} />
-          </div>
-        </div>
-
-        <div className="chart-item">
-          <div className="chart-container-large">
             <GraficaIngresosTotales filters={filters} />
           </div>
         </div>
@@ -130,6 +124,12 @@ export const Slider1 = () => {
         <div className="chart-item">
           <div className="chart-container-large">
             <GraficaTotalGastos filters={filters} />
+          </div>
+        </div>
+
+        <div className="chart-item">
+          <div className="chart-container-large">
+            <GraficaGananciaPerdida filters={filters} />
           </div>
         </div>
       </div>

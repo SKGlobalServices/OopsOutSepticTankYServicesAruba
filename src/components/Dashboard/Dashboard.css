@@ -190,10 +190,6 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
-.slider-info {
-  flex: 1;
-}
-
 .slider-title {
   font-size: 24px;
   font-weight: 700;
@@ -591,6 +587,18 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1400px) {
+  .dashboard-container {
+    padding: 18px;
+    max-width: 100%;
+  }
+  
+  .charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+}
+
 @media (max-width: 1200px) {
   .dashboard-container {
     padding: 16px;
@@ -1149,7 +1157,7 @@
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   min-width: 120px;
 }
 

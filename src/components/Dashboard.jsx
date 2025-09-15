@@ -43,12 +43,6 @@ const Dashboard = () => {
       <Slidebar />
 
       <div className="dashboard-container">
-        <div className="dashboard-header">
-          <div>
-            <h1 className="dashboard-title">Dashboard Analítico</h1>
-          </div>
-        </div>
-
         {/* Slider Section */}
         <div className="slider-section">
           <div className="slider-header">
@@ -59,6 +53,10 @@ const Dashboard = () => {
               <p className="slider-subtitle">
                 {sliderTitles[currentSlide].subtitle}
               </p>
+            </div>
+
+            <div>
+              <h1 className="dashboard-title">Dashboard Analítico</h1>
             </div>
             <div className="slide-counter">
               {currentSlide + 1} / {sliderTitles.length}

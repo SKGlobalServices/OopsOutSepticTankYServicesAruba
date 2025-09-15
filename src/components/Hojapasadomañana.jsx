@@ -93,7 +93,7 @@ const Hojapasadomañana = () => {
           const fetchedUsers = Object.entries(snapshot.val())
             .filter(([_, user]) => user.role !== "admin")
             .filter(([_, user]) => user.role !== "contador")
-            .filter(([_, user]) => user.role !== "No activo")
+            .filter(([_, user]) => user.role !== "usernotactive")
             .map(([id, user]) => ({ id, name: user.name }));
           fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
           setUsers(fetchedUsers);
