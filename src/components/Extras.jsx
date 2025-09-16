@@ -24,7 +24,7 @@ const Extras = () => {
   const [loadedExtras, setLoadedExtras] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [localValues, setLocalValues] = useState({});
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -41,10 +41,13 @@ const Extras = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const serviciosAdicionales = {
-    "Semanal": 15,
-    "Dominical": 50,
-    "Emergencia": 50
+    Semanal: 15,
+    Dominical: 50,
+    Emergencia: 50,
+    Otros: "",
   };
+  const isOtros = (servicio) =>
+    String(servicio || "").toLowerCase() === "otros";
 
   // Cargar usuarios excluyendo usernotactive
   useEffect(() => {
@@ -53,7 +56,9 @@ const Extras = () => {
       if (snapshot.exists()) {
         const usersData = snapshot.val();
         const usersList = Object.entries(usersData)
-          .filter(([, user]) => user.role !== "usernotactive" && user.name !== "IT")
+          .filter(
+            ([, user]) => user.role !== "usernotactive" && user.name !== "IT"
+          )
           .map(([id, user]) => ({ id, name: user.name }));
         usersList.sort((a, b) => a.name.localeCompare(b.name));
         setUsers(usersList);
@@ -90,30 +95,78 @@ const Extras = () => {
     }
   }, [loadedExtras, loadedUsers]);
 
-
-
   // Actualizar campos
   const handleFieldChange = async (id, field, value) => {
     try {
+      const currentExtra = extras.find((e) => e.id === id) || {};
       let updateData = { [field]: value };
-      
-      // Si cambia cantidad o servicio, recalcular valor
-      const currentExtra = extras.find(e => e.id === id);
-      if (field === "cantidad" || field === "servicioAdicional") {
-        const cantidad = parseFloat(field === "cantidad" ? value : currentExtra.cantidad) || 0;
-        const servicio = field === "servicioAdicional" ? value : currentExtra.servicioAdicional;
-        updateData.valor = cantidad * (serviciosAdicionales[servicio] || 0);
+
+      // Normalizamos servicio y cantidad "resultantes" tras este cambio
+      const nextServicio =
+        field === "servicioAdicional" ? value : currentExtra.servicioAdicional;
+      const nextCantidadRaw =
+        field === "cantidad" ? value : currentExtra.cantidad;
+      const nextCantidad = isOtros(nextServicio)
+        ? 1
+        : parseFloat(nextCantidadRaw) || 0;
+
+      // Reglas:
+      // 1) Si servicio === "Otros": cantidad debe ser 1 y valor NO se recalcula automáticamente
+      // 2) Si servicio !== "Otros": valor = cantidad * tarifa (automático)
+      if (field === "servicioAdicional") {
+        if (isOtros(value)) {
+          updateData.cantidad = 1; // forzamos cantidad 1
+          // NO recalculamos valor: queda editable por el usuario (se mantiene el actual)
+          updateData.valor =
+            currentExtra.valor != null ? currentExtra.valor : 0;
+        } else {
+          // servicio con tarifa estándar
+          const tarifa = serviciosAdicionales[value] || 0;
+          updateData.valor = nextCantidad * tarifa;
+        }
       }
 
-      // Actualizar en Firebase
+      if (field === "cantidad") {
+        if (isOtros(nextServicio)) {
+          // Ignoramos cantidad distinta a 1 si intentan cambiarla
+          updateData.cantidad = 1;
+          // NO tocar valor: es editable
+          updateData.valor =
+            currentExtra.valor != null ? currentExtra.valor : 0;
+        } else {
+          const tarifa = serviciosAdicionales[nextServicio] || 0;
+          updateData.valor = nextCantidad * tarifa;
+        }
+      }
+
+      // Si cambian directamente el valor (solo pasará cuando "Otros" está activo),
+      // lo permitimos sin recálculo.
+      if (field === "valor") {
+        const num = parseFloat(value);
+        updateData.valor = Number.isFinite(num) ? num : 0;
+      }
+
+      // Guardar en Firebase
       await update(ref(database, `extras/${id}`), updateData);
-      
-      // Actualizar estado local
-      setExtras(prev => 
-        prev.map(extra => 
-          extra.id === id ? { ...extra, ...updateData } : extra
-        ).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+
+      // Estado local (y mantener orden por timestamp)
+      setExtras((prev) =>
+        prev
+          .map((extra) =>
+            extra.id === id ? { ...extra, ...updateData } : extra
+          )
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       );
+
+      // Sincroniza localValues si tocaste cantidad/valor
+      setLocalValues((prev) => {
+        const nxt = { ...prev };
+        if (updateData.cantidad !== undefined)
+          nxt[`${id}_cantidad`] = updateData.cantidad;
+        if (updateData.valor !== undefined)
+          nxt[`${id}_valor`] = updateData.valor;
+        return nxt;
+      });
     } catch (error) {
       console.error("Error updating field:", error);
       Swal.fire("Error", "No se pudo actualizar el campo", "error");
@@ -130,7 +183,7 @@ const Extras = () => {
       realizado: "",
       valor: 0,
       timestamp: Date.now(),
-      createdBy: decryptData(localStorage.getItem("user"))?.name || "Admin"
+      createdBy: decryptData(localStorage.getItem("user"))?.name || "Admin",
     };
 
     try {
@@ -167,47 +220,51 @@ const Extras = () => {
 
   // Obtener nombre de usuario
   const getUserName = (userId) => {
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     return user ? user.name : "";
   };
 
   // Filtrado y ordenamiento por fecha
-  const filteredExtras = extras.filter((extra) => {
-    if (filters.fechaInicio && filters.fechaFin) {
-      const [day, month, year] = extra.fecha.split("-");
-      const itemDate = new Date(year, month - 1, day);
-      if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
-        return false;
-    }
+  const filteredExtras = extras
+    .filter((extra) => {
+      if (filters.fechaInicio && filters.fechaFin) {
+        const [day, month, year] = extra.fecha.split("-");
+        const itemDate = new Date(year, month - 1, day);
+        if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
+          return false;
+      }
 
-    if (filters.realizado.length > 0) {
-      const matchRealizado = filters.realizado.some((filterValue) => {
-        if (filterValue === "__EMPTY__") {
-          return !extra.realizado || extra.realizado.trim() === "";
-        }
-        return extra.realizado === filterValue;
-      });
-      if (!matchRealizado) return false;
-    }
+      if (filters.realizado.length > 0) {
+        const matchRealizado = filters.realizado.some((filterValue) => {
+          if (filterValue === "__EMPTY__") {
+            return !extra.realizado || extra.realizado.trim() === "";
+          }
+          return extra.realizado === filterValue;
+        });
+        if (!matchRealizado) return false;
+      }
 
-    if (filters.servicioAdicional.length > 0) {
-      const matchServicio = filters.servicioAdicional.some((filterValue) => {
-        if (filterValue === "__EMPTY__") {
-          return !extra.servicioAdicional || extra.servicioAdicional.trim() === "";
-        }
-        return extra.servicioAdicional === filterValue;
-      });
-      if (!matchServicio) return false;
-    }
+      if (filters.servicioAdicional.length > 0) {
+        const matchServicio = filters.servicioAdicional.some((filterValue) => {
+          if (filterValue === "__EMPTY__") {
+            return (
+              !extra.servicioAdicional || extra.servicioAdicional.trim() === ""
+            );
+          }
+          return extra.servicioAdicional === filterValue;
+        });
+        if (!matchServicio) return false;
+      }
 
-    return true;
-  }).sort((a, b) => {
-    const [dayA, monthA, yearA] = (a.fecha || "").split("-");
-    const [dayB, monthB, yearB] = (b.fecha || "").split("-");
-    const dateA = new Date(yearA, monthA - 1, dayA);
-    const dateB = new Date(yearB, monthB - 1, dayB);
-    return dateB - dateA; // Más reciente primero
-  });
+      return true;
+    })
+    .sort((a, b) => {
+      const [dayA, monthA, yearA] = (a.fecha || "").split("-");
+      const [dayB, monthB, yearB] = (b.fecha || "").split("-");
+      const dateA = new Date(yearA, monthA - 1, dayA);
+      const dateB = new Date(yearB, monthB - 1, dayB);
+      return dateB - dateA; // Más reciente primero
+    });
 
   // Paginación
   const totalItems = filteredExtras.length;
@@ -286,7 +343,7 @@ const Extras = () => {
   return (
     <div className="homepage-container">
       <Slidebar />
-      
+
       {/* Filtros */}
       <div onClick={() => toggleFilterSlidebar(!showFilterSlidebar)}>
         <img
@@ -299,7 +356,7 @@ const Extras = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
+        <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
 
@@ -384,7 +441,7 @@ const Extras = () => {
           Descartar Filtros
         </button>
       </div>
-      
+
       <div className="homepage-title">
         <div className="homepage-card">
           <h1 className="title-page">Extras</h1>
@@ -433,64 +490,120 @@ const Extras = () => {
                           placeholderText="Selecciona fecha"
                         />
                       </td>
-                      
+
                       <td>
                         <input
                           type="number"
-                          value={localValues[`${extra.id}_cantidad`] ?? extra.cantidad ?? ""}
+                          value={
+                            isOtros(extra.servicioAdicional)
+                              ? 1
+                              : localValues[`${extra.id}_cantidad`] ??
+                                extra.cantidad ??
+                                ""
+                          }
                           onChange={(e) =>
-                            setLocalValues(prev => ({
+                            setLocalValues((prev) => ({
                               ...prev,
-                              [`${extra.id}_cantidad`]: e.target.value
+                              [`${extra.id}_cantidad`]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
+                            // Si es "Otros", ignoramos cambios y forzamos 1
+                            if (isOtros(extra.servicioAdicional)) {
+                              handleFieldChange(extra.id, "cantidad", 1);
+                              return;
+                            }
                             if (e.target.value !== (extra.cantidad || "")) {
-                              handleFieldChange(extra.id, "cantidad", e.target.value);
+                              handleFieldChange(
+                                extra.id,
+                                "cantidad",
+                                e.target.value
+                              );
                             }
                           }}
                           min="0"
                           step="1"
                           style={{ width: "80px", textAlign: "center" }}
+                          disabled={isOtros(extra.servicioAdicional)}
                         />
                       </td>
-                      
+
                       <td>
                         <select
                           value={extra.servicioAdicional || ""}
-                          onChange={(e) => handleFieldChange(extra.id, "servicioAdicional", e.target.value)}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              extra.id,
+                              "servicioAdicional",
+                              e.target.value
+                            )
+                          }
                           style={{ width: "140px" }}
                         >
                           <option value=""></option>
-                          {Object.entries(serviciosAdicionales).map(([servicio, valor]) => (
-                            <option key={servicio} value={servicio}>
-                              {servicio} (AWG {valor})
-                            </option>
-                          ))}
+                          {Object.entries(serviciosAdicionales).map(
+                            ([servicio, valor]) => (
+                              <option key={servicio} value={servicio}>
+                                {servicio} (AWG {valor})
+                              </option>
+                            )
+                          )}
                         </select>
                       </td>
-                      
+
                       <td>
                         <select
                           value={extra.realizado || ""}
-                          onChange={(e) => handleFieldChange(extra.id, "realizado", e.target.value)}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              extra.id,
+                              "realizado",
+                              e.target.value
+                            )
+                          }
                           style={{ width: "150px" }}
                         >
                           <option value=""></option>
-                          {users.map(user => (
+                          {users.map((user) => (
                             <option key={user.id} value={user.id}>
                               {user.name}
                             </option>
                           ))}
                         </select>
                       </td>
-                      
+
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        {(extra.valor || 0).toFixed(2)} AWG
+                        {isOtros(extra.servicioAdicional) ? (
+                          <input
+                            type="number"
+                            value={
+                              localValues[`${extra.id}_valor`] ??
+                              extra.valor ??
+                              0
+                            }
+                            onChange={(e) =>
+                              setLocalValues((prev) => ({
+                                ...prev,
+                                [`${extra.id}_valor`]: e.target.value,
+                              }))
+                            }
+                            onBlur={(e) => {
+                              const v = e.target.value;
+                              if (v !== String(extra.valor ?? "")) {
+                                handleFieldChange(extra.id, "valor", v);
+                              }
+                            }}
+                            step="0.01"
+                            style={{ width: "80px", fontWeight: "bold", textAlign: "center" }}
+                          />
+                        ) : (
+                          <>{(extra.valor || 0).toFixed(2)} AWG</>
+                        )}
                       </td>
-                      
-                      <td style={{ minWidth: "100px", textAlign: "center" }}>
+
+                      <td style={{ textAlign: "center" }}>
                         <button
+                          style={{ marginRight: "16px" }}
                           className="delete-button"
                           onClick={() => deleteRecord(extra.id)}
                         >
@@ -520,7 +633,9 @@ const Extras = () => {
               <label>Mostrar:</label>
               <select
                 value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
               >
                 <option value={50}>50</option>
                 <option value={100}>100</option>

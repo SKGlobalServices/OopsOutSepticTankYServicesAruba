@@ -191,6 +191,35 @@ const Nomina = () => {
     };
   }, []);
 
+  // --- NUEVO: parser de fechas DD-MM-YYYY a Date
+  const parseDDMMYYYY = (ddmmyyyy) => {
+    if (!ddmmyyyy) return null;
+    const [d, m, y] = ddmmyyyy.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
+  // --- NUEVO: efectivo por rango de fechas (según nómina actual)
+  const calculateEfectivoForUserInRange = useCallback(
+    (userId, fechaDesdeDDMM, fechaHastaDDMM) => {
+      if (!userId || !fechaDesdeDDMM || !fechaHastaDDMM) return 0;
+
+      const desde = parseDDMMYYYY(fechaDesdeDDMM);
+      const hasta = parseDDMMYYYY(fechaHastaDDMM);
+      if (!desde || !hasta) return 0;
+
+      return informeEfectivo
+        .filter((item) => {
+          if (item.realizadopor !== userId) return false;
+          if (String(item.metododepago).toLowerCase() !== "efectivo")
+            return false;
+          const f = parseDDMMYYYY(item.fecha); // item.fecha viene DD-MM-YYYY
+          return f && f >= desde && f <= hasta;
+        })
+        .reduce((acc, it) => acc + (parseFloat(it.efectivo) || 0), 0);
+    },
+    [informeEfectivo]
+  );
+
   // Calcular extras para un usuario en un rango de fechas
   const calculateExtrasForUser = useCallback(
     (userId, fechaDesde, fechaHasta) => {
@@ -624,18 +653,24 @@ const Nomina = () => {
       const currentRecord = nominaData.find((r) => r.id === recordId);
 
       if (field === "nombre") {
-        // Calcular extras, deducciones y efectivo automáticamente
+        // Calcular extras, deducciones y EFECTIVO POR RANGO automáticamente
         const extraValue = calculateExtrasForUser(
           value,
-          currentNomina.fechaDesde,
-          currentNomina.fechaHasta
+          currentNomina.fechaDesde, // DD-MM-YYYY
+          currentNomina.fechaHasta // DD-MM-YYYY
         );
         const deduccionesValue = calculateDeduccionesForUser(
           value,
           currentNomina.fechaDesde,
           currentNomina.fechaHasta
         );
-        const efectivoValue = calculateEfectivoForUser(value);
+        // NUEVO: efectivo según el rango de la nómina actual
+        const efectivoValue = calculateEfectivoForUserInRange(
+          value,
+          currentNomina.fechaDesde,
+          currentNomina.fechaHasta
+        );
+
         updateData.extra = extraValue;
         updateData.deducciones = deduccionesValue;
         updateData.efectivo = efectivoValue;
@@ -681,7 +716,7 @@ const Nomina = () => {
 
       updateData.totalNomina = totalQuincena + extra - deducciones;
       // Saldo inicial = Total nómina - Efectivo por entregar
-      updateData.total = updateData.totalNomina + efectivo;
+      updateData.total = updateData.totalNomina - efectivo;
 
       await update(
         ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
@@ -696,6 +731,76 @@ const Nomina = () => {
       );
     } catch (error) {
       console.error("Error updating field:", error);
+    }
+  };
+
+  // Colocar el TOTAL de efectivo (histórico, sin rango) en un registro
+  const setEfectivoTotal = async (recordId) => {
+    if (!currentNomina) return;
+
+    // Si el registro está bloqueado, no permitir cambios
+    if (lockedRecords[recordId]) return;
+
+    try {
+      const currentRecord = nominaData.find((r) => r.id === recordId);
+      if (!currentRecord) return;
+
+      // Debe haber una persona seleccionada
+      const userId = currentRecord.nombre;
+      if (!userId) {
+        await Swal.fire({
+          title: "Falta seleccionar empleado",
+          text: "Primero elige un empleado para poder traer su efectivo total.",
+          icon: "info",
+          confirmButtonText: "Entendido",
+          customClass: { popup: "swal-wide" },
+        });
+        return;
+      }
+
+      // Usa tu cálculo existente (ya es histórico, sin rango)
+      const totalEfectivo = calculateEfectivoForUser(userId);
+
+      // Recalcular saldo inicial con la fórmula: Total nómina - Efectivo
+      const totalNomina = parseFloat(currentRecord.totalNomina) || 0;
+      const saldoInicial = totalNomina - (parseFloat(totalEfectivo) || 0);
+
+      // Persistir en Firebase
+      await update(
+        ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
+        {
+          efectivo: totalEfectivo,
+          total: saldoInicial,
+        }
+      );
+
+      // Reflejar en estado local
+      setNominaData((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? { ...r, efectivo: totalEfectivo, total: saldoInicial }
+            : r
+        )
+      );
+
+      // Aviso opcional
+      Swal.fire({
+        title: "Actualizado",
+        text: "Efectivo total (sin rango) aplicado y saldo recalculado.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        customClass: { popup: "swal-wide" },
+      });
+    } catch (err) {
+      console.error("Error setting efectivo total:", err);
+      Swal.fire({
+        title: "Error",
+        text: "No se pudo aplicar el efectivo total.",
+        icon: "error",
+        confirmButtonText: "Entendido",
+        customClass: { popup: "swal-wide" },
+      });
     }
   };
 
@@ -1470,7 +1575,7 @@ const Nomina = () => {
     const totalNom = Number(record?.totalNomina ?? totalQuin + extras - deducs);
     const efectivo = Number(record?.efectivo || 0);
     const entregado = Number(record?.entregado || 0);
-    const saldoInicial = totalNom + efectivo;
+    const saldoInicial = totalNom - efectivo;
     const saldoFinal = saldoInicial - entregado;
 
     // ---------- marca de agua ----------
@@ -1505,7 +1610,7 @@ const Nomina = () => {
     text(periodo, W / 2, 43.5, { size: 12, bold: true, align: "center" });
 
     // Banda Empleado / Empresa (sin bordes)
-    text("EMPLEADO:", 25, 57, { size: 11, bold: true});
+    text("EMPLEADO:", 25, 57, { size: 11, bold: true });
     text(employeeName || "Sin asignar", 65, 57, {
       size: 11,
       color: [0, 0, 0],
@@ -1685,7 +1790,7 @@ const Nomina = () => {
       align: "right",
       color: [0, 0, 0],
     });
-    text("= SALDO INICIAL:", 15 + 2 * cW + 6, sumY +6, {
+    text("= SALDO INICIAL:", 15 + 2 * cW + 6, sumY + 6, {
       size: 9,
       bold: true,
       color: [80, 80, 80],
@@ -1782,11 +1887,11 @@ const Nomina = () => {
         "Total Nómina": Number(record.totalNomina || 0).toFixed(2),
         Efectivo: Number(record.efectivo || 0).toFixed(2),
         "Saldo Inicial": Number(
-          (record.totalNomina || 0) + (record.efectivo || 0)
+          (record.totalNomina || 0) - (record.efectivo || 0)
         ).toFixed(2),
         Entregado: Number(record.entregado || 0).toFixed(2),
         "Saldo Final": Number(
-          (record.totalNomina || 0) +
+          (record.totalNomina || 0) -
             (record.efectivo || 0) -
             (record.entregado || 0)
         ).toFixed(2),
@@ -2406,6 +2511,17 @@ const Nomina = () => {
                           disabled={isLocked}
                         >
                           Eliminar
+                        </button>
+                        <button
+                          className="delete-button"
+                          style={{
+                            marginRight: "8px",
+                            backgroundColor: "green",
+                          }}
+                          onClick={() => setEfectivoTotal(record.id)}
+                          disabled={isLocked}
+                        >
+                          Efectivo total (sin rango)
                         </button>
                       </td>
                     </tr>
