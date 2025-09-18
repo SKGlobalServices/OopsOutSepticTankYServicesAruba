@@ -10,10 +10,6 @@ import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 
 const Pagosmensuales = () => {
-  // LOADER
-  // const [loading, setLoading] = useState(true);
-  // const [loadedData, setLoadedData] = useState(false);
-  
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -30,7 +26,7 @@ const Pagosmensuales = () => {
   // Mostrar/ocultar datepicker
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Filtros
+  // Filtros (se filtra por el campo 'fecha')
   const [filters, setFilters] = useState({
     compania: [],
     concepto: [],
@@ -53,24 +49,21 @@ const Pagosmensuales = () => {
       const all = snapshot.val();
       const arr = Object.entries(all).map(([id, r]) => ({
         id,
+        // se mantiene 'fecha' para ordenar/filtrar
         fecha: r?.fecha ?? "",
+        // nuevos campos visibles en tabla
+        mes: r?.mes ?? "",
+        fechaPago: r?.fechaPago ?? "",
+        // resto
         compania: r?.compania ?? "",
         concepto: r?.concepto ?? "",
         monto: r?.monto ?? "",
         estado: r?.estado ?? "",
       }));
       setData(sortByFechaDesc(arr));
-      // setLoadedData(true);
     });
     return unsubscribe;
   }, []);
-
-  // Cuando los datos estén cargados, oculta el loader
-  // useEffect(() => {
-  //   if (loadedData) {
-  //     setLoading(false);
-  //   }
-  // }, [loadedData]);
 
   // ====== Utils fecha ======
   const parseFecha = (dmy) => {
@@ -95,28 +88,6 @@ const Pagosmensuales = () => {
       if (!B) return -1;
       return B - A;
     });
-
-  const dmyToInput = (dmy) => {
-    const d = parseFecha(dmy);
-    if (!d) return "";
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const inputToDmy = (ymd) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "";
-    const [yyyy, mm, dd] = ymd.split("-");
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    if (
-      d.getFullYear() !== Number(yyyy) ||
-      d.getMonth() !== Number(mm) - 1 ||
-      d.getDate() !== Number(dd)
-    )
-      return "";
-    return `${dd}-${mm}-${yyyy}`;
-  };
 
   // Mostrar/ocultar slidebars
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
@@ -178,6 +149,7 @@ const Pagosmensuales = () => {
     }
   };
 
+  // (Se mantiene por si quieres editar 'fecha' desde otro flujo/UI)
   const handleFechaChange = async (item, nuevaFechaDMY, revert) => {
     const nuevaFecha = (nuevaFechaDMY || "").trim();
     const parsed = parseFecha(nuevaFecha);
@@ -206,7 +178,7 @@ const Pagosmensuales = () => {
     }
   };
 
-  // Crea un nuevo pago con estado "Pago" por defecto
+  // Crea un nuevo pago (fecha = hoy para filtros; mes/fechaPago quedan en blanco)
   const addData = async () => {
     const hoy = new Date();
     const dd = String(hoy.getDate()).padStart(2, "0");
@@ -217,15 +189,17 @@ const Pagosmensuales = () => {
     const dbRef = ref(database, "pagosmensuales");
     const newRef = push(dbRef);
     await set(newRef, {
-      fecha, // dd-mm-aaaa
-      compania: "", // texto
-      concepto: "", // texto
-      monto: "", // texto
-      estado: "", // default
+      fecha,          // dd-mm-aaaa (para filtros/orden)
+      mes: "",        // texto visible en tabla
+      fechaPago: "",  // texto visible en tabla
+      compania: "",
+      concepto: "",
+      monto: "",
+      estado: "",
     });
   };
 
-  // ====== Opciones para filtros (react-select & selects) ======
+  // ====== Opciones para filtros ======
   const companiaOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(new Set(data.map((it) => (it.compania ?? "").trim())))
@@ -283,25 +257,25 @@ const Pagosmensuales = () => {
     "Diciembre",
   ];
 
-  // ====== Filtrado ======
+  // ====== Filtrado (por 'fecha') ======
   const filteredData = data.filter((item) => {
     const d = parseFecha(item.fecha); // Date | null
 
     // 1) filtro por rango de fechas
     if (filters.fechaInicio || filters.fechaFin) {
-      if (!d) return false; // si no hay fecha válida, excluye
+      if (!d) return false;
       if (filters.fechaInicio && d < filters.fechaInicio) return false;
       if (filters.fechaFin && d > filters.fechaFin) return false;
     }
 
-    // 2) filtro por mes
+    // 2) filtro por mes (numérico, tomado de 'fecha')
     if (filters.mes != null) {
       if (!d) return false;
       const mesItem = d.getMonth() + 1;
       if (mesItem !== filters.mes) return false;
     }
 
-    // 3) filtro por año
+    // 3) filtro por año (de 'fecha')
     if (filters.año != null) {
       if (!d) return false;
       const añoItem = d.getFullYear();
@@ -328,19 +302,19 @@ const Pagosmensuales = () => {
     if (!matchMulti(filters.compania, "compania")) return false;
     if (!matchMulti(filters.concepto, "concepto")) return false;
     if (!matchMulti(filters.monto, "monto")) return false;
-    if (!matchMulti(filters.estado, "estado")) return false; // ← NUEVO
+    if (!matchMulti(filters.estado, "estado")) return false;
 
     return true;
   });
 
-  // ====== Conteo de compañías duplicadas (para alerta/⚠️) ======
+  // ====== Conteo de compañías duplicadas ======
   const companyCounts = {};
   filteredData.forEach((it) => {
     const c = (it.compania || "").trim();
     if (c) companyCounts[c] = (companyCounts[c] || 0) + 1;
   });
 
-  // ====== Paginación sobre datos filtrados ======
+  // ====== Paginación ======
   const totalItems = filteredData.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -391,7 +365,7 @@ const Pagosmensuales = () => {
     }));
   };
 
-  // FUNCIÓN PARA ELIMINAR REGISTRO
+  // Eliminar registro
   const handleDelete = (itemId) => {
     Swal.fire({
       title: "¿Eliminar registro?",
@@ -419,15 +393,6 @@ const Pagosmensuales = () => {
     });
   };
 
-  // Loading
-  // if (loading) {
-  //   return (
-  //     <div className="loader-container">
-  //       <div className="loader" />
-  //     </div>
-  //   );
-  // }
-
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -445,7 +410,7 @@ const Pagosmensuales = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
+        <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
 
@@ -469,7 +434,7 @@ const Pagosmensuales = () => {
           />
         )}
 
-        {/* Mes */}
+        {/* Mes numérico (desde 'fecha') */}
         <label style={{ marginTop: 12 }}>Mes</label>
         <select
           value={filters.mes ?? ""}
@@ -488,7 +453,7 @@ const Pagosmensuales = () => {
           ))}
         </select>
 
-        {/* Año */}
+        {/* Año (desde 'fecha') */}
         <label style={{ marginTop: 12 }}>Año</label>
         <select
           value={filters.año ?? ""}
@@ -653,65 +618,74 @@ const Pagosmensuales = () => {
           <table className="service-table">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Compañia</th>
+                <th>Mes</th>
+                <th>Fecha de pago</th>
+                <th>Compañía</th>
                 <th>Concepto</th>
                 <th>Monto</th>
                 <th>Estado</th>
-                <th>Acción</th> {/* ← NUEVA COLUMNA */}
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
               {currentPageData.length > 0 ? (
                 currentPageData.map((item) => {
+                  const kMes = `${item.id}_mes`;
+                  const kFechaPago = `${item.id}_fechaPago`;
                   const kCompania = `${item.id}_compania`;
                   const kConcepto = `${item.id}_concepto`;
                   const kMonto = `${item.id}_monto`;
                   const kEstado = `${item.id}_estado`;
-                  const kFecha = `${item.id}_fecha_${item.fecha}`;
-                  const prevFechaDMY = item.fecha;
-                  const currentInputValue =
-                    localValues[kFecha] !== undefined
-                      ? localValues[kFecha]
-                      : dmyToInput(item.fecha);
 
                   return (
                     <tr key={item.id}>
-                      {/* FECHA */}
+                      {/* MES */}
                       <td>
                         <input
-                          type="date"
-                          value={currentInputValue}
+                          type="text"
+                          value={
+                            localValues[kMes] !== undefined
+                              ? localValues[kMes]
+                              : item.mes ?? ""
+                          }
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
-                              [kFecha]: e.target.value,
+                              [kMes]: e.target.value,
                             }))
                           }
                           onBlur={(e) => {
-                            const oldDmy = prevFechaDMY;
-                            const newYmd = e.target.value;
-                            const newDmy = inputToDmy(newYmd);
-
-                            if (!newDmy) {
-                              setLocalValues((p) => ({
-                                ...p,
-                                [kFecha]: dmyToInput(oldDmy),
-                              }));
-                              alert("Fecha inválida.");
-                              return;
+                            const v = e.target.value ?? "";
+                            if (v !== (item.mes ?? "")) {
+                              handleFieldChange(item, "mes", v);
                             }
-                            if (newDmy === oldDmy) return;
-
-                            const revert = () =>
-                              setLocalValues((p) => ({
-                                ...p,
-                                [kFecha]: dmyToInput(oldDmy),
-                              }));
-
-                            handleFechaChange(item, newDmy, revert);
                           }}
-                          style={{ width: "14ch", textAlign: "center" }}
+                          style={{ width: "16ch", textAlign: "center" }}
+                        />
+                      </td>
+
+                      {/* FECHA DE PAGO */}
+                      <td>
+                        <input
+                          type="text"
+                          value={
+                            localValues[kFechaPago] !== undefined
+                              ? localValues[kFechaPago]
+                              : item.fechaPago ?? ""
+                          }
+                          onChange={(e) =>
+                            setLocalValues((p) => ({
+                              ...p,
+                              [kFechaPago]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const v = e.target.value ?? "";
+                            if (v !== (item.fechaPago ?? "")) {
+                              handleFieldChange(item, "fechaPago", v);
+                            }
+                          }}
+                          style={{ width: "16ch", textAlign: "center" }}
                         />
                       </td>
 
@@ -767,7 +741,13 @@ const Pagosmensuales = () => {
 
                       {/* MONTO */}
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
                           <input
                             type="text"
                             value={
@@ -821,7 +801,8 @@ const Pagosmensuales = () => {
                           <option value="Pago" />
                         </datalist>
                       </td>
-                      {/* ACCIÓN: BOTÓN ELIMINAR */}
+
+                      {/* ACCIÓN */}
                       <td style={{ textAlign: "center" }}>
                         <button
                           className="delete-button"
@@ -837,7 +818,7 @@ const Pagosmensuales = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="6">No hay registros disponibles</td> {/* ← Actualiza el colspan */}
+                  <td colSpan="7">No hay registros disponibles</td>
                 </tr>
               )}
             </tbody>

@@ -1313,13 +1313,13 @@ const Gastos = () => {
                       </td>
 
                       {/* Método de Pago */}
-                      <td>
+                      <td >
                         <select
                           value={r.metodoPago || ""}
                           onChange={(e) =>
                             actualizarCampo(r.id, "metodoPago", e.target.value)
                           }
-                          style={{ width: "12ch" }}
+                          style={{ width: "16ch" }}
                         >
                           <option value=""></option>
                           {["Efectivo", "Transferencia", "Tarjeta"].map((m) => (

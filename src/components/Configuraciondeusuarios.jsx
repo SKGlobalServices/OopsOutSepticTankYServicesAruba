@@ -219,7 +219,7 @@ const Usuarios = () => {
                     </td>
                     <td
                       style={{
-                        minWidth: "18ch",
+                        minWidth: "20ch",
                       }}
                     >
                       <select
@@ -228,8 +228,8 @@ const Usuarios = () => {
                           handleFieldChange(id, "role", e.target.value)
                         }
                       >
-                        <option value="admin">Admin</option>
-                        <option value="user">User</option>
+                        <option value="admin">Administrador</option>
+                        <option value="user">Conductor</option>
                         <option value="contador">Contador</option>
                         <option value="usernotactive">No Activo</option>
                       </select>

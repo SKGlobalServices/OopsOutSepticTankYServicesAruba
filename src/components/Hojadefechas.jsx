@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
 import {
   ref,
@@ -68,7 +68,10 @@ const Hojadefechas = () => {
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-
+  // Estados para filtros de dirección
+  const [addrChecklistOpen, setAddrChecklistOpen] = useState(false);
+  const [addrSearch, setAddrSearch] = useState("");
+  const [addrChecked, setAddrChecked] = useState({}); // { "Calle 1": true, ... }
   // Estado de filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -257,6 +260,23 @@ const Hojadefechas = () => {
     })),
     ...dataRegistroFechas,
   ];
+
+  // Direcciones únicas (desde TODOS los registros disponibles)
+  const allDireccionesUnicas = useMemo(() => {
+    const setDir = new Set(
+      allRegistros.flatMap((grp) =>
+        (grp.registros || []).map((r) => r.direccion).filter(Boolean)
+      )
+    );
+    return Array.from(setDir).sort((a, b) => a.localeCompare(b));
+  }, [allRegistros]);
+
+  // Filtrado por buscador del checklist
+  const visibleDirecciones = useMemo(() => {
+    const q = addrSearch.trim().toLowerCase();
+    if (!q) return allDireccionesUnicas;
+    return allDireccionesUnicas.filter((d) => d.toLowerCase().includes(q));
+  }, [allDireccionesUnicas, addrSearch]);
 
   const realizadoporOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
@@ -1394,6 +1414,47 @@ const Hojadefechas = () => {
   // Mostrar/ocultar slidebars
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
   const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
+  const toggleAddrCheck = (direccion) => {
+    setAddrChecked((prev) => ({ ...prev, [direccion]: !prev[direccion] }));
+  };
+
+  const selectAllVisibleDirecciones = () => {
+    setAddrChecked((prev) => {
+      const next = { ...prev };
+      visibleDirecciones.forEach((d) => {
+        next[d] = true;
+      });
+      return next;
+    });
+  };
+
+  const clearAllVisibleDirecciones = () => {
+    setAddrChecked((prev) => {
+      const next = { ...prev };
+      visibleDirecciones.forEach((d) => {
+        next[d] = false;
+      });
+      return next;
+    });
+  };
+
+  // Aplica el checklist → llena filters.direccion con las direcciones tildadas
+  const applyDireccionChecklist = () => {
+    const seleccionadas = Object.entries(addrChecked)
+      .filter(([, v]) => v)
+      .map(([d]) => ({ value: d, label: d }));
+
+    setFilters((prev) => ({
+      ...prev,
+      direccion: seleccionadas, // usa el mismo formato que tu <Select isMulti />
+    }));
+
+    // opcional: cerrar panel tras aplicar
+    setAddrChecklistOpen(false);
+
+    // opcional: limpiar búsqueda
+    setAddrSearch("");
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -3018,30 +3079,30 @@ const Hojadefechas = () => {
   };
 
   const TotalServiciosPorTrabajador = () => {
-  // users ya viene sin admin, contador, usernotactive
-  const usersIndex = new Map(users.map(u => [u.id, u])); // id -> {id, name}
-  const visibleUserIds = new Set(users.map(u => u.id));
+    // users ya viene sin admin, contador, usernotactive
+    const usersIndex = new Map(users.map((u) => [u.id, u])); // id -> {id, name}
+    const visibleUserIds = new Set(users.map((u) => u.id));
 
-  // 1) Aplano todos los registros filtrados
-  const allRecords = filteredData.flatMap(group => group.registros);
+    // 1) Aplano todos los registros filtrados
+    const allRecords = filteredData.flatMap((group) => group.registros);
 
-  // 2) Calculo totales SOLO para IDs visibles; mantengo "__unassigned__"
-  const counts = allRecords.reduce((acc, item) => {
-    const uid = item.realizadopor || "__unassigned__";
+    // 2) Calculo totales SOLO para IDs visibles; mantengo "__unassigned__"
+    const counts = allRecords.reduce((acc, item) => {
+      const uid = item.realizadopor || "__unassigned__";
 
-    // Excluir registros asignados a IDs que no están en la lista visible
-    if (uid !== "__unassigned__" && !visibleUserIds.has(uid)) return acc;
+      // Excluir registros asignados a IDs que no están en la lista visible
+      if (uid !== "__unassigned__" && !visibleUserIds.has(uid)) return acc;
 
-    acc[uid] = (acc[uid] || 0) + 1;
-    return acc;
-  }, {});
+      acc[uid] = (acc[uid] || 0) + 1;
+      return acc;
+    }, {});
 
-  // 3) Extraigo "Sin Asignar"
-  const unassignedCount = counts["__unassigned__"] || 0;
-  delete counts["__unassigned__"];
+    // 3) Extraigo "Sin Asignar"
+    const unassignedCount = counts["__unassigned__"] || 0;
+    delete counts["__unassigned__"];
 
-  // 4) Construyo la tabla
-  let html = `
+    // 4) Construyo la tabla
+    let html = `
     <table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:left;">
       <thead>
         <tr>
@@ -3052,28 +3113,29 @@ const Hojadefechas = () => {
       <tbody>
   `;
 
-  Object.entries(counts).forEach(([uid, cnt]) => {
-    if (cnt === 0) return;
-    const name = usersIndex.get(uid)?.name || "(desconocido)";
-    html += `
+    Object.entries(counts).forEach(([uid, cnt]) => {
+      if (cnt === 0) return;
+      const name = usersIndex.get(uid)?.name || "(desconocido)";
+      html += `
       <tr>
         <td style="padding:8px;border:1px solid #ddd;">${name}</td>
         <td style="padding:8px;border:1px solid #ddd;text-align:center;">${cnt}</td>
       </tr>
     `;
-  });
+    });
 
-  html += `
+    html += `
     <tr>
       <td style="padding:8px;border:1px solid #ddd;">Sin Asignar</td>
       <td style="padding:8px;border:1px solid #ddd;text-align:center;">${unassignedCount}</td>
     </tr>
   `;
 
-  // 5) Gran total mostrado (solo visibles + sin asignar)
-  const grandTotalShown = Object.values(counts).reduce((a, b) => a + b, 0) + unassignedCount;
+    // 5) Gran total mostrado (solo visibles + sin asignar)
+    const grandTotalShown =
+      Object.values(counts).reduce((a, b) => a + b, 0) + unassignedCount;
 
-  html += `
+    html += `
       <tr style="font-weight:bold;">
         <th style="padding:8px;border:1px solid #ddd;background-color:#5271ff;color:white;text-align:left;">
           Total:
@@ -3086,17 +3148,15 @@ const Hojadefechas = () => {
   </table>
   `;
 
-  Swal.fire({
-    title: "Total de servicios por trabajador",
-    html,
-    width: "600px",
-    showCloseButton: true,
-    focusConfirm: false,
-    confirmButtonText: "Cerrar",
-  });
-};
-
-
+    Swal.fire({
+      title: "Total de servicios por trabajador",
+      html,
+      width: "600px",
+      showCloseButton: true,
+      focusConfirm: false,
+      confirmButtonText: "Cerrar",
+    });
+  };
 
   // Reloj interno para calcular días de mora
   useEffect(() => {
@@ -3225,6 +3285,156 @@ const Hojadefechas = () => {
           onChange={(opts) => setFilters({ ...filters, direccion: opts || [] })}
           placeholder="Dirección(es)..."
         />
+        <div
+          style={{
+            marginTop: 10,
+            padding: "10px",
+            width: "90%",
+            borderRadius: 8,
+          }}
+        >
+          <button
+            className="filter-button"
+            onClick={() => setAddrChecklistOpen((o) => !o)}
+            style={{ width: "100%", marginBottom: 8 }}
+          >
+            {addrChecklistOpen
+              ? "Ocultar"
+              : "Seleccionar varias direcciones"}
+          </button>
+
+          {addrChecklistOpen && (
+            <div
+              style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+                paddingBottom: 8,
+                background: "#1c1f24",
+              }}
+            >
+              {/* Buscador */}
+              <input
+                type="text"
+                placeholder="Buscar dirección..."
+                value={addrSearch}
+                onChange={(e) => setAddrSearch(e.target.value)}
+                style={{
+                  width: "100%",
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid #3a3f46",
+            background: "#0f1216",
+            color: "#e8e8e8",
+            outline: "none",
+            marginBottom: 8,
+                }}
+              />
+
+              {/* Acciones rápidas */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <button
+                  className="filter-button"
+                  onClick={selectAllVisibleDirecciones}
+                  style={{ flex: 1 }}
+                >
+                  Seleccionar visibles
+                </button>
+                <button
+                  className="discard-filter-button"
+                  onClick={clearAllVisibleDirecciones}
+                  style={{ flex: 1 }}
+                >
+                  Limpiar visibles
+                </button>
+              </div>
+
+              {/* Lista con scroll */}
+              <div
+                style={{
+          maxHeight: 260,
+          overflowY: "auto",
+          border: "1px solid #2a2f36",
+          borderRadius: 8,
+          padding: 6,
+          marginTop: 8,
+          background: "#0f1216",
+        }}
+              >
+                {visibleDirecciones.length === 0 ? (
+                  <div
+                    style={{
+              color: "#b9c0c8",
+              fontStyle: "italic",
+              textAlign: "center",
+              padding: "14px 0",
+            }}
+                  >
+                    Sin coincidencias
+                  </div>
+                ) : (
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {visibleDirecciones.map((dir) => (
+              <li
+                key={dir}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  display: "grid",
+                  gridTemplateColumns: "22px 1fr",
+                  alignItems: "center",
+                  gap: 10,
+                  border: "1px solid transparent",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!addrChecked[dir]}
+                  onChange={() => toggleAddrCheck(dir)}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    cursor: "pointer",
+                    accentColor: "#5271ff",
+                  }}
+                />
+                {/* Texto de dirección: hasta 2 líneas + tooltip completo */}
+                <span
+                  title={dir}
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    lineHeight: "1.2",
+                    color: "#e6e9ed",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {dir}
+                </span>
+              </li>
+            ))}
+          </ul>
+                )}
+              </div>
+
+              {/* Aplicar */}
+              <button
+                className="filter-button"
+                onClick={applyDireccionChecklist}
+                style={{
+                  width: "100%",
+                  marginTop: 10,
+                  backgroundColor: "#28a745",
+                }}
+              >
+                Aplicar filtro con direcciones seleccionadas
+              </button>
+            </div>
+          )}
+        </div>
+
         <label>Servicio</label>
         <Select
           isClearable
@@ -3324,7 +3534,7 @@ const Hojadefechas = () => {
             padding: "8px",
             borderRadius: "4px",
             border: "1px solid #ccc",
-            width: "100%",
+            width: "95%",
           }}
         />
 
@@ -4080,48 +4290,48 @@ const Hojadefechas = () => {
           </div>
         </div>
         <div
-        className="button-container"
-        style={{
-          display: "flex",
-          justifyContent: "flex-start",
-          alignItems: "center",
-          width: "100%",
-          marginBottom: "0",
-          marginTop: "5px",
-        }}
-      >
-        <button
-          style={{ backgroundColor: "#5271ff" }}
-          onClick={TotalServiciosPorTrabajador}
-          className="filter-button"
+          className="button-container"
+          style={{
+            display: "flex",
+            justifyContent: "flex-start",
+            alignItems: "center",
+            width: "100%",
+            marginBottom: "0",
+            marginTop: "5px",
+          }}
         >
-          Servicios Por Trabajador
-        </button>
-        <button
-          style={{ backgroundColor: "#ff5252" }}
-          onClick={EliminarServicio}
-          className="filter-button"
-        >
-          {!showSelection
-            ? "Eliminar Servicio"
-            : selectedKey
-            ? "Eliminar Servicio"
-            : "Ocultar casillas"}
-        </button>
-        <button
-          style={{ backgroundColor: "#0a7e00ff" }}
-          onClick={GestionarCobranza}
-          className="filter-button"
-        >
-          {!showCobranzaSelection
-            ? "Cobranza"
-            : cobranzaSelectedRows
-            ? "Enviar a Cobranza"
-            : "Ocultar casillas"}
-        </button>
+          <button
+            style={{ backgroundColor: "#5271ff" }}
+            onClick={TotalServiciosPorTrabajador}
+            className="filter-button"
+          >
+            Servicios Por Trabajador
+          </button>
+          <button
+            style={{ backgroundColor: "#ff5252" }}
+            onClick={EliminarServicio}
+            className="filter-button"
+          >
+            {!showSelection
+              ? "Eliminar Servicio"
+              : selectedKey
+              ? "Eliminar Servicio"
+              : "Ocultar casillas"}
+          </button>
+          <button
+            style={{ backgroundColor: "#0a7e00ff" }}
+            onClick={GestionarCobranza}
+            className="filter-button"
+          >
+            {!showCobranzaSelection
+              ? "Cobranza"
+              : cobranzaSelectedRows
+              ? "Enviar a Cobranza"
+              : "Ocultar casillas"}
+          </button>
+        </div>
       </div>
-      </div>
-      
+
       <button
         className="generate-button3"
         onClick={generateAndMaybeEmitFactura}

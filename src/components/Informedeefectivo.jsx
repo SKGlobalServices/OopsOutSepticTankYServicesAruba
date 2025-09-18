@@ -50,7 +50,7 @@ const Informedeefectivo = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -159,6 +159,7 @@ const Informedeefectivo = () => {
         const fetchedUsers = Object.entries(snapshot.val())
           .filter(([_, user]) => user.role !== "admin")
           .filter(([_, user]) => user.role !== "contador")
+          .filter(([_, user]) => user.role !== "usernotactive")
           .map(([id, user]) => ({ id, name: user.name }));
         fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
         setUsers(fetchedUsers);

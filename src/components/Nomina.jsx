@@ -191,29 +191,29 @@ const Nomina = () => {
     };
   }, []);
 
-  // --- NUEVO: parser de fechas DD-MM-YYYY a Date
+  // --- Parser de fechas DD-MM-YYYY a Date
   const parseDDMMYYYY = (ddmmyyyy) => {
     if (!ddmmyyyy) return null;
     const [d, m, y] = ddmmyyyy.split("-").map(Number);
     return new Date(y, (m || 1) - 1, d || 1);
   };
 
-  // --- NUEVO: efectivo por rango de fechas (según nómina actual)
-  const calculateEfectivoForUserInRange = useCallback(
-    (userId, fechaDesdeDDMM, fechaHastaDDMM) => {
-      if (!userId || !fechaDesdeDDMM || !fechaHastaDDMM) return 0;
+  // === EFECTIVO RECOMENDADO ===
+  // Suma todo el efectivo para el usuario HASTA la fechaHasta (inclusive), sin filtrar por fechaDesde.
+  const calculateEfectivoUpToDate = useCallback(
+    (userId, fechaHastaDDMM) => {
+      if (!userId || !fechaHastaDDMM) return 0;
 
-      const desde = parseDDMMYYYY(fechaDesdeDDMM);
       const hasta = parseDDMMYYYY(fechaHastaDDMM);
-      if (!desde || !hasta) return 0;
+      if (!hasta) return 0;
 
       return informeEfectivo
         .filter((item) => {
           if (item.realizadopor !== userId) return false;
           if (String(item.metododepago).toLowerCase() !== "efectivo")
             return false;
-          const f = parseDDMMYYYY(item.fecha); // item.fecha viene DD-MM-YYYY
-          return f && f >= desde && f <= hasta;
+          const f = parseDDMMYYYY(item.fecha); // DD-MM-YYYY
+          return f && f <= hasta;
         })
         .reduce((acc, it) => acc + (parseFloat(it.efectivo) || 0), 0);
     },
@@ -242,7 +242,6 @@ const Nomina = () => {
         return extraDate >= desde && extraDate <= hasta;
       });
 
-      // Sumar todos los valores de extras encontrados
       return userExtras.reduce(
         (total, extra) => total + (parseFloat(extra.valor) || 0),
         0
@@ -273,7 +272,6 @@ const Nomina = () => {
         return deduccionDate >= desde && deduccionDate <= hasta;
       });
 
-      // Sumar todas las deducciones encontradas
       return userDeducciones.reduce(
         (total, deduccion) => total + (parseFloat(deduccion.valor) || 0),
         0
@@ -282,7 +280,7 @@ const Nomina = () => {
     [deducciones]
   );
 
-  // Calcular efectivo para un usuario
+  // Calcular efectivo total histórico (sin rango) — se mantiene para el botón extra
   const calculateEfectivoForUser = useCallback(
     (userId) => {
       const userEfectivo = informeEfectivo.filter(
@@ -290,7 +288,6 @@ const Nomina = () => {
           item.realizadopor === userId && item.metododepago === "efectivo"
       );
 
-      // Ordenar por fecha y calcular saldo final
       const sortedEfectivo = userEfectivo.sort((a, b) => {
         const [dA, mA, yA] = a.fecha.split("-");
         const [dB, mB, yB] = b.fecha.split("-");
@@ -510,9 +507,6 @@ const Nomina = () => {
 
   // Cargar última nómina
   const loadLastNomina = () => {
-    console.log("Nominas disponibles:", nominas.length);
-
-    // Verificar directamente en Firebase si hay nóminas
     const nominasRef = ref(database, "nominas");
     onValue(
       nominasRef,
@@ -530,7 +524,6 @@ const Nomina = () => {
             setLoading(true);
             const lastNomina = sortedNominas[0];
 
-            // Verificar que la nómina tenga fechas válidas
             if (!lastNomina.fechaDesde || !lastNomina.fechaHasta) {
               Swal.fire(
                 "Error",
@@ -588,7 +581,7 @@ const Nomina = () => {
         }
       },
       { onlyOnce: true }
-    ); // Solo ejecutar una vez
+    );
   };
 
   // Agregar registro a nómina
@@ -615,7 +608,7 @@ const Nomina = () => {
         extra: 0,
         deducciones: 0,
         totalNomina: 0,
-        efectivo: 0,
+        efectivo: 0, // ← editable, se rellenará recomendado al elegir nombre
         total: 0,
         entregado: 0,
         timestamp: Date.now(),
@@ -653,7 +646,7 @@ const Nomina = () => {
       const currentRecord = nominaData.find((r) => r.id === recordId);
 
       if (field === "nombre") {
-        // Calcular extras, deducciones y EFECTIVO POR RANGO automáticamente
+        // Calcula extras y deducciones por RANGO
         const extraValue = calculateExtrasForUser(
           value,
           currentNomina.fechaDesde, // DD-MM-YYYY
@@ -664,16 +657,16 @@ const Nomina = () => {
           currentNomina.fechaDesde,
           currentNomina.fechaHasta
         );
-        // NUEVO: efectivo según el rango de la nómina actual
-        const efectivoValue = calculateEfectivoForUserInRange(
+
+        // EFECTIVO RECOMENDADO = suma hasta el último día de la nómina (fechaHasta)
+        const efectivoRecommended = calculateEfectivoUpToDate(
           value,
-          currentNomina.fechaDesde,
           currentNomina.fechaHasta
         );
 
         updateData.extra = extraValue;
         updateData.deducciones = deduccionesValue;
-        updateData.efectivo = efectivoValue;
+        updateData.efectivo = efectivoRecommended; // ← valor recomendado por defecto
       }
 
       if (field === "dias" || field === "valor") {
@@ -688,7 +681,7 @@ const Nomina = () => {
         updateData.totalQuincena = dias * valor;
       }
 
-      // Si cambia el efectivo, recalcular el saldo inicial
+      // Si cambia el efectivo manualmente, recalcular el saldo inicial (total)
       if (field === "efectivo") {
         const totalNomina = parseFloat(currentRecord.totalNomina) || 0;
         updateData.total = totalNomina - (parseFloat(value) || 0);
@@ -734,18 +727,16 @@ const Nomina = () => {
     }
   };
 
-  // Colocar el TOTAL de efectivo (histórico, sin rango) en un registro
+  // Colocar el TOTAL de efectivo (histórico, sin rango) en un registro (botón)
   const setEfectivoTotal = async (recordId) => {
     if (!currentNomina) return;
 
-    // Si el registro está bloqueado, no permitir cambios
     if (lockedRecords[recordId]) return;
 
     try {
       const currentRecord = nominaData.find((r) => r.id === recordId);
       if (!currentRecord) return;
 
-      // Debe haber una persona seleccionada
       const userId = currentRecord.nombre;
       if (!userId) {
         await Swal.fire({
@@ -758,14 +749,10 @@ const Nomina = () => {
         return;
       }
 
-      // Usa tu cálculo existente (ya es histórico, sin rango)
       const totalEfectivo = calculateEfectivoForUser(userId);
-
-      // Recalcular saldo inicial con la fórmula: Total nómina - Efectivo
       const totalNomina = parseFloat(currentRecord.totalNomina) || 0;
       const saldoInicial = totalNomina - (parseFloat(totalEfectivo) || 0);
 
-      // Persistir en Firebase
       await update(
         ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
         {
@@ -774,7 +761,6 @@ const Nomina = () => {
         }
       );
 
-      // Reflejar en estado local
       setNominaData((prev) =>
         prev.map((r) =>
           r.id === recordId
@@ -783,7 +769,6 @@ const Nomina = () => {
         )
       );
 
-      // Aviso opcional
       Swal.fire({
         title: "Actualizado",
         text: "Efectivo total (sin rango) aplicado y saldo recalculado.",
@@ -853,7 +838,6 @@ const Nomina = () => {
 
   // Manejar bloqueo/desbloqueo de registros
   const handleRecordLock = async (recordId, isLocked) => {
-    // Si se está desmarcando un registro (isLocked = false) y el registro estaba bloqueado
     if (!isLocked && lockedRecords[recordId]) {
       const result = await Swal.fire({
         title: "Advertencia",
@@ -880,7 +864,6 @@ const Nomina = () => {
 
     setLockedRecords(newLockedRecords);
 
-    // Actualizar estado de si hay registros seleccionados
     if (closingMode) {
       const hasSelected = Object.values(newLockedRecords).some(
         (locked) => locked
@@ -892,7 +875,6 @@ const Nomina = () => {
   // Alternar modo cerrar nómina
   const toggleClosingMode = async () => {
     if (closingMode) {
-      // Si hay registros bloqueados y se está cancelando el modo cerrar
       const hasLockedRecords = Object.values(lockedRecords).some(
         (locked) => locked
       );
@@ -953,7 +935,6 @@ const Nomina = () => {
     });
 
     if (result.isConfirmed) {
-      // Mantener solo los registros seleccionados como bloqueados
       const finalLockedRecords = {};
       selectedRecords.forEach((recordId) => {
         finalLockedRecords[recordId] = true;
@@ -988,7 +969,6 @@ const Nomina = () => {
         setHasSelectedRecords(true);
       }
     } else {
-      // Si hay registros bloqueados y se está desmarcando todo
       const hasLockedRecords = Object.values(lockedRecords).some(
         (locked) => locked
       );
@@ -1180,7 +1160,6 @@ const Nomina = () => {
       return;
     }
 
-    // Obtener lista de empleados únicos
     const empleados = visibleRows
       .map((record) => {
         const userName = getUserNameWithFallback(record);
@@ -1215,7 +1194,6 @@ const Nomina = () => {
           margin: 0 auto;
           padding: 20px;
         ">
-          <!-- Botones de control -->
           <div style="
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1340,7 +1318,6 @@ const Nomina = () => {
             </div>
           </div>
           
-          <!-- Contador de selección -->
           <div style="
             padding: 12px;
             background: linear-gradient(135deg, #28a745, #20c997);
@@ -1486,7 +1463,6 @@ const Nomina = () => {
 
     if (selectedEmployees) {
       if (selectedEmployees.includes("all")) {
-        // Generar PDF para todos los empleados
         empleados.forEach((empleado) => {
           generateIndividualNominaPDF(empleado.record, empleado.name);
         });
@@ -1501,7 +1477,6 @@ const Nomina = () => {
           },
         });
       } else {
-        // Generar PDF para empleados seleccionados
         selectedEmployees.forEach((employeeId) => {
           const empleado = empleados.find((emp) => emp.id === employeeId);
           if (empleado) {
@@ -1524,11 +1499,10 @@ const Nomina = () => {
 
   // Generar PDF individual de nómina
   const generateIndividualNominaPDF = (record, employeeName) => {
-    const doc = new jsPDF("l", "mm", "a4"); // <— landscape
-    const W = doc.internal.pageSize.getWidth(); // 297
-    const H = doc.internal.pageSize.getHeight(); // 210
+    const doc = new jsPDF("l", "mm", "a4");
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
 
-    // ---------- helpers ----------
     const nfmt = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -1561,7 +1535,6 @@ const Nomina = () => {
       doc.roundedRect(x, y, w, h, r, r, style || undefined);
     };
 
-    // ---------- datos ----------
     const periodo = `Nómina (${currentNomina?.fechaDesde || "DD-MM-AA"} al ${
       currentNomina?.fechaHasta || "DD-MM-AA"
     })`;
@@ -1578,13 +1551,11 @@ const Nomina = () => {
     const saldoInicial = totalNom - efectivo;
     const saldoFinal = saldoInicial - entregado;
 
-    // ---------- marca de agua ----------
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.06 }));
     doc.addImage(logosolo, "PNG", (W - 105) / 2, (H - 105) / 2, 105, 105);
     doc.restoreGraphicsState();
 
-    // ---------- encabezado ----------
     doc.addImage(logo, "PNG", 15, 12, 60, 20);
 
     text("COMPROBANTE DE PAGO QUINCENAL", W / 2, 24, {
@@ -1593,7 +1564,6 @@ const Nomina = () => {
       align: "center",
     });
 
-    // Caja fecha (arriba derecha, sin borde)
     text("FECHA DE GENERACIÓN", W - 15 - 35, 18, {
       size: 8,
       bold: true,
@@ -1606,10 +1576,8 @@ const Nomina = () => {
       align: "center",
     });
 
-    // Barra del período (sin borde, bajada)
     text(periodo, W / 2, 43.5, { size: 12, bold: true, align: "center" });
 
-    // Banda Empleado / Empresa (sin bordes)
     text("EMPLEADO:", 25, 57, { size: 11, bold: true });
     text(employeeName || "Sin asignar", 65, 57, {
       size: 11,
@@ -1621,18 +1589,15 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // ---------- tabla 3 columnas ----------
     const tableTop = 84;
     const tableH = 90 - 20;
     const cW = (W - 30) / 3;
 
-    // Marco exterior y separadores verticales
     rect(15, tableTop, W - 30, tableH, null, 0.4);
     line(15 + cW, tableTop, 15 + cW, tableTop + tableH, 0.4);
     line(15 + 2 * cW, tableTop, 15 + 2 * cW, tableTop + tableH, 0.4);
 
     const headerH = 10;
-    // Fondo gris claro para headers con bordes
     doc.setFillColor(240, 240, 240);
     doc.setDrawColor(0);
     doc.setLineWidth(0.4);
@@ -1674,7 +1639,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // Filas columna 1 (DÍAS / VALOR DÍA) - Sin bordes internos
     const rH = 28;
 
     text("DIAS LABORADOS:", 15 + 6, tableTop + headerH + 12, {
@@ -1700,7 +1664,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // Columna 2 (Quincena / Extras / Deducciones) - Sin bordes internos
     text("TOTAL QUINCENA:", 15 + cW + 6, tableTop + headerH + 12, {
       size: 10,
       bold: true,
@@ -1713,7 +1676,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // TOTAL EXTRAS sin fondo ni bordes
     const chipY = tableTop + headerH + rH - 4;
     text("+ TOTAL EXTRAS:", 17 + cW + 4, chipY + 1, {
       size: 10,
@@ -1739,7 +1701,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // Columna 3 (Total nómina / Efectivo) - Sin bordes internos
     text("TOTAL NOMINA:", 15 + 2 * cW + 6, tableTop + headerH + 12, {
       size: 10,
       bold: true,
@@ -1765,7 +1726,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // Fila inferior sin fondo (tres celdas)
     const sumY = tableTop + tableH - 12;
     line(15, sumY, 15 + 3 * cW, sumY, 0.4);
     text("= TOTAL QUINCENA:", 15 + 6, sumY + 6, {
@@ -1802,7 +1762,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // ---------- bloque de saldos (bajo la tabla) ----------
     text("SALDO INICIAL:", 35, tableTop + tableH + 18, {
       size: 11,
       bold: true,
@@ -1839,7 +1798,6 @@ const Nomina = () => {
       color: [0, 0, 0],
     });
 
-    // ---------- nota en cápsula gris (más abajo) ----------
     const noteY = H - 22;
     doc.setFillColor(245, 245, 245);
     doc.setDrawColor(170, 170, 170);
@@ -1851,7 +1809,6 @@ const Nomina = () => {
       { size: 8, color: [80, 80, 80] }
     );
 
-    // ---------- guardar ----------
     const safe = (employeeName || "Empleado").replace(/\s+/g, "_");
     doc.save(
       `Nomina_${safe}_${currentNomina?.fechaDesde || "DD-MM-AA"}_${
@@ -1860,7 +1817,7 @@ const Nomina = () => {
     );
   };
 
-  // Exportar a PDF mejorado
+  // Exportar a PDF mejorado (resumen)
   const generatePDF = () => {
     if (!currentNomina) return;
     if (visibleRows.length === 0) {
@@ -1902,7 +1859,6 @@ const Nomina = () => {
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    // Marca de agua centrada
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.08 }));
     const logoSize = 100;
@@ -1916,7 +1872,6 @@ const Nomina = () => {
     );
     doc.restoreGraphicsState();
 
-    // Encabezado mejorado
     doc.addImage(logo, "PNG", 15, 10, 40, 12);
 
     doc.setFont("helvetica", "bold");
@@ -1929,7 +1884,6 @@ const Nomina = () => {
       : "";
     doc.text(`Período: ${periodo}`, pageW / 2, 28, { align: "center" });
 
-    // Fecha de generación
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     const fechaGeneracion = new Date().toLocaleDateString("es-ES");
@@ -1937,12 +1891,10 @@ const Nomina = () => {
       align: "right",
     });
 
-    // Información de la empresa
     doc.text("Oops Out Septic Tank & Services Aruba", pageW - 15, 25, {
       align: "right",
     });
 
-    // Headers de la tabla optimizados
     const headers = [
       [
         "Empleado",
@@ -1973,7 +1925,6 @@ const Nomina = () => {
       `${item["Saldo Final"]} AWG`,
     ]);
 
-    // Calcular totales
     const totales = {
       totalQuincena: exportData.reduce(
         (sum, item) => sum + Number(item["Total Quincena"]),
@@ -2009,7 +1960,6 @@ const Nomina = () => {
       ),
     };
 
-    // Agregar fila de totales
     dataRows.push([
       "TOTALES",
       "",
@@ -2043,31 +1993,28 @@ const Nomina = () => {
         valign: "middle",
       },
       columnStyles: {
-        0: { halign: "left", cellWidth: 25 }, // Nombre
-        1: { cellWidth: 12 }, // Días
-        2: { cellWidth: 18 }, // Valor
-        3: { cellWidth: 20 }, // Total Quincena
-        4: { cellWidth: 18 }, // Extras
-        5: { cellWidth: 20 }, // Deducciones
-        6: { cellWidth: 20 }, // Total Nómina
-        7: { cellWidth: 20 }, // Efectivo
-        8: { cellWidth: 20 }, // Saldo Inicial
-        9: { cellWidth: 20 }, // Entregado
-        10: { cellWidth: 20 }, // Saldo Final
+        0: { halign: "left", cellWidth: 25 },
+        1: { cellWidth: 12 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 20 },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 20 },
+        9: { cellWidth: 20 },
+        10: { cellWidth: 20 },
       },
       alternateRowStyles: {
         fillColor: [245, 245, 245],
       },
       margin: { top: 35, left: 10, right: 10 },
       didParseCell: function (data) {
-        // Destacar la fila de totales
         if (data.row.index === dataRows.length - 1) {
           data.cell.styles.fillColor = [52, 152, 219];
           data.cell.styles.textColor = [255, 255, 255];
           data.cell.styles.fontStyle = "bold";
         }
-
-        // Colorear valores negativos en rojo
         if (
           data.column.index === 10 &&
           data.cell.text[0] &&
@@ -2079,7 +2026,6 @@ const Nomina = () => {
       },
     });
 
-    // Agregar información adicional al pie
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -2101,22 +2047,18 @@ const Nomina = () => {
     return byName ? byName.id : value;
   };
 
-  // Filas exactamente visibles en la tabla (aplica TODOS los filtros que uses)
+  // Filas visibles
   const visibleRows = useMemo(() => {
     let base = nominaData || [];
-
-    // Filtro por nombre (soporta registros con ID o con nombre)
     if (filters.nombre.length > 0) {
       base = base.filter((record) => {
         const rid = normalizeUserId(record.nombre, users);
         return filters.nombre.includes(rid);
       });
     }
-
     return base;
   }, [nominaData, filters.nombre, users]);
 
-  // Mostrar loader solo cuando se está procesando
   if (loading) {
     return (
       <div className="homepage-container">
@@ -2128,7 +2070,6 @@ const Nomina = () => {
     );
   }
 
-  // Mostrar slidebar mientras se muestran los diálogos
   if (showInitialDialog) {
     return (
       <div className="homepage-container">
@@ -2193,7 +2134,6 @@ const Nomina = () => {
             const selectedValue = e.target.value;
             setFilters((prev) => ({ ...prev, nomina: selectedValue }));
 
-            // Si se selecciona una nómina específica, cambiar a esa nómina
             const selectedNomina = nominas.find(
               (nomina) =>
                 `${nomina.fechaDesde} - ${nomina.fechaHasta}` === selectedValue
@@ -2446,16 +2386,27 @@ const Nomina = () => {
                       >
                         {(record.totalNomina || 0).toFixed(2)} AWG
                       </td>
-                      <td
-                        style={{
-                          textAlign: "center",
-                          fontWeight: "bold",
-                          color: "purple",
-                          opacity: isLocked ? 0.5 : 1,
-                        }}
-                      >
-                        {(record.efectivo || 0).toFixed(2)} AWG
+
+                      {/* EFECTIVO (editable). Se llena con valor recomendado al elegir nombre */}
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="number"
+                          value={record.efectivo ?? 0}
+                          onChange={(e) =>
+                            updateNominaField(
+                              record.id,
+                              "efectivo",
+                              e.target.value
+                            )
+                          }
+                          min="0"
+                          step="0.01"
+                          style={{ textAlign: "center", width: "100px" }}
+                          disabled={isLocked}
+                          title="Valor recomendado cargado al seleccionar nombre. Puedes editarlo."
+                        />
                       </td>
+
                       <td
                         style={{
                           textAlign: "center",
@@ -2575,7 +2526,6 @@ const Nomina = () => {
                   try {
                     await remove(ref(database, `nominas/${currentNomina.id}`));
 
-                    // Actualizar estado local inmediatamente
                     setNominas((prev) =>
                       prev.filter((nomina) => nomina.id !== currentNomina.id)
                     );
@@ -2593,7 +2543,6 @@ const Nomina = () => {
                         popup: "swal-wide",
                       },
                     }).then(() => {
-                      // Mostrar diálogo después de confirmar eliminación
                       showNominaDialog();
                     });
                   } catch (error) {

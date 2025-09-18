@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
 import Select from "react-select";
@@ -20,6 +20,10 @@ const Ciclodefacturacion = () => {
   const [loadedClients, setLoadedClients] = useState(false);
   const [localValues, setLocalValues] = useState({});
   const [showDuplicatesAlert, setShowDuplicatesAlert] = useState(true);
+  const MIN_H = 35;
+  const MAX_H = 200;
+  const MIN_H_VAL = 35;
+  const MAX_H_VAL = 200;
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -474,6 +478,23 @@ const Ciclodefacturacion = () => {
     )
   ).sort((a, b) => a.localeCompare(b));
 
+  function autoResize(el) {
+    if (!el) return;
+    el.style.height = "auto"; // reset para medir
+    const next = Math.max(MIN_H, Math.min(el.scrollHeight, MAX_H));
+    el.style.height = next + "px";
+  }
+
+  useLayoutEffect(() => {
+    requestAnimationFrame(() => {
+      document
+        .querySelectorAll(
+          "textarea.ta-direccion, textarea.ta-notas, textarea.ta-valor"
+        )
+        .forEach((el) => autoResize(el));
+    });
+  }, [currentPageData, localValues]);
+
   return (
     <div className="homepage-container">
       <Slidebar />
@@ -770,14 +791,14 @@ const Ciclodefacturacion = () => {
 
                       {/* DIRECCIÓN */}
                       <td>
-                        <input
-                          type="text"
-                          list="direcciones-datalist"
+                        <textarea
+                          className="ta-direccion"
                           value={
                             localValues[kDireccion] !== undefined
                               ? localValues[kDireccion]
                               : item.direccion ?? ""
                           }
+                          onInput={(e) => autoResize(e.currentTarget)}
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
@@ -790,19 +811,34 @@ const Ciclodefacturacion = () => {
                               handleFieldChange(item, "direccion", v);
                             }
                           }}
-                          style={{ width: "28ch" }}
+                          style={{
+                            display: "block",
+                            minWidth: "120px",
+                            maxWidth: "250px",
+                            width: "200px",
+                            height: MIN_H,
+                            minHeight: MIN_H,
+                            maxHeight: MAX_H,
+                            overflow: "hidden",
+                            resize: "none",
+                            marginBottom: "10px",
+                            boxSizing: "border-box",
+                            marginBottom:"0em",
+                            border:"none"
+                          }}
                         />
                       </td>
 
                       {/* VALOR */}
                       <td>
-                        <input
-                          type="number"
+                        <textarea
+                          className="ta-valor"
                           value={
                             localValues[kValor] !== undefined
                               ? localValues[kValor]
                               : item.valor ?? ""
                           }
+                          onInput={(e) => autoResize(e.currentTarget)} // igual que dirección/notas
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
@@ -810,24 +846,40 @@ const Ciclodefacturacion = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            const v = e.target.value ?? "";
+                            const v = (e.target.value ?? "").trim(); // guarda crudo, sin formato
                             if (v !== (item.valor ?? "")) {
                               handleFieldChange(item, "valor", v);
                             }
                           }}
-                          style={{ width: "12ch", textAlign: "center" }}
+                          style={{
+                            display: "block",
+                            minWidth: "80px", // más pequeño
+                            maxWidth: "140px", // más pequeño
+                            width: "110px", // más pequeño
+                            height: MIN_H_VAL,
+                            minHeight: MIN_H_VAL,
+                            maxHeight: MAX_H_VAL,
+                            overflow: "hidden",
+                            resize: "none",
+                            marginBottom: "10px",
+                            boxSizing: "border-box",
+                            textAlign: "center",
+                            marginBottom:"0em",
+                            border:"none"
+                          }}
                         />
                       </td>
 
                       {/* NOTAS */}
                       <td>
-                        <input
-                          type="text"
+                        <textarea
+                          className="ta-notas"
                           value={
                             localValues[kNotas] !== undefined
                               ? localValues[kNotas]
                               : item.notas ?? ""
                           }
+                          onInput={(e) => autoResize(e.currentTarget)}
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
@@ -840,7 +892,21 @@ const Ciclodefacturacion = () => {
                               handleFieldChange(item, "notas", v);
                             }
                           }}
-                          style={{ width: "20ch" }}
+                          style={{
+                            display: "block",
+                            minWidth: "120px",
+                            maxWidth: "250px",
+                            width: "200px",
+                            height: MIN_H,
+                            minHeight: MIN_H,
+                            maxHeight: MAX_H,
+                            overflow: "hidden",
+                            resize: "none",
+                            marginBottom: "10px",
+                            boxSizing: "border-box",
+                            marginBottom:"0em",
+                            border:"none"
+                          }}
                         />
                       </td>
 
