@@ -5,7 +5,6 @@ import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 
@@ -22,21 +21,22 @@ const Pagosmensuales = () => {
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-
-  // Mostrar/ocultar datepicker
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
+  const CURRENT_YEAR = new Date().getFullYear();
   // Filtros (se filtra por el campo 'fecha')
   const [filters, setFilters] = useState({
     compania: [],
     concepto: [],
     monto: [],
     estado: [],
-    fechaInicio: null,
-    fechaFin: null,
-    mes: null,
-    año: null,
+    año: CURRENT_YEAR,
   });
+
+  // ====== Helper: ancho dinámico en ch según longitud ======
+  const autoCh = (s, min = 6, max = 40) => {
+    const len = (s ?? "").length + 1; // +1 para un pequeño margen
+    const ch = Math.min(max, Math.max(min, len));
+    return `${ch}ch`;
+  };
 
   // ====== Carga de datos (Pagos Mensuales) ======
   useEffect(() => {
@@ -149,35 +149,6 @@ const Pagosmensuales = () => {
     }
   };
 
-  // (Se mantiene por si quieres editar 'fecha' desde otro flujo/UI)
-  const handleFechaChange = async (item, nuevaFechaDMY, revert) => {
-    const nuevaFecha = (nuevaFechaDMY || "").trim();
-    const parsed = parseFecha(nuevaFecha);
-    if (!parsed) {
-      if (revert) revert();
-      alert("Fecha inválida. Usa el formato dd-mm-aaaa.");
-      return;
-    }
-    if (nuevaFecha === item.fecha) return;
-
-    try {
-      const itemRef = ref(database, `pagosmensuales/${item.id}`);
-      await update(itemRef, { fecha: nuevaFecha });
-
-      setData((prev) =>
-        sortByFechaDesc(
-          prev.map((it) =>
-            it.id === item.id ? { ...it, fecha: nuevaFecha } : it
-          )
-        )
-      );
-    } catch (err) {
-      console.error(err);
-      if (revert) revert();
-      alert("No se pudo cambiar la fecha.");
-    }
-  };
-
   // Crea un nuevo pago (fecha = hoy para filtros; mes/fechaPago quedan en blanco)
   const addData = async () => {
     const hoy = new Date();
@@ -189,9 +160,9 @@ const Pagosmensuales = () => {
     const dbRef = ref(database, "pagosmensuales");
     const newRef = push(dbRef);
     await set(newRef, {
-      fecha,          // dd-mm-aaaa (para filtros/orden)
-      mes: "",        // texto visible en tabla
-      fechaPago: "",  // texto visible en tabla
+      fecha, // dd-mm-aaaa (para filtros/orden)
+      mes: "", // texto visible en tabla
+      fechaPago: "", // texto visible en tabla
       compania: "",
       concepto: "",
       monto: "",
@@ -241,48 +212,23 @@ const Pagosmensuales = () => {
     )
   ).sort((a, b) => b - a);
 
-  const monthNames = [
-    "",
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
+  // incluir el año actual aunque la data aún no lo tenga
+  const yearOptions = Array.from(
+    new Set([...availableYears, CURRENT_YEAR])
+  ).sort((a, b) => b - a);
 
   // ====== Filtrado (por 'fecha') ======
   const filteredData = data.filter((item) => {
     const d = parseFecha(item.fecha); // Date | null
 
-    // 1) filtro por rango de fechas
-    if (filters.fechaInicio || filters.fechaFin) {
-      if (!d) return false;
-      if (filters.fechaInicio && d < filters.fechaInicio) return false;
-      if (filters.fechaFin && d > filters.fechaFin) return false;
-    }
-
-    // 2) filtro por mes (numérico, tomado de 'fecha')
-    if (filters.mes != null) {
-      if (!d) return false;
-      const mesItem = d.getMonth() + 1;
-      if (mesItem !== filters.mes) return false;
-    }
-
-    // 3) filtro por año (de 'fecha')
+    // 2) filtro por año (de 'fecha')
     if (filters.año != null) {
       if (!d) return false;
       const añoItem = d.getFullYear();
       if (añoItem !== filters.año) return false;
     }
 
-    // 4) filtros multi-select
+    // 3) filtros multi-select
     const matchMulti = (filterArr, field) =>
       filterArr.length === 0 ||
       filterArr.some((f) => {
@@ -344,27 +290,6 @@ const Pagosmensuales = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [totalPages, currentPage]);
 
-  // ====== DatePicker (rango) ======
-  const handleDateRangeChange = (dates) => {
-    const [start, end] = dates;
-    setFilters((prev) => ({
-      ...prev,
-      fechaInicio: start
-        ? new Date(
-            start.getFullYear(),
-            start.getMonth(),
-            start.getDate(),
-            0,
-            0,
-            0
-          )
-        : null,
-      fechaFin: end
-        ? new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59)
-        : null,
-    }));
-  };
-
   // Eliminar registro
   const handleDelete = (itemId) => {
     Swal.fire({
@@ -414,45 +339,6 @@ const Pagosmensuales = () => {
         <br />
         <hr />
 
-        {/* Fecha (rango) */}
-        <button
-          onClick={() => setShowDatePicker((s) => !s)}
-          className="filter-button"
-        >
-          {showDatePicker
-            ? "Ocultar selector de fechas"
-            : "Filtrar por rango de fechas"}
-        </button>
-        {showDatePicker && (
-          <DatePicker
-            selected={filters.fechaInicio}
-            onChange={handleDateRangeChange}
-            startDate={filters.fechaInicio}
-            endDate={filters.fechaFin}
-            selectsRange
-            inline
-          />
-        )}
-
-        {/* Mes numérico (desde 'fecha') */}
-        <label style={{ marginTop: 12 }}>Mes</label>
-        <select
-          value={filters.mes ?? ""}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              mes: e.target.value === "" ? null : Number(e.target.value),
-            }))
-          }
-        >
-          <option value="">Todos</option>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>
-              {monthNames[m]}
-            </option>
-          ))}
-        </select>
-
         {/* Año (desde 'fecha') */}
         <label style={{ marginTop: 12 }}>Año</label>
         <select
@@ -465,7 +351,7 @@ const Pagosmensuales = () => {
           }
         >
           <option value="">Todos</option>
-          {availableYears.map((y) => (
+          {yearOptions.map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
@@ -528,10 +414,7 @@ const Pagosmensuales = () => {
               concepto: [],
               monto: [],
               estado: [],
-              fechaInicio: null,
-              fechaFin: null,
-              mes: null,
-              año: null,
+              año: CURRENT_YEAR,
             })
           }
           style={{ marginTop: 12 }}
@@ -545,7 +428,9 @@ const Pagosmensuales = () => {
         <div className="homepage-card">
           <h1 className="title-page">Pagos Mensuales</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -637,17 +522,19 @@ const Pagosmensuales = () => {
                   const kMonto = `${item.id}_monto`;
                   const kEstado = `${item.id}_estado`;
 
+                  const mesValue =
+                    localValues[kMes] !== undefined
+                      ? localValues[kMes]
+                      : item.mes ?? "";
+
                   return (
                     <tr key={item.id}>
                       {/* MES */}
                       <td>
-                        <input
-                          type="text"
-                          value={
-                            localValues[kMes] !== undefined
-                              ? localValues[kMes]
-                              : item.mes ?? ""
-                          }
+                        <textarea
+                          value={mesValue}
+                          rows={1}
+                          wrap="off"
                           onChange={(e) =>
                             setLocalValues((p) => ({
                               ...p,
@@ -660,7 +547,14 @@ const Pagosmensuales = () => {
                               handleFieldChange(item, "mes", v);
                             }
                           }}
-                          style={{ width: "16ch", textAlign: "center" }}
+                          style={{
+                            width: autoCh(mesValue, 20, 100),
+                            textAlign: "center",
+                            resize: "none",
+                            overflow: "hidden",
+                            lineHeight: "1.2",
+                            padding: "4px 6px",
+                          }}
                         />
                       </td>
 
@@ -798,6 +692,7 @@ const Pagosmensuales = () => {
                           style={{ width: "14ch" }}
                         />
                         <datalist id={`estado-options-${item.id}`}>
+                          <option value="Debe" />
                           <option value="Pago" />
                         </datalist>
                       </td>

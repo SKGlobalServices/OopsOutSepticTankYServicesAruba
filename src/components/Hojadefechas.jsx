@@ -71,7 +71,8 @@ const Hojadefechas = () => {
   // Estados para filtros de dirección
   const [addrChecklistOpen, setAddrChecklistOpen] = useState(false);
   const [addrSearch, setAddrSearch] = useState("");
-  const [addrChecked, setAddrChecked] = useState({}); // { "Calle 1": true, ... }
+  const [addrChecked, setAddrChecked] = useState({});
+
   // Estado de filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -103,6 +104,116 @@ const Hojadefechas = () => {
   // Estados para fila activa donde el usuario está trabajando
   const [activeRow, setActiveRow] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
+
+  // === Servicios Extras ===
+  const EXTRA_OPTIONS = ["Semanal", "Dominical", "Emergencia"];
+
+  const [showExtrasCol, setShowExtrasCol] = useState(false);
+  /** Drafts por fila: clave `${fecha}_${id}` -> string */
+  const [extrasDraft, setExtrasDraft] = useState({});
+
+  /** Escribe el borrador local del extra para la fila */
+  const setExtraForRow = (fecha, id, value) => {
+    setExtrasDraft((prev) => ({ ...prev, [`${fecha}_${id}`]: value }));
+  };
+
+  /** Guarda todos los extras editados a Firebase y cierra columna */
+  /** Guarda SOLO los extras modificados a Firebase y cierra columna */
+  const saveExtras = async () => {
+    // 1) Registros visibles (rápido para hallar origin/fecha)
+    const visibles = paginatedData.flatMap((g) =>
+      g.registros.map((r) => ({ ...r, fecha: g.fecha }))
+    );
+
+    // 2) Si no se encuentra en visibles, buscar en todo el filtrado
+    const universo = filteredData.flatMap((g) =>
+      g.registros.map((r) => ({ ...r, fecha: g.fecha }))
+    );
+
+    const resolves = [];
+
+    for (const [key, draftValRaw] of Object.entries(extrasDraft)) {
+      // key puede ser 'fecha_id' donde id puede contener '_' —
+      // tomar la primera parte como fecha y el resto como id
+      let fecha = null;
+      let registroId = null;
+      if (key.includes("_")) {
+        const parts = key.split("_");
+        fecha = parts[0];
+        registroId = parts.slice(1).join("_");
+      } else {
+        registroId = key;
+      }
+      const draftVal = (draftValRaw ?? "").trim();
+
+      const reg =
+        (fecha
+          ? visibles.find((r) => r.id === registroId && r.fecha === fecha)
+          : null) ||
+        (fecha
+          ? universo.find((r) => r.id === registroId && r.fecha === fecha)
+          : universo.find((r) => r.id === registroId && r.origin === "data"));
+
+      if (!reg) continue;
+
+      // Evitar escritura si NO cambió
+      const currentVal = (reg.servicioextra ?? "").trim();
+      if (currentVal === draftVal) continue;
+
+      // Persistir usando tu canal único de escritura
+      resolves.push(
+        handleFieldChange(
+          fecha,
+          registroId,
+          "servicioextra",
+          draftVal,
+          reg.origin
+        )
+      );
+    }
+
+    try {
+      await Promise.all(resolves);
+      setShowExtrasCol(false);
+      setExtrasDraft({});
+      Swal.fire({
+        icon: "success",
+        title: "Extras guardados",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+    } catch (e) {
+      console.error(e);
+      Swal.fire({
+        icon: "error",
+        title: "No se pudieron guardar algunos extras",
+      });
+    }
+  };
+
+  /** Carga el borrador de extras con lo que hoy está guardado */
+  const preloadExtrasDraft = () => {
+    const visibles = paginatedData.flatMap((g) =>
+      g.registros.map((r) => ({ ...r, fecha: g.fecha }))
+    );
+
+    const pre = {};
+    visibles.forEach((r) => {
+      pre[`${r.fecha}_${r.id}`] = r.servicioextra || "";
+    });
+    setExtrasDraft(pre);
+  };
+
+  /** Botón único: si está cerrada, abre + precarga; si está abierta, guarda y cierra */
+  const toggleExtras = async () => {
+    if (!showExtrasCol) {
+      preloadExtrasDraft();
+      setShowExtrasCol(true);
+      return;
+    }
+    // Estaba abierta: guardar y cerrar
+    await saveExtras();
+  };
 
   // Cargar datos de la rama "registrofechas"
   useEffect(() => {
@@ -2998,25 +3109,58 @@ const Hojadefechas = () => {
   };
 
   // 1) Función de eliminación
-  const EliminarServicio = () => {
-    // 1) Si aún no estamos en modo selección, activamos el modo
+  const EliminarServicio = async () => {
+    // 1) Primera pulsación: activar modo selección
     if (!showSelection) {
       setShowSelection(true);
       return;
     }
-    // 2) Si estamos en modo selección pero no hay nada seleccionado, salimos
+    // 2) Ya en modo selección pero sin nada marcado: salir
     if (showSelection && !selectedKey) {
       setShowSelection(false);
       return;
     }
 
-    // Extraigo fecha y id del registro marcado
-    const [fecha, registroId] = selectedKey.split("_");
-    // Busco en todos los registros filtrados
-    const flatFiltered = filteredData.flatMap((g) => g.registros);
-    const reg = flatFiltered.find(
-      (r) => r.fecha === fecha && r.id === registroId
+    // 3) Extraer fecha e id del key seleccionado.
+    // El selectedKey puede venir en dos formatos:
+    // - "fecha_id" (registrofechas)
+    // - "id" (data)
+    const rawKey = selectedKey || "";
+    let fecha = null;
+    let registroId = null;
+    if (rawKey.includes("_")) {
+      const parts = rawKey.split("_");
+      fecha = parts[0];
+      registroId = parts.slice(1).join("_");
+    } else {
+      registroId = rawKey;
+    }
+
+    if (!registroId) {
+      Swal.fire({
+        icon: "error",
+        title: "Selección inválida",
+        text: "No se pudo identificar el registro seleccionado.",
+      });
+      setSelectedKey(null);
+      setShowSelection(false);
+      return;
+    }
+
+    // 4) Aplanar correctamente: incluir FECHA dentro de cada registro
+    const flatFiltered = filteredData.flatMap((g) =>
+      (g.registros || []).map((r) => ({ ...r, fecha: g.fecha }))
     );
+
+    // 5) Buscar el registro según formato de key:
+    // - Si viene fecha, buscar por id y fecha
+    // - Si viene solo id, buscar por id y origin==='data'
+    let reg = null;
+    if (fecha) {
+      reg = flatFiltered.find((r) => r.id === registroId && r.fecha === fecha);
+    } else {
+      reg = flatFiltered.find((r) => r.id === registroId && r.origin === "data");
+    }
 
     if (!reg) {
       Swal.fire({
@@ -3029,49 +3173,55 @@ const Hojadefechas = () => {
       return;
     }
 
-    // Paso A: pregunta genérica
-    Swal.fire({
+    // 6) Confirmación inicial
+    const baseConfirm = await Swal.fire({
       title: "¿Deseas eliminar este registro?",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "No, cancelar",
-    }).then((answer) => {
-      if (!answer.isConfirmed) return;
-
-      // Paso B: tu alerta con detalles
-      Swal.fire({
-        title: "¿Estás seguro de eliminar este registro?",
-        html: `
-        <p><strong>Factura:</strong> ${reg.factura ? "Sí" : "No"}</p>
-        <p><strong>N° Factura:</strong> ${reg.numerodefactura || "–"}</p>
-        <p><strong>Estado:</strong> ${reg.pago}</p>
-        <p><strong>Dirección:</strong> ${reg.direccion}</p>
-        <p><strong>Fecha:</strong> ${reg.fecha}</p>
-      `,
-        icon: "error",
-        showCancelButton: true,
-        confirmButtonText: "Eliminar permanentemente",
-        cancelButtonText: "Cancelar",
-      }).then((result) => {
-        if (!result.isConfirmed) return;
-
-        // Finalmente borramos en Firebase
-        const path = dataBranch.some((x) => x.id === registroId)
-          ? `data/${registroId}`
-          : `registrofechas/${fecha}/${registroId}`;
-
-        remove(ref(database, path))
-          .then(() => {
-            Swal.fire("Eliminado", "Registro borrado.", "success");
-            setSelectedKey(null);
-            setShowSelection(false);
-          })
-          .catch(() => {
-            Swal.fire("Error", "No se pudo eliminar.", "error");
-          });
-      });
     });
+    if (!baseConfirm.isConfirmed) return;
+
+    // 7) Detalle + advertencia si tiene factura vinculada
+    const detalleConfirm = await Swal.fire({
+      title: "¿Estás seguro de eliminar este registro?",
+      html: `
+      <p><strong>Factura:</strong> ${reg.factura ? "Sí" : "No"}</p>
+      <p><strong>N° Factura:</strong> ${reg.numerodefactura || "–"}</p>
+      <p><strong>Estado:</strong> ${reg.pago || "–"}</p>
+      <p><strong>Dirección:</strong> ${reg.direccion || "–"}</p>
+      <p><strong>Fecha:</strong> ${reg.fecha || "–"}</p>
+      ${
+        reg.numerodefactura
+          ? `<p style="color:#d33;"><strong>⚠️ Atención:</strong> este servicio está vinculado a una factura. Eliminarlo podría descuadrar totales si no ajustas la factura.</p>`
+          : ""
+      }
+    `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Eliminar permanentemente",
+      cancelButtonText: "Cancelar",
+    });
+    if (!detalleConfirm.isConfirmed) return;
+
+    // 8) Construir el path con el ORIGIN real del registro usando los
+    // valores del propio registro encontrado para mayor robustez.
+    const path =
+      reg.origin === "data"
+        ? `data/${reg.id}`
+        : `registrofechas/${reg.fecha}/${reg.id}`;
+
+    try {
+      await remove(ref(database, path));
+      Swal.fire("Eliminado", "Registro borrado correctamente.", "success");
+    } catch (e) {
+      console.error("Error al eliminar:", e);
+      Swal.fire("Error", "No se pudo eliminar el registro.", "error");
+    } finally {
+      setSelectedKey(null);
+      setShowSelection(false);
+    }
   };
 
   const handleToggleSelection = (key) => {
@@ -3298,9 +3448,7 @@ const Hojadefechas = () => {
             onClick={() => setAddrChecklistOpen((o) => !o)}
             style={{ width: "100%", marginBottom: 8 }}
           >
-            {addrChecklistOpen
-              ? "Ocultar"
-              : "Seleccionar varias direcciones"}
+            {addrChecklistOpen ? "Ocultar" : "Seleccionar varias direcciones"}
           </button>
 
           {addrChecklistOpen && (
@@ -3321,13 +3469,13 @@ const Hojadefechas = () => {
                 onChange={(e) => setAddrSearch(e.target.value)}
                 style={{
                   width: "100%",
-            padding: "8px 10px",
-            borderRadius: 8,
-            border: "1px solid #3a3f46",
-            background: "#0f1216",
-            color: "#e8e8e8",
-            outline: "none",
-            marginBottom: 8,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #3a3f46",
+                  background: "#0f1216",
+                  color: "#e8e8e8",
+                  outline: "none",
+                  marginBottom: 8,
                 }}
               />
 
@@ -3352,70 +3500,70 @@ const Hojadefechas = () => {
               {/* Lista con scroll */}
               <div
                 style={{
-          maxHeight: 260,
-          overflowY: "auto",
-          border: "1px solid #2a2f36",
-          borderRadius: 8,
-          padding: 6,
-          marginTop: 8,
-          background: "#0f1216",
-        }}
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  border: "1px solid #2a2f36",
+                  borderRadius: 8,
+                  padding: 6,
+                  marginTop: 8,
+                  background: "#0f1216",
+                }}
               >
                 {visibleDirecciones.length === 0 ? (
                   <div
                     style={{
-              color: "#b9c0c8",
-              fontStyle: "italic",
-              textAlign: "center",
-              padding: "14px 0",
-            }}
+                      color: "#b9c0c8",
+                      fontStyle: "italic",
+                      textAlign: "center",
+                      padding: "14px 0",
+                    }}
                   >
                     Sin coincidencias
                   </div>
                 ) : (
                   <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {visibleDirecciones.map((dir) => (
-              <li
-                key={dir}
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  display: "grid",
-                  gridTemplateColumns: "22px 1fr",
-                  alignItems: "center",
-                  gap: 10,
-                  border: "1px solid transparent",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={!!addrChecked[dir]}
-                  onChange={() => toggleAddrCheck(dir)}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    cursor: "pointer",
-                    accentColor: "#5271ff",
-                  }}
-                />
-                {/* Texto de dirección: hasta 2 líneas + tooltip completo */}
-                <span
-                  title={dir}
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    lineHeight: "1.2",
-                    color: "#e6e9ed",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {dir}
-                </span>
-              </li>
-            ))}
-          </ul>
+                    {visibleDirecciones.map((dir) => (
+                      <li
+                        key={dir}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          display: "grid",
+                          gridTemplateColumns: "22px 1fr",
+                          alignItems: "center",
+                          gap: 10,
+                          border: "1px solid transparent",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!addrChecked[dir]}
+                          onChange={() => toggleAddrCheck(dir)}
+                          style={{
+                            width: 18,
+                            height: 18,
+                            cursor: "pointer",
+                            accentColor: "#5271ff",
+                          }}
+                        />
+                        {/* Texto de dirección: hasta 2 líneas + tooltip completo */}
+                        <span
+                          title={dir}
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            lineHeight: "1.2",
+                            color: "#e6e9ed",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {dir}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
@@ -3580,7 +3728,9 @@ const Hojadefechas = () => {
         <div className="homepage-card">
           <h1 className="title-page">Agenda Dinámica</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -3595,6 +3745,9 @@ const Hojadefechas = () => {
                 <th>Fecha</th>
                 <th>Realizado Por</th>
                 <th>A Nombre De</th>
+                {showExtrasCol && (
+                  <th style={{ minWidth: 160 }}>Servicio Extra</th>
+                )}
                 <th className="direccion-fixed-th">Dirección</th>
                 <th>Servicio</th>
                 <th>Cúbicos</th>
@@ -3657,11 +3810,9 @@ const Hojadefechas = () => {
                         {/* Fecha solo lectura, sin input editable */}
                         {item.fecha}
                       </td>
+
+                      {/* Realizado Por */}
                       <td>
-                        {/*
-     Si el registro tiene un realizadopor cuyo role es "usernotactive",
-     mostramos sólo el nombre (no aparece en el select de activos).
-   */}
                         {(() => {
                           const assigned = allUsers.find(
                             (u) => u.id === registro.realizadopor
@@ -3705,6 +3856,7 @@ const Hojadefechas = () => {
                         })()}
                       </td>
 
+                      {/* A Nombre De */}
                       <td>
                         <input
                           style={{ width: "16ch" }}
@@ -3735,10 +3887,54 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* ======= Servicios Extras (columna condicional ANTES de Dirección) ======= */}
+                      {showExtrasCol && (
+                        <td>
+                          {(() => {
+                            const extraKey = `${item.fecha}_${registro.id}`;
+                            const dlId = `serviciosextras-options-${registro.id}`;
+                            const valor =
+                              extrasDraft[extraKey] ??
+                              registro.servicioextra ??
+                              "";
+                            return (
+                              <>
+                                <input
+                                  list={dlId}
+                                  type="text"
+                                  value={valor}
+                                  onChange={(e) =>
+                                    setExtraForRow(
+                                      item.fecha,
+                                      registro.id,
+                                      e.target.value
+                                    )
+                                  }
+                                  style={{ minWidth: "12ch" }}
+                                />
+                                <datalist id={dlId}>
+                                  {(
+                                    EXTRA_OPTIONS ?? [
+                                      "Semanal",
+                                      "Dominical",
+                                      "Emergencia",
+                                    ]
+                                  ).map((opt) => (
+                                    <option key={opt} value={opt} />
+                                  ))}
+                                </datalist>
+                              </>
+                            );
+                          })()}
+                        </td>
+                      )}
+
+                      {/* Dirección */}
                       <td className="direccion-fixed-td">
                         <div className="custom-select-container">
                           <input
-                            className="direccion-fixed-input "
+                            className="direccion-fixed-input"
                             style={{ width: "18ch" }}
                             type="text"
                             value={
@@ -3771,6 +3967,8 @@ const Hojadefechas = () => {
                           />
                         </div>
                       </td>
+
+                      {/* Servicio */}
                       <td>
                         <select
                           value={registro.servicio || ""}
@@ -3800,6 +3998,8 @@ const Hojadefechas = () => {
                           <option value="Pool">Pool</option>
                         </select>
                       </td>
+
+                      {/* Cúbicos */}
                       <td>
                         <input
                           type="number"
@@ -3830,6 +4030,8 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* Valor */}
                       <td>
                         <input
                           type="number"
@@ -3858,6 +4060,8 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* Pago */}
                       <td>
                         <select
                           value={registro.pago || ""}
@@ -3876,9 +4080,13 @@ const Hojadefechas = () => {
                           <option value="Debe">Debe</option>
                           <option value="Pago">Pago</option>
                           <option value="Pendiente">Pendiente</option>
-                          <option value="Pendiente Fin De Mes">-</option>
+                          <option value="Pendiente Fin De Mes">
+                            Pendiente Fin De Mes
+                          </option>
                         </select>
                       </td>
+
+                      {/* Selección Cobranza */}
                       {showCobranzaSelection && (
                         <td style={{ textAlign: "center" }}>
                           <input
@@ -3892,13 +4100,12 @@ const Hojadefechas = () => {
                                 e.target.checked
                               )
                             }
-                            // si quieres impedir cobrar ya pagados, descomenta:
-                            // disabled={registro.pago === "Pago"}
                             title="Marcar para enviar a Informe de Cobranza"
                           />
                         </td>
                       )}
 
+                      {/* Fecha de pago (local o de factura) */}
                       <td>
                         <input
                           type="date"
@@ -3939,6 +4146,8 @@ const Hojadefechas = () => {
                           }
                         />
                       </td>
+
+                      {/* Forma de pago */}
                       <td>
                         <select
                           value={registro.formadepago || ""}
@@ -3961,6 +4170,8 @@ const Hojadefechas = () => {
                           <option value="Perdido">Perdido</option>
                         </select>
                       </td>
+
+                      {/* Banco */}
                       <td>
                         <select
                           value={registro.banco || ""}
@@ -3987,6 +4198,8 @@ const Hojadefechas = () => {
                           </option>
                         </select>
                       </td>
+
+                      {/* Notas (Swal) */}
                       <td>
                         <button
                           style={{
@@ -4025,14 +4238,13 @@ const Hojadefechas = () => {
                             </p>
                           ) : (
                             <span
-                              style={{
-                                width: "100%",
-                                display: "inline-block",
-                              }}
+                              style={{ width: "100%", display: "inline-block" }}
                             ></span>
                           )}
                         </button>
                       </td>
+
+                      {/* Método de pago */}
                       <td>
                         <select
                           value={registro.metododepago || ""}
@@ -4052,6 +4264,8 @@ const Hojadefechas = () => {
                           <option value="efectivo">Efectivo</option>
                         </select>
                       </td>
+
+                      {/* Efectivo */}
                       <td>
                         <input
                           type="number"
@@ -4081,6 +4295,8 @@ const Hojadefechas = () => {
                           disabled={registro.metododepago !== "efectivo"}
                         />
                       </td>
+
+                      {/* Checkbox selección para generar factura */}
                       <td>
                         <input
                           type="checkbox"
@@ -4102,6 +4318,8 @@ const Hojadefechas = () => {
                           disabled={registro.factura === true}
                         />
                       </td>
+
+                      {/* ¿Tiene factura? (solo lectura) */}
                       <td>
                         <input
                           type="checkbox"
@@ -4115,6 +4333,8 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* Número de factura / abrir modal */}
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
@@ -4138,6 +4358,8 @@ const Hojadefechas = () => {
                           </span>
                         )}
                       </td>
+
+                      {/* Payment acumulado (solo lectura) */}
                       <td>
                         <input
                           type="number"
@@ -4155,6 +4377,8 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* Botón Payment rápido */}
                       <td style={{ textAlign: "center" }}>
                         {registro.numerodefactura ? (
                           <button
@@ -4179,6 +4403,8 @@ const Hojadefechas = () => {
                           </span>
                         )}
                       </td>
+
+                      {/* ¿Pagado? (solo lectura) */}
                       <td>
                         <input
                           type="checkbox"
@@ -4192,6 +4418,8 @@ const Hojadefechas = () => {
                           }}
                         />
                       </td>
+
+                      {/* Cancelar factura */}
                       <td style={{ textAlign: "center" }}>
                         {registro.factura && registro.numerodefactura ? (
                           <button
@@ -4308,6 +4536,29 @@ const Hojadefechas = () => {
             Servicios Por Trabajador
           </button>
           <button
+            style={{ backgroundColor: "#0ea300ff" }}
+            onClick={GestionarCobranza}
+            className="filter-button"
+          >
+            {!showCobranzaSelection
+              ? "Cobranza"
+              : cobranzaSelectedRows
+              ? "Enviar a Cobranza"
+              : "Ocultar casillas"}
+          </button>
+          <button
+            className="filter-button"
+            onClick={toggleExtras}
+            title={
+              showExtrasCol
+                ? "Guardar cambios y cerrar"
+                : "Editar servicios extras"
+            }
+            style={{ backgroundColor: showExtrasCol ? "#0ea300ff" : "#ff7300ff" }}
+          >
+            {showExtrasCol ? "Guardar" : "Servicios Extras"}
+          </button>
+          <button
             style={{ backgroundColor: "#ff5252" }}
             onClick={EliminarServicio}
             className="filter-button"
@@ -4316,17 +4567,6 @@ const Hojadefechas = () => {
               ? "Eliminar Servicio"
               : selectedKey
               ? "Eliminar Servicio"
-              : "Ocultar casillas"}
-          </button>
-          <button
-            style={{ backgroundColor: "#0a7e00ff" }}
-            onClick={GestionarCobranza}
-            className="filter-button"
-          >
-            {!showCobranzaSelection
-              ? "Cobranza"
-              : cobranzaSelectedRows
-              ? "Enviar a Cobranza"
               : "Ocultar casillas"}
           </button>
         </div>

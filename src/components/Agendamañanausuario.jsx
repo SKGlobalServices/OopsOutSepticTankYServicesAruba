@@ -307,7 +307,7 @@ const Agendamañanausuario = () => {
         <div className="homepage-card">
           <h1 className="title-page">Servicios De Mañana</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
             <Clock />
           </div>
         </div>

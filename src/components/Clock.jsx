@@ -25,7 +25,7 @@ const Clock = React.memo(() => {
     return () => clearInterval(id);
   }, []);
 
-  return <div>{time}</div>;
+  return <div style={{cursor:"default"}}>{time}</div>;
 });
 
 export default Clock;

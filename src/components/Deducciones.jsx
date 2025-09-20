@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, push, onValue, set, update, remove } from "firebase/database";
 import { decryptData } from "../utils/security";
@@ -17,13 +17,20 @@ const formatDateWithHyphen = (date) => {
   return `${day}-${month}-${year}`;
 };
 
+// Formatear moneda
+const formatCurrency = (amount) =>
+  Number(amount || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 const Deducciones = () => {
   const [deducciones, setDeducciones] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadedDeducciones, setLoadedDeducciones] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -88,12 +95,14 @@ const Deducciones = () => {
 
       // Actualizar en Firebase
       await update(ref(database, `deducciones/${id}`), updateData);
-      
+
       // Actualizar estado local
-      setDeducciones(prev => 
-        prev.map(deduccion => 
-          deduccion.id === id ? { ...deduccion, ...updateData } : deduccion
-        ).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      setDeducciones((prev) =>
+        prev
+          .map((deduccion) =>
+            deduccion.id === id ? { ...deduccion, ...updateData } : deduccion
+          )
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       );
     } catch (error) {
       console.error("Error updating field:", error);
@@ -110,7 +119,7 @@ const Deducciones = () => {
       realizado: "",
       valor: 0,
       timestamp: Date.now(),
-      createdBy: decryptData(localStorage.getItem("user"))?.name || "Admin"
+      createdBy: decryptData(localStorage.getItem("user"))?.name || "Admin",
     };
 
     try {
@@ -147,37 +156,49 @@ const Deducciones = () => {
 
   // Obtener nombre de usuario
   const getUserName = (userId) => {
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     return user ? user.name : "";
   };
 
   // Filtrado y ordenamiento por fecha
-  const filteredDeducciones = deducciones.filter((deduccion) => {
-    if (filters.fechaInicio && filters.fechaFin) {
-      const [day, month, year] = deduccion.fecha.split("-");
-      const itemDate = new Date(year, month - 1, day);
-      if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
-        return false;
-    }
+  const filteredDeducciones = deducciones
+    .filter((deduccion) => {
+      if (filters.fechaInicio && filters.fechaFin) {
+        const [day, month, year] = (deduccion.fecha || "").split("-");
+        const itemDate = new Date(year, month - 1, day);
+        if (itemDate < filters.fechaInicio || itemDate > filters.fechaFin)
+          return false;
+      }
 
-    if (filters.realizado.length > 0) {
-      const matchRealizado = filters.realizado.some((filterValue) => {
-        if (filterValue === "__EMPTY__") {
-          return !deduccion.realizado || deduccion.realizado.trim() === "";
-        }
+      if (filters.realizado.length > 0) {
+        const matchRealizado = filters.realizado.some((filterValue) => {
+          if (filterValue === "__EMPTY__") {
+            return !deduccion.realizado || deduccion.realizado.trim() === "";
+          }
         return deduccion.realizado === filterValue;
-      });
-      if (!matchRealizado) return false;
-    }
+        });
+        if (!matchRealizado) return false;
+      }
 
-    return true;
-  }).sort((a, b) => {
-    const [dayA, monthA, yearA] = (a.fecha || "").split("-");
-    const [dayB, monthB, yearB] = (b.fecha || "").split("-");
-    const dateA = new Date(yearA, monthA - 1, dayA);
-    const dateB = new Date(yearB, monthB - 1, dayB);
-    return dateB - dateA; // Más reciente primero
-  });
+      return true;
+    })
+    .sort((a, b) => {
+      const [dayA, monthA, yearA] = (a.fecha || "").split("-");
+      const [dayB, monthB, yearB] = (b.fecha || "").split("-");
+      const dateA = new Date(yearA, monthA - 1, dayA);
+      const dateB = new Date(yearB, monthB - 1, dayB);
+      return dateB - dateA; // Más reciente primero
+    });
+
+  // >>> Total General de Valor (sobre el conjunto filtrado) <<<
+  const totalGeneralValor = useMemo(
+    () =>
+      filteredDeducciones.reduce(
+        (sum, item) => sum + (parseFloat(item.valor) || 0),
+        0
+      ),
+    [filteredDeducciones]
+  );
 
   // Paginación
   const totalItems = filteredDeducciones.length;
@@ -256,7 +277,7 @@ const Deducciones = () => {
   return (
     <div className="homepage-container">
       <Slidebar />
-      
+
       {/* FILTROS */}
       <div onClick={() => toggleFilterSlidebar(!showFilterSlidebar)}>
         <img
@@ -272,16 +293,19 @@ const Deducciones = () => {
         <h2 style={{ color: "white" }}>Filtros</h2>
         <br />
         <hr />
-        
+
         <label>Filtrar Por Realizado</label>
         <Select
           isMulti
           value={filters.realizado.map((val) => ({
             value: val,
-            label: val === "__EMPTY__" ? "Sin asignar" : getUserName(val) || val,
+            label:
+              val === "__EMPTY__" ? "Sin asignar" : getUserName(val) || val,
           }))}
           onChange={(selectedOptions) => {
-            const values = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
+            const values = selectedOptions
+              ? selectedOptions.map((opt) => opt.value)
+              : [];
             setFilters((prev) => ({ ...prev, realizado: values }));
           }}
           options={[
@@ -292,7 +316,7 @@ const Deducciones = () => {
           className="react-select-container"
           classNamePrefix="react-select"
         />
-        
+
         <label>Filtrar Por Rango de Fechas</label>
         <DatePicker
           selected={filters.fechaInicio}
@@ -304,10 +328,12 @@ const Deducciones = () => {
           placeholderText="Seleccionar rango de fechas"
           className="date-picker-input"
         />
-        
+
         <button
           className="discard-filter-button"
-          onClick={() => setFilters({ realizado: [], fechaInicio: null, fechaFin: null })}
+          onClick={() =>
+            setFilters({ realizado: [], fechaInicio: null, fechaFin: null })
+          }
         >
           Descartar Filtros
         </button>
@@ -317,13 +343,72 @@ const Deducciones = () => {
         <div className="homepage-card">
           <h1 className="title-page">Deducciones</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
       </div>
 
       <div className="homepage-card">
+        {/* Resumen Totales */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
+            marginBottom: "10px",
+          }}
+        >
+          <div
+            style={{
+              border: "1px solid #ddd",
+              color: "#fff",
+              borderRadius: "6px",
+              padding: "8px",
+              flex: 1,
+              textAlign: "center",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              backgroundColor: "#28a745",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
+              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#218838";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0) scale(1)";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#28a745";
+            }}
+          >
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              Total General Valor
+            </p>
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              AWG {formatCurrency(totalGeneralValor)}
+            </p>
+          </div>
+        </div>
+
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -342,11 +427,19 @@ const Deducciones = () => {
                     <td>
                       <input
                         type="date"
-                        value={deduccion.fecha ? deduccion.fecha.split('-').reverse().join('-') : ''}
+                        value={
+                          deduccion.fecha
+                            ? deduccion.fecha.split("-").reverse().join("-")
+                            : ""
+                        }
                         onChange={(e) => {
-                          const [year, month, day] = e.target.value.split('-');
+                          const [year, month, day] = e.target.value.split("-");
                           const formattedDate = `${day}-${month}-${year}`;
-                          handleFieldChange(deduccion.id, "fecha", formattedDate);
+                          handleFieldChange(
+                            deduccion.id,
+                            "fecha",
+                            formattedDate
+                          );
                         }}
                       />
                     </td>
@@ -354,13 +447,25 @@ const Deducciones = () => {
                       <input
                         type="text"
                         value={deduccion.descripcion || ""}
-                        onChange={(e) => handleFieldChange(deduccion.id, "descripcion", e.target.value)}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            deduccion.id,
+                            "descripcion",
+                            e.target.value
+                          )
+                        }
                       />
                     </td>
                     <td>
                       <select
                         value={deduccion.realizado || ""}
-                        onChange={(e) => handleFieldChange(deduccion.id, "realizado", e.target.value)}
+                        onChange={(e) =>
+                          handleFieldChange(
+                            deduccion.id,
+                            "realizado",
+                            e.target.value
+                          )
+                        }
                       >
                         <option value=""></option>
                         {users.map((user) => (
@@ -372,15 +477,21 @@ const Deducciones = () => {
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center" }}>
-                        <span style={{ marginRight: "5px" }}>AWG</span>
                         <input
                           type="number"
                           value={deduccion.valor || ""}
-                          onChange={(e) => handleFieldChange(deduccion.id, "valor", parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              deduccion.id,
+                              "valor",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
                           min="0"
                           step="0.01"
                           style={{ width: "80px" }}
                         />
+                        <span style={{ marginRight: "5px" }}>AWG</span>
                       </div>
                     </td>
                     <td>
@@ -406,7 +517,8 @@ const Deducciones = () => {
         <div className="pagination-container">
           <div className="pagination-info">
             <span>
-              Mostrando {startIndex + 1} a {Math.min(endIndex, totalItems)} de {totalItems} registros
+              Mostrando {startIndex + 1} a {Math.min(endIndex, totalItems)} de{" "}
+              {totalItems} registros
             </span>
             <select
               value={itemsPerPage}
@@ -418,7 +530,7 @@ const Deducciones = () => {
               <option value={100}>100 por página</option>
             </select>
           </div>
-          
+
           <div className="pagination-controls">
             <button onClick={goToFirstPage} disabled={currentPage === 1}>
               ««

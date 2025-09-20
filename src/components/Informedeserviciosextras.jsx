@@ -15,7 +15,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
-import FacturaViewEditTra from "./FacturaViewEditTra";
+// import FacturaViewEditTra from "./FacturaViewEditTra"; (no usado en este informe)
 
 // Función auxiliar para formatear números
 const formatCurrency = (amount) => {
@@ -25,9 +25,9 @@ const formatCurrency = (amount) => {
   });
 };
 
-const Informedetransferencias = () => {
+const Informedeserviciosextras = () => {
   const navigate = useNavigate();
-  
+
   // Verificación de autorización
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
@@ -36,7 +36,7 @@ const Informedetransferencias = () => {
       return;
     }
   }, [navigate]);
-  
+
   // Estados de carga
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
@@ -48,6 +48,8 @@ const Informedetransferencias = () => {
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [facturas, setFacturas] = useState({});
   const [todos, setTodos] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loadedUsers, setLoadedUsers] = useState(false);
 
   // UI Estados
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -55,7 +57,7 @@ const Informedetransferencias = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
-  // Modal de factura
+  // Modal de factura (no usado en este informe)
   const [selectedFactura, setSelectedFactura] = useState(null);
   const [showFacturaModal, setShowFacturaModal] = useState(false);
 
@@ -64,14 +66,20 @@ const Informedetransferencias = () => {
   const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Filtros
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
+    realizadopor: [],
+    anombrede: [],
+    servicioextra: [],
     direccion: [],
+    servicio: [],
+    cubicos: [],
     valor: [],
-    banco: [],
-    numerodefactura: "",
+    pago: [],
     fechaInicio: null,
     fechaFin: null,
-  });
+  };
+
+  const [filters, setFilters] = useState(defaultFilters);
 
   // DatePicker
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -81,7 +89,7 @@ const Informedetransferencias = () => {
     const loadData = async () => {
       const isAuthorized = await validateSessionForAction("cargar datos");
       if (!isAuthorized) return;
-      
+
       const dbRef = ref(database, "data");
       const unsubscribe = onValue(dbRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -104,7 +112,7 @@ const Informedetransferencias = () => {
       });
       return unsubscribe;
     };
-    
+
     loadData();
   }, []);
 
@@ -155,6 +163,26 @@ const Informedetransferencias = () => {
     return unsubscribe;
   }, []);
 
+  // Cargar usuarios (para mostrar nombre en 'Realizado Por')
+  useEffect(() => {
+    const usersRef = ref(database, "users");
+    const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const fetched = Object.entries(snapshot.val()).map(([id, u]) => ({
+          id,
+          ...u,
+        }));
+        fetched.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        setUsers(fetched);
+        setLoadedUsers(true);
+      } else {
+        setUsers([]);
+        setLoadedUsers(true);
+      }
+    });
+    return unsubscribeUsers;
+  }, []);
+
   // Cuando todas las fuentes estén listas
   useEffect(() => {
     if (loadedData && loadedRegistro && loadedFacturas) {
@@ -179,19 +207,23 @@ const Informedetransferencias = () => {
     setTodos([...vivos, ...historicos]);
   }, [dataBranch, dataRegistroFechas]);
 
-  // Filtrar solo transferencias
-  const transferencias = todos.filter((registro) => {
-    // Solo mostrar registros con formadepago = "Transferencia"
-    if (registro.formadepago !== "Transferencia") return false;
+  // Filtrar registros que tengan servicioextra (campo no vacío)
+  const serviciosextras = todos.filter((registro) => {
+    // Requerir que servicioextra exista y no sea vacío
+    if (
+      !registro.servicioextra ||
+      (registro.servicioextra ?? "").toString().trim() === ""
+    )
+      return false;
 
-    // Aplicar filtros adicionales
+    // Filtrar por rango de fecha si aplica
     if (filters.fechaInicio && filters.fechaFin) {
       const [d, m, y] = registro.fecha.split("-");
       const f = new Date(y, m - 1, d);
       if (f < filters.fechaInicio || f > filters.fechaFin) return false;
     }
 
-    const match = (arr, field) =>
+    const matchMulti = (arr, field) =>
       !arr.length ||
       arr.some((opt) => {
         const val = (registro[field] ?? "").toString().toLowerCase();
@@ -199,9 +231,14 @@ const Informedetransferencias = () => {
         return val === optValue;
       });
 
-    if (!match(filters.direccion, "direccion")) return false;
-    if (!match(filters.valor, "valor")) return false;
-    if (!match(filters.banco, "banco")) return false;
+    if (!matchMulti(filters.realizadopor, "realizadopor")) return false;
+    if (!matchMulti(filters.anombrede, "anombrede")) return false;
+    if (!matchMulti(filters.direccion, "direccion")) return false;
+    if (!matchMulti(filters.servicio, "servicio")) return false;
+    if (!matchMulti(filters.servicioextra, "servicioextra")) return false;
+    if (!matchMulti(filters.cubicos, "cubicos")) return false;
+    if (!matchMulti(filters.valor, "valor")) return false;
+    if (!matchMulti(filters.pago, "pago")) return false;
 
     if (
       filters.numerodefactura &&
@@ -215,7 +252,7 @@ const Informedetransferencias = () => {
   });
 
   // Agrupar por fecha
-  const grouped = transferencias.reduce((acc, r) => {
+  const grouped = serviciosextras.reduce((acc, r) => {
     (acc[r.fecha] = acc[r.fecha] || []).push(r);
     return acc;
   }, {});
@@ -250,30 +287,73 @@ const Informedetransferencias = () => {
     });
 
   // Opciones para filtros
-  const allTransferencias = transferencias;
+  const allServiciosextras = serviciosextras;
+
+  // Índice de users para lookup id -> name
+  const usersIndex = new Map(users.map((u) => [u.id, u]));
 
   const direccionOptions = [
     ...Array.from(
-      new Set(allTransferencias.map((r) => r.direccion).filter(Boolean))
+      new Set(allServiciosextras.map((r) => r.direccion).filter(Boolean))
     )
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
 
+  const realizadoporOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.realizadopor).filter(Boolean))
+    )
+      .map((id) => ({ value: id, label: usersIndex.get(id)?.name || id }))
+      .sort((a, b) => (a.label || "").toString().localeCompare(b.label || "")),
+  ];
+
+  const anombredeOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.anombrede).filter(Boolean))
+    )
+      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const servicioOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.servicio).filter(Boolean))
+    )
+      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const servicioextraOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.servicioextra).filter(Boolean))
+    )
+      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const cubicosOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.cubicos).filter(Boolean))
+    )
+      .sort((a, b) => (Number(a) || 0) - (Number(b) || 0))
+      .map((v) => ({ value: v.toString(), label: v.toString() })),
+  ];
+
+  const pagoOptions = [
+    ...Array.from(
+      new Set(allServiciosextras.map((r) => r.pago).filter(Boolean))
+    )
+      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
+      .map((v) => ({ value: v, label: v })),
+  ];
+
   const valorOptions = [
     ...Array.from(
-      new Set(allTransferencias.map((r) => r.valor).filter(Boolean))
+      new Set(allServiciosextras.map((r) => r.valor).filter(Boolean))
     )
       .sort((a, b) => a - b)
       .map((v) => ({ value: v.toString(), label: formatCurrency(v) })),
-  ];
-
-  const bancoOptions = [
-    ...Array.from(
-      new Set(allTransferencias.map((r) => r.banco).filter(Boolean))
-    )
-      .sort()
-      .map((v) => ({ value: v, label: v })),
   ];
 
   // Navegación de páginas
@@ -324,24 +404,33 @@ const Informedetransferencias = () => {
     const exportData = filteredData.flatMap((item) =>
       item.registros.map((registro) => ({
         Fecha: item.fecha,
+        "Realizado Por":
+          usersIndex.get(registro.realizadopor)?.name ||
+          registro.realizadopor ||
+          "",
+        "A Nombre De": registro.anombrede || "",
+        "Servicio Extra": registro.servicioextra || "",
         Dirección: registro.direccion || "",
+        Servicio: registro.servicio || "",
+        Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        "Forma De Pago": registro.formadepago || "",
-        Banco: registro.banco || "",
-        "N° Factura": registro.numerodefactura || "",
+        Pago: registro.pago || "",
       }))
     );
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Transferencias");
+    const worksheet = workbook.addWorksheet("Servicios Extras");
 
     const headers = [
       "Fecha",
+      "Realizado Por",
+      "A Nombre De",
+      "Servicio Extra",
       "Dirección",
+      "Servicio",
+      "Cúbicos",
       "Valor",
-      "Forma De Pago",
-      "Banco",
-      "N° Factura",
+      "Pago",
     ];
 
     const headerRow = worksheet.addRow(headers);
@@ -368,11 +457,13 @@ const Informedetransferencias = () => {
 
     worksheet.columns = [
       { width: 12 },
+      { width: 20 },
+      { width: 20 },
       { width: 30 },
+      { width: 20 },
+      { width: 8 },
       { width: 12 },
-      { width: 18 },
-      { width: 25 },
-      { width: 16 },
+      { width: 12 },
     ];
 
     exportData.forEach((rowData) => {
@@ -394,7 +485,7 @@ const Informedetransferencias = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Informe_Transferencias.xlsx";
+    a.download = "Informe_ServiciosExtras.xlsx";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -404,55 +495,58 @@ const Informedetransferencias = () => {
     const exportData = filteredData.flatMap((item) =>
       item.registros.map((registro) => ({
         Fecha: item.fecha,
+        "Realizado Por":
+          usersIndex.get(registro.realizadopor)?.name ||
+          registro.realizadopor ||
+          "",
+        "A Nombre De": registro.anombrede || "",
         Dirección: registro.direccion || "",
+        Servicio: registro.servicio || "",
+        Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        "Forma De Pago": registro.formadepago || "",
-        Banco: registro.banco || "",
-        "N° Factura": registro.numerodefactura || "",
+        Pago: registro.pago || "",
       }))
     );
 
     const doc = new jsPDF("p", "mm", "a4");
-    
+
     // Título
     doc.setFontSize(16);
-    doc.text("Informe de Transferencias", 105, 20, { align: "center" });
-    
-    // Calcular sumas por banco
-    const totalGeneral = transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
-    const totalAruba = transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
-    const totalCaribbean = transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
-    const totalRBC = transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
-    
-    // Agregar sumas antes de la tabla
+    doc.text("Informe de Servicios Extras", 105, 20, { align: "center" });
+
+    // Agregar suma Total General antes de la tabla
+    const totalGeneral = serviciosextras.reduce(
+      (sum, r) => sum + (parseFloat(r.valor) || 0),
+      0
+    );
     doc.setFontSize(10);
     let yPosition = 35;
     doc.text(`Total General: AWG ${totalGeneral.toFixed(2)}`, 20, yPosition);
-    yPosition += 7;
-    doc.text(`Aruba Bank N.V.: AWG ${totalAruba.toFixed(2)}`, 20, yPosition);
-    yPosition += 7;
-    doc.text(`Caribbean Mercantile Bank N.V.: AWG ${totalCaribbean.toFixed(2)}`, 20, yPosition);
-    yPosition += 7;
-    doc.text(`RBC Royal Bank N.V.: AWG ${totalRBC.toFixed(2)}`, 20, yPosition);
     yPosition += 10;
-    
+
     // Headers de la tabla
-    const headers = [[
-      "Fecha",
-      "Dirección",
-      "Valor",
-      "Forma De Pago",
-      "Banco",
-      "N° Factura",
-    ]];
+    const headers = [
+      [
+        "Fecha",
+        "Realizado Por",
+        "A Nombre De",
+        "Dirección",
+        "Servicio",
+        "Cúbicos",
+        "Valor",
+        "Pago",
+      ],
+    ];
 
     const dataRows = exportData.map((item) => [
       item.Fecha,
+      item["Realizado Por"],
+      item["A Nombre De"],
       item.Dirección,
+      item.Servicio,
+      item["Cúbicos"],
       item.Valor,
-      item["Forma De Pago"],
-      item.Banco,
-      item["N° Factura"],
+      item.Pago,
     ]);
 
     autoTable(doc, {
@@ -464,8 +558,8 @@ const Informedetransferencias = () => {
       styles: { fontSize: 8 },
       margin: { top: 30, left: 10, right: 10 },
     });
-    
-    doc.save("Informe_Transferencias.pdf");
+
+    doc.save("Informe_ServiciosExtras.pdf");
   };
 
   // Mostrar/ocultar slidebars
@@ -537,9 +631,9 @@ const Informedetransferencias = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
 
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
@@ -560,6 +654,40 @@ const Informedetransferencias = () => {
           />
         )}
 
+        <label>Realizado Por</label>
+        <Select
+          isClearable
+          isMulti
+          options={realizadoporOptions}
+          value={filters.realizadopor}
+          onChange={(opts) =>
+            setFilters({ ...filters, realizadopor: opts || [] })
+          }
+          placeholder="Realizado por..."
+        />
+
+        <label>A Nombre De</label>
+        <Select
+          isClearable
+          isMulti
+          options={anombredeOptions}
+          value={filters.anombrede}
+          onChange={(opts) => setFilters({ ...filters, anombrede: opts || [] })}
+          placeholder="A nombre de..."
+        />
+
+        <label>Servicio Extra</label>
+        <Select
+          isClearable
+          isMulti
+          options={servicioextraOptions}
+          value={filters.servicioextra}
+          onChange={(opts) =>
+            setFilters({ ...filters, servicioextra: opts || [] })
+          }
+          placeholder="Servicio extra..."
+        />
+
         <label>Dirección</label>
         <Select
           isClearable
@@ -568,6 +696,36 @@ const Informedetransferencias = () => {
           value={filters.direccion}
           onChange={(opts) => setFilters({ ...filters, direccion: opts || [] })}
           placeholder="Dirección(es)..."
+        />
+
+        <label>Servicio</label>
+        <Select
+          isClearable
+          isMulti
+          options={servicioOptions}
+          value={filters.servicio}
+          onChange={(opts) => setFilters({ ...filters, servicio: opts || [] })}
+          placeholder="Servicio(s)..."
+        />
+
+        <label>Cúbicos</label>
+        <Select
+          isClearable
+          isMulti
+          options={cubicosOptions}
+          value={filters.cubicos}
+          onChange={(opts) => setFilters({ ...filters, cubicos: opts || [] })}
+          placeholder="Cúbicos..."
+        />
+
+        <label>Pago</label>
+        <Select
+          isClearable
+          isMulti
+          options={pagoOptions}
+          value={filters.pago}
+          onChange={(opts) => setFilters({ ...filters, pago: opts || [] })}
+          placeholder="Pago..."
         />
 
         <label>Valor</label>
@@ -580,44 +738,13 @@ const Informedetransferencias = () => {
           placeholder="Valor(es)..."
         />
 
-        <label>Banco</label>
-        <Select
-          isClearable
-          isMulti
-          options={bancoOptions}
-          value={filters.banco}
-          onChange={(opts) => setFilters({ ...filters, banco: opts || [] })}
-          placeholder="Banco(s)..."
-        />
-
-        <label>N° de Factura</label>
-        <input
-          type="text"
-          placeholder="Buscar número de factura..."
-          value={filters.numerodefactura}
-          onChange={(e) =>
-            setFilters({ ...filters, numerodefactura: e.target.value })
-          }
-          style={{
-            padding: "8px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            width: "100%",
-          }}
-        />
-
         <button
           className="discard-filter-button"
-          onClick={() =>
-            setFilters({
-              direccion: [],
-              valor: [],
-              banco: [],
-              numerodefactura: "",
-              fechaInicio: null,
-              fechaFin: null,
-            })
-          }
+          onClick={() => {
+            setFilters(defaultFilters);
+            setCurrentPage(1);
+            setShowFilterSlidebar(false);
+          }}
         >
           Descartar Filtros
         </button>
@@ -625,120 +752,72 @@ const Informedetransferencias = () => {
 
       <div className="homepage-title">
         <div className="homepage-card">
-          <h1 className="title-page">Informe de Transferencias</h1>
+          <h1 className="title-page">Informe de Servicios Extras</h1>
           <div className="current-date">
-            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
       </div>
 
       <div className="homepage-card">
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-          <div style={{
-            border: '1px solid #ddd',
-            color:"#fff",
-            borderRadius: '6px',
-            padding: '8px',
-            flex: 1,
-            textAlign: 'center',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: '#28a745',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#218838';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#28a745';
-          }}>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Total General</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
-          </div>
-          <div style={{
-            border: '1px solid #ddd',
-            color:"#fff",
-            borderRadius: '6px',
-            padding: '8px',
-            flex: 1,
-            textAlign: 'center',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: '#5271ff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#375bffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#5271ff';
-          }}>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Aruba Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
-          </div>
-          <div style={{
-            border: '1px solid #ddd',
-            color:"#fff",
-            borderRadius: '6px',
-            padding: '8px',
-            flex: 1,
-            textAlign: 'center',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: '#5271ff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#375bffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#5271ff';
-          }}>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Caribbean Mercantile Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
-          </div>
-          <div style={{
-            border: '1px solid #ddd',
-            color:"#fff",
-            borderRadius: '6px',
-            padding: '8px',
-            flex: 1,
-            textAlign: 'center',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: '#5271ff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#375bffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.backgroundColor = '#5271ff';
-          }}>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>RBC Royal Bank N.V.</p>
-            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+        >
+          <div
+            style={{
+              border: "1px solid #ddd",
+              color: "#fff",
+              borderRadius: "6px",
+              padding: "8px",
+              flex: 1,
+              textAlign: "center",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              backgroundColor: "#28a745",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
+              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#218838";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0) scale(1)";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#28a745";
+            }}
+          >
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              Total General Valor
+            </p>
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              AWG{" "}
+              {serviciosextras
+                .reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)
+                .toFixed(2)}
+            </p>
           </div>
         </div>
         <div className="table-container">
@@ -746,11 +825,14 @@ const Informedetransferencias = () => {
             <thead>
               <tr>
                 <th>Fecha</th>
+                <th>Realizado Por</th>
+                <th>A Nombre De</th>
+                <th>Servicio Extra</th>
                 <th>Dirección</th>
+                <th>Servicio</th>
+                <th>Cúbicos</th>
                 <th>Valor</th>
-                <th>Forma De Pago</th>
-                <th>Banco</th>
-                <th>N° Factura</th>
+                <th>Pago</th>
               </tr>
             </thead>
             <tbody>
@@ -758,38 +840,54 @@ const Informedetransferencias = () => {
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
-                      <td style={{ textAlign: "center", fontWeight: "bold",padding:"5px", paddingRight:"10px", paddingRight:"10px" }}>
+                      <td
+                        style={{
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          padding: "5px",
+                        }}
+                      >
                         {item.fecha}
                       </td>
-                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.direccion || ""}</td>
-                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center" }}>
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {usersIndex.get(registro.realizadopor)?.name ||
+                          registro.realizadopor ||
+                          ""}
+                      </td>
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {registro.anombrede || ""}
+                      </td>
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {registro.servicioextra || ""}
+                      </td>
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {registro.direccion || ""}
+                      </td>
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {registro.servicio || ""}
+                      </td>
+                      <td
+                        style={{
+                          paddingRight: "10px",
+                          paddingLeft: "10px",
+                          textAlign: "center",
+                        }}
+                      >
+                        {registro.cubicos || ""}
+                      </td>
+                      <td
+                        style={{
+                          paddingRight: "10px",
+                          paddingLeft: "10px",
+                          textAlign: "center",
+                        }}
+                      >
                         {formatCurrency(registro.valor || 0)}
                       </td>
-                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.formadepago || ""}</td>
-                      <td style={{paddingRight:"10px",paddingLeft:"10px"}}>{registro.banco || ""}</td>
-                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center"}}>
-                        {registro.numerodefactura ? (
-                          <button
-                            onClick={() =>
-                              openFacturaModal(registro.numerodefactura)
-                            }
-                            className="numero-factura-btn"
-                            title={`Ver Factura N° ${registro.numerodefactura}`}
-                          >
-                            {registro.numerodefactura}
-                          </button>
-                        ) : (
-                          <span
-                            style={{
-                              color: "#ccc",
-                              fontSize: "11px",
-                              fontStyle: "italic",
-                            }}
-                          >
-                            Sin N°
-                          </span>
-                        )}
+                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
+                        {registro.pago || ""}
                       </td>
+                      {/* columna N° Factura removida */}
                     </tr>
                   ))}
                 </React.Fragment>
@@ -803,7 +901,7 @@ const Informedetransferencias = () => {
           <div className="pagination-info">
             <span>
               Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de{" "}
-              {totalItems} transferencias
+              {totalItems} registros
             </span>
             <div className="items-per-page">
               <label>Mostrar:</label>
@@ -866,15 +964,9 @@ const Informedetransferencias = () => {
         <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
       </button>
 
-      {/* Modal de Vista/Edición de Factura */}
-      {showFacturaModal && selectedFactura && (
-        <FacturaViewEditTra
-          numeroFactura={selectedFactura}
-          onClose={closeFacturaModal}
-        />
-      )}
+      {/* Modal de Factura no usado en este informe */}
     </div>
   );
 };
 
-export default React.memo(Informedetransferencias);
+export default React.memo(Informedeserviciosextras);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, push, onValue, set, update, remove } from "firebase/database";
 import { decryptData } from "../utils/security";
@@ -16,6 +16,13 @@ const formatDateWithHyphen = (date) => {
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
 };
+
+// Helper para mostrar moneda
+const formatCurrency = (amount) =>
+  Number(amount || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const Extras = () => {
   const [extras, setExtras] = useState([]);
@@ -101,7 +108,6 @@ const Extras = () => {
       const currentExtra = extras.find((e) => e.id === id) || {};
       let updateData = { [field]: value };
 
-      // Normalizamos servicio y cantidad "resultantes" tras este cambio
       const nextServicio =
         field === "servicioAdicional" ? value : currentExtra.servicioAdicional;
       const nextCantidadRaw =
@@ -110,17 +116,12 @@ const Extras = () => {
         ? 1
         : parseFloat(nextCantidadRaw) || 0;
 
-      // Reglas:
-      // 1) Si servicio === "Otros": cantidad debe ser 1 y valor NO se recalcula automáticamente
-      // 2) Si servicio !== "Otros": valor = cantidad * tarifa (automático)
       if (field === "servicioAdicional") {
         if (isOtros(value)) {
-          updateData.cantidad = 1; // forzamos cantidad 1
-          // NO recalculamos valor: queda editable por el usuario (se mantiene el actual)
+          updateData.cantidad = 1;
           updateData.valor =
             currentExtra.valor != null ? currentExtra.valor : 0;
         } else {
-          // servicio con tarifa estándar
           const tarifa = serviciosAdicionales[value] || 0;
           updateData.valor = nextCantidad * tarifa;
         }
@@ -128,9 +129,7 @@ const Extras = () => {
 
       if (field === "cantidad") {
         if (isOtros(nextServicio)) {
-          // Ignoramos cantidad distinta a 1 si intentan cambiarla
           updateData.cantidad = 1;
-          // NO tocar valor: es editable
           updateData.valor =
             currentExtra.valor != null ? currentExtra.valor : 0;
         } else {
@@ -139,26 +138,19 @@ const Extras = () => {
         }
       }
 
-      // Si cambian directamente el valor (solo pasará cuando "Otros" está activo),
-      // lo permitimos sin recálculo.
       if (field === "valor") {
         const num = parseFloat(value);
         updateData.valor = Number.isFinite(num) ? num : 0;
       }
 
-      // Guardar en Firebase
       await update(ref(database, `extras/${id}`), updateData);
 
-      // Estado local (y mantener orden por timestamp)
       setExtras((prev) =>
         prev
-          .map((extra) =>
-            extra.id === id ? { ...extra, ...updateData } : extra
-          )
+          .map((extra) => (extra.id === id ? { ...extra, ...updateData } : extra))
           .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       );
 
-      // Sincroniza localValues si tocaste cantidad/valor
       setLocalValues((prev) => {
         const nxt = { ...prev };
         if (updateData.cantidad !== undefined)
@@ -265,6 +257,16 @@ const Extras = () => {
       const dateB = new Date(yearB, monthB - 1, dayB);
       return dateB - dateA; // Más reciente primero
     });
+
+  // >>> Total General (suma de "valor" sobre el conjunto filtrado) <<<
+  const totalGeneralValor = useMemo(
+    () =>
+      filteredExtras.reduce(
+        (sum, item) => sum + (parseFloat(item.valor) || 0),
+        0
+      ),
+    [filteredExtras]
+  );
 
   // Paginación
   const totalItems = filteredExtras.length;
@@ -446,13 +448,70 @@ const Extras = () => {
         <div className="homepage-card">
           <h1 className="title-page">Extras</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
             <Clock />
           </div>
         </div>
       </div>
 
       <div className="homepage-card">
+        {/* === NUEVO: Tarjeta Total General Valor (sobre los registros filtrados) === */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
+            marginBottom: "10px",
+          }}
+        >
+          <div
+            style={{
+              border: "1px solid #ddd",
+              color: "#fff",
+              borderRadius: "6px",
+              padding: "8px",
+              flex: 1,
+              textAlign: "center",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              backgroundColor: "#28a745",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
+              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#218838";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0) scale(1)";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#28a745";
+            }}
+          >
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              Total General (Valor)
+            </p>
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              AWG {formatCurrency(totalGeneralValor)}
+            </p>
+          </div>
+        </div>
+
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -508,7 +567,6 @@ const Extras = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            // Si es "Otros", ignoramos cambios y forzamos 1
                             if (isOtros(extra.servicioAdicional)) {
                               handleFieldChange(extra.id, "cantidad", 1);
                               return;

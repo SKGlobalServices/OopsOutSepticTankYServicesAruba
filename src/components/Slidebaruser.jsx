@@ -4,6 +4,7 @@ import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
 import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
+import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
@@ -177,6 +178,16 @@ const Slidebaruser = () => {
           />
           <span>Informe De Efectivo</span>
         </button>
+        <button
+              className="btn-agendar2"
+              onClick={() => navigate("/calendariouser")}
+            >
+              <img
+                className="icon-agendar2"
+                src={agendarIcon2}
+              />
+              <span>ㅤﾠCalendario</span>
+            </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
           <span>Cerrar Sesión</span>

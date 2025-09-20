@@ -2059,6 +2059,13 @@ const Nomina = () => {
     return base;
   }, [nominaData, filters.nombre, users]);
 
+  // === NUEVO: Total General (solo suma del campo "Total Nómina") para filas visibles ===
+  const totalGeneralNomina = useMemo(
+    () =>
+      visibleRows.reduce((sum, r) => sum + (parseFloat(r.totalNomina) || 0), 0),
+    [visibleRows]
+  );
+
   if (loading) {
     return (
       <div className="homepage-container">
@@ -2097,7 +2104,9 @@ const Nomina = () => {
           <div className="homepage-card">
             <h1 className="title-page">Nómina</h1>
             <div className="current-date">
-              <div>{new Date().toLocaleDateString()}</div>
+              <div style={{ cursor: "default" }}>
+                {new Date().toLocaleDateString()}
+              </div>
               <Clock />
             </div>
           </div>
@@ -2165,20 +2174,30 @@ const Nomina = () => {
         <label>Filtrar Por Nombre</label>
         <div
           style={{
-            maxHeight: "150px",
+            maxHeight: "180px",
             overflowY: "auto",
-            border: "1px solid #ccc",
-            padding: "5px",
+            border: "1px solid rgba(255,255,255,0.12)",
+            padding: "8px",
+            background: "rgba(0,0,0,0.25)",
+            borderRadius: "6px",
           }}
         >
           {users.map((user) => (
-            <div
+            <label
               key={user.id}
+              htmlFor={`user-${user.id}`}
               style={{
                 display: "flex",
                 alignItems: "center",
-                marginBottom: "5px",
+                gap: "10px",
+                marginBottom: "6px",
+                padding: "6px",
+                cursor: "pointer",
+                userSelect: "none",
+                borderRadius: "4px",
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <input
                 type="checkbox"
@@ -2193,15 +2212,10 @@ const Nomina = () => {
                       : prev.nombre.filter((id) => id !== userId),
                   }));
                 }}
-                style={{ marginRight: "8px" }}
+                style={{ width: "16px", height: "16px", flex: "0 0 auto" }}
               />
-              <label
-                htmlFor={`user-${user.id}`}
-                style={{ cursor: "pointer", color: "white" }}
-              >
-                {user.name}
-              </label>
-            </div>
+              <span style={{ color: "white", flex: "1 1 auto" }}>{user.name}</span>
+            </label>
           ))}
         </div>
 
@@ -2222,13 +2236,72 @@ const Nomina = () => {
               : ""}
           </h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
       </div>
 
       <div className="homepage-card">
+        {/* === NUEVO: Tarjeta Total General del campo "Total Nómina" (azul) === */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
+            marginBottom: "10px",
+          }}
+        >
+          <div
+            style={{
+              border: "1px solid #ddd",
+              color: "#fff",
+              borderRadius: "6px",
+              padding: "8px",
+              flex: 1,
+              textAlign: "center",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              backgroundColor: "#28a745",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
+              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#218838";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0) scale(1)";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              e.currentTarget.style.borderColor = "#ddd";
+              e.currentTarget.style.backgroundColor = "#28a745";
+            }}
+          >
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              Total General Nómina
+            </p>
+            <p
+              style={{
+                margin: "0",
+                fontSize: "12px",
+                pointerEvents: "none",
+                fontWeight: "bold",
+              }}
+            >
+              AWG {totalGeneralNomina.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
         <div className="table-container">
           <table className="service-table">
             <thead>
@@ -2457,9 +2530,19 @@ const Nomina = () => {
                       <td style={{ textAlign: "center" }}>
                         <button
                           className="delete-button"
-                          style={{ marginRight: "14px" }}
+                          style={{
+                            marginRight: "14px",
+                            // === NUEVO: opacidad/cursor cuando el registro está cerrado ===
+                            opacity: isLocked ? 0.5 : 1,
+                            cursor: isLocked ? "not-allowed" : "pointer",
+                          }}
                           onClick={() => deleteNominaRecord(record.id)}
                           disabled={isLocked}
+                          title={
+                            isLocked
+                              ? "Registro cerrado: no puede eliminarse"
+                              : "Eliminar"
+                          }
                         >
                           Eliminar
                         </button>
@@ -2468,9 +2551,17 @@ const Nomina = () => {
                           style={{
                             marginRight: "8px",
                             backgroundColor: "green",
+                            // === NUEVO: opacidad/cursor cuando el registro está cerrado ===
+                            opacity: isLocked ? 0.5 : 1,
+                            cursor: isLocked ? "not-allowed" : "pointer",
                           }}
                           onClick={() => setEfectivoTotal(record.id)}
                           disabled={isLocked}
+                          title={
+                            isLocked
+                              ? "Registro cerrado: no puede modificarse"
+                              : "Aplicar efectivo total (histórico)"
+                          }
                         >
                           Efectivo total (sin rango)
                         </button>

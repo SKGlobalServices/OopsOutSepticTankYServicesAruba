@@ -29,6 +29,9 @@ import Ciclodefacturacion from "./components/Ciclodefacturacion.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import Extras from "./components/Extras.jsx";
 import Deducciones from "./components/Deducciones.jsx";
+import Calendarioadmin from "./components/Calendarioadmin.jsx";
+import Calendariouser from "./components/Calendariouser.jsx";
+import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -62,6 +65,9 @@ root.render(
       <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
       <Route path="/extras" element={<PageWrapper><Extras /></PageWrapper>} />
       <Route path="/deducciones" element={<PageWrapper><Deducciones /></PageWrapper>} />
+      <Route path="/calendarioadmin" element={<PageWrapper><Calendarioadmin /></PageWrapper>} />
+      <Route path="/calendariouser" element={<PageWrapper><Calendariouser /></PageWrapper>} />
+      <Route path="/informedeserviciosextras" element={<PageWrapper><Informedeserviciosextras /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

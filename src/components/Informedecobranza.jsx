@@ -60,6 +60,45 @@ const formatMoney = (val) => {
   });
 };
 
+// Helper: claves seguras para Firebase (sin puntos)
+const SAFE_DENOMS = [
+  "200",
+  "100",
+  "50",
+  "25",
+  "10",
+  "5",
+  "1",
+  "050",
+  "025",
+  "010",
+  "005",
+];
+
+// Mapea clave segura -> valor numérico
+const keyToValue = (k) =>
+  k === "050"
+    ? 0.5
+    : k === "025"
+    ? 0.25
+    : k === "010"
+    ? 0.1
+    : k === "005"
+    ? 0.05
+    : Number(k);
+
+// Mapea clave segura -> etiqueta para mostrar
+const keyToLabel = (k) =>
+  k === "050"
+    ? "0.50"
+    : k === "025"
+    ? "0.25"
+    : k === "010"
+    ? "0.10"
+    : k === "005"
+    ? "0.05"
+    : k;
+
 // Permite "1.000,5", "1,000.5", etc. y devuelve número o "".
 const parseMoney = (str) => {
   if (str === "" || str == null) return "";
@@ -191,26 +230,39 @@ const Informedecobranza = () => {
     });
 
     const unsubConteo = onValue(conteoRef, (snap) => {
+      // convierte claves con punto -> seguras
+      const toSafe = (k) => {
+        if (k === "0.50") return "050";
+        if (k === "0.25") return "025";
+        if (k === "0.10") return "010";
+        if (k === "0.05") return "005";
+        return k;
+      };
+
       if (!snap.exists()) {
-        // Inicializar con valores por defecto si no existe
-        const defaultConteo = {
-          200: 0,
-          100: 0,
-          50: 0,
-          20: 0,
-          10: 0,
-          5: 0,
-          1: 0,
-          "050": 0,
-          "025": 0,
-          "010": 0,
-        };
+        const defaultConteo = Object.fromEntries(
+          SAFE_DENOMS.map((d) => [d, 0])
+        );
         setConteoEfectivo(defaultConteo);
         setLoadedConteoEfectivo(true);
         return;
       }
-      const val = snap.val();
-      setConteoEfectivo(val);
+
+      const raw = snap.val() || {};
+      const safe = {};
+
+      // migra todas las claves a formato seguro
+      Object.entries(raw).forEach(([k, v]) => {
+        const sk = toSafe(String(k));
+        safe[sk] = Number(v) || 0;
+      });
+
+      // garantiza todas las denominaciones
+      SAFE_DENOMS.forEach((d) => {
+        if (safe[d] == null) safe[d] = 0;
+      });
+
+      setConteoEfectivo(safe);
       setLoadedConteoEfectivo(true);
     });
 
@@ -558,12 +610,18 @@ const Informedecobranza = () => {
     setCurrentPageEfectivo(1);
   }, []);
 
-  const handleConteoChange = useCallback((tipo, cantidad) => {
-    const newCantidad = Number(cantidad) || 0;
+  const handleConteoChange = useCallback((tipoSeguro, cantidad) => {
+    const newCantidad = Math.max(0, Number(cantidad) || 0); // nunca negativo
+    if (!SAFE_DENOMS.includes(tipoSeguro)) return; // solo claves válidas
+
     setConteoEfectivo((prev) => {
-      const newConteo = { ...prev, [tipo]: newCantidad };
-      set(ref(database, "cobranzaefectivototal"), newConteo);
-      return newConteo;
+      const sanitized = Object.fromEntries(
+        SAFE_DENOMS.map((k) => [k, Number(prev[k]) || 0])
+      );
+      sanitized[tipoSeguro] = newCantidad;
+
+      set(ref(database, "cobranzaefectivototal"), sanitized);
+      return sanitized;
     });
   }, []);
 
@@ -590,19 +648,12 @@ const Informedecobranza = () => {
   );
 
   const totalConteoEfectivo = useMemo(() => {
-    let total = 0;
-    Object.entries(conteoEfectivo).forEach(([tipo, cantidad]) => {
-      const valor =
-        tipo === "050"
-          ? 0.5
-          : tipo === "025"
-          ? 0.25
-          : tipo === "010"
-          ? 0.1
-          : Number(tipo);
-      total += valor * Number(cantidad);
-    });
-    return total;
+    const cents = SAFE_DENOMS.reduce((acc, k) => {
+      const valorCents = Math.round(keyToValue(k) * 100);
+      const qty = Number(conteoEfectivo[k]) || 0;
+      return acc + valorCents * qty;
+    }, 0);
+    return cents / 100;
   }, [conteoEfectivo]);
 
   const clearFilters = useCallback(() => {
@@ -622,6 +673,41 @@ const Informedecobranza = () => {
     });
     return [...dirs].sort();
   }, [clients]);
+
+  const resetConteoEfectivo = useCallback(() => {
+  const zeros = Object.fromEntries(SAFE_DENOMS.map((k) => [k, 0]));
+
+  Swal.fire({
+    title: "¿Reiniciar conteo?",
+    html: "Esto pondrá todas las cantidades en <b>0</b>.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, reiniciar",
+    cancelButtonText: "Cancelar",
+    reverseButtons: true,
+    focusCancel: true,
+    allowOutsideClick: false,
+  }).then(async (result) => {
+    if (!result.isConfirmed) return;
+
+    // guardamos el estado actual para poder revertir en caso de error
+    const prevState = conteoEfectivo;
+
+    // optimista: actualiza UI
+    setConteoEfectivo(zeros);
+
+    try {
+      await set(ref(database, "cobranzaefectivototal"), zeros);
+      Swal.fire("Listo", "El contador fue reiniciado.", "success");
+    } catch (err) {
+      console.error("Error reseteando conteo:", err);
+      // rollback
+      setConteoEfectivo(prevState);
+      Swal.fire("Error", "No se pudo reiniciar el contador.", "error");
+    }
+  });
+}, [conteoEfectivo]);
+
 
   // CSS embebido (no requiere archivo externo)
   const styles = `
@@ -643,7 +729,7 @@ const Informedecobranza = () => {
 
     /* Inputs / Selects */
     .input, .select { width: 100%; padding: 6px 8px; font-size: 12px; border-radius: 4px; background: #fff; box-sizing: border-box; }
-    .input-sm, .select-sm { padding: 4px 6px; font-size: 12px; }
+    .input-sm, .select-sm { padding: 4px 6px; font-size: 12px; border: none; }
     .input-center { text-align: center; }
     .input-dir { min-width: 140px; }
     .input-notes { min-width: 100px; }
@@ -769,7 +855,9 @@ const Informedecobranza = () => {
         <div className="homepage-card">
           <h1 className="title-page">Informe De Cobranza</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -1170,28 +1258,10 @@ const Informedecobranza = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    "200",
-                    "100",
-                    "50",
-                    "20",
-                    "10",
-                    "5",
-                    "1",
-                    "050",
-                    "025",
-                    "010",
-                  ].map((tipoKey) => {
-                    const cantidad = conteoEfectivo[tipoKey] || 0;
-                    const tipoValor =
-                      tipoKey === "050"
-                        ? 0.5
-                        : tipoKey === "025"
-                        ? 0.25
-                        : tipoKey === "010"
-                        ? 0.1
-                        : Number(tipoKey);
-                    const montoTotal = tipoValor * cantidad;
+                  {SAFE_DENOMS.map((tipoKey) => {
+                    const cantidad = Number(conteoEfectivo[tipoKey]) || 0;
+                    const valor = keyToValue(tipoKey);
+                    const montoTotal = valor * cantidad;
 
                     return (
                       <tr key={tipoKey}>
@@ -1199,7 +1269,7 @@ const Informedecobranza = () => {
                           className="text-center"
                           style={{ fontWeight: "bold" }}
                         >
-                          {formatMoney(tipoValor)}
+                          {formatMoney(Number(keyToLabel(tipoKey)))}
                         </td>
                         <td>
                           <input
@@ -1232,6 +1302,17 @@ const Informedecobranza = () => {
                       </tr>
                     );
                   })}
+                  <tr>
+                    <td colSpan={3} className="text-center">
+                      <button
+                        className="delete-button btn-xs"
+                        onClick={resetConteoEfectivo}
+                        title="Poner todas las cantidades en 0"
+                      >
+                        Reiniciar Cantidad
+                      </button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>

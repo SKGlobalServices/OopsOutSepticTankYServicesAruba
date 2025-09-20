@@ -423,20 +423,8 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Informe de Efectivo"
               />
-              <span>ㅤㅤEfectivo</span>
+              <span>ﾠﾠﾠEfectivo</span>
             </button>
-            <button
-              className="btn-infEfec2"
-              onClick={() => navigate("/informedetransferencias")}
-            >
-              <img
-                className="icon-infEfec2"
-                src={informeEfectivoIcon2}
-                alt="Informe De Transferencias"
-              />
-              <span>ㅤTransferencias</span>
-            </button>
-
             <button
               className="btn-infEfec2"
               onClick={() => navigate("/informedecobranza")}
@@ -446,7 +434,7 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Informe De Cobranza"
               />
-              <span>ㅤㅤCobranza</span>
+              <span>ﾠﾠﾠCobranza</span>
             </button>
             <button
               className="btn-infEfec2"
@@ -457,7 +445,29 @@ const Slidebar = () => {
                 src={informeEfectivoIcon2}
                 alt="Fast Mark"
               />
-              <span>ㅤㅤFast Mark</span>
+              <span>ﾠﾠﾠFast Mark</span>
+            </button>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/informedetransferencias")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe De Transferencias"
+              />
+              <span>ﾠTransferencias</span>
+            </button>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/informedeserviciosextras")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe De Servicios Extras"
+              />
+              <span>Servicios Extras</span>
             </button>
           </div>
         </details>
@@ -475,7 +485,14 @@ const Slidebar = () => {
                 src={clientesIcon2}
                 alt="Clientes"
               />
-              <span>ㅤㅤClientes</span>
+              <span>ㅤﾠﾠClientes</span>
+            </button>
+            <button
+              className="btn-agendar2"
+              onClick={() => navigate("/calendarioadmin")}
+            >
+              <img className="icon-agendar2" src={agendarIcon2} />
+              <span>ﾠHorario Laboral</span>
             </button>
             <button
               className="btn-configUsr2"

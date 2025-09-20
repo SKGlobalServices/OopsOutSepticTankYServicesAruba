@@ -55,12 +55,11 @@ const Ciclodefacturacion = () => {
       const arr = Object.entries(all).map(([id, r]) => ({
         id,
         // Campos según TH
-        fecha: r?.fecha ?? "", // dd-mm-aaaa
-        cliente: r?.cliente ?? "", // texto (anombrede)
-        direccion: r?.direccion ?? "", // texto (desde clientes)
-        valor: r?.valor ?? "", // número (guardado como texto/numero)
-        notas: r?.notas ?? "", // texto
-        // Meses (checkboxes)
+        fecha: r?.fecha ?? "",
+        cliente: r?.cliente ?? "",
+        direccion: r?.direccion ?? "",
+        valor: r?.valor ?? "",
+        notas: r?.notas ?? "",
         enero: !!r?.enero,
         febrero: !!r?.febrero,
         marzo: !!r?.marzo,
@@ -132,19 +131,6 @@ const Ciclodefacturacion = () => {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const inputToDmy = (ymd) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "";
-    const [yyyy, mm, dd] = ymd.split("-");
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    if (
-      d.getFullYear() !== Number(yyyy) ||
-      d.getMonth() !== Number(mm) - 1 ||
-      d.getDate() !== Number(dd)
-    )
-      return "";
-    return `${dd}-${mm}-${yyyy}`;
   };
 
   // Mostrar/ocultar slidebars
@@ -627,7 +613,7 @@ const Ciclodefacturacion = () => {
         <div className="homepage-card">
           <h1 className="title-page">Ciclo De Facturación Mensual</h1>
           <div className="current-date">
-            <div>{new Date().toLocaleDateString()}</div>
+            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
             <Clock />
           </div>
         </div>
