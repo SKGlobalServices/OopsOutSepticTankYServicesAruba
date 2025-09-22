@@ -1,0 +1,192 @@
+/* ===========================================================
+   CALENDARIO USER (mobile-first)
+   =========================================================== */
+
+/* ---------- Contenedor scroll (X/Y) ---------- */
+.table-container {
+  position: relative;
+  max-height: min(70svh, 560px);    /* fuerza scroll interno para sticky */
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+}
+
+/* ---------- Controles superiores ---------- */
+.calendar-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  padding: 6px 2px;
+}
+.calendar-controls .user-label { font-weight: 800; color: var(--text); }
+.calendar-controls .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.calendar-controls .btn {
+  min-height: 36px; padding: 8px 12px; font-size: 14px; border-radius: 10px;
+}
+.calendar-controls .month-label { color: var(--muted); font-size: 16px; }
+
+/* ---------- Tabla base (ancho auto con scroll X) ---------- */
+.calendar-table {
+  width: -moz-max-content;      /* Firefox */
+  width: max-content;           /* Chrome/Safari/Edge */
+  min-width: 100%;              /* nunca más angosta que el contenedor */
+  table-layout: auto;           /* respeta contenido */
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--elev-sm);
+}
+
+/* ---------- Encabezados pegajosos ---------- */
+.calendar-table thead th {
+  position: sticky;
+  top: 0;                      /* si tienes header global, cambia por una var */
+  z-index: 3;
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 800;
+  color: #374151;
+  background: linear-gradient(180deg, #fff, rgba(255,255,255,.96));
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* ---------- Celdas ---------- */
+.calendar-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  vertical-align: middle;
+  color: var(--text);
+}
+
+/* Hover suave */
+.calendar-table tbody tr:hover { background: rgba(0,0,0,.02); }
+
+/* ---------- Día/DOW ---------- */
+.calendar-table .daycell { display: flex; gap: 8px; align-items: center; }
+.calendar-table .daynum { font-weight: 800; font-size: 12px; }
+.calendar-table .dow { font-size: 14px; color: var(--muted); margin-left: 6px; }
+
+/* Fines de semana */
+.calendar-table .wknd .daynum { color: #ef4444; }
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.badge--off { background: #dcfce7; color: #16a34a; } /* verde */
+.badge--on  { background: #f3f4f6; color: #374151; } /* gris  */
+
+/* ---------- Estados de texto ---------- */
+.td--muted {
+  color: #9ca3af;
+  font-weight: 500;
+}
+.td--hour {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+.td--description { font-size: 13px; min-width: 180px; }
+
+/* ---------- Resaltado hoy ---------- */
+.calendar-table tbody tr.today td {
+  background: #eefaf0;
+  box-shadow: inset 0 0 0 1px #d7ecd9;
+}
+.calendar-table tbody tr.today td:first-child {
+  background: #dff7df;
+  box-shadow: inset 0 0 0 2px #c9eac9;
+  font-weight: 700; color: #2e7d32;
+}
+
+/* ---------- Compat: .is-today ---------- */
+.calendar-table tr.is-today { background: rgba(99,102,241,.06); }
+.calendar-table tr.is-today td { border-bottom-color: rgba(99,102,241,.18); }
+
+/* ===========================================================
+   MOBILE (<=720px)
+   =========================================================== */
+@media (max-width: 720px) {
+  /* Ocultar "Fecha" para ganar ancho */
+  .calendar-table thead th:nth-child(2),
+  .calendar-table tbody td:nth-child(2) { display: none; }
+
+  /* Primera columna sticky (Día) */
+  .calendar-table thead th:first-child,
+  .calendar-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+    border-right: 1px solid rgba(0,0,0,.04);
+    white-space: nowrap;
+  }
+
+  /* Celdas un poco más compactas */
+  .calendar-table tbody td { padding: 10px 10px; }
+
+  /* Contenedor un poco más alto en móvil */
+  .table-container { max-height: min(72svh, 600px); }
+
+  /* Encabezados de horas un poco mayores y centrados */
+  .calendar-table thead th:nth-child(3),
+  .calendar-table thead th:nth-child(4) {
+    font-size: 14px;
+    white-space: nowrap;
+    text-align: center;
+    min-width: 92px;
+  }
+
+  /* Horas activas (Inicio/Fin) grandes y tabulares */
+  .calendar-table tbody td:nth-child(3),
+  .calendar-table tbody td:nth-child(4) {
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    min-width: 92px;
+  }
+
+  /* MUTED — reglas móviles unificadas */
+  .td--muted { color: #9ca3af; font-size: 14px; line-height: 1.28; letter-spacing: .15px; }
+
+  /* Horas muted: mantienen tamaño/centrado */
+  .calendar-table tbody td.td--muted:nth-child(3),
+  .calendar-table tbody td.td--muted:nth-child(4) {
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    min-width: 92px;
+  }
+
+  /* Nota (muted o no): multilinea y cortes seguros */
+  .calendar-table tbody td:nth-child(6) .td--description,
+  .calendar-table tbody td:nth-child(6) .td--muted {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+    font-size: 14px;
+  }
+}

@@ -1,13 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { ref, onValue, off, update, get, child } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
 import Clock from "./Clock";
 import Slidebar from "./Slidebar";
+import Swal from "sweetalert2";
 
 /* ========= Helpers ========= */
 const pad2 = (n) => String(n).padStart(2, "0");
 const yyyymm = (d) => `${d.getFullYear()}${pad2(d.getMonth() + 1)}`;
-const daysInMonth = (year, monthIndex0) => new Date(year, monthIndex0 + 1, 0).getDate();
+const daysInMonth = (year, monthIndex0) =>
+  new Date(year, monthIndex0 + 1, 0).getDate();
 const buildMonthMatrix = (year, monthIndex0) => {
   const total = daysInMonth(year, monthIndex0);
   const days = [];
@@ -25,9 +33,9 @@ const buildMonthMatrix = (year, monthIndex0) => {
 
 // 🎨 Color suave aleatorio (no fuerte) para fondos
 const randomSoftHsl = () => {
-  const h = Math.floor(Math.random() * 360);   // 0–359
-  const s = 30 + Math.random() * 15;           // 30%–45% (suave)
-  const l = 85 + Math.random() * 10;           // 85%–95% (clarito)
+  const h = Math.floor(Math.random() * 360); // 0–359
+  const s = 30 + Math.random() * 15; // 30%–45% (suave)
+  const l = 85 + Math.random() * 10; // 85%–95% (clarito)
   return `hsl(${h} ${s}% ${l}%)`;
 };
 
@@ -40,6 +48,11 @@ const ScheduleModal = ({ open, onClose, user }) => {
   const [animateIn, setAnimateIn] = useState(false);
   const closeBtnRef = useRef(null);
   const modalRef = useRef(null);
+  const gridRef = useRef(null); // ⬅️ contenedor scrolleable
+
+  // 🔎 baseline para detectar cambios (“dirty”)
+  const baselineRef = useRef("[]");
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -58,6 +71,7 @@ const ScheduleModal = ({ open, onClose, user }) => {
   const m0 = viewDate.getMonth();
   const matrix = useMemo(() => buildMonthMatrix(year, m0), [year, m0]);
 
+  // Cargar datos del mes/usuario y fijar baseline
   useEffect(() => {
     if (!open || !user?.id) return;
     const base = ref(database);
@@ -79,18 +93,44 @@ const ScheduleModal = ({ open, onClose, user }) => {
           };
         });
         setRows(next);
+        baselineRef.current = JSON.stringify(next);
+        setDirty(false);
       })
       .finally(() => setLoading(false));
   }, [open, user?.id, ym, matrix]);
+
+  // Recalcular dirty al cambiar rows
+  useEffect(() => {
+    const now = JSON.stringify(rows);
+    setDirty(now !== baselineRef.current);
+  }, [rows]);
 
   useEffect(() => {
     if (open) closeBtnRef.current?.focus();
   }, [open]);
 
+  // ⛔️ Solicitar cierre con advertencia si hay cambios
+  const requestClose = useCallback(async () => {
+    if (dirty && !saving) {
+      const res = await Swal.fire({
+        title: "Tienes cambios sin guardar",
+        text: "Si cierras ahora, los cambios se perderán.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Cerrar sin guardar",
+        cancelButtonText: "Seguir editando",
+        reverseButtons: true,
+        focusCancel: true,
+      });
+      if (!res.isConfirmed) return; // cancelar cierre
+    }
+    onClose(false);
+  }, [dirty, saving, onClose]);
+
   const onKeyDown = (e) => {
     if (e.key === "Escape") {
       e.stopPropagation();
-      onClose(false);
+      requestClose();
     }
   };
 
@@ -105,11 +145,15 @@ const ScheduleModal = ({ open, onClose, user }) => {
   const copyDayToAll = (i) => {
     const src = rows[i];
     if (!src || !src.start || !src.end || src.off) return;
-    setRows((prev) => prev.map((r) => ({ ...r, start: src.start, end: src.end, off: false })));
+    setRows((prev) =>
+      prev.map((r) => ({ ...r, start: src.start, end: src.end, off: false }))
+    );
   };
 
   const clearAll = () =>
-    setRows((prev) => prev.map((r) => ({ ...r, start: "", end: "", off: false, note: "" })));
+    setRows((prev) =>
+      prev.map((r) => ({ ...r, start: "", end: "", off: false, note: "" }))
+    );
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -119,29 +163,105 @@ const ScheduleModal = ({ open, onClose, user }) => {
       rows.forEach((r) => {
         const path = `calendario/${user.id}/${ym}/${r.dd}`;
         if (!r.start && !r.end && !r.off && !r.note) updates[path] = null;
-        else updates[path] = { start: r.start || "", end: r.end || "", off: !!r.off, note: r.note || "" };
+        else
+          updates[path] = {
+            start: r.start || "",
+            end: r.end || "",
+            off: !!r.off,
+            note: r.note || "",
+          };
       });
       await update(ref(database), updates);
-      onClose(true);
+      onClose(true); // cierra tras guardar
     } catch (e) {
       console.error(e);
-      alert("Error guardando horarios.");
+      Swal.fire("Error", "Error guardando horarios.", "error");
     } finally {
       setSaving(false);
     }
   };
 
+  // 🎯 Auto-scroll ANIMADO desde arriba hasta el día actual (solo si el mes visible es el actual)
+  useEffect(() => {
+    if (!open) return;
+    const today = new Date();
+    const sameMonth =
+      viewDate.getFullYear() === today.getFullYear() &&
+      viewDate.getMonth() === today.getMonth();
+    if (!sameMonth) return;
+
+    const cont = gridRef.current;
+    if (!cont) return;
+
+    const id = requestAnimationFrame(() => {
+      const todayEl = cont.querySelector(".cell.day.today");
+      if (!todayEl) return;
+
+      // Posición del objetivo relativa al contenedor + un margen superior
+      const margin = 72; // ajusta si tu header es más alto/bajo
+      const target =
+        todayEl.getBoundingClientRect().top -
+        cont.getBoundingClientRect().top +
+        cont.scrollTop -
+        margin;
+
+      // Animación manual desde scrollTop=0 hasta target
+      cont.scrollTop = 0;
+      const duration = 700; // ms
+      const startTime = performance.now();
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+      const step = (now) => {
+        const p = Math.min(1, (now - startTime) / duration);
+        cont.scrollTop = target * easeOutCubic(p);
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [open, viewDate, rows.length]);
+
   if (!open) return null;
 
-  const prevMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  const nextMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  const prevMonth = () =>
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () =>
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   const goToday = () => setViewDate(new Date());
 
   const titleId = "schedule-modal-title";
   const descId = "schedule-modal-sub";
 
+  // ⚑ Utilidades para marcar el día actual y resaltar FILA completa
+  const today = new Date();
+  const sameMonthAsToday =
+    viewDate.getFullYear() === today.getFullYear() &&
+    viewDate.getMonth() === today.getMonth();
+  const todayDD = pad2(today.getDate());
+
   return (
-    <div className="modal-backdrop show" onClick={() => onClose(false)} aria-hidden="true">
+    <div className="modal-backdrop show" aria-hidden="true">
+      {/* Estilos locales para resaltar el día actual y el scroll-area */}
+      <style>{`
+        .grid-days { max-height: 60vh; overflow: auto; }
+        .cell.day.today{
+          background:#dff7df;            /* verde pastel */
+          box-shadow: inset 0 0 0 2px #c9eac9;
+          border-radius:10px;
+        }
+        .cell.day.today .daynum,
+        .cell.day.today .dow{
+          font-weight:700; color:#2e7d32;
+        }
+        /* Resaltar toda la fila del día actual */
+        .cell.today-row{
+          background:#eefaf0;            /* más suave para el resto de celdas */
+          box-shadow: inset 0 0 0 1px #d7ecd9;
+          border-radius:10px;
+        }
+      `}</style>
+
       <div
         className={`modal ${animateIn ? "modal-animated" : ""}`}
         role="dialog"
@@ -155,20 +275,39 @@ const ScheduleModal = ({ open, onClose, user }) => {
         <header className="modal-head">
           <div>
             <div className="modal-title" id={titleId}>
-              Calendario de {user?.name || user?.displayName || user?.nombre || user?.id}
+              Calendario de{" "}
+              {user?.name || user?.displayName || user?.nombre || user?.id}
             </div>
             <div className="modal-sub" id={descId}>
-              {viewDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
+              {viewDate.toLocaleDateString("es-ES", {
+                month: "long",
+                year: "numeric",
+              })}
             </div>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn btn--ghost" onClick={prevMonth} title="Mes anterior (←)">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={prevMonth}
+              title="Mes anterior (←)"
+            >
               &lt; Mes Anterior
             </button>
-            <button type="button" className="btn btn--soft" onClick={goToday} title="Ir a hoy">
+            <button
+              type="button"
+              className="btn btn--soft"
+              onClick={goToday}
+              title="Ir a hoy"
+            >
               Hoy
             </button>
-            <button type="button" className="btn btn--ghost" onClick={nextMonth} title="Mes siguiente (→)">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={nextMonth}
+              title="Mes siguiente (→)"
+            >
               Mes Siguiente &gt;
             </button>
             <button
@@ -193,7 +332,7 @@ const ScheduleModal = ({ open, onClose, user }) => {
               type="button"
               ref={closeBtnRef}
               className="btn btn--danger btn--outline"
-              onClick={() => onClose(false)}
+              onClick={requestClose}
               title="Cerrar (Esc)"
             >
               Cerrar
@@ -201,64 +340,74 @@ const ScheduleModal = ({ open, onClose, user }) => {
           </div>
         </header>
 
-        <div className="grid-days">
+        <div className="grid-days" ref={gridRef}>
           <div className="grid-head">Día</div>
           <div className="grid-head">Inicio</div>
           <div className="grid-head">Fin</div>
           <div className="grid-head">Libre</div>
           <div className="grid-head">Nota</div>
 
-          {rows.map((r, i) => (
-            <React.Fragment key={r.dd}>
-              <div
-                className={`cell day ${r.isWeekend ? "wknd" : ""}`}
-                onDoubleClick={() => copyDayToAll(i)}
-                title="Doble clic: copiar este horario a todo el mes"
-                tabIndex={0}
-              >
-                <div className="daynum">{r.dd}</div>
-                <div className="dow">{r.dow}</div>
-              </div>
-              <div className="cell">
-                <input
-                  className="input"
-                  type="time"
-                  value={r.start}
-                  onChange={(e) => setCell(i, "start", e.target.value)}
-                  disabled={r.off}
-                />
-              </div>
-              <div className="cell">
-                <input
-                  className="input"
-                  type="time"
-                  value={r.end}
-                  onChange={(e) => setCell(i, "end", e.target.value)}
-                  disabled={r.off}
-                />
-              </div>
-              <div className="cell">
-                <label className="switch" title={r.off ? "Día libre" : "Marcar como libre"}>
+          {rows.map((r, i) => {
+            const isToday = sameMonthAsToday && r.dd === todayDD;
+            return (
+              <React.Fragment key={r.dd}>
+                <div
+                  className={`cell day ${r.isWeekend ? "wknd" : ""} ${
+                    isToday ? "today" : ""
+                  }`}
+                  onDoubleClick={() => copyDayToAll(i)}
+                  title="Doble clic: copiar este horario a todo el mes"
+                  tabIndex={0}
+                >
+                  <div className="daynum">{r.dd}</div>
+                  <div className="dow">{r.dow}</div>
+                </div>
+                <div className={`cell ${isToday ? "today-row" : ""}`}>
                   <input
-                    aria-label={`Marcar ${r.dd}/${viewDate.getMonth() + 1} como libre`}
-                    type="checkbox"
-                    checked={r.off}
-                    onChange={(e) => setCell(i, "off", e.target.checked)}
+                    className="input"
+                    type="time"
+                    value={r.start}
+                    onChange={(e) => setCell(i, "start", e.target.value)}
+                    disabled={r.off}
                   />
-                  <span />
-                </label>
-              </div>
-              <div className="cell">
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="Opcional"
-                  value={r.note}
-                  onChange={(e) => setCell(i, "note", e.target.value)}
-                />
-              </div>
-            </React.Fragment>
-          ))}
+                </div>
+                <div className={`cell ${isToday ? "today-row" : ""}`}>
+                  <input
+                    className="input"
+                    type="time"
+                    value={r.end}
+                    onChange={(e) => setCell(i, "end", e.target.value)}
+                    disabled={r.off}
+                  />
+                </div>
+                <div className={`cell ${isToday ? "today-row" : ""}`}>
+                  <label
+                    className="switch"
+                    title={r.off ? "Día libre" : "Marcar como libre"}
+                  >
+                    <input
+                      aria-label={`Marcar ${r.dd}/${
+                        viewDate.getMonth() + 1
+                      } como libre`}
+                      type="checkbox"
+                      checked={r.off}
+                      onChange={(e) => setCell(i, "off", e.target.checked)}
+                    />
+                    <span />
+                  </label>
+                </div>
+                <div className={`cell ${isToday ? "today-row" : ""}`}>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="Opcional"
+                    value={r.note}
+                    onChange={(e) => setCell(i, "note", e.target.value)}
+                  />
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -282,17 +431,33 @@ const Calendarioadmin = () => {
     const unsub = onValue(
       usersRef,
       (snap) => {
-        if (!snap.exists()) { setUsers([]); setCargando(false); return; }
+        if (!snap.exists()) {
+          setUsers([]);
+          setCargando(false);
+          return;
+        }
         const val = snap.val();
         const lista = Object.entries(val)
           .filter(([_, u]) => (u.role || u.rol) === "user")
-          .map(([id, u]) => ({ id, name: u.name || u.displayName || u.nombre || u.email || id }));
-        lista.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
-        setUsers(lista); setCargando(false);
+          .map(([id, u]) => ({
+            id,
+            name: u.name || u.displayName || u.nombre || u.email || id,
+          }));
+        lista.sort((a, b) =>
+          a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+        );
+        setUsers(lista);
+        setCargando(false);
       },
-      (err) => { console.error(err); setCargando(false); }
+      (err) => {
+        console.error(err);
+        setCargando(false);
+      }
     );
-    return () => { off(usersRef); unsub?.(); };
+    return () => {
+      off(usersRef);
+      unsub?.();
+    };
   }, []);
 
   // Generar color suave aleatorio por usuario cuando cambia la lista
@@ -302,12 +467,17 @@ const Calendarioadmin = () => {
       return;
     }
     const map = {};
-    users.forEach((u) => { map[u.id] = randomSoftHsl(); });
+    users.forEach((u) => {
+      map[u.id] = randomSoftHsl();
+    });
     setCardBg(map);
   }, [users]);
 
   const toggleSlidebar = () => setShowSlidebar((s) => !s);
-  const openCalendar = (u) => { setSelected(u); setModalOpen(true); };
+  const openCalendar = (u) => {
+    setSelected(u);
+    setModalOpen(true);
+  };
 
   return (
     <div className="homepage-container">
@@ -343,9 +513,17 @@ const Calendarioadmin = () => {
         <div className="table-container">
           <div className="users-flex">
             {cargando && <div className="hint">Cargando…</div>}
-            {!cargando && users.length === 0 && <div className="hint">Sin usuarios.</div>}
+            {!cargando && users.length === 0 && (
+              <div className="hint">Sin usuarios.</div>
+            )}
             {users.map((u) => {
-              const initials = u.name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+              const initials = u.name
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase();
               return (
                 <article
                   key={u.id}
@@ -354,7 +532,7 @@ const Calendarioadmin = () => {
                   onClick={() => openCalendar(u)}
                   tabIndex={0}
                   // ⬇️ Seteamos variable CSS; el pseudo-elemento la usa con prioridad real
-                  style={{ ["--card-bg"]: cardBg[u.id]  }}
+                  style={{ ["--card-bg"]: cardBg[u.id] }}
                 >
                   <div className="user-avatar">{initials || "U"}</div>
                   <div className="user-name">{u.name}</div>

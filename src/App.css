@@ -4809,12 +4809,12 @@ h1,
    ============================ */
 .grid-days {
   display: grid;
-  grid-template-columns: 110px 140px 140px 90px 1fr; /* Día | Inicio | Fin | Libre | Nota */
+  grid-template-columns: 110px 150px 150px 50px 1fr; /* Día | Inicio | Fin | Libre | Nota */
   gap: 10px;
   padding: 14px;
 }
 .grid-head {
-  position: sticky; top: 60px; /* bajo el header del modal */
+  position: sticky; top: -16px; /* bajo el header del modal */
   z-index: 1;
   font-weight: 800;
   color: #374151;
@@ -4875,120 +4875,4 @@ h1,
   .grid-days { grid-template-columns: 86px 1fr 1fr 72px 1fr; }
   .modal-head { gap: 10px; }
   .modal-actions { width: 100%; justify-content: flex-start; }
-}
-
-/* ===========================================================
-   CALENDARIO USER (tabla embebida solo lectura)
-   =========================================================== */
-
-.calendar-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.calendar-controls .user-label {
-  font-weight: 800;
-  color: var(--text);
-}
-
-.calendar-controls .month-label {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* Tabla base */
-.calendar-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.06);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--elev-sm);
-}
-
-/* Encabezados pegajosos dentro de .table-container con overflow */
-.table-container {
-  overflow: auto;
-}
-.calendar-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  text-align: left;
-  padding: 10px 12px;
-  font-weight: 800;
-  color: #374151;
-  background: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,.96));
-  border-bottom: 1px solid rgba(0,0,0,.08);
-  white-space: nowrap;
-}
-
-.calendar-table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(0,0,0,.06);
-  vertical-align: middle;
-  color: var(--text);
-}
-
-/* Fila hover y cebrado suave */
-.calendar-table tbody tr:hover {
-  background: rgba(0,0,0,.02);
-}
-
-/* Fin de semana: resaltar número de día */
-.calendar-table .daynum {
-  font-weight: 800;
-}
-.calendar-table .dow {
-  font-size: 12px;
-  color: var(--muted);
-  margin-left: 6px;
-}
-.calendar-table .wknd .daynum {
-  color: #ef4444;
-}
-
-/* Badge Libre */
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 12px;
-}
-.badge--off {
-  background: #dcfce7; /* verde suave */
-  color: #16a34a;
-}
-.badge--on {
-  background: #f3f4f6; /* gris */
-  color: #374151;
-}
-
-/* Texto atenuado cuando off */
-.muted-when-off {
-  color: #9ca3af;
-}
-
-/* Responsive tabla en móviles */
-@media (max-width: 720px) {
-  .calendar-table thead th:nth-child(2), /* Fecha */
-  .calendar-table tbody td:nth-child(2) {
-    display: none; /* oculta columna "Fecha" para ganar espacio */
-  }
-}
-
-/* Opcional: resaltar la fila de "hoy" si la quieres marcar
-   Añade la clase .is-today al <tr> correspondiente desde React */
-.calendar-table tr.is-today {
-  background: rgba(99,102,241,.06);
-}
-.calendar-table tr.is-today td {
-  border-bottom-color: rgba(99,102,241,.18);
 }

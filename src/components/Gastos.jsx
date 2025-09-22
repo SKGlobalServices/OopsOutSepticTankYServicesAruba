@@ -98,166 +98,327 @@ const Gastos = () => {
   };
 
   /* ---------- Editor de Categorías ---------- */
+  /* ---------- Editor de Categorías ---------- */
   const abrirEditorCategorias = async ({ onClose } = {}) => {
     let categoriasLocal = [...categorias];
-    let filtroTexto = false;
 
-    const renderLista = () => `
-      <div class="cat-modal">
-        <div class="cat-toolbar">
-          <div class="cat-toolbar-left">
+    const renderUI = () => `
+    <div class="cat-modal">
+      <div class="cat-toolbar">
+        <div class="cat-toolbar-left">
+          <div class="cat-new-wrap">
+            <input id="cat-input" class="cat-input" placeholder="Nueva categoría..." />
             <button id="btn-cat-add" class="cat-btn cat-btn-success" title="Agregar categoría">➕ Agregar</button>
-            <button id="btn-cat-del" class="cat-btn cat-btn-danger" title="Eliminar seleccionadas">🗑️ Eliminar</button>
-            <button id="btn-cat-save" class="cat-btn cat-btn-primary" title="Guardar cambios">💾 Guardar</button>
-          </div>
-          <div class="cat-toolbar-right">
-            <input id="cat-input" class="cat-input" placeholder="Nueva categoría...">
           </div>
         </div>
-
-        <div class="cat-subtoolbar">
-          <div class="cat-search-wrap">
-            <input id="cat-search" class="cat-search" placeholder="Buscar en categorías...">
-          </div>
-          <div class="cat-actions-right">
-            <label class="cat-selectall">
-              <input type="checkbox" id="cat-all"> Seleccionar todo
-            </label>
-            <span id="cat-count" class="cat-badge">${
-              categoriasLocal.length
-            } categoría(s)</span>
-          </div>
+        <div class="cat-toolbar-left">
+          <input id="cat-search" class="cat-search" placeholder="Buscar en categorías..." />
         </div>
-
-        <div id="cat-list" class="cat-list">
-          ${categoriasLocal
-            .map(
-              (c, i) => `
-            <label class="cat-item">
-              <input type="checkbox" class="cat-check" data-index="${i}">
-              <span class="cat-name" title="${c}">${c}</span>
-            </label>`
-            )
-            .join("")}
-          ${
-            categoriasLocal.length === 0
-              ? `<div class="cat-empty">(Sin categorías)</div>`
-              : ""
-          }
+        <div class="spacer" style="flex:1">
+          <span id="cat-count" class="cat-badge">${categoriasLocal.length} categoría(s)</span>
         </div>
       </div>
-    `;
 
-    const abrirSwalEditor = async () => {
-      await Swal.fire({
-        title: "Editar categorías",
-        html: renderLista(),
-        width: 680,
-        showConfirmButton: false,
-        showCancelButton: true,
-        cancelButtonText: "Cerrar",
-        reverseButtons: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          // ===== Estilos centralizados =====
-          const style = document.createElement("style");
-          style.textContent = `
-            .swal2-cancel {
-            background: #2276c5ff !important; /* Verde */
-            color: #fff !important;
-            font-weight: 700;
-            border-radius: 10px;
-            padding: 9px 16px;
-            }
-            .swal2-cancel:hover { filter: brightness(1.1); }
-            .cat-modal { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif; }
-            .cat-toolbar {
-              display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;
-              padding:8px; background:#f6f8ff; border:1px solid #e5e7fb; border-radius:10px;
-            }
-            .cat-toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-            .cat-toolbar-right { display:flex; gap:8px; width: 50%; min-width: 240px; }
-            .cat-btn {
-              border:none; border-radius:10px; padding:9px 14px; font-weight:700; cursor:pointer;
-              transition:transform .08s ease, box-shadow .12s ease, filter .12s ease;
-              box-shadow:0 2px 6px rgba(0,0,0,.06);
-              display:inline-flex; align-items:center; gap:6px;
-            }
-            .cat-btn:hover { filter:brightness(1.05); box-shadow:0 6px 18px rgba(0,0,0,.12); }
-            .cat-btn:active { transform: translateY(1px); }
-            .cat-btn-success { background:#22c55e; color:#fff; }
-            .cat-btn-danger { background:#ef4444; color:#fff; }
-            .cat-btn-primary { background:#5271ff; color:#fff; }
+      <div id="cat-list" class="cat-list"></div>
+      <div class="cat-empty" id="cat-empty" style="display:none">(Sin categorías)</div>
+    </div>
+  `;
 
-            .cat-input {
-              flex:1; height:2.8em; padding:0 12px; font-size:14px; border:1px solid #d9defb; border-radius:10px;
-              outline:none; transition:border-color .12s ease, box-shadow .12s ease; background:#fff;
-            }
-            .cat-input:focus { border-color:#5271ff; box-shadow:0 0 0 3px rgba(82,113,255,.15); }
+    const pintar = () => {
+      const cont = document.getElementById("cat-list");
+      const vacio = document.getElementById("cat-empty");
+      const badge = document.getElementById("cat-count");
+      const q = (document.getElementById("cat-search")?.value || "")
+        .toLowerCase()
+        .trim();
 
-            .cat-subtoolbar {
-              display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 8px 0;
-            }
-            .cat-search-wrap { flex:1; display:flex; }
-            .cat-search {
-              width:100%; height:2.6em; border:1px solid #e2e6fb; border-radius:10px; padding:0 12px;
-              outline:none; transition:border-color .12s ease, box-shadow .12s ease;
-            }
-            .cat-search:focus { border-color:#5271ff; box-shadow:0 0 0 3px rgba(82,113,255,.12); }
-            .cat-actions-right { display:flex; align-items:center; gap:12px; }
-            .cat-selectall { display:flex; align-items:center; gap:6px; user-select:none; }
+      const visibles = q
+        ? categoriasLocal.filter((c) => c.toLowerCase().includes(q))
+        : categoriasLocal;
 
-            .cat-badge {
-              background:#eef2ff; color:#3949ab; border:1px solid #dfe4ff; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800;
+      if (!cont) return;
+
+      cont.innerHTML = visibles
+        .map(
+          (c) => `
+        <div class="cat-item" data-name="${c}">
+          <input class="cat-name-input" value="${c}" readonly />
+          <div class="cat-row-actions">
+            <button class="cat-toggle view" title="Editar categoría">✏️ Editar</button>
+            <button class="cat-del" title="Eliminar categoría">🗑️</button>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      if (badge) badge.textContent = `${categoriasLocal.length} categoría(s)`;
+      if (vacio) vacio.style.display = visibles.length ? "none" : "block";
+
+      // === Eliminar por fila ===
+      cont.querySelectorAll(".cat-del").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const row = btn.closest(".cat-item");
+          const name = row?.dataset?.name?.trim();
+          if (!name) return;
+
+          const { isConfirmed } = await Swal.fire({
+            title: "Eliminar categoría",
+            text: `¿Deseas eliminar "${name}"? (Se quitará del catálogo y de todos los gastos que la usen)`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Sí, eliminar",
+            cancelButtonText: "Cancelar",
+          });
+          if (!isConfirmed) return;
+
+          try {
+            // 1) Actualiza arreglo local
+            categoriasLocal = categoriasLocal.filter((c) => c !== name);
+
+            // 2) Persiste catálogo
+            await guardarCategorias(categoriasLocal);
+
+            // 3) Limpia categoría en gastos que la usan
+            const afectados = (gastos || []).filter(
+              (g) =>
+                (g.categoria || "").trim().toLowerCase() === name.toLowerCase()
+            );
+            if (afectados.length) {
+              await Promise.all(
+                afectados.map((g) =>
+                  set(ref(database, `gastos/${g.id}/categoria`), "")
+                )
+              );
+              setGastos((prev) =>
+                prev.map((pg) =>
+                  (pg.categoria || "").trim().toLowerCase() ===
+                  name.toLowerCase()
+                    ? { ...pg, categoria: "" }
+                    : pg
+                )
+              );
             }
 
-            .cat-list {
-              max-height:320px; overflow:auto; border:1px solid #ececf3; border-radius:10px; padding:6px; background:#fff;
+            Swal.fire({
+              toast: true,
+              position: "top-end",
+              icon: "success",
+              title: "Categoría eliminada de catálogo y registros",
+              showConfirmButton: false,
+              timer: 1400,
+            });
+
+            pintar();
+          } catch (err) {
+            console.error("Error al eliminar categoría:", err);
+            Swal.fire("Error", "No se pudo eliminar la categoría.", "error");
+          }
+        });
+      });
+
+      // === Editar/Guardar por fila (renombrar categoría) ===
+      cont.querySelectorAll(".cat-toggle").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const row = btn.closest(".cat-item");
+          const input = row.querySelector(".cat-name-input");
+          const oldName = (row?.dataset?.name || "").trim();
+
+          // Modo "Editar" -> activar edición
+          if (btn.classList.contains("view")) {
+            btn.classList.remove("view");
+            btn.classList.add("save");
+            btn.textContent = "💾 Guardar";
+            btn.title = "Guardar cambios";
+            input.readOnly = false; // cursor texto según CSS
+            input.focus();
+            // poner cursor al final
+            const len = input.value.length;
+            input.setSelectionRange(len, len);
+
+            // Enter guarda, Esc cancela
+            const onKey = (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                btn.click();
+              } else if (e.key === "Escape") {
+                input.value = oldName;
+                input.readOnly = true;
+                btn.classList.remove("save");
+                btn.classList.add("view");
+                btn.textContent = "✏️ Editar";
+                btn.title = "Editar categoría";
+                input.removeEventListener("keydown", onKey);
+              }
+            };
+            input.addEventListener("keydown", onKey, { once: false });
+            row._onKey = onKey;
+            return;
+          }
+
+          // Modo "Guardar" -> validar y persistir
+          if (btn.classList.contains("save")) {
+            const newName = (input.value || "").trim();
+
+            // Si no cambia, solo volver a ver
+            if (!newName || newName.toLowerCase() === oldName.toLowerCase()) {
+              input.value = oldName;
+              input.readOnly = true;
+              btn.classList.remove("save");
+              btn.classList.add("view");
+              btn.textContent = "✏️ Editar";
+              btn.title = "Editar categoría";
+              if (row._onKey) input.removeEventListener("keydown", row._onKey);
+              row._onKey = null;
+              return;
             }
-            .cat-item {
-              display:flex; align-items:center; gap:10px; padding:10px 8px; border-bottom:1px dashed #f1f1f6;
+
+            // Duplicado (case-insensitive) excepto si es el mismo
+            const dup = categoriasLocal.some(
+              (c) =>
+                c.toLowerCase() === newName.toLowerCase() &&
+                c.toLowerCase() !== oldName.toLowerCase()
+            );
+            if (dup) {
+              Swal.fire(
+                "Duplicado",
+                "Ya existe una categoría con ese nombre.",
+                "warning"
+              );
+              input.focus();
+              return;
             }
-            .cat-item:last-child { border-bottom:none; }
-            .cat-check { width:18px; height:18px; }
-            .cat-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14px; }
-            .cat-empty { color:#8a8a98; text-align:center; padding:16px 0; }
-          `;
-          document.body.appendChild(style);
 
-          const input = document.getElementById("cat-input");
-          const cont = document.getElementById("cat-list");
-          const badge = document.getElementById("cat-count");
-          const search = document.getElementById("cat-search");
-          const checkAll = document.getElementById("cat-all");
-          const btnCancel = document.querySelector(".swal2-cancel");
+            try {
+              // 1) Actualiza arreglo local
+              categoriasLocal = categoriasLocal.map((c) =>
+                c === oldName ? newName : c
+              );
 
-          const pintar = (lista = categoriasLocal) => {
-            if (!cont) return;
-            const texto = (search?.value || "").toLowerCase().trim();
-            const filtradas = texto
-              ? lista.filter((c) => c.toLowerCase().includes(texto))
-              : lista;
-            cont.innerHTML = filtradas
-              .map(
-                (c, i) => `
-              <label class="cat-item">
-                <input type="checkbox" class="cat-check" data-index="${i}">
-                <span class="cat-name" title="${c}">${c}</span>
-              </label>`
-              )
-              .join("");
-            if (filtradas.length === 0)
-              cont.innerHTML = `<div class="cat-empty">(Sin categorías)</div>`;
-            if (badge) badge.textContent = `${lista.length} categoría(s)`;
-          };
+              // 2) Persiste catálogo
+              await guardarCategorias(categoriasLocal);
 
-          const agregar = () => {
+              // 3) Renombra en gastos que usen la vieja categoría
+              const afectados = (gastos || []).filter(
+                (g) =>
+                  (g.categoria || "").trim().toLowerCase() ===
+                  oldName.toLowerCase()
+              );
+              if (afectados.length) {
+                await Promise.all(
+                  afectados.map((g) =>
+                    set(ref(database, `gastos/${g.id}/categoria`), newName)
+                  )
+                );
+                setGastos((prev) =>
+                  prev.map((pg) =>
+                    (pg.categoria || "").trim().toLowerCase() ===
+                    oldName.toLowerCase()
+                      ? { ...pg, categoria: newName }
+                      : pg
+                  )
+                );
+              }
+
+              // 4) Volver a modo "ver"
+              row.dataset.name = newName;
+              input.readOnly = true;
+              btn.classList.remove("save");
+              btn.classList.add("view");
+              btn.textContent = "✏️ Editar";
+              btn.title = "Editar categoría";
+              if (row._onKey) input.removeEventListener("keydown", row._onKey);
+              row._onKey = null;
+
+              Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "success",
+                title: "Categoría actualizada",
+                showConfirmButton: false,
+                timer: 1200,
+              });
+
+              // Re-pinta por si hay filtro/orden/contador
+              pintar();
+            } catch (err) {
+              console.error("Error renombrando categoría:", err);
+              Swal.fire("Error", "No se pudo renombrar la categoría.", "error");
+            }
+          }
+        });
+      });
+    };
+
+    await Swal.fire({
+      title: "Editar categorías",
+      html: renderUI(),
+      width: 720,
+      showConfirmButton: true,
+      confirmButtonText: "Guardar y cerrar",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      preConfirm: async () => {
+        // Persiste altas/bajas pendientes realizadas con el botón "Agregar"
+        await guardarCategorias(categoriasLocal);
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: "Cambios aplicados",
+          showConfirmButton: false,
+          timer: 1000,
+        });
+      },
+      didOpen: () => {
+        // ==== Estilos (incluye cursores según readonly) ====
+        const style = document.createElement("style");
+        style.textContent = `
+        .swal2-confirm { background:#0ea5e9 !important; color:#fff !important; font-weight:700; border-radius:10px; padding:9px 16px; }
+        .cat-modal { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif; }
+        .cat-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; padding:10px; background:#f0f9ff; border:1px solid #e0f2fe; border-radius:12px; }
+        .cat-toolbar-left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .cat-new-wrap { display:flex; gap:8px; align-items:center; }
+        .cat-btn { border:none; border-radius:10px; padding:9px 14px; font-weight:700; cursor:pointer; transition:transform .08s ease, box-shadow .12s ease, filter .12s ease; box-shadow:0 2px 6px rgba(0,0,0,.06); display:inline-flex; align-items:center; gap:6px; }
+        .cat-btn:hover { filter:brightness(1.05); box-shadow:0 6px 18px rgba(0,0,0,.12); }
+        .cat-btn-success { background:#22c55e; color:#fff; }
+        .cat-input, .cat-search {
+          height:2.8em; padding:0 12px; font-size:14px; border:1px solid #d9defb; border-radius:10px; outline:none; background:#fff;
+          transition:border-color .12s ease, box-shadow .12s ease;
+        }
+        .cat-input:focus, .cat-search:focus { border-color:#0ea5e9; box-shadow:0 0 0 3px rgba(14,165,233,.15); }
+        .cat-badge { background:#e0f2fe; color:#075985; border:1px solid #bae6fd; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800; }
+
+        .cat-list { max-height:340px; overflow:auto; border:1px solid #ececf3; border-radius:12px; padding:6px; background:#fff; }
+        .cat-item { display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px dashed #f1f1f6; }
+        .cat-item:last-child { border-bottom:none; }
+
+        /* Cursores: default cuando readonly, texto cuando editando */
+        .cat-name-input { flex:1; height:2.4em; border:1px solid #e5e7eb; border-radius:8px; padding:0 10px; background:#f9fafb; }
+        .cat-name-input[readonly] { cursor: default; }
+        .cat-name-input:not([readonly]) { cursor: text; background:#fff; border-color:#0ea5e9; box-shadow:0 0 0 3px rgba(14,165,233,.15); }
+
+        .cat-row-actions { display:flex; gap:6px; }
+        .cat-row-actions > button { border:none; border-radius:8px; padding:6px 10px; cursor:pointer; font-weight:700; }
+        .cat-toggle.view { background:#fef3c7; }   /* Editar */
+        .cat-toggle.save { background:#dcfce7; }   /* Guardar */
+        .cat-del { background:#fee2e2; }
+        .cat-empty { color:#8a8a98; text-align:center; padding:16px 0; }
+      `;
+        document.body.appendChild(style);
+
+        // Alta de nueva categoría (NO persiste hasta "Guardar y cerrar")
+        document
+          .getElementById("btn-cat-add")
+          ?.addEventListener("click", () => {
+            const input = document.getElementById("cat-input");
             const val = (input?.value || "").trim();
             if (!val) return;
-            if (
-              categoriasLocal.some((c) => c.toLowerCase() === val.toLowerCase())
-            ) {
+            const dup = categoriasLocal.some(
+              (c) => c.toLowerCase() === val.toLowerCase()
+            );
+            if (dup) {
               Swal.showValidationMessage?.("Esa categoría ya existe.");
               setTimeout(() => Swal.resetValidationMessage?.(), 1200);
               return;
@@ -266,95 +427,27 @@ const Gastos = () => {
             input.value = "";
             pintar();
             input?.focus();
-          };
+          });
 
-          const eliminarSeleccionadas = () => {
-            const checks = Array.from(document.querySelectorAll(".cat-check"));
-            // Si hay filtro activo, los índices visuales no coinciden con el array original,
-            // por eso tomamos el texto del nodo hermano y eliminamos por nombre.
-            const nombresAEliminar = checks
-              .filter((ch) => ch.checked)
-              .map((ch) =>
-                ch.parentElement
-                  ?.querySelector(".cat-name")
-                  ?.textContent?.trim()
-              )
-              .filter(Boolean);
-
-            if (nombresAEliminar.length === 0) {
-              Swal.showValidationMessage?.(
-                "Selecciona al menos una categoría para eliminar."
-              );
-              setTimeout(() => Swal.resetValidationMessage?.(), 1200);
-              return;
-            }
-            categoriasLocal = categoriasLocal.filter(
-              (c) => !nombresAEliminar.includes(c)
-            );
-            pintar();
-          };
-
-          const guardarYRecargar = async () => {
-            if (categoriasLocal.length === 0) {
-              Swal.showValidationMessage?.(
-                "Debes dejar al menos una categoría."
-              );
-              setTimeout(() => Swal.resetValidationMessage?.(), 1200);
-              return;
-            }
-            const limpias = await guardarCategorias(categoriasLocal);
-            categoriasLocal = [...limpias];
-            pintar(categoriasLocal); // 🔁 repinta con la nueva lista
-            const badge = document.getElementById("cat-count");
-            if (badge)
-              badge.textContent = `${categoriasLocal.length} categoría(s)`;
-            Swal.fire({
-              toast: true,
-              position: "top-end",
-              icon: "success",
-              title: "Categorías guardadas",
-              showConfirmButton: false,
-              timer: 1200,
-            });
-          };
-          // Eventos
-          document
-            .getElementById("btn-cat-add")
-            ?.addEventListener("click", agregar);
-          input?.addEventListener("keydown", (e) => {
+        document
+          .getElementById("cat-input")
+          ?.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              agregar();
+              document.getElementById("btn-cat-add")?.click();
             }
           });
 
-          document
-            .getElementById("btn-cat-del")
-            ?.addEventListener("click", eliminarSeleccionadas);
+        document
+          .getElementById("cat-search")
+          ?.addEventListener("input", pintar);
 
-          document
-            .getElementById("btn-cat-save")
-            ?.addEventListener("click", guardarYRecargar);
+        // Primera pintura
+        pintar();
+      },
+    });
 
-          search?.addEventListener("input", () => {
-            filtroTexto = !!search.value.trim();
-            pintar();
-          });
-
-          checkAll?.addEventListener("change", (e) => {
-            const marcado = e.target.checked;
-            document
-              .querySelectorAll(".cat-check")
-              .forEach((ch) => (ch.checked = marcado));
-          });
-
-          pintar();
-        },
-      });
-      if (typeof onClose === "function") onClose();
-    };
-
-    await abrirSwalEditor();
+    if (typeof onClose === "function") onClose();
   };
 
   // Form agregar gasto (con botón Editar categorías)
@@ -371,12 +464,17 @@ const Gastos = () => {
       <input id="swal-fecha" type="date" class="swal2-input swal-input-sm" placeholder="Fecha" style="font-size:13px">
 
       <div style="display:flex;gap:6px;align-items:center;">
-        <select id="swal-categoria" class="swal2-select swal-select-lg" style="font-size:16px;flex:1;">
-          <option value="">Categoría...</option>
-          ${construirOpciones(cats)}
-        </select>
-        <button id="btn-edit-categorias" class="swal2-styled" style="min-width:44px;padding:0 10px;height:2.6em;background:yellow;border-radius:10px;border:1px solid black" title="Editar categorías">✎</button>
-      </div>
+  <select id="swal-categoria" class="swal2-select swal-select-lg" style="font-size:16px;flex:1;">
+    <option value="">Categoría...</option>
+    ${construirOpciones(cats)}
+  </select>
+  <!-- Botón actualizado: color azul y nuevo icono -->
+  <button id="btn-edit-categorias"
+    class="swal2-styled"
+    style="min-width:44px;padding:0 12px;height:2.6em;background: #ffa600ff ;color:#fff;border-radius:10px;border:1px solid #ffa600ff;font-weight:700"
+    title="Editar categorías">⚙️</button>
+</div>
+
 
       <input id="swal-descripcion" class="swal2-input swal-input-sm" placeholder="Descripción" style="font-size:14px">
       <input id="swal-proveedor" class="swal2-input swal-input-sm" placeholder="Proveedor" style="font-size:14px">
@@ -1015,7 +1113,9 @@ const Gastos = () => {
         <div className="homepage-card">
           <h1 className="title-page">Gastos</h1>
           <div className="current-date">
-            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -1245,8 +1345,13 @@ const Gastos = () => {
                           style={{ width: "14ch" }}
                         >
                           <option value=""></option>
-                          {categorias
-                            .slice()
+                          {Array.from(
+                            new Set(
+                              [...(categorias || []), r.categoria || ""].filter(
+                                Boolean
+                              )
+                            )
+                          )
                             .sort((a, b) => a.localeCompare(b))
                             .map((c) => (
                               <option key={c} value={c}>
@@ -1313,7 +1418,7 @@ const Gastos = () => {
                       </td>
 
                       {/* Método de Pago */}
-                      <td >
+                      <td>
                         <select
                           value={r.metodoPago || ""}
                           onChange={(e) =>

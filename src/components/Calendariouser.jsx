@@ -4,6 +4,7 @@ import { database } from "../Database/firebaseConfig";
 import { decryptData } from "../utils/security";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
+import "./Calendariouser.css";
 
 /* ========= Helpers ========= */
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -43,6 +44,7 @@ const Calendariouser = () => {
   // Filas del mes (solo lectura)
   const [rows, setRows] = useState([]); // [{dd,start,end,off,note,isWeekend,dow,dateStr}]
   const cacheRef = useRef(new Map());   // key = `${userId}:${ym}` -> rows[]
+  const tableWrapRef = useRef(null);    // contenedor scrolleable para animar
 
   // Construye filas vacías al vuelo (sin "cargando")
   const emptyRowsForMatrix = useCallback(
@@ -97,12 +99,10 @@ const Calendariouser = () => {
 
       cacheRef.current.set(key, next);
 
-      // Evita condición de carrera si cambiaste de mes durante la carga
       const stillSame = yyyymm(viewDate) === ym;
       if (stillSame) setRows(next);
     } catch (e) {
       console.error("Error cargando calendario de usuario:", e);
-      // Mantener lo que ya se muestra (cache/empty)
     }
   }, [myUserId, ym, matrix, emptyRowsForMatrix, viewDate]);
 
@@ -110,12 +110,46 @@ const Calendariouser = () => {
     loadMonth();
   }, [loadMonth]);
 
-  // Navegación de mes sin tocar el estado del modal (no hay modal aquí)
-  const prevMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  const nextMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  // Navegación de mes
+  const prevMonth = () =>
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () =>
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   const goToday = () => setViewDate(new Date());
 
-  // Si no hay usuario logueado, mostrar mensaje simple
+  // Auto-scroll animado hasta el día de hoy
+  useEffect(() => {
+    const cont = tableWrapRef.current;
+    if (!cont) return;
+
+    const today = new Date();
+    const sameMonth =
+      viewDate.getFullYear() === today.getFullYear() &&
+      viewDate.getMonth() === today.getMonth();
+    if (!sameMonth) return;
+
+    const id = requestAnimationFrame(() => {
+      const row = cont.querySelector(".calendar-table tbody tr.today");
+      if (!row) return;
+
+      const margin = 72;
+      const target = row.offsetTop - margin;
+
+      cont.scrollTop = 0;
+      const duration = 700;
+      const start = performance.now();
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+      const step = (now) => {
+        const p = Math.min(1, (now - start) / duration);
+        cont.scrollTop = target * easeOutCubic(p);
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [ym, rows.length, viewDate]);
+
   if (!myUserId) {
     return (
       <div className="homepage-container">
@@ -140,6 +174,12 @@ const Calendariouser = () => {
     );
   }
 
+  const today = new Date();
+  const sameMonthAsToday =
+    viewDate.getFullYear() === today.getFullYear() &&
+    viewDate.getMonth() === today.getMonth();
+  const todayDD = pad2(today.getDate());
+
   return (
     <div className="homepage-container user">
       <Slidebaruser show={showSlidebar} onClose={toggleSlidebar} />
@@ -157,22 +197,12 @@ const Calendariouser = () => {
 
       <div className="homepage-card">
         {/* Controles de mes */}
-        <div
-          className="calendar-controls"
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ fontWeight: 800 }}>
+        <div className="calendar-controls">
+          <div className="user-label">
             {myName ? `Usuario: ${myName}` : "Mi usuario"}
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="btn-group">
             <button type="button" className="btn btn--ghost" onClick={prevMonth}>
               &lt; Mes Anterior
             </button>
@@ -184,59 +214,55 @@ const Calendariouser = () => {
             </button>
           </div>
 
-          <div style={{ color: "#6b7280", fontSize: 13 }}>
+          <div className="month-label">
             {viewDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
           </div>
         </div>
 
         {/* Tabla del calendario (solo lectura) */}
-        <div className="table-container">
-          <table className="calendar-table" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+        <div className="table-container" ref={tableWrapRef}>
+          <table className="calendar-table">
             <thead>
               <tr>
-                <th style={thS}>Día</th>
-                <th style={thS}>Fecha</th>
-                <th style={thS}>Inicio</th>
-                <th style={thS}>Fin</th>
-                <th style={thS}>Libre</th>
-                <th style={thS}>Nota</th>
+                <th>Día</th>
+                <th>Fecha</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>Libre</th>
+                <th>Nota</th>
               </tr>
             </thead>
             <tbody>
               {rows.length ? (
-                rows.map((r) => (
-                  <tr key={r.dd} style={trS}>
-                    <td style={tdS}>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <span style={{ fontWeight: 800 }}>{r.dd}</span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>{r.dow}</span>
-                      </div>
-                    </td>
-                    <td style={tdS}>{r.dateStr}</td>
-                    <td style={tdSMuted(r.off)}>{r.start || "—"}</td>
-                    <td style={tdSMuted(r.off)}>{r.end || "—"}</td>
-                    <td style={tdS}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                          background: r.off ? "#dcfce7" : "#f3f4f6",
-                          color: r.off ? "#16a34a" : "#374151",
-                          fontWeight: 700,
-                          fontSize: 12,
-                        }}
-                      >
-                        {r.off ? "Sí" : "No"}
-                      </span>
-                    </td>
-                    <td style={tdS}>
-                      <span style={{ color: r.off ? "#9ca3af" : "#111827" }}>
-                        {r.note || ""}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  const isToday = sameMonthAsToday && r.dd === todayDD;
+                  return (
+                    <tr
+                      key={r.dd}
+                      className={`${isToday ? "today" : ""} ${r.isWeekend ? "wknd" : ""}`}
+                    >
+                      <td>
+                        <div className="daycell">
+                          <span className="daynum">{r.dd}</span>
+                          <span className="dow">{r.dow}</span>
+                        </div>
+                      </td>
+                      <td className={r.off ? "td--muted" : "td--hour"}>{r.dateStr}</td>
+                      <td className={r.off ? "td--muted" : "td--hour"}>{r.start || "—"}</td>
+                      <td className={r.off ? "td--muted" : "td--hour"}>{r.end || "—"}</td>
+                      <td>
+                        <span className={`badge ${r.off ? "badge--off" : "badge--on"}`}>
+                          {r.off ? "Sí" : "No"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={r.off ? "td--muted" : "td--description"}>
+                          {r.note || ""}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} style={{ padding: 14, color: "#6b7280", textAlign: "center" }}>
@@ -251,33 +277,5 @@ const Calendariouser = () => {
     </div>
   );
 };
-
-/* ===== Estilos inline reutilizables (si ya tienes CSS global, puedes moverlos) ===== */
-const thS = {
-  textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid rgba(0,0,0,.08)",
-  background: "linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,.96))",
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
-  fontWeight: 800,
-  color: "#374151",
-};
-
-const trS = {
-  borderBottom: "1px solid rgba(0,0,0,.06)",
-};
-
-const tdS = {
-  padding: "10px 12px",
-  minHeight: 42,
-  verticalAlign: "middle",
-};
-
-const tdSMuted = (off) => ({
-  ...tdS,
-  color: off ? "#9ca3af" : "#111827",
-});
 
 export default React.memo(Calendariouser);
