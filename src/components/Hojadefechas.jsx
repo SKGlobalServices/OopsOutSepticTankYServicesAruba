@@ -4168,6 +4168,7 @@ const Hojadefechas = () => {
                           <option value="Intercambio">Intercambio</option>
                           <option value="Garantia">Garantia</option>
                           <option value="Perdido">Perdido</option>
+                          <option value="-">-</option>
                         </select>
                       </td>
 
