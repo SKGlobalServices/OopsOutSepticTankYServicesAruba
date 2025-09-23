@@ -15,7 +15,7 @@ import {
   formatCurrency,
   formatTooltip,
 } from "../../../utils/chartDataUtils";
-import { formatFilterDate } from "../../../utils/dateUtils";
+import { formatFilterDate, getWeekRangesForMonth } from "../../../utils/dateUtils";
 import "./Styles/GraficaIntercambio.css";
 
 // Componente personalizado para etiquetas de intercambio
@@ -60,6 +60,16 @@ export const GraficaIntercambio = ({ filters }) => {
         </div>
         <div className="intercambio-filter-indicator">
           {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+          {filters?.type === "semanas" && filters?.month && filters?.year ? (
+            <>
+              <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: "#475569" }}>Semana</div>
+              <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                {getWeekRangesForMonth(filters.month, filters.year)
+                  .map((w) => `${w.label} (${w.range})`)
+                  .join(" • ")}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     );
@@ -77,6 +87,16 @@ export const GraficaIntercambio = ({ filters }) => {
         </div>
         <div className="intercambio-filter-indicator">
           {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+          {filters?.type === "semanas" && filters?.month && filters?.year ? (
+            <>
+              <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: "#475569" }}>Semana</div>
+              <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                {getWeekRangesForMonth(filters.month, filters.year)
+                  .map((w) => `${w.label} (${w.range})`)
+                  .join(" • ")}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     );
@@ -99,6 +119,23 @@ export const GraficaIntercambio = ({ filters }) => {
       </div>
     );
   }
+
+  // Tick personalizado para mostrar semana y rango en dos líneas
+  const WeekTick = ({ x, y, payload }) => {
+    const raw = payload?.value || "";
+    const hasRange = raw.includes("|");
+    const [weekText, rangeText] = hasRange ? raw.split("|") : [raw, ""];
+    return (
+      <g transform={`translate(${x},${y}) rotate(-45)`}>
+        <text dy={8} textAnchor="end" fill="#334155" fontSize={12}>
+          <tspan x={0} dy={0}>{weekText}</tspan>
+          {hasRange ? (
+            <tspan x={0} dy={14} fill="#64748b" fontSize={11}>{rangeText}</tspan>
+          ) : null}
+        </text>
+      </g>
+    );
+  };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -135,11 +172,11 @@ export const GraficaIntercambio = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
-              height={chartData.length > 6 ? 60 : 30}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
+              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
+              height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
             />
             <YAxis
               tick={{ fontSize: 12 }}
@@ -161,6 +198,16 @@ export const GraficaIntercambio = ({ filters }) => {
 
       <div className="intercambio-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+        {filters?.type === "semanas" && filters?.month && filters?.year ? (
+          <>
+            <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: "#475569" }}>Semana</div>
+            <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+              {getWeekRangesForMonth(filters.month, filters.year)
+                .map((w) => `${w.label} (${w.range})`)
+                .join(" • ")}
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

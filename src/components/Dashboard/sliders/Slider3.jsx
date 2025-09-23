@@ -7,6 +7,8 @@ import {
   getMonths,
   getCurrentMonth,
   getCurrentYear,
+  getCurrentDay,
+  getDaysInMonth,
   getFilterOptions,
 } from "../../../utils/dateUtils";
 import { useChartData } from "../../../utils/useChartData";
@@ -19,16 +21,19 @@ export const Slider3 = () => {
   const [serviciosFilterType, setServiciosFilterType] = useState("meses");
   const [serviciosMonth, setServiciosMonth] = useState(getCurrentMonth());
   const [serviciosYear, setServiciosYear] = useState(getCurrentYear());
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   // Estados para filtros de Facturas y Deudas
   const [facturasFilterType, setFacturasFilterType] = useState("meses");
   const [facturasMonth, setFacturasMonth] = useState(getCurrentMonth());
   const [facturasYear, setFacturasYear] = useState(getCurrentYear());
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   // Estados para filtros de Garantías
   const [garantiasFilterType, setGarantiasFilterType] = useState("meses");
   const [garantiasMonth, setGarantiasMonth] = useState(getCurrentMonth());
   const [garantiasYear, setGarantiasYear] = useState(getCurrentYear());
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   const months = getMonths();
   // Usar años dinámicos si están disponibles, sino generar con datos disponibles
@@ -36,6 +41,12 @@ export const Slider3 = () => {
     availableYears.length > 0
       ? availableYears.slice().reverse() // Años más recientes primero
       : generateYears(data.registroFechas, data.data);
+
+  // Generar días del mes seleccionado para cada gráfica
+  // No se requieren arrays de días
+
+  // Actualizar días cuando cambien los meses o años
+  // Sin selectores de día
 
   // Obtener opciones de filtro para cada gráfica
   const serviciosFilterOptions = getFilterOptions(serviciosFilterType);
@@ -92,6 +103,7 @@ export const Slider3 = () => {
               value={serviciosFilterType}
               onChange={(e) => setServiciosFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -122,6 +134,7 @@ export const Slider3 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
         <div className="chart-container-large">
@@ -139,6 +152,7 @@ export const Slider3 = () => {
               value={facturasFilterType}
               onChange={(e) => setFacturasFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -169,6 +183,7 @@ export const Slider3 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
         <div className="chart-container-large">
@@ -186,6 +201,7 @@ export const Slider3 = () => {
               value={garantiasFilterType}
               onChange={(e) => setGarantiasFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -216,6 +232,7 @@ export const Slider3 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
         <div className="chart-container-large">

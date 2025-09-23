@@ -13,6 +13,125 @@ const normalizeFormaPago = (record) => {
 };
 
 /**
+ * Extrae el día de una fecha en diferentes formatos
+ * @param {string} fecha - Fecha en formato DD-MM-YYYY o estándar
+ * @returns {number} Día extraído
+ */
+const getDayFromDate = (fecha) => {
+  if (!fecha) return 0;
+
+  // Formato DD-MM-YYYY
+  if (fecha.includes("-") && fecha.split("-").length === 3) {
+    const [day] = fecha.split("-");
+    return parseInt(day);
+  }
+
+  // Formato de fecha estándar
+  try {
+    const date = new Date(fecha);
+    return date.getDate();
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Extrae el día de una fecha de factura (formato YYYY-MM-DD)
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ * @returns {number} Día extraído
+ */
+const getDayFromFacturaDate = (fecha) => {
+  if (!fecha) return 0;
+
+  // Formato YYYY-MM-DD
+  if (fecha.includes("-") && fecha.split("-").length === 3) {
+    const [, , day] = fecha.split("-");
+    return parseInt(day);
+  }
+
+  // Formato de fecha estándar como fallback
+  try {
+    const date = new Date(fecha);
+    return date.getDate();
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Crea una fecha local sin problemas de zona horaria
+ * @param {number} year - Año
+ * @param {number} month - Mes (1-12)
+ * @param {number} day - Día
+ * @returns {Date} Fecha local
+ */
+const createLocalDate = (year, month, day) => {
+  return new Date(year, month - 1, day);
+};
+
+/**
+ * Extrae el día de una fecha evitando problemas de zona horaria
+ * @param {string} fecha - Fecha en formato DD-MM-YYYY o estándar
+ * @returns {number} Día extraído
+ */
+const getDayFromDateSafe = (fecha) => {
+  if (!fecha) return 0;
+
+  // Formato DD-MM-YYYY
+  if (fecha.includes("-") && fecha.split("-").length === 3) {
+    const [day, month, year] = fecha.split("-");
+    return parseInt(day);
+  }
+
+  // Formato de fecha estándar - crear fecha local
+  try {
+    const date = new Date(fecha);
+    // Usar métodos locales para evitar problemas de zona horaria
+    return date.getDate();
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Determina el último día que se debe mostrar para un mes/año
+ * - Si es el mes y año actuales: hasta el día de hoy
+ * - Si es otro mes/año: todos los días del mes
+ */
+const getMaxDayToShow = (month, year) => {
+  const today = new Date();
+  const isCurrentMonth = (today.getMonth() + 1) === month && today.getFullYear() === year;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
+};
+
+/**
+ * Devuelve el rango de días (ej. "1-7") para una semana del mes
+ * @param {"Semana 1"|"Semana 2"|"Semana 3"|"Semana 4"} weekKey
+ * @param {number} month - 1-12
+ * @param {number} year
+ */
+const getWeekRangeText = (weekKey, month, year) => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let start = 1;
+  let end = 7;
+  if (weekKey === "Semana 1") {
+    start = 1;
+    end = Math.min(7, daysInMonth);
+  } else if (weekKey === "Semana 2") {
+    start = 8;
+    end = Math.min(14, daysInMonth);
+  } else if (weekKey === "Semana 3") {
+    start = 15;
+    end = Math.min(21, daysInMonth);
+  } else {
+    start = 22;
+    end = daysInMonth;
+  }
+  return `${start}-${end}`;
+};
+
+/**
  * Procesa datos de registrofechas y data para obtener transferencias
  * @param {Object} registroFechas - Datos de la tabla registrofechas
  * @param {Object} dataTable - Datos de la tabla data
@@ -65,8 +184,14 @@ export const processTransferenciasData = (
   // Filtrar por fecha
   filteredTransferencias = filterByDateRange(filteredTransferencias, filters);
 
-  // Procesar datos según el tipo de filtro (semanas, meses o años)
-  if (filters.type === "semanas") {
+  // Procesar datos según el tipo de filtro (días, semanas, meses o años)
+  if (filters.type === "días") {
+    return processDataByDays(
+      filteredTransferencias,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     return processDataByWeeks(
       filteredTransferencias,
       filters.month,
@@ -128,7 +253,9 @@ export const processEfectivoData = (
 
   // Procesar datos según el tipo de filtro
   let result;
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    result = processDataByDays(filteredEfectivo, filters.month, filters.year);
+  } else if (filters.type === "semanas") {
     result = processDataByWeeks(filteredEfectivo, filters.month, filters.year);
   } else if (filters.type === "meses") {
     result = processDataByMonths(filteredEfectivo, filters.year);
@@ -187,7 +314,13 @@ export const processIntercambiosData = (
   const filteredIntercambios = filterByDateRange(intercambios, filters);
 
   // Procesar datos según el tipo de filtro
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    return processDataByDays(
+      filteredIntercambios,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     return processDataByWeeks(
       filteredIntercambios,
       filters.month,
@@ -233,9 +366,14 @@ const filterByDateRange = (records, filters) => {
       return true; // Incluir todos los años
     }
 
-    // Filtrar por año para filtros de semanas y meses
+    // Filtrar por año para filtros de días, semanas y meses
     if (filters.year && recordYear !== filters.year) {
       return false;
+    }
+
+    // Si es filtro por días, incluir todos los días del mes seleccionado
+    if (filters.type === "días" && filters.month) {
+      return recordMonth === filters.month;
     }
 
     // Si es filtro por semanas, también filtrar por mes
@@ -245,6 +383,48 @@ const filterByDateRange = (records, filters) => {
 
     return true;
   });
+};
+
+/**
+ * Procesa datos agrupándolos por días del mes
+ * @param {Array} records - Registros filtrados
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por días
+ */
+const processDataByDays = (records, month, year) => {
+  const days = {};
+
+  // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
+  const maxDay = getMaxDayToShow(month, year);
+  for (let i = 1; i <= maxDay; i++) {
+    days[i] = 0;
+  }
+
+  records.forEach((record) => {
+    const fecha = record.fecha || record.fechaEjecucion;
+    if (!fecha) return;
+
+    const day = getDayFromDateSafe(fecha);
+    if (day === 0) return; // Fecha inválida
+
+    // Sumar valor si existe, o contar si no hay valor
+    const valor = parseFloat(record.valor);
+    days[day] += isNaN(valor) ? 1 : valor;
+  });
+
+  return Object.entries(days)
+    .map(([day, value]) => ({
+      name: `Día ${day}`,
+      valor: value,
+      cantidad: records.filter((r) => {
+        const fecha = r.fecha || r.fechaEjecucion;
+        if (!fecha) return false;
+
+        const recordDay = getDayFromDateSafe(fecha);
+        return recordDay === parseInt(day);
+      }).length,
+    }));
 };
 
 /**
@@ -290,7 +470,7 @@ const processDataByWeeks = (records, month, year) => {
   });
 
   return Object.entries(weeks).map(([week, value]) => ({
-    name: week,
+    name: `${week}|${getWeekRangeText(week, month, year)}`,
     valor: value,
     cantidad: records.filter((r) => {
       const fecha = r.fecha || r.fechaEjecucion;
@@ -466,7 +646,13 @@ export const processServiciosData = (
 
   // Procesar datos según el tipo de filtro
   let result;
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    result = processServiciosByDays(
+      filteredServicios,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     result = processServiciosByWeeks(
       filteredServicios,
       filters.month,
@@ -481,6 +667,40 @@ export const processServiciosData = (
     result = processServiciosByMonths(filteredServicios, filters.year);
   }
   return result;
+};
+
+/**
+ * Procesa servicios agrupándolos por días del mes
+ * @param {Array} records - Registros filtrados
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por días
+ */
+const processServiciosByDays = (records, month, year) => {
+  const days = {};
+
+  // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
+  const maxDay = getMaxDayToShow(month, year);
+  for (let i = 1; i <= maxDay; i++) {
+    days[i] = 0;
+  }
+
+  records.forEach((record) => {
+    const fecha = record.fecha || record.fechaEjecucion;
+    if (!fecha) return;
+
+    const day = getDayFromDateSafe(fecha);
+    if (day === 0) return; // Fecha inválida
+
+    days[day] += 1; // Contar servicios
+  });
+
+  return Object.entries(days)
+    .map(([day, count]) => ({
+      name: `Día ${day}`,
+      servicios: count,
+      cantidad: count,
+    }));
 };
 
 /**
@@ -524,7 +744,7 @@ const processServiciosByWeeks = (records, month, year) => {
   });
 
   return Object.entries(weeks).map(([week, count]) => ({
-    name: week,
+    name: `${week}|${getWeekRangeText(week, month, year)}`,
     servicios: count,
     cantidad: count,
   }));
@@ -656,7 +876,13 @@ export const processGarantiasData = (
 
   // Procesar datos según el tipo de filtro
   let result;
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    result = processGarantiasByDays(
+      filteredGarantias,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     result = processGarantiasByWeeks(
       filteredGarantias,
       filters.month,
@@ -671,6 +897,40 @@ export const processGarantiasData = (
     result = processGarantiasByMonths(filteredGarantias, filters.year);
   }
   return result;
+};
+
+/**
+ * Procesa garantías agrupándolas por días del mes
+ * @param {Array} records - Registros filtrados
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por días
+ */
+const processGarantiasByDays = (records, month, year) => {
+  const days = {};
+
+  // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
+  const maxDay = getMaxDayToShow(month, year);
+  for (let i = 1; i <= maxDay; i++) {
+    days[i] = 0;
+  }
+
+  records.forEach((record) => {
+    const fecha = record.fecha || record.fechaEjecucion;
+    if (!fecha) return;
+
+    const day = getDayFromDateSafe(fecha);
+    if (day === 0) return; // Fecha inválida
+
+    days[day] += 1; // Contar garantías
+  });
+
+  return Object.entries(days)
+    .map(([day, count]) => ({
+      name: `Día ${day}`,
+      garantias: count,
+      cantidad: count,
+    }));
 };
 
 /**
@@ -714,7 +974,7 @@ const processGarantiasByWeeks = (records, month, year) => {
   });
 
   return Object.entries(weeks).map(([week, count]) => ({
-    name: week,
+    name: `${week}|${getWeekRangeText(week, month, year)}`,
     garantias: count,
     cantidad: count,
   }));
@@ -826,7 +1086,13 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
 
   // Procesar datos según el tipo de filtro
   let result;
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    result = processFacturasByDays(
+      filteredFacturas,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     result = processFacturasByWeeks(
       filteredFacturas,
       filters.month,
@@ -877,9 +1143,14 @@ const filterFacturasByDateRange = (records, filters) => {
       return true; // Incluir todos los años
     }
 
-    // Filtrar por año para filtros de semanas y meses
+    // Filtrar por año para filtros de días, semanas y meses
     if (filters.year && recordYear !== filters.year) {
       return false;
+    }
+
+    // Si es filtro por días, incluir todos los días del mes seleccionado
+    if (filters.type === "días" && filters.month) {
+      return recordMonth === filters.month;
     }
 
     // Si es filtro por semanas, también filtrar por mes
@@ -889,6 +1160,44 @@ const filterFacturasByDateRange = (records, filters) => {
 
     return true;
   });
+};
+
+/**
+ * Procesa facturas agrupándolas por días del mes
+ * @param {Array} records - Facturas filtradas
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por días
+ */
+const processFacturasByDays = (records, month, year) => {
+  const days = {};
+
+  // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
+  const maxDay = getMaxDayToShow(month, year);
+  for (let i = 1; i <= maxDay; i++) {
+    days[i] = { count: 0, deuda: 0 };
+  }
+
+  records.forEach((record) => {
+    const fecha = record.fechaEmision;
+    if (!fecha) return;
+
+    const day = getDayFromFacturaDate(fecha);
+    if (day === 0) return; // Fecha inválida
+
+    const deuda = parseFloat(record.deuda) || 0;
+
+    days[day].count += 1;
+    days[day].deuda += deuda;
+  });
+
+  return Object.entries(days)
+    .map(([day, data]) => ({
+      name: `Día ${day}`,
+      facturas: data.count,
+      deuda: data.deuda,
+      cantidad: data.count,
+    }));
 };
 
 /**
@@ -939,7 +1248,7 @@ const processFacturasByWeeks = (records, month, year) => {
   });
 
   return Object.entries(weeks).map(([week, data]) => ({
-    name: week,
+    name: `${week}|${getWeekRangeText(week, month, year)}`,
     facturas: data.count,
     deuda: data.deuda,
     cantidad: data.count,
@@ -1102,9 +1411,15 @@ export const processGastosData = (gastos = {}, filters = {}) => {
   // Filtrar gastos por fecha
   const filteredGastos = filterGastosByDateRange(gastosArray, filters);
 
-  // Procesar datos según el tipo de filtro (semanas, meses o años)
+  // Procesar datos según el tipo de filtro (días, semanas, meses o años)
   let processedData;
-  if (filters.type === "semanas") {
+  if (filters.type === "días") {
+    processedData = processGastosByDays(
+      filteredGastos,
+      filters.month,
+      filters.year
+    );
+  } else if (filters.type === "semanas") {
     processedData = processGastosByWeeks(
       filteredGastos,
       filters.month,
@@ -1326,7 +1641,14 @@ const filterGastosByDateRange = (records, filters) => {
       return false;
     }
 
-    if (filters.type === "semanas") {
+    if (filters.type === "días") {
+      const gastoDay = gastoDate.getDate();
+      const shouldInclude =
+        gastoMonth === filters.month && 
+        gastoYear === filters.year && 
+        gastoDay === filters.day;
+      return shouldInclude;
+    } else if (filters.type === "semanas") {
       const shouldInclude =
         gastoMonth === filters.month && gastoYear === filters.year;
       return shouldInclude;
@@ -1339,6 +1661,126 @@ const filterGastosByDateRange = (records, filters) => {
   });
 
   return filteredResults;
+};
+
+/**
+ * Procesa gastos agrupándolos por días del mes
+ * @param {Array} records - Gastos filtrados
+ * @param {number} month - Mes seleccionado
+ * @param {number} year - Año seleccionado
+ * @returns {Array} Datos agrupados por días
+ */
+const processGastosByDays = (records, month, year) => {
+  const days = {};
+
+  // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
+  const maxDay = getMaxDayToShow(month, year);
+  for (let i = 1; i <= maxDay; i++) {
+    days[i] = 0;
+  }
+
+  records.forEach((gasto) => {
+    const fecha = gasto.fecha;
+    const monto = parseFloat(gasto.monto) || 0;
+
+    if (!fecha) {
+      return;
+    }
+
+    let gastoDate;
+    let gastoMonth, gastoYear, day;
+    
+    try {
+      if (typeof fecha === "string") {
+        if (fecha.includes("-") && fecha.split("-").length === 3) {
+          const parts = fecha.split("-");
+          if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            gastoYear = parseInt(parts[0]);
+            gastoMonth = parseInt(parts[1]);
+            day = parseInt(parts[2]);
+            gastoDate = createLocalDate(gastoYear, gastoMonth, day);
+          } else {
+            // DD-MM-YYYY
+            day = parseInt(parts[0]);
+            gastoMonth = parseInt(parts[1]);
+            gastoYear = parseInt(parts[2]);
+            gastoDate = createLocalDate(gastoYear, gastoMonth, day);
+          }
+        } else {
+          gastoDate = new Date(fecha);
+          gastoMonth = gastoDate.getMonth() + 1;
+          gastoYear = gastoDate.getFullYear();
+          day = gastoDate.getDate();
+        }
+      } else {
+        gastoDate = new Date(fecha);
+        gastoMonth = gastoDate.getMonth() + 1;
+        gastoYear = gastoDate.getFullYear();
+        day = gastoDate.getDate();
+      }
+
+      if (isNaN(gastoDate.getTime())) {
+        return;
+      }
+    } catch (error) {
+      return;
+    }
+
+    if (gastoMonth === month && gastoYear === year) {
+      days[day] += monto;
+    }
+  });
+
+  return Object.entries(days)
+    .map(([day, total]) => ({
+      name: `Día ${day}`,
+      total: total,
+      cantidad: records.filter((r) => {
+        const fecha = r.fecha;
+        if (!fecha) return false;
+
+        try {
+          let gastoDate;
+          let gastoMonth, gastoYear, gastoDay;
+          
+          if (typeof fecha === "string") {
+            if (fecha.includes("-") && fecha.split("-").length === 3) {
+              const parts = fecha.split("-");
+              if (parts[0].length === 4) {
+                // YYYY-MM-DD
+                gastoYear = parseInt(parts[0]);
+                gastoMonth = parseInt(parts[1]);
+                gastoDay = parseInt(parts[2]);
+                gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
+              } else {
+                // DD-MM-YYYY
+                gastoDay = parseInt(parts[0]);
+                gastoMonth = parseInt(parts[1]);
+                gastoYear = parseInt(parts[2]);
+                gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
+              }
+            } else {
+              gastoDate = new Date(fecha);
+              gastoMonth = gastoDate.getMonth() + 1;
+              gastoYear = gastoDate.getFullYear();
+              gastoDay = gastoDate.getDate();
+            }
+          } else {
+            gastoDate = new Date(fecha);
+            gastoMonth = gastoDate.getMonth() + 1;
+            gastoYear = gastoDate.getFullYear();
+            gastoDay = gastoDate.getDate();
+          }
+
+          if (isNaN(gastoDate.getTime())) return false;
+
+          return gastoMonth === month && gastoYear === year && gastoDay === parseInt(day);
+        } catch {
+          return false;
+        }
+      }).length,
+    }));
 };
 
 /**
@@ -1414,6 +1856,7 @@ const processGastosByWeeks = (records, month, year) => {
       else if (day <= 21) weekKey = "Semana 3";
       else weekKey = "Semana 4";
 
+      weeks[weekKey] += monto;
     } else {
       console.error(
         `Gasto no coincide con filtro: ${gastoMonth}/${gastoYear} vs ${month}/${year}`
@@ -1422,7 +1865,7 @@ const processGastosByWeeks = (records, month, year) => {
   });
 
   const result = Object.entries(weeks).map(([week, total]) => ({
-    name: week,
+    name: `${week}|${getWeekRangeText(week, month, year)}`,
     total: total,
     cantidad: records.filter((r) => {
       const fecha = r.fecha;

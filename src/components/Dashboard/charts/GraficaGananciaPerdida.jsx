@@ -261,6 +261,22 @@ export const GraficaGananciaPerdida = ({ filters }) => {
     );
   }
 
+  const WeekTick = ({ x, y, payload }) => {
+    const raw = payload?.value || "";
+    const hasRange = raw.includes("|");
+    const [weekText, rangeText] = hasRange ? raw.split("|") : [raw, ""];
+    return (
+      <g transform={`translate(${x},${y}) rotate(-45)`}>
+        <text dy={8} textAnchor="end" fill="#334155" fontSize={12}>
+          <tspan x={0} dy={0}>{weekText}</tspan>
+          {hasRange ? (
+            <tspan x={0} dy={14} fill="#64748b" fontSize={11}>{rangeText}</tspan>
+          ) : null}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div className="ganancia-chart-container">
       <div className="ganancia-chart-header">
@@ -310,11 +326,11 @@ export const GraficaGananciaPerdida = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              height={chartData.length > 6 ? 20 : 30}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
+              angle={chartData.length > 3 ? -45 : 0}
+              textAnchor={chartData.length > 3 ? "end" : "middle"}
+              height={chartData.length > 3 ? 60 : 30}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#64748b" }}

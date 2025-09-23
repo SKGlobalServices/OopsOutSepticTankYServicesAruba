@@ -139,11 +139,25 @@ export const GraficaGarantias = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={filters?.type === "semanas" ? ({ x, y, payload }) => {
+                const raw = payload?.value || "";
+                const hasRange = raw.includes("|");
+                const [weekText, rangeText] = hasRange ? raw.split("|") : [raw, ""];
+                return (
+                  <g transform={`translate(${x},${y}) rotate(-45)`}>
+                    <text dy={8} textAnchor="end" fill="#334155" fontSize={12}>
+                      <tspan x={0} dy={0}>{weekText}</tspan>
+                      {hasRange ? (
+                        <tspan x={0} dy={14} fill="#64748b" fontSize={11}>{rangeText}</tspan>
+                      ) : null}
+                    </text>
+                  </g>
+                );
+              } : { fontSize: 12 }}
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
-              height={chartData.length > 6 ? 60 : 30}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
+              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
+              height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
             />
             <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
             <Tooltip content={<CustomTooltip />} />
