@@ -14,6 +14,7 @@ import { formatFilterDate } from "../../../utils/dateUtils";
 import { processGarantiasData } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaGarantias.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de garantías
 const GarantiasLabel = (props) => {
@@ -139,21 +140,7 @@ export const GraficaGarantias = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={filters?.type === "semanas" ? ({ x, y, payload }) => {
-                const raw = payload?.value || "";
-                const hasRange = raw.includes("|");
-                const [weekText, rangeText] = hasRange ? raw.split("|") : [raw, ""];
-                return (
-                  <g transform={`translate(${x},${y}) rotate(-45)`}>
-                    <text dy={8} textAnchor="end" fill="#334155" fontSize={12}>
-                      <tspan x={0} dy={0}>{weekText}</tspan>
-                      {hasRange ? (
-                        <tspan x={0} dy={14} fill="#64748b" fontSize={11}>{rangeText}</tspan>
-                      ) : null}
-                    </text>
-                  </g>
-                );
-              } : { fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               interval={0}
               angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
               textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}

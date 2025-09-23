@@ -18,6 +18,7 @@ import {
 import { getBankShortName } from "../../../utils/bankUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import "./Styles/GraficaTransferencias.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de transferencias
 const TransferenciasLabel = (props) => {
@@ -113,23 +114,6 @@ export const GraficaTransferencias = ({ filters }) => {
       </div>
     );
   }
-
-  // Tick personalizado para mostrar semana y rango en dos líneas
-  const WeekTick = ({ x, y, payload }) => {
-    const raw = payload?.value || "";
-    const hasRange = raw.includes("|");
-    const [weekText, rangeText] = hasRange ? raw.split("|") : [raw, ""];
-    return (
-      <g transform={`translate(${x},${y}) rotate(-45)`}>
-        <text dy={8} textAnchor="end" fill="#334155" fontSize={12}>
-          <tspan x={0} dy={0}>{weekText}</tspan>
-          {hasRange ? (
-            <tspan x={0} dy={14} fill="#64748b" fontSize={11}>{rangeText}</tspan>
-          ) : null}
-        </text>
-      </g>
-    );
-  };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
