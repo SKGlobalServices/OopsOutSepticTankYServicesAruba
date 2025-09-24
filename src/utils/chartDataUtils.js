@@ -94,13 +94,130 @@ const getDayFromDateSafe = (fecha) => {
 };
 
 /**
+ * Parsea una fecha flexible (DD-MM-YYYY | YYYY-MM-DD | Date | string ISO)
+ * devolviendo partes numéricas seguras y un indicador de validez.
+ * Nunca usa new Date para DD-MM-YYYY, construye fecha local.
+ */
+const parseDateParts = (fecha) => {
+  if (!fecha) return { valid: false };
+
+  // Si ya es Date
+  if (fecha instanceof Date && !isNaN(fecha.getTime())) {
+    return {
+      year: fecha.getFullYear(),
+      month: fecha.getMonth() + 1,
+      day: fecha.getDate(),
+      valid: true,
+    };
+  }
+
+  if (typeof fecha === "number") {
+    const dObj = new Date(fecha);
+    if (!isNaN(dObj.getTime())) {
+      return {
+        year: dObj.getFullYear(),
+        month: dObj.getMonth() + 1,
+        day: dObj.getDate(),
+        valid: true,
+      };
+    }
+  }
+
+  if (typeof fecha === "string") {
+    const clean = fecha.trim();
+    // Soportar guiones
+    let parts = clean.split("-").map((p) => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const d = parseInt(parts[2]);
+        if (y && m && d) return { year: y, month: m, day: d, valid: true };
+      } else {
+        // DD-MM-YYYY
+        const d = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const y = parseInt(parts[2]);
+        if (y && m && d) return { year: y, month: m, day: d, valid: true };
+      }
+    }
+    // Soportar barras
+    parts = clean.split("/").map((p) => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY/MM/DD
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const d = parseInt(parts[2]);
+        if (y && m && d) return { year: y, month: m, day: d, valid: true };
+      } else {
+        // DD/MM/YYYY
+        const d = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const y = parseInt(parts[2]);
+        if (y && m && d) return { year: y, month: m, day: d, valid: true };
+      }
+    }
+    // Fallback: intentar Date estándar (ISO u otros)
+    const dObj = new Date(clean);
+    if (!isNaN(dObj.getTime())) {
+      return {
+        year: dObj.getFullYear(),
+        month: dObj.getMonth() + 1,
+        day: dObj.getDate(),
+        valid: true,
+      };
+    }
+  }
+
+  // Fallback final inválido
+  return { valid: false };
+};
+
+/**
+ * Obtiene el monto para ingresos según el tipo de forma de pago.
+ * Prioriza `valor` si existe; si no, intenta campos específicos.
+ */
+const getIngresoAmount = (record, formaPago) => {
+  // Prioridad 1: campo 'valor'
+  const direct = parseFloat(record.valor);
+  if (!isNaN(direct)) return direct;
+
+  // Prioridad 2: campos alternativos presentes en estructuras
+  // Efectivo puede venir en 'efectivo'
+  if (formaPago === "efectivo") {
+    const v = parseFloat(record.efectivo);
+    if (!isNaN(v)) return v;
+  }
+  // Transferencia podría venir en 'monto' cuando metodoPago=Transferencia (en gastos no aplica a ingresos)
+  if (formaPago === "transferencia") {
+    const v = parseFloat(record.transferencia || record.montoTransferencia);
+    if (!isNaN(v)) return v;
+  }
+  // Intercambio podría no tener monto; contar como 1 si no hay monto numérico
+  if (formaPago === "intercambio") {
+    const v = parseFloat(record.intercambio || record.montoIntercambio);
+    if (!isNaN(v)) return v;
+  }
+
+  // Fallback: si hay 'monto' y es ingreso (en data no debería haber gastos), usarlo si es numérico
+  const generic = parseFloat(record.monto);
+  if (!isNaN(generic)) return generic;
+
+  // Sin monto numérico
+  return NaN;
+};
+
+/**
  * Determina el último día que se debe mostrar para un mes/año
  * - Si es el mes y año actuales: hasta el día de hoy
  * - Si es otro mes/año: todos los días del mes
  */
 const getMaxDayToShow = (month, year) => {
   const today = new Date();
-  const isCurrentMonth = (today.getMonth() + 1) === month && today.getFullYear() === year;
+  const isCurrentMonth =
+    today.getMonth() + 1 === month && today.getFullYear() === year;
   const daysInMonth = new Date(year, month, 0).getDate();
   return isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
 };
@@ -132,6 +249,50 @@ const getWeekRangeText = (weekKey, month, year) => {
 };
 
 /**
+ * Aplana la estructura de registroFechas soportando múltiples formas:
+ * - registroFechas[fecha][id] = record
+ * - registroFechas[id] = record (con campo fecha)
+ * - registroFechas[fecha] = record (directo)
+ */
+const flattenRegistroFechas = (registroFechas = {}) => {
+  const out = [];
+  Object.entries(registroFechas || {}).forEach(([key, val]) => {
+    if (!val || typeof val !== "object") return;
+
+    // ¿Es un registro directo?
+    const isRecordLike =
+      "fecha" in val ||
+      "fechaEjecucion" in val ||
+      "formadepago" in val ||
+      "metododepago" in val ||
+      "valor" in val ||
+      "efectivo" in val;
+
+    if (isRecordLike) {
+      const fechaFromRecord = val.fecha || val.fechaEjecucion || key;
+      const parsed = parseDateParts(fechaFromRecord);
+      const safeFecha = parsed.valid
+        ? `${parsed.day}-${parsed.month}-${parsed.year}`
+        : fechaFromRecord;
+      out.push({ ...val, id: key, fecha: safeFecha, source: "registrofechas" });
+      return;
+    }
+
+    // Si no, asumir que contiene registros anidados
+    Object.entries(val).forEach(([id, rec]) => {
+      if (!rec || typeof rec !== "object") return;
+      const fechaFromRecord = rec.fecha || rec.fechaEjecucion || key;
+      const parsed = parseDateParts(fechaFromRecord);
+      const safeFecha = parsed.valid
+        ? `${parsed.day}-${parsed.month}-${parsed.year}`
+        : fechaFromRecord;
+      out.push({ ...rec, id, fecha: safeFecha, source: "registrofechas" });
+    });
+  });
+  return out;
+};
+
+/**
  * Procesa datos de registrofechas y data para obtener transferencias
  * @param {Object} registroFechas - Datos de la tabla registrofechas
  * @param {Object} dataTable - Datos de la tabla data
@@ -143,18 +304,8 @@ export const processTransferenciasData = (
   dataTable = {},
   filters = {}
 ) => {
-  // Procesar datos de registrofechas (estructura anidada por fecha)
-  const registroRecords = [];
-  Object.entries(registroFechas).forEach(([fecha, registros]) => {
-    Object.entries(registros).forEach(([id, record]) => {
-      registroRecords.push({
-        ...record,
-        id,
-        fecha,
-        source: "registrofechas",
-      });
-    });
-  });
+  // Aplanar registrofechas con tolerancia a formas
+  const registroRecords = flattenRegistroFechas(registroFechas);
 
   // Procesar datos de data (estructura plana)
   const dataRecords = Object.entries(dataTable).map(([id, record]) => ({
@@ -219,18 +370,8 @@ export const processEfectivoData = (
   dataTable = {},
   filters = {}
 ) => {
-  // Procesar datos de registrofechas (estructura anidada por fecha)
-  const registroRecords = [];
-  Object.entries(registroFechas).forEach(([fecha, registros]) => {
-    Object.entries(registros).forEach(([id, record]) => {
-      registroRecords.push({
-        ...record,
-        id,
-        fecha,
-        source: "registrofechas",
-      });
-    });
-  });
+  // Aplanar registrofechas con tolerancia a formas
+  const registroRecords = flattenRegistroFechas(registroFechas);
 
   // Procesar datos de data (estructura plana)
   const dataRecords = Object.entries(dataTable).map(([id, record]) => ({
@@ -281,18 +422,8 @@ export const processIntercambiosData = (
   dataTable = {},
   filters = {}
 ) => {
-  // Procesar datos de registrofechas (estructura anidada por fecha)
-  const registroRecords = [];
-  Object.entries(registroFechas).forEach(([fecha, registros]) => {
-    Object.entries(registros).forEach(([id, record]) => {
-      registroRecords.push({
-        ...record,
-        id,
-        fecha,
-        source: "registrofechas",
-      });
-    });
-  });
+  // Aplanar registrofechas con tolerancia a formas
+  const registroRecords = flattenRegistroFechas(registroFechas);
 
   // Procesar datos de data (estructura plana)
   const dataRecords = Object.entries(dataTable).map(([id, record]) => ({
@@ -315,11 +446,7 @@ export const processIntercambiosData = (
 
   // Procesar datos según el tipo de filtro
   if (filters.type === "días") {
-    return processDataByDays(
-      filteredIntercambios,
-      filters.month,
-      filters.year
-    );
+    return processDataByDays(filteredIntercambios, filters.month, filters.year);
   } else if (filters.type === "semanas") {
     return processDataByWeeks(
       filteredIntercambios,
@@ -345,21 +472,12 @@ export const processIntercambiosData = (
 const filterByDateRange = (records, filters) => {
   return records.filter((record) => {
     const fecha = record.fecha || record.fechaEjecucion;
-    if (!fecha) return false;
-
-    let recordYear, recordMonth;
-
-    // Manejar formato DD-MM-YYYY (usado en registrofechas)
-    if (fecha.includes("-") && fecha.split("-").length === 3) {
-      const [, month, year] = fecha.split("-");
-      recordYear = parseInt(year);
-      recordMonth = parseInt(month);
-    } else {
-      // Manejar formato de fecha estándar (usado en data)
-      const recordDate = new Date(fecha);
-      recordYear = recordDate.getFullYear();
-      recordMonth = recordDate.getMonth() + 1;
-    }
+    const {
+      valid,
+      year: recordYear,
+      month: recordMonth,
+    } = parseDateParts(fecha);
+    if (!valid) return false;
 
     // Para filtro de años, no filtrar por año específico
     if (filters.type === "años") {
@@ -398,33 +516,32 @@ const processDataByDays = (records, month, year) => {
   // Inicializar días en 0 hasta hoy (si es mes actual) o hasta fin de mes
   const maxDay = getMaxDayToShow(month, year);
   for (let i = 1; i <= maxDay; i++) {
-    days[i] = 0;
+    days[i] = { total: 0, count: 0 };
   }
 
   records.forEach((record) => {
     const fecha = record.fecha || record.fechaEjecucion;
-    if (!fecha) return;
+    const { valid, day, month: m, year: y } = parseDateParts(fecha);
+    if (!valid) return;
+    if (m !== month || y !== year) return;
+    if (day < 1 || day > maxDay) return;
 
-    const day = getDayFromDateSafe(fecha);
-    if (day === 0) return; // Fecha inválida
-
-    // Sumar valor si existe, o contar si no hay valor
-    const valor = parseFloat(record.valor);
-    days[day] += isNaN(valor) ? 1 : valor;
+    const forma = normalizeFormaPago(record);
+    const valor = getIngresoAmount(record, forma);
+    if (!isNaN(valor)) {
+      days[day].total += valor;
+    } else {
+      // contar 1 si no hay monto numérico
+      days[day].total += 0;
+    }
+    days[day].count += 1;
   });
 
-  return Object.entries(days)
-    .map(([day, value]) => ({
-      name: `Día ${day}`,
-      valor: value,
-      cantidad: records.filter((r) => {
-        const fecha = r.fecha || r.fechaEjecucion;
-        if (!fecha) return false;
-
-        const recordDay = getDayFromDateSafe(fecha);
-        return recordDay === parseInt(day);
-      }).length,
-    }));
+  return Object.entries(days).map(([d, obj]) => ({
+    name: `Día ${d}`,
+    valor: obj.total,
+    cantidad: obj.count,
+  }));
 };
 
 /**
@@ -436,62 +553,34 @@ const processDataByDays = (records, month, year) => {
  */
 const processDataByWeeks = (records, month, year) => {
   const weeks = {
-    "Semana 1": 0,
-    "Semana 2": 0,
-    "Semana 3": 0,
-    "Semana 4": 0,
+    "Semana 1": { total: 0, count: 0 },
+    "Semana 2": { total: 0, count: 0 },
+    "Semana 3": { total: 0, count: 0 },
+    "Semana 4": { total: 0, count: 0 },
   };
 
   records.forEach((record) => {
     const fecha = record.fecha || record.fechaEjecucion;
-    if (!fecha) return;
+    const { valid, day, month: m, year: y } = parseDateParts(fecha);
+    if (!valid) return;
+    if (m !== month || y !== year) return;
 
-    let day;
-    // Manejar formato DD-MM-YYYY
-    if (fecha.includes("-") && fecha.split("-").length === 3) {
-      const [dayStr] = fecha.split("-");
-      day = parseInt(dayStr);
-    } else {
-      // Manejar formato de fecha estándar
-      const recordDate = new Date(fecha);
-      day = recordDate.getDate();
-    }
+    let weekKey;
+    if (day <= 7) weekKey = "Semana 1";
+    else if (day <= 14) weekKey = "Semana 2";
+    else if (day <= 21) weekKey = "Semana 3";
+    else weekKey = "Semana 4";
 
-    const valor = parseFloat(record.valor) || 0;
-
-    // Determinar la semana basada en el día del mes
-    let week;
-    if (day <= 7) week = "Semana 1";
-    else if (day <= 14) week = "Semana 2";
-    else if (day <= 21) week = "Semana 3";
-    else week = "Semana 4";
-
-    weeks[week] += valor;
+    const forma = normalizeFormaPago(record);
+    const valor = getIngresoAmount(record, forma);
+    if (!isNaN(valor)) weeks[weekKey].total += valor;
+    weeks[weekKey].count += 1;
   });
 
-  return Object.entries(weeks).map(([week, value]) => ({
+  return Object.entries(weeks).map(([week, data]) => ({
     name: `${week}|${getWeekRangeText(week, month, year)}`,
-    valor: value,
-    cantidad: records.filter((r) => {
-      const fecha = r.fecha || r.fechaEjecucion;
-      if (!fecha) return false;
-
-      let day;
-      if (fecha.includes("-") && fecha.split("-").length === 3) {
-        const [dayStr] = fecha.split("-");
-        day = parseInt(dayStr);
-      } else {
-        const recordDate = new Date(fecha);
-        day = recordDate.getDate();
-      }
-
-      return (
-        (week === "Semana 1" && day <= 7) ||
-        (week === "Semana 2" && day > 7 && day <= 14) ||
-        (week === "Semana 3" && day > 14 && day <= 21) ||
-        (week === "Semana 4" && day > 21)
-      );
-    }).length,
+    valor: data.total,
+    cantidad: data.count,
   }));
 };
 
@@ -511,21 +600,14 @@ const processDataByMonths = (records, year) => {
 
   records.forEach((record) => {
     const fecha = record.fecha || record.fechaEjecucion;
-    if (!fecha) return;
+    const { valid, month: m, year: y } = parseDateParts(fecha);
+    if (!valid) return;
+    // Filtrar por año cuando viene especificado
+    if (y && year && y !== year) return;
 
-    let month;
-    // Manejar formato DD-MM-YYYY
-    if (fecha.includes("-") && fecha.split("-").length === 3) {
-      const [, monthStr] = fecha.split("-");
-      month = parseInt(monthStr);
-    } else {
-      // Manejar formato de fecha estándar
-      const recordDate = new Date(fecha);
-      month = recordDate.getMonth() + 1;
-    }
-
-    const valor = parseFloat(record.valor) || 0;
-    months[month] += valor;
+    const forma = normalizeFormaPago(record);
+    const valor = getIngresoAmount(record, forma);
+    months[m] += isNaN(valor) ? 0 : valor;
   });
 
   return Object.entries(months)
@@ -561,25 +643,16 @@ const processDataByYears = (records) => {
 
   records.forEach((record) => {
     const fecha = record.fecha || record.fechaEjecucion;
-    if (!fecha) return;
+    const { valid, year: y } = parseDateParts(fecha);
+    if (!valid) return;
 
-    let year;
-    // Manejar formato DD-MM-YYYY
-    if (fecha.includes("-") && fecha.split("-").length === 3) {
-      const [, , yearStr] = fecha.split("-");
-      year = parseInt(yearStr);
-    } else {
-      // Manejar formato de fecha estándar
-      const recordDate = new Date(fecha);
-      year = recordDate.getFullYear();
+    const forma = normalizeFormaPago(record);
+    const valor = getIngresoAmount(record, forma);
+
+    if (!years[y]) {
+      years[y] = 0;
     }
-
-    const valor = parseFloat(record.valor) || 0;
-
-    if (!years[year]) {
-      years[year] = 0;
-    }
-    years[year] += valor;
+    years[y] += isNaN(valor) ? 0 : valor;
   });
 
   return Object.entries(years)
@@ -695,12 +768,11 @@ const processServiciosByDays = (records, month, year) => {
     days[day] += 1; // Contar servicios
   });
 
-  return Object.entries(days)
-    .map(([day, count]) => ({
-      name: `Día ${day}`,
-      servicios: count,
-      cantidad: count,
-    }));
+  return Object.entries(days).map(([day, count]) => ({
+    name: `Día ${day}`,
+    servicios: count,
+    cantidad: count,
+  }));
 };
 
 /**
@@ -925,12 +997,11 @@ const processGarantiasByDays = (records, month, year) => {
     days[day] += 1; // Contar garantías
   });
 
-  return Object.entries(days)
-    .map(([day, count]) => ({
-      name: `Día ${day}`,
-      garantias: count,
-      cantidad: count,
-    }));
+  return Object.entries(days).map(([day, count]) => ({
+    name: `Día ${day}`,
+    garantias: count,
+    cantidad: count,
+  }));
 };
 
 /**
@@ -1116,31 +1187,32 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
  * @returns {Array} Facturas filtradas
  */
 const filterFacturasByDateRange = (records, filters) => {
+  const today = new Date();
+  const todayY = today.getFullYear();
+  const todayM = today.getMonth() + 1;
+  const todayD = today.getDate();
+
   return records.filter((record) => {
     const fecha = record.fechaEmision;
     if (!fecha) return false;
 
-    let recordYear, recordMonth;
+    const parsed = parseDateParts(fecha);
+    if (!parsed.valid) return false;
 
-    // Manejar formato YYYY-MM-DD (usado en fechaEmision)
-    if (fecha.includes("-") && fecha.split("-").length === 3) {
-      const [year, month] = fecha.split("-");
-      recordYear = parseInt(year);
-      recordMonth = parseInt(month);
-    } else {
-      // Formato de fecha estándar como fallback
-      try {
-        const recordDate = new Date(fecha);
-        recordYear = recordDate.getFullYear();
-        recordMonth = recordDate.getMonth() + 1;
-      } catch {
-        return false;
-      }
+    const { year: recordYear, month: recordMonth, day: recordDay } = parsed;
+
+    // Excluir fechas futuras (no mostrar meses/días venideros)
+    if (
+      recordYear > todayY ||
+      (recordYear === todayY && recordMonth > todayM) ||
+      (recordYear === todayY && recordMonth === todayM && recordDay > todayD)
+    ) {
+      return false;
     }
 
-    // Para filtro de años, no filtrar por año específico
+    // Para filtro de años, no filtrar por año específico más allá de la exclusión de futuro
     if (filters.type === "años") {
-      return true; // Incluir todos los años
+      return true;
     }
 
     // Filtrar por año para filtros de días, semanas y meses
@@ -1148,16 +1220,17 @@ const filterFacturasByDateRange = (records, filters) => {
       return false;
     }
 
-    // Si es filtro por días, incluir todos los días del mes seleccionado
+    // Si es filtro por días, incluir el mes seleccionado
     if (filters.type === "días" && filters.month) {
       return recordMonth === filters.month;
     }
 
-    // Si es filtro por semanas, también filtrar por mes
+    // Si es filtro por semanas, incluir el mes seleccionado
     if (filters.type === "semanas" && filters.month) {
       return recordMonth === filters.month;
     }
 
+    // Si es filtro por meses, ya se filtró por año arriba; incluir
     return true;
   });
 };
@@ -1191,13 +1264,12 @@ const processFacturasByDays = (records, month, year) => {
     days[day].deuda += deuda;
   });
 
-  return Object.entries(days)
-    .map(([day, data]) => ({
-      name: `Día ${day}`,
-      facturas: data.count,
-      deuda: data.deuda,
-      cantidad: data.count,
-    }));
+  return Object.entries(days).map(([day, data]) => ({
+    name: `Día ${day}`,
+    facturas: data.count,
+    deuda: data.deuda,
+    cantidad: data.count,
+  }));
 };
 
 /**
@@ -1396,7 +1468,6 @@ export const formatTooltip = (value, cantidad) => {
  * @returns {Array} Array de datos procesados para gráfica de gastos
  */
 export const processGastosData = (gastos = {}, filters = {}) => {
-
   // Convertir el objeto de gastos a array si no es array
   let gastosArray;
   if (Array.isArray(gastos)) {
@@ -1432,7 +1503,7 @@ export const processGastosData = (gastos = {}, filters = {}) => {
   }
 
   return processedData;
-}
+};
 
 /**
  * Procesa datos para obtener total de ingresos (transferencias + efectivo + intercambio)
@@ -1587,7 +1658,6 @@ export const processGananciaPerdidaData = (
  * @returns {Array} Gastos filtrados
  */
 const filterGastosByDateRange = (records, filters) => {
-
   const filteredResults = records.filter((record) => {
     const fecha = record.fecha;
 
@@ -1636,17 +1706,15 @@ const filterGastosByDateRange = (records, filters) => {
 
       gastoMonth = gastoDate.getMonth() + 1;
       gastoYear = gastoDate.getFullYear();
-
     } catch (error) {
       return false;
     }
 
     if (filters.type === "días") {
-      const gastoDay = gastoDate.getDate();
+      // Para vista por días, incluir todos los gastos del mes/año seleccionado
+      // El agrupado por días se hace en processGastosByDays
       const shouldInclude =
-        gastoMonth === filters.month && 
-        gastoYear === filters.year && 
-        gastoDay === filters.day;
+        gastoMonth === filters.month && gastoYear === filters.year;
       return shouldInclude;
     } else if (filters.type === "semanas") {
       const shouldInclude =
@@ -1689,7 +1757,7 @@ const processGastosByDays = (records, month, year) => {
 
     let gastoDate;
     let gastoMonth, gastoYear, day;
-    
+
     try {
       if (typeof fecha === "string") {
         if (fecha.includes("-") && fecha.split("-").length === 3) {
@@ -1732,39 +1800,32 @@ const processGastosByDays = (records, month, year) => {
     }
   });
 
-  return Object.entries(days)
-    .map(([day, total]) => ({
-      name: `Día ${day}`,
-      total: total,
-      cantidad: records.filter((r) => {
-        const fecha = r.fecha;
-        if (!fecha) return false;
+  return Object.entries(days).map(([day, total]) => ({
+    name: `Día ${day}`,
+    total: total,
+    cantidad: records.filter((r) => {
+      const fecha = r.fecha;
+      if (!fecha) return false;
 
-        try {
-          let gastoDate;
-          let gastoMonth, gastoYear, gastoDay;
-          
-          if (typeof fecha === "string") {
-            if (fecha.includes("-") && fecha.split("-").length === 3) {
-              const parts = fecha.split("-");
-              if (parts[0].length === 4) {
-                // YYYY-MM-DD
-                gastoYear = parseInt(parts[0]);
-                gastoMonth = parseInt(parts[1]);
-                gastoDay = parseInt(parts[2]);
-                gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
-              } else {
-                // DD-MM-YYYY
-                gastoDay = parseInt(parts[0]);
-                gastoMonth = parseInt(parts[1]);
-                gastoYear = parseInt(parts[2]);
-                gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
-              }
+      try {
+        let gastoDate;
+        let gastoMonth, gastoYear, gastoDay;
+
+        if (typeof fecha === "string") {
+          if (fecha.includes("-") && fecha.split("-").length === 3) {
+            const parts = fecha.split("-");
+            if (parts[0].length === 4) {
+              // YYYY-MM-DD
+              gastoYear = parseInt(parts[0]);
+              gastoMonth = parseInt(parts[1]);
+              gastoDay = parseInt(parts[2]);
+              gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
             } else {
-              gastoDate = new Date(fecha);
-              gastoMonth = gastoDate.getMonth() + 1;
-              gastoYear = gastoDate.getFullYear();
-              gastoDay = gastoDate.getDate();
+              // DD-MM-YYYY
+              gastoDay = parseInt(parts[0]);
+              gastoMonth = parseInt(parts[1]);
+              gastoYear = parseInt(parts[2]);
+              gastoDate = createLocalDate(gastoYear, gastoMonth, gastoDay);
             }
           } else {
             gastoDate = new Date(fecha);
@@ -1772,15 +1833,25 @@ const processGastosByDays = (records, month, year) => {
             gastoYear = gastoDate.getFullYear();
             gastoDay = gastoDate.getDate();
           }
-
-          if (isNaN(gastoDate.getTime())) return false;
-
-          return gastoMonth === month && gastoYear === year && gastoDay === parseInt(day);
-        } catch {
-          return false;
+        } else {
+          gastoDate = new Date(fecha);
+          gastoMonth = gastoDate.getMonth() + 1;
+          gastoYear = gastoDate.getFullYear();
+          gastoDay = gastoDate.getDate();
         }
-      }).length,
-    }));
+
+        if (isNaN(gastoDate.getTime())) return false;
+
+        return (
+          gastoMonth === month &&
+          gastoYear === year &&
+          gastoDay === parseInt(day)
+        );
+      } catch {
+        return false;
+      }
+    }).length,
+  }));
 };
 
 /**
@@ -1791,7 +1862,6 @@ const processGastosByDays = (records, month, year) => {
  * @returns {Array} Datos agrupados por semanas
  */
 const processGastosByWeeks = (records, month, year) => {
-
   const weeks = {
     "Semana 1": 0,
     "Semana 2": 0,
@@ -1800,7 +1870,6 @@ const processGastosByWeeks = (records, month, year) => {
   };
 
   records.forEach((gasto, index) => {
-
     const fecha = gasto.fecha;
     const monto = parseFloat(gasto.monto) || 0;
 
@@ -1847,7 +1916,6 @@ const processGastosByWeeks = (records, month, year) => {
     const gastoMonth = gastoDate.getMonth() + 1;
     const gastoYear = gastoDate.getFullYear();
     const day = gastoDate.getDate();
-
 
     if (gastoMonth === month && gastoYear === year) {
       let weekKey;

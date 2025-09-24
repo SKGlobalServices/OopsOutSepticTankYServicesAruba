@@ -311,9 +311,9 @@ export const GraficaGananciaPerdida = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 10 }}
               interval={0}
-              angle={chartData.length > 3 ? -45 : 0}
+              angle={chartData.length > 3 ? -90 : 0}
               textAnchor={chartData.length > 3 ? "end" : "middle"}
               height={chartData.length > 3 ? 60 : 30}
             />

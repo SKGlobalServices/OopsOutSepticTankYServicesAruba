@@ -190,7 +190,7 @@ export const GraficaIngresosTotales = ({ filters }) => {
               tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               axisLine={false}
               tickLine={false}
-              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
               textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
               height={filters?.type === "semanas" ? 72 : chartData.length > 3 ? 60 : 30}
             />

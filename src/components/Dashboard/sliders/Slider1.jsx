@@ -12,6 +12,7 @@ import {
   getFilterOptions,
 } from "../../../utils/dateUtils";
 import { useChartData } from "../../../utils/useChartData";
+import { DebugChart } from "../charts/DebugChart";
 
 export const Slider1 = () => {
   // Obtener datos para generar años dinámicos
@@ -138,6 +139,11 @@ export const Slider1 = () => {
         <div className="chart-item">
           <div className="chart-container-large">
             <GraficaGananciaPerdida filters={filters} />
+          </div>
+        </div>
+        <div className="chart-item">
+          <div className="chart-container-large">
+            <DebugChart filters={filters} />
           </div>
         </div>
       </div>

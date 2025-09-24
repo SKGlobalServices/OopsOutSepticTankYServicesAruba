@@ -1045,8 +1045,8 @@
     stroke-linejoin: round;
     pointer-events: none;
     transform-box: fill-box;
-    transform-origin: 50% 30%;
-    transform: rotate(-45deg);
+    transform-origin: 30% 20%;
+    transform: rotate(-90deg);
   }
 
   .recharts-cartesian-axis-tick-value {

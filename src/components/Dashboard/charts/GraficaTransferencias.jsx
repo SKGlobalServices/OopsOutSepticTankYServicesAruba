@@ -1,13 +1,13 @@
 import React from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   LabelList,
+  BarChart,
 } from "recharts";
 import { useChartData } from "../../../utils/useChartData";
 import {
@@ -22,18 +22,14 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de transferencias
 const TransferenciasLabel = (props) => {
-  const { x, y, value, index } = props;
-  if (!value || value === 0 || !x || !y || index === undefined) return null;
-
-  // Solo mostrar etiquetas en algunos puntos para evitar saturación
-  const showLabel = index % 2 === 0; // Mostrar cada segunda etiqueta
-  if (!showLabel) return null;
+  const { x, y, width, value } = props;
+  if (!value || value === 0 || !x || !y || !width) return null;
 
   return (
     <text
       className="chart-bar-label"
-      x={x}
-      y={y - 8}
+      x={x + width / 2}
+      y={y - 5}
       fill="#3b82f6"
       textAnchor="middle"
       fontSize="10"
@@ -143,18 +139,34 @@ export const GraficaTransferencias = ({ filters }) => {
 
       <div className="transferencias-chart-content">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <BarChart
             data={chartData}
             margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
+              tick={
+                filters?.type === "semanas" ? <WeekTick /> : { fontSize: 10 }
+              }
               interval={0}
-              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
-              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
-              height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
+              angle={
+                filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0
+              }
+              textAnchor={
+                filters?.type === "semanas"
+                  ? "end"
+                  : chartData.length > 3
+                  ? "end"
+                  : "middle"
+              }
+              height={
+                filters?.type === "semanas"
+                  ? 70
+                  : chartData.length > 3
+                  ? 60
+                  : 30
+              }
             />
             <YAxis
               tick={{ fontSize: 12 }}
@@ -162,23 +174,15 @@ export const GraficaTransferencias = ({ filters }) => {
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Line
-              type="monotone"
+            <Bar
               dataKey="valor"
-              stroke="#3b82f6"
-              strokeWidth={3}
-              dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
-              activeDot={{
-                r: 6,
-                stroke: "#3b82f6",
-                strokeWidth: 2,
-                fill: "white",
-              }}
+              fill="#3b82f6"
+              radius={[4, 4, 0, 0]}
               name="Transferencias"
             >
               <LabelList content={<TransferenciasLabel />} />
-            </Line>
-          </LineChart>
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
 

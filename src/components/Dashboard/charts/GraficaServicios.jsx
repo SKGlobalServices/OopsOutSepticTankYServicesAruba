@@ -142,7 +142,7 @@ export const GraficaServicios = ({ filters }) => {
               dataKey="name"
               tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               interval={0}
-              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -45 : 0}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
               textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
               height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
             />

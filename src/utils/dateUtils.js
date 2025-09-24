@@ -194,6 +194,8 @@ export const isValidMonth = (month) => {
 export const formatFilterDate = (type, month, year) => {
   if (type === "semanas") {
     return `${getMonthName(month)} ${year}`;
+  } else if (type === "días") {
+    return `${getMonthName(month)} ${year}`;
   } else if (type === "meses") {
     return `Año ${year}`;
   } else if (type === "años") {
@@ -211,14 +213,14 @@ export const formatFilterDate = (type, month, year) => {
 export const getDaysInMonth = (month, year) => {
   const daysInMonth = new Date(year, month, 0).getDate();
   const days = [];
-  
+
   for (let day = 1; day <= daysInMonth; day++) {
     days.push({
       value: day,
-      label: `Día ${day}`
+      label: `Día ${day}`,
     });
   }
-  
+
   return days;
 };
 
