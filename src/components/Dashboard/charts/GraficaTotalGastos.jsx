@@ -60,17 +60,16 @@ export const GraficaTotalGastos = ({ filters }) => {
 
   // Procesar datos solo cuando tenemos información y filtros
   const chartData = React.useMemo(() => {
-    const processed = processGastosData(data.gastos, filters);
-    return processed;
-  }, [data, filters]);
+    if (!data?.gastos || !filters) return [];
 
-  // Calcular total
-  const totalGastos = chartData.reduce((sum, item) => sum + item.total, 0);
+    return processGastosData(data.gastos, filters);
+  }, [data, filters]);
 
   // Mostrar estado de carga
   if (loading) {
     return (
       <div className="gastos-chart-container">
+        <div className="gastos-chart-title">Total de Gastos</div>
         <div className="gastos-chart-content">
           <div className="gastos-chart-loading">
             Cargando datos de gastos...
@@ -84,9 +83,10 @@ export const GraficaTotalGastos = ({ filters }) => {
   if (error) {
     return (
       <div className="gastos-chart-container">
+        <div className="gastos-chart-title">Total de Gastos</div>
         <div className="gastos-chart-content">
           <div className="gastos-chart-no-data">
-            <div>⚠️</div>
+            <div className="gastos-chart-no-data-icon">⚠️</div>
             <div>Error al cargar datos: {error}</div>
           </div>
         </div>
@@ -98,19 +98,15 @@ export const GraficaTotalGastos = ({ filters }) => {
   if (!chartData || chartData.length === 0) {
     return (
       <div className="gastos-chart-container">
-        <div className="gastos-chart-header">
-          <div className="gastos-chart-title">Total de Gastos</div>
-          <div className="gastos-totals-summary">
-            <span className="gastos-total-value">{formatCurrency(0)}</span>
-          </div>
-        </div>
+        <div className="gastos-chart-title">Total de Gastos</div>
         <div className="gastos-chart-content">
           <div className="gastos-chart-no-data">
-            <div>📊</div>
+            <div className="gastos-chart-no-data-icon">📊</div>
             <div>No hay gastos registrados</div>
             <div>para el período seleccionado</div>
           </div>
         </div>
+        {/* Indicador de filtros activos */}
         <div className="gastos-filter-indicator">
           {formatFilterDate(filters?.type, filters?.month, filters?.year)}
         </div>
@@ -120,13 +116,16 @@ export const GraficaTotalGastos = ({ filters }) => {
 
   return (
     <div className="gastos-chart-container">
-      <div className="gastos-chart-header">
-        <div className="gastos-chart-title">Total de Gastos</div>
-        <div className="gastos-totals-summary">
-          <span className="gastos-total-value">
-            {formatCurrency(totalGastos)}
-          </span>
-          <span className="gastos-total-label">Total Gastado</span>
+      <div className="gastos-chart-title">Total de Gastos</div>
+
+      {/* Indicador de totales - similar al de servicios */}
+      <div className="gastos-totals-indicator">
+        <div>
+          Total:{" "}
+          {formatCurrency(chartData.reduce((sum, item) => sum + item.total, 0))}
+        </div>
+        <div className="gastos-totals-count">
+          {chartData.reduce((sum, item) => sum + item.cantidad, 0)} gastos
         </div>
       </div>
 
@@ -148,17 +147,31 @@ export const GraficaTotalGastos = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
-              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
-              height={filters?.type === "semanas" ? 48 : chartData.length > 3 ? 60 : 30}
+              tick={
+                filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }
+              }
+              interval={0}
+              angle={
+                filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0
+              }
+              textAnchor={
+                filters?.type === "semanas"
+                  ? "end"
+                  : chartData.length > 3
+                  ? "end"
+                  : "middle"
+              }
+              height={
+                filters?.type === "semanas"
+                  ? 70
+                  : chartData.length > 3
+                  ? 60
+                  : 30
+              }
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "#64748b" }}
-              axisLine={false}
-              tickLine={false}
+              tick={{ fontSize: 12 }}
+              allowDecimals={false}
               tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -166,14 +179,14 @@ export const GraficaTotalGastos = ({ filters }) => {
               dataKey="total"
               fill="#ef4444"
               radius={[4, 4, 0, 0]}
-              maxBarSize={60}
+              name="Gastos"
             >
               <LabelList content={<GastosLabel />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
-
+      {/* Indicador de filtros activos */}
       <div className="gastos-filter-indicator">
         {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>

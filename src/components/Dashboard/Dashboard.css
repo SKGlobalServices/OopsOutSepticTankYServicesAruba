@@ -81,7 +81,7 @@
 
 .filter-select:focus {
   border-color: #3b82f6;
-  ring: 2px solid rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* Grid de métricas principales */
@@ -278,6 +278,7 @@
   height: 100%;
   min-height: calc(100vh - 400px);
 }
+
 
 /* Navegación del slider */
 .nav-button {
@@ -592,7 +593,7 @@
     padding: 18px;
     max-width: 100%;
   }
-  
+
   .charts-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 18px;
@@ -726,11 +727,12 @@
   }
 
   .chart-item {
-    min-height: 320px; /* Aumentar altura mínima para mejor visualización */
-    max-height: 380px; /* Aumentar altura máxima para mostrar gráficas completas */
-    padding: 8px;
+    min-height: 380px; /* Aumentar altura mínima para mejor visualización */
+    max-height: 420px; /* Aumentar altura máxima para mostrar gráficas completas */
+    padding: 12px;
     border-radius: 8px;
-    margin-bottom: 8px; /* Espacio adicional entre gráficas */
+    margin-bottom: 12px; /* Espacio adicional entre gráficas */
+    overflow: visible; /* Permitir que los tooltips se muestren correctamente */
   }
 
   .chart-item-header h3 {
@@ -738,9 +740,9 @@
   }
 
   .chart-container-large {
-    min-height: 250px;
-    max-height: 300px;
-    padding: 8px;
+    min-height: 300px;
+    max-height: 340px;
+    padding: 12px;
     overflow: visible; /* Permitir que el contenido se vea completo */
   }
 
@@ -796,25 +798,34 @@
 
   /* Filtros globales responsive */
   .global-chart-filters {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 8px;
-    padding: 8px;
+    padding: 12px;
+    justify-content: center;
   }
 
   .filter-group {
     min-width: auto;
-    width: 100%;
+    width: auto;
+    flex: 1;
+    min-width: 120px;
   }
 
   .filter-group label {
     min-width: 80px;
     text-align: left;
     font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
   }
 
   .filter-select-global {
     font-size: 11px;
-    padding: 6px 8px;
+    padding: 8px 10px;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
   }
 
   /* Mejorar filtros de gráficas en móvil */
@@ -892,11 +903,12 @@
   }
 
   .chart-item {
-    min-height: 23.75rem;
-    max-height: 25rem;
-    padding: 6px;
+    min-height: 26rem; /* 416px */
+    max-height: 28rem; /* 448px */
+    padding: 8px;
     border-radius: 6px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    overflow: visible; /* Permitir que los tooltips se muestren correctamente */
   }
 
   .chart-item-header h3 {
@@ -904,9 +916,9 @@
   }
 
   .chart-container-large {
-    min-height: 13.75rem;
+    min-height: 18rem; /* 288px */
     max-height: 100%;
-    padding: 6px;
+    padding: 8px;
     overflow: visible; /* Permitir que el contenido se vea completo */
   }
 
@@ -955,8 +967,8 @@
 
   /* Filtros globales mobile */
   .global-chart-filters {
-    gap: 6px;
-    padding: 6px;
+    gap: 8px;
+    padding: 10px;
     flex-direction: column;
     align-items: stretch;
   }
@@ -967,13 +979,18 @@
   }
 
   .filter-group label {
-    font-size: 10px;
-    min-width: 60px;
+    font-size: 11px;
+    min-width: 70px;
+    font-weight: 600;
+    color: #64748b;
   }
 
   .filter-select-global {
-    padding: 4px 6px;
-    font-size: 10px;
+    padding: 6px 8px;
+    font-size: 11px;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
   }
 
   .filter-select {

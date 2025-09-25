@@ -239,29 +239,52 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .ganancia-chart-container {
-    max-height: 100%; /* Aumentado de 350px */
-    padding: 6px; /* Aumentado de 8px */
+    max-height: 100%;
+    min-height: 460px;
+    padding: 12px;
+  }
+
+  .ganancia-chart-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .ganancia-chart-title {
-    font-size: 14px; /* Aumentado de 12px */
+    font-size: 14px;
+    flex: 1;
+    text-align: left;
+  }
+
+  .ganancia-summary {
+    min-width: 100px;
+    padding: 6px 10px;
+    align-items: flex-end;
   }
 
   .ganancia-result {
-    font-size: 18px; /* Aumentado de 16px */
+    font-size: 16px;
+    line-height: 1.1;
+  }
+
+  .ganancia-label {
+    font-size: 9px;
+    margin-top: 4px;
   }
 
   .ganancia-chart-content {
-    min-height: 280px; /* Aumentado de 120px */
-    max-height: 320px; /* Aumentado de 180px */
+    min-height: 280px;
+    max-height: 300px;
     flex: 1;
+    margin: 8px 0;
   }
 
   .ganancia-totales-summary {
     flex-direction: row;
-    gap: 8px; /* Aumentado de 6px */
-    padding: 8px; /* Aumentado de 6px */
-    margin-top: 12px;
+    gap: 10px;
+    padding: 10px;
+    margin-top: 10px;
+    justify-content: space-around;
   }
 
   .ganancia-total-item.resultado::before {
@@ -269,113 +292,152 @@
   }
 
   .ganancia-total-value {
-    font-size: 12px; /* Aumentado de 11px */
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .ganancia-total-label {
-    font-size: 9px; /* Aumentado de 8px */
+    font-size: 9px;
+    font-weight: 500;
   }
 
   .ganancia-tooltip {
-    font-size: 10px; /* Aumentado de 9px */
-    padding: 8px; /* Aumentado de 6px */
-    min-width: 160px; /* Aumentado de 140px */
+    font-size: 10px;
+    padding: 8px 10px;
+    min-width: 160px;
+  }
+
+  .ganancia-tooltip-header {
+    font-size: 11px;
+  }
+
+  .ganancia-tooltip-row {
+    font-size: 9px;
+  }
+
+  .ganancia-tooltip-result {
+    font-size: 10px;
   }
 
   .recharts-cartesian-axis-tick-value {
-    font-size: 9px; /* Aumentado de 8px */
+    font-size: 10px !important;
+    fill: #475569 !important;
+    font-weight: 500 !important;
   }
 
-  .ganancia-summary {
-    min-width: 120px; /* Aumentado de 100px */
-    padding: 6px 8px; /* Aumentado de 4px 6px */
-  }
-
-  .ganancia-result {
-    font-size: 16px; /* Aumentado de 14px */
-  }
-
-  .ganancia-label {
-    font-size: 8px; /* Aumentado de 7px */
+  /* Mejorar las etiquetas en móvil */
+  .chart-bar-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    paint-order: stroke fill;
+    stroke: #ffffff;
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    pointer-events: none;
   }
 }
 
 @media (max-width: 480px) {
   .ganancia-chart-container {
     max-height: 100%;
-    padding: 6px; /* Aumentado de 6px */
+    min-height: 400px;
+    padding: 8px;
   }
 
   .ganancia-chart-header {
     flex-direction: column;
     align-items: center;
-    gap: 6px; /* Aumentado de 4px */
+    gap: 8px;
     text-align: center;
-    margin-bottom: 16px; /* Añadido margen */
+    margin-bottom: 12px;
   }
 
   .ganancia-chart-title {
-    font-size: 13px; /* Aumentado de 11px */
-    font-weight: 700; /* Más bold */
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
   }
 
   .ganancia-summary {
     align-items: center;
+    min-width: 90px;
+    padding: 6px 8px;
   }
 
   .ganancia-result {
-    font-size: 16px; /* Aumentado de 14px */
+    font-size: 14px;
+    line-height: 1.1;
   }
 
   .ganancia-label {
-    font-size: 9px; /* Aumentado de 8px */
+    font-size: 8px;
+    margin-top: 3px;
   }
 
   .ganancia-chart-content {
-    min-height: 100px; /* Aumentado significativamente de 11.25rem (180px) */
-    max-height: 200px; /* Aumentado de 13.75rem (220px) */
+    min-height: 240px;
+    max-height: 260px;
     flex: 1;
+    margin: 6px 0;
   }
 
   .ganancia-totales-summary {
-    padding: 8px; /* Aumentado de 4px */
-    gap: 6px; /* Aumentado de 4px */
-    margin-top: 16px; /* Añadido margen */
+    padding: 8px;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: space-around;
   }
 
   .ganancia-total-value {
-    font-size: 8px; /* Aumentado de 10px */
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .ganancia-total-label {
-    font-size: 8px; /* Aumentado de 7px */
+    font-size: 8px;
+    font-weight: 500;
   }
 
   .recharts-cartesian-axis-tick-value {
-    font-size: 8px; /* Aumentado de 7px */
-  }
-
-  .ganancia-summary {
-    min-width: 100px; /* Aumentado de 80px */
-    padding: 4px 6px; /* Aumentado de 3px 4px */
-  }
-
-  .ganancia-result {
-    font-size: 14px; /* Aumentado de 12px */
-  }
-
-  .ganancia-label {
-    font-size: 7px; /* Aumentado de 6px */
+    font-size: 9px !important;
+    fill: #475569 !important;
+    font-weight: 500 !important;
   }
 
   /* Asegurar que el tooltip sea legible en móviles pequeños */
   .ganancia-tooltip {
     font-size: 9px;
-    padding: 6px;
-    min-width: 150px;
+    padding: 6px 8px;
+    min-width: 140px;
   }
 
   .ganancia-tooltip-header {
     font-size: 10px;
+  }
+
+  .ganancia-tooltip-row {
+    font-size: 8px;
+  }
+
+  .ganancia-tooltip-result {
+    font-size: 9px;
+  }
+
+  /* Mejorar las etiquetas en móvil pequeño */
+  .chart-bar-label {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    paint-order: stroke fill;
+    stroke: #ffffff;
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+
+  .ganancia-filter-indicator {
+    font-size: 9px;
+    padding: 2px 4px;
+    top: 2px;
+    right: 2px;
   }
 }

@@ -190,10 +190,13 @@ const getIngresoAmount = (record, formaPago) => {
     const v = parseFloat(record.efectivo);
     if (!isNaN(v)) return v;
   }
-  // Transferencia podría venir en 'monto' cuando metodoPago=Transferencia (en gastos no aplica a ingresos)
+  // Transferencia: intentar múltiples campos comunes
   if (formaPago === "transferencia") {
-    const v = parseFloat(record.transferencia || record.montoTransferencia);
-    if (!isNaN(v)) return v;
+    // Intentar campos específicos de transferencia
+    const transferencia = parseFloat(
+      record.transferencia || record.montoTransferencia
+    );
+    if (!isNaN(transferencia)) return transferencia;
   }
   // Intercambio podría no tener monto; contar como 1 si no hay monto numérico
   if (formaPago === "intercambio") {
@@ -201,9 +204,13 @@ const getIngresoAmount = (record, formaPago) => {
     if (!isNaN(v)) return v;
   }
 
-  // Fallback: si hay 'monto' y es ingreso (en data no debería haber gastos), usarlo si es numérico
+  // Prioridad 3: campo 'monto' genérico (común para transferencias e ingresos)
   const generic = parseFloat(record.monto);
   if (!isNaN(generic)) return generic;
+
+  // Prioridad 4: otros campos comunes de monto
+  const amount = parseFloat(record.amount || record.importe || record.cantidad);
+  if (!isNaN(amount)) return amount;
 
   // Sin monto numérico
   return NaN;
@@ -215,11 +222,20 @@ const getIngresoAmount = (record, formaPago) => {
  * - Si es otro mes/año: todos los días del mes
  */
 const getMaxDayToShow = (month, year) => {
+  // Crear fecha local para evitar problemas de zona horaria
   const today = new Date();
-  const isCurrentMonth =
-    today.getMonth() + 1 === month && today.getFullYear() === year;
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
+  const currentDay = today.getDate();
+
+  const isCurrentMonth = currentMonth === month && currentYear === year;
   const daysInMonth = new Date(year, month, 0).getDate();
-  return isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
+
+  const result = isCurrentMonth
+    ? Math.min(currentDay, daysInMonth)
+    : daysInMonth;
+
+  return result;
 };
 
 /**
