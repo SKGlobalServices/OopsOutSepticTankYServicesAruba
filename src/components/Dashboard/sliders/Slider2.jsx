@@ -8,6 +8,8 @@ import {
   getMonths,
   getCurrentMonth,
   getCurrentYear,
+  getCurrentDay,
+  getDaysInMonth,
   getFilterOptions,
 } from "../../../utils/dateUtils";
 import { getArubanBanks } from "../../../utils/bankUtils";
@@ -27,16 +29,19 @@ export const Slider2 = () => {
   const [transferenciasYear, setTransferenciasYear] = useState(
     getCurrentYear()
   );
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   // Estados para filtros de Efectivo
   const [efectivoFilterType, setEfectivoFilterType] = useState("meses");
   const [efectivoMonth, setEfectivoMonth] = useState(getCurrentMonth());
   const [efectivoYear, setEfectivoYear] = useState(getCurrentYear());
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   // Estados para filtros de Intercambios
   const [intercambioFilterType, setIntercambioFilterType] = useState("meses");
   const [intercambioMonth, setIntercambioMonth] = useState(getCurrentMonth());
   const [intercambioYear, setIntercambioYear] = useState(getCurrentYear());
+  // En vista "días" se muestran todos los días del mes; no se requiere estado de día
 
   const months = getMonths();
   // Bancos dinámicos desde los datos (si no hay data, fallback interno)
@@ -47,6 +52,12 @@ export const Slider2 = () => {
     availableYears.length > 0
       ? availableYears.slice().reverse() // Años más recientes primero
       : generateYears(data.registroFechas, data.data);
+
+  // Generar días del mes seleccionado para cada gráfica
+  // No se requiere generar arrays de días para selectores
+
+  // Actualizar días cuando cambien los meses o años
+  // Sin selectores de día
 
   // Obtener opciones de filtro para cada gráfica
   const transferenciasFilterOptions = getFilterOptions(
@@ -99,7 +110,6 @@ export const Slider2 = () => {
       {/* Gráfica de Transferencias */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Transferencias</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -117,6 +127,7 @@ export const Slider2 = () => {
               value={transferenciasFilterType}
               onChange={(e) => setTransferenciasFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -151,23 +162,24 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaTransferencias filters={transferenciasFilters} />
-        </div>
+
+        <GraficaTransferencias filters={transferenciasFilters} />
       </div>
 
       {/* Gráfica de Efectivo */}
+      
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Efectivo</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
               value={efectivoFilterType}
               onChange={(e) => setEfectivoFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -198,23 +210,23 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaEfectivo filters={efectivoFilters} />
-        </div>
+
+        <GraficaEfectivo filters={efectivoFilters} />
       </div>
 
       {/* Gráfica de Intercambios */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Intercambios</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
               value={intercambioFilterType}
               onChange={(e) => setIntercambioFilterType(e.target.value)}
             >
+              <option value="días">Días</option>
               <option value="semanas">Semanas</option>
               <option value="meses">Meses</option>
               <option value="años">Años</option>
@@ -245,11 +257,11 @@ export const Slider2 = () => {
                 ))}
               </select>
             )}
+            {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaIntercambio filters={intercambioFilters} />
-        </div>
+
+        <GraficaIntercambio filters={intercambioFilters} />
       </div>
     </div>
   );

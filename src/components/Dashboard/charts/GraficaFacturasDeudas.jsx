@@ -19,11 +19,16 @@ import {
 } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaFacturasDeudas.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de facturas
 const FacturasLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -34,6 +39,7 @@ const FacturasLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value}
     </text>
@@ -42,8 +48,12 @@ const FacturasLabel = (props) => {
 
 // Componente personalizado para etiquetas de deuda
 const DeudaLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -54,6 +64,7 @@ const DeudaLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -192,13 +203,13 @@ export const GraficaFacturasDeudas = ({ filters }) => {
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "#64748b" }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12}}
               axisLine={false}
               tickLine={false}
               interval={0}
-              angle={chartData.length > 4 ? -45 : 0}
-              textAnchor={chartData.length > 4 ? "end" : "middle"}
-              height={chartData.length > 4 ? 50 : 25}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
+              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
+              height={filters?.type === "semanas" ? 72 : chartData.length > 3 ? 60 : 30}
             />
             <YAxis
               yAxisId="facturas"
@@ -227,7 +238,7 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               name="Facturas Pendientes"
               maxBarSize={60}
             >
-              <LabelList content={<FacturasLabel />} />
+              <LabelList content={(props) => <FacturasLabel {...props} filters={filters} />} />
             </Bar>
             <Bar
               yAxisId="deuda"
@@ -237,7 +248,7 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               name="Total Deuda"
               maxBarSize={60}
             >
-              <LabelList content={<DeudaLabel />} />
+              <LabelList content={(props) => <DeudaLabel {...props} filters={filters} />} />
             </Bar>
           </ComposedChart>
         </ResponsiveContainer>

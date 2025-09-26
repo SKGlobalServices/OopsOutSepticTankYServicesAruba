@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Slidebar from "./Slidebar";
 import { GraficoSlider } from "./Dashboard/GraficoSlider";
 import "./Dashboard/Dashboard.css";
+import "./Dashboard/charts/Styles/MobileOptimizations.css";
 
 const Dashboard = () => {
   const [currentSlide, setCurrentSlide] = useState(0);

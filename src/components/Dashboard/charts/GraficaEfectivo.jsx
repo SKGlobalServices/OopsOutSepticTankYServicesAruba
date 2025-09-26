@@ -17,11 +17,16 @@ import {
 } from "../../../utils/chartDataUtils";
 import { formatFilterDate } from "../../../utils/dateUtils";
 import "./Styles/GraficaEfectivo.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de efectivo
 const EfectivoLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + 3}, ${y - 10})` : undefined;
 
   return (
     <text
@@ -32,6 +37,7 @@ const EfectivoLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -136,11 +142,11 @@ export const GraficaEfectivo = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 10 }}
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
-              height={chartData.length > 6 ? 60 : 30}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
+              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
+              height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
             />
             <YAxis
               tick={{ fontSize: 12 }}
@@ -154,7 +160,7 @@ export const GraficaEfectivo = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Efectivo"
             >
-              <LabelList content={<EfectivoLabel />} />
+              <LabelList content={(props) => <EfectivoLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

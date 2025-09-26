@@ -865,81 +865,8 @@ const Hojadefechas = () => {
     }
   };
 
-  // Solo agrega una nueva dirección al cambiar el servicio
-  const syncWithClients = (direccion, cubicos) => {
-    const exists = clients.some((c) => c.direccion === direccion);
-    if (!exists) {
-      addClient(direccion, cubicos);
-    }
-  };
-
-  const addClient = (direccion, cubicos) => {
-    const dbRefClientes = ref(database, "clientes");
-    const newClientRef = push(dbRefClientes);
-    set(newClientRef, { direccion, cubicos }).catch((error) => {
-      console.error("Error adding client: ", error);
-    });
-  };
-
-  // Función para cargar campos desde clientes (cubicos, valor, anombrede)
-  const loadClientFields = (direccion, registroId, fromData, fecha) => {
-    const cli = clients.find((c) => c.direccion === direccion);
-    const path = fromData
-      ? `data/${registroId}`
-      : `registrofechas/${fecha}/${registroId}`;
-    const dbRefItem = ref(database, path);
-
-    if (cli) {
-      // si existe el cliente, actualiza cubicos, valor y anombrede
-      const updateData = {
-        cubicos: cli.cubicos ?? 0,
-        valor: cli.valor ?? 0,
-        anombrede: cli.anombrede ?? "",
-      };
-
-      update(dbRefItem, updateData).catch(console.error);
-
-      // Actualizar estado local
-      const updater = (r) =>
-        r.id === registroId ? { ...r, ...updateData } : r;
-
-      if (fromData) {
-        setDataBranch((prev) => prev.map(updater));
-      } else {
-        setDataRegistroFechas((prev) =>
-          prev.map((g) =>
-            g.fecha === fecha
-              ? { ...g, registros: g.registros.map(updater) }
-              : g
-          )
-        );
-      }
-    } else {
-      // si no existe, limpia los campos
-      const updateData = { cubicos: "", valor: "", anombrede: "" };
-
-      update(dbRefItem, updateData).catch(console.error);
-
-      // Actualizar estado local
-      const updater = (r) =>
-        r.id === registroId ? { ...r, ...updateData } : r;
-
-      if (fromData) {
-        setDataBranch((prev) => prev.map(updater));
-      } else {
-        setDataRegistroFechas((prev) =>
-          prev.map((g) =>
-            g.fecha === fecha
-              ? { ...g, registros: g.registros.map(updater) }
-              : g
-          )
-        );
-      }
-    }
-  };
-
   // Función para actualizar campos (gestiona tanto los registros de "data" como de "registrofechas")
-  function handleFieldChange(fecha, registroId, field, value, origin) {
+  async function handleFieldChange(fecha, registroId, field, value, origin) {
     const safeValue = value ?? "";
     const fromData = origin === "data";
     const path = fromData
@@ -1013,58 +940,6 @@ const Hojadefechas = () => {
               : g
           )
         );
-      }
-      return;
-    }
-
-    // 5) Campos especiales: "realizadopor", "servicio" y "direccion"
-    if (
-      field === "realizadopor" ||
-      field === "servicio" ||
-      field === "direccion"
-    ) {
-      // actualiza en Firebase
-      update(dbRefItem, { [field]: safeValue }).catch(console.error);
-
-      // local update
-      const updater = (r) =>
-        r.id === registroId ? { ...r, [field]: safeValue } : r;
-
-      if (fromData) {
-        setDataBranch((prev) => prev.map(updater));
-        // sincronizar clientes si cambió servicio
-        if (field === "servicio") {
-          const current = dataBranch.find((r) => r.id === registroId);
-          if (current) {
-            syncWithClients(current.direccion, current.cubicos);
-            loadClientFields(current.direccion, registroId, true, fecha);
-          }
-        }
-        // cargar campos de clientes si cambió dirección
-        if (field === "direccion") {
-          loadClientFields(safeValue, registroId, true, fecha);
-        }
-      } else {
-        setDataRegistroFechas((prev) =>
-          prev.map((g) =>
-            g.fecha === fecha
-              ? { ...g, registros: g.registros.map(updater) }
-              : g
-          )
-        );
-        if (field === "servicio") {
-          const current = dataRegistroFechas
-            .find((g) => g.fecha === fecha)
-            ?.registros.find((r) => r.id === registroId);
-          if (current) {
-            syncWithClients(current.direccion, current.cubicos);
-            loadClientFields(current.direccion, registroId, false, fecha);
-          }
-        }
-        // cargar campos de clientes si cambió dirección
-        if (field === "direccion") {
-          loadClientFields(safeValue, registroId, false, fecha);
-        }
       }
       return;
     }
@@ -1506,7 +1381,184 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 8) Cualquier otro campo → sólo actualizamos ese campo
+    // 8) Campo especial: "anombrede" → propagar a otros registros con la misma dirección y upsert en 'clientes'
+    if (field === "anombrede") {
+      const newNombre = (safeValue || "").toString();
+      const direccion = registro?.direccion || "";
+
+      // Si el nuevo nombre está vacío o sólo espacios, no propagar ni crear/actualizar clientes
+      if (!newNombre.trim()) {
+        // Actualizar sólo el registro individual y limpiar localValues para ese id
+        update(dbRefItem, { anombrede: newNombre }).catch(console.error);
+        const updaterSolo = (r) =>
+          r.id === registroId ? { ...r, anombrede: newNombre } : r;
+        if (fromData) {
+          setDataBranch((prev) => prev.map(updaterSolo));
+        } else {
+          setDataRegistroFechas((prev) =>
+            prev.map((g) =>
+              g.fecha === fecha ? { ...g, registros: g.registros.map(updaterSolo) } : g
+            )
+          );
+        }
+        setLocalValues((prev) => {
+          const next = { ...prev };
+          delete next[`${registroId}_anombrede`];
+          return next;
+        });
+        return;
+      }
+
+      // 1) Actualizar/Insertar en 'clientes' según la dirección
+      if (direccion) {
+        try {
+          const clientesSnap = await new Promise((resolve) =>
+            onValue(ref(database, "clientes"), resolve, { onlyOnce: true })
+          );
+
+          let clienteId = null;
+          if (clientesSnap.exists()) {
+            const clientesVal = clientesSnap.val();
+            Object.entries(clientesVal).forEach(([cid, c]) => {
+              if ((c.direccion || "") === direccion) clienteId = cid;
+            });
+          }
+
+          if (clienteId) {
+            // Actualizar campo anombrede
+            await update(ref(database, `clientes/${clienteId}`), {
+              anombrede: newNombre,
+            }).catch(console.error);
+          } else {
+            // Crear nuevo cliente con datos mínimos (direccion + anombrede + posibles cubicos/valor)
+            const newClientRef = push(ref(database, "clientes"));
+            await set(newClientRef, {
+              direccion,
+              anombrede: newNombre,
+              cubicos: registro?.cubicos || "",
+              valor: registro?.valor || "",
+            }).catch(console.error);
+          }
+        } catch (err) {
+          console.error("Error actualizando/creando cliente:", err);
+        }
+
+        // 2) Buscar y propagar el nuevo 'anombrede' a todos los servicios que tengan la misma direccion
+        // Declarar variables en scope superior para poder reutilizarlas más abajo
+        let dataSnap;
+        let registroFechasSnap;
+        try {
+          [dataSnap, registroFechasSnap] = await Promise.all([
+            new Promise((resolve) =>
+              onValue(ref(database, "data"), resolve, { onlyOnce: true })
+            ),
+            new Promise((resolve) =>
+              onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true })
+            ),
+          ]);
+
+          const updatesPromises = [];
+
+          if (dataSnap.exists()) {
+            const dataVal = dataSnap.val();
+            Object.entries(dataVal).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion && id !== registroId) {
+                updatesPromises.push(
+                  update(ref(database, `data/${id}`), { anombrede: newNombre })
+                );
+              }
+            });
+          }
+
+          if (registroFechasSnap.exists()) {
+            const registroVal = registroFechasSnap.val();
+            Object.entries(registroVal).forEach(([fechaReg, regs]) => {
+              Object.entries(regs).forEach(([id, r]) => {
+                // evitar volver a escribir exactamente el mismo registro si ya es el que editamos
+                if ((r.direccion || "") === direccion) {
+                  if (!(fechaReg === fecha && id === registroId)) {
+                    updatesPromises.push(
+                      update(
+                        ref(database, `registrofechas/${fechaReg}/${id}`),
+                        { anombrede: newNombre }
+                      )
+                    );
+                  }
+                }
+              });
+            });
+          }
+
+          await Promise.all(updatesPromises);
+        } catch (err) {
+          console.error("Error propagando anombrede a servicios:", err);
+        }
+
+        // Limpiar localValues para forzar que los inputs muestren el valor actualizado
+        try {
+          // Recolectar ids afectados: del data y de registrofechas
+          const affectedIds = new Set();
+          if (dataSnap && dataSnap.exists()) {
+            Object.entries(dataSnap.val()).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion) affectedIds.add(id);
+            });
+          }
+          if (registroFechasSnap && registroFechasSnap.exists()) {
+            Object.entries(registroFechasSnap.val()).forEach(([fechaReg, regs]) => {
+              Object.entries(regs).forEach(([id, r]) => {
+                if ((r.direccion || "") === direccion) affectedIds.add(id);
+              });
+            });
+          }
+
+          // Convertir a array y borrar claves del estado local
+          const idsArray = Array.from(affectedIds);
+          setLocalValues((prev) => {
+            const next = { ...prev };
+            idsArray.forEach((id) => {
+              delete next[`${id}_anombrede`];
+            });
+            // también borrar el propio registro editado
+            delete next[`${registroId}_anombrede`];
+            return next;
+          });
+        } catch (err) {
+          // No fatal si falla limpiar localValues
+          console.error("Error limpiando localValues tras propagacion:", err);
+        }
+      }
+
+      // 3) Actualizar estado local para reflejar el cambio inmediato en UI
+      const updaterSelf = (r) => (r.id === registroId ? { ...r, anombrede: newNombre } : r);
+      if (fromData) {
+        setDataBranch((prev) => prev.map(updaterSelf));
+      } else {
+        setDataRegistroFechas((prev) =>
+          prev.map((g) =>
+            g.fecha === fecha ? { ...g, registros: g.registros.map(updaterSelf) } : g
+          )
+        );
+      }
+
+      // También actualizar en memoria todos los registros que coincidan por dirección
+      if (direccion) {
+        setDataBranch((prev) =>
+          prev.map((r) => ((r.direccion || "") === direccion ? { ...r, anombrede: newNombre } : r))
+        );
+        setDataRegistroFechas((prev) =>
+          prev.map((g) => ({
+            ...g,
+            registros: g.registros.map((r) =>
+              (r.direccion || "") === direccion ? { ...r, anombrede: newNombre } : r
+            ),
+          }))
+        );
+      }
+
+      return;
+    }
+
+    // 9) Cualquier otro campo → sólo actualizamos ese campo
     update(dbRefItem, { [field]: safeValue }).catch(console.error);
     const updater = (r) =>
       r.id === registroId ? { ...r, [field]: safeValue } : r;
@@ -2189,14 +2241,14 @@ const Hojadefechas = () => {
     numeroFactura,
     pagoStatus,
     pagoDate,
-    fechaEmision, // ✅ Agregar parámetro fechaEmision
+    fechaEmision, // Agregar parámetro fechaEmision
     fechaServicio,
     direccion,
     servicio,
     cubicos,
     facturaInfo,
   }) => {
-    // ✅ Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
+  // Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
     console.log(`Generando PDF con datos dinámicos del primer registro:
       - Fecha base: ${fechaServicio}
       - Dirección: ${direccion}
@@ -2409,10 +2461,10 @@ const Hojadefechas = () => {
       });
     }
 
-    // ✅ USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
+  // USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
     const base = selectedData[0];
 
-    // ✅ Determinar estado de pago basado en todos los servicios seleccionados
+  // Determinar estado de pago basado en todos los servicios seleccionados
     const todosPagados = selectedData.every(
       (servicio) => servicio.pago === "Pago"
     );
@@ -2633,7 +2685,7 @@ const Hojadefechas = () => {
                   qty: newDetails.qty,
                   rate: newDetails.rate,
                   amount: newDetails.qty * newDetails.rate,
-                  fechaServicioItem: newDetails.fechaServicioItem, // ✅ Agregar fecha de servicio
+                  fechaServicioItem: newDetails.fechaServicioItem, // Agregar fecha de servicio
                 };
                 window.addedItems[indexToEdit] = updatedItem;
                 renderSummary();
@@ -2713,7 +2765,7 @@ const Hojadefechas = () => {
                 0,
               fechaServicioItem: document.getElementById(
                 "custom-item-fecha-servicio"
-              ).value, // ✅ Agregar fecha de servicio
+              ).value, // Agregar fecha de servicio
             };
             if (details.qty > 0) {
               callback(details);
@@ -2737,7 +2789,7 @@ const Hojadefechas = () => {
                   qty: itemDetails.qty,
                   rate: itemDetails.rate,
                   amount: itemDetails.qty * itemDetails.rate,
-                  fechaServicioItem: itemDetails.fechaServicioItem, // ✅ Agregar fecha de servicio
+                  fechaServicioItem: itemDetails.fechaServicioItem, // Agregar fecha de servicio
                 });
                 renderSummary();
               });
@@ -2792,7 +2844,7 @@ const Hojadefechas = () => {
       }
 
       return [
-        fechaFormateada, // ✅ Usar fecha de servicio del item formateada
+  fechaFormateada, // Usar fecha de servicio del item formateada
         item.item,
         item.description,
         item.qty,
@@ -2813,7 +2865,7 @@ const Hojadefechas = () => {
         qty: item.qty,
         rate: item.rate,
         amount: item.amount,
-        fechaServicioItem: item.fechaServicioItem, // ✅ Agregar fecha de servicio por item
+  fechaServicioItem: item.fechaServicioItem, // Agregar fecha de servicio por item
       };
     });
 
@@ -2863,7 +2915,7 @@ const Hojadefechas = () => {
         invoiceIdFinal = `${yy}${mm}${seq}`;
       }
 
-      // ✅ CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
+  // CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
       // Calcular payments totales y fecha de pago basados en el estado de los servicios
       let paymentsTotales = 0;
       let fechaPago = null;
@@ -2887,22 +2939,22 @@ const Hojadefechas = () => {
       const facturaData = {
         numerodefactura: invoiceIdFinal,
         timestamp: Date.now(),
-        fechaEmision: res.fechaEmision, // ✅ Guardar la fecha de emisión seleccionada
+  fechaEmision: res.fechaEmision, // Guardar la fecha de emisión seleccionada
         billTo: billToValue,
         invoiceItems: invoiceItems,
         totalAmount: totalAmount,
-        payment: paymentsTotales, // ✅ Payment basado en estado de servicios
-        deuda: totalAmount - paymentsTotales, // ✅ Deuda = Total - Payments
+  payment: paymentsTotales, // Payment basado en estado de servicios
+  deuda: totalAmount - paymentsTotales, // Deuda = Total - Payments
         pago: pagoStatus,
-        fechapago: fechaPago, // ✅ Fecha de pago del primer servicio pagado
-        banco: base.banco || "", // ✅ Banco del primer servicio seleccionado
-        // ✅ Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
+  fechapago: fechaPago, // Fecha de pago del primer servicio pagado
+  banco: base.banco || "", // Banco del primer servicio seleccionado
+  // Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
       };
 
       // Guardar la factura en el nuevo nodo
       await set(ref(database, `facturas/${invoiceIdFinal}`), facturaData);
 
-      // ✅ ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
+  // ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
       await Promise.all(
         selectedData.map((r) => {
           const origin = dataBranch.some((x) => x.id === r.id)
@@ -2917,8 +2969,8 @@ const Hojadefechas = () => {
           const updateData = {
             factura: true,
             numerodefactura: invoiceIdFinal,
-            referenciaFactura: invoiceIdFinal, // ✅ Nueva referencia
-            pago: "Debe", // ✅ Establecer estado de pago en "Debe"
+            referenciaFactura: invoiceIdFinal, // Nueva referencia
+            pago: "Debe", // Establecer estado de pago en "Debe"
             timestamp: Date.now(),
           };
 
@@ -2934,9 +2986,9 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
-        pagoDate: fechaPago, // ✅ Usar la fecha de pago calculada
-        fechaEmision: res.fechaEmision, // ✅ Pasar la fecha de emisión al PDF
-        // ✅ Datos adicionales del primer registro para el PDF
+  pagoDate: fechaPago, // Usar la fecha de pago calculada
+  fechaEmision: res.fechaEmision, // Pasar la fecha de emisión al PDF
+  // Datos adicionales del primer registro para el PDF
         fechaServicio: base.fecha,
         direccion: base.direccion,
         servicio: base.servicio,
@@ -2951,7 +3003,7 @@ const Hojadefechas = () => {
   // Función para cancelar factura
   const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
     try {
-      // 1) ✅ BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
+  // 1) BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
       const serviciosRelacionados = [];
 
       // Buscar en dataBranch
@@ -2978,7 +3030,7 @@ const Hojadefechas = () => {
         });
       });
 
-      // 2) ✅ MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
+  // 2) MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
       const serviciosInfo = serviciosRelacionados
         .map(
           (servicio) =>
@@ -3017,12 +3069,12 @@ const Hojadefechas = () => {
 
       if (!isConfirmed) return;
 
-      // 3) ✅ ELIMINAR EL NODO FACTURA COMPLETO
+  // 3) ELIMINAR EL NODO FACTURA COMPLETO
       if (numeroFactura) {
         await set(ref(database, `facturas/${numeroFactura}`), null);
       }
 
-      // 4) ✅ LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
+  // 4) LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
       const updatePromises = serviciosRelacionados.map(async (servicio) => {
         const updateData = {
           factura: false,
@@ -3036,7 +3088,7 @@ const Hojadefechas = () => {
 
       await Promise.all(updatePromises);
 
-      // 5) ✅ AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
+  // 5) AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
       if (numeroFactura) {
         const numerosDisponiblesRef = ref(database, "facturasDisponibles");
         const newAvailableRef = push(numerosDisponiblesRef);
@@ -3046,7 +3098,7 @@ const Hojadefechas = () => {
         });
       }
 
-      // 6) ✅ ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
+  // 6) ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
       const updater = (r) => {
         if (r.numerodefactura === numeroFactura) {
           return {
@@ -3070,7 +3122,7 @@ const Hojadefechas = () => {
         }))
       );
 
-      // 7) ✅ MOSTRAR CONFIRMACIÓN
+  // 7) MOSTRAR CONFIRMACIÓN
       Swal.fire({
         icon: "success",
         title: "Factura Cancelada Exitosamente",
@@ -3095,7 +3147,7 @@ const Hojadefechas = () => {
   };
 
   const emitirFacturasSeleccionadas = async () => {
-    // ✅ Esta función ahora solo muestra confirmación ya que la emisión se hace arriba
+  // Esta función ahora solo muestra confirmación ya que la emisión se hace arriba
     Swal.fire({
       icon: "success",
       title: "Factura emitida correctamente",
@@ -3159,7 +3211,9 @@ const Hojadefechas = () => {
     if (fecha) {
       reg = flatFiltered.find((r) => r.id === registroId && r.fecha === fecha);
     } else {
-      reg = flatFiltered.find((r) => r.id === registroId && r.origin === "data");
+      reg = flatFiltered.find(
+        (r) => r.id === registroId && r.origin === "data"
+      );
     }
 
     if (!reg) {
@@ -4080,9 +4134,13 @@ const Hojadefechas = () => {
                           <option value="Debe">Debe</option>
                           <option value="Pago">Pago</option>
                           <option value="Pendiente">Pendiente</option>
+<<<<<<< HEAD
                           <option value="-">
                             -
                           </option>
+=======
+                          <option value="Pendiente Fin De Mes">-</option>
+>>>>>>> develop
                         </select>
                       </td>
 
@@ -4555,7 +4613,9 @@ const Hojadefechas = () => {
                 ? "Guardar cambios y cerrar"
                 : "Editar servicios extras"
             }
-            style={{ backgroundColor: showExtrasCol ? "#0ea300ff" : "#ff7300ff" }}
+            style={{
+              backgroundColor: showExtrasCol ? "#0ea300ff" : "#ff7300ff",
+            }}
           >
             {showExtrasCol ? "Guardar" : "Servicios Extras"}
           </button>

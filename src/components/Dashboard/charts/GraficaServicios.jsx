@@ -14,11 +14,16 @@ import { formatFilterDate } from "../../../utils/dateUtils";
 import { processServiciosData } from "../../../utils/chartDataUtils";
 import { useChartData } from "../../../utils/useChartData";
 import "./Styles/GraficaServicios.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de servicios
 const ServiciosLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + 3}, ${y - 10})` : undefined;
 
   return (
     <text
@@ -29,6 +34,7 @@ const ServiciosLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value}
     </text>
@@ -139,11 +145,11 @@ export const GraficaServicios = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }}
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
-              height={chartData.length > 6 ? 60 : 30}
+              angle={filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90 : 0}
+              textAnchor={filters?.type === "semanas" ? "end" : chartData.length > 3 ? "end" : "middle"}
+              height={filters?.type === "semanas" ? 70 : chartData.length > 3 ? 60 : 30}
             />
             <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
             <Tooltip content={<CustomTooltip />} />
@@ -153,7 +159,7 @@ export const GraficaServicios = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Servicios"
             >
-              <LabelList content={<ServiciosLabel />} />
+              <LabelList content={(props) => <ServiciosLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

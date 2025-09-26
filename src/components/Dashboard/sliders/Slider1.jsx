@@ -7,9 +7,12 @@ import {
   getMonths,
   getCurrentMonth,
   getCurrentYear,
+  getCurrentDay,
+  getDaysInMonth,
   getFilterOptions,
 } from "../../../utils/dateUtils";
 import { useChartData } from "../../../utils/useChartData";
+import { DebugChart } from "../charts/DebugChart";
 
 export const Slider1 = () => {
   // Obtener datos para generar años dinámicos
@@ -18,6 +21,7 @@ export const Slider1 = () => {
   const [filterType, setFilterType] = useState("meses");
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedYear, setSelectedYear] = useState(getCurrentYear());
+  // Eliminado selector de día: en modo "días" se muestran todos los días del mes
 
   const months = getMonths();
   // Usar años dinámicos si están disponibles, sino generar con datos disponibles
@@ -25,6 +29,8 @@ export const Slider1 = () => {
     availableYears.length > 0
       ? availableYears.slice().reverse() // Años más recientes primero
       : generateYears(data.registroFechas, data.data);
+
+  // En vista "días" se grafican todos los días del mes; no se requiere estado de día
 
   const filterOptions = getFilterOptions(filterType);
 
@@ -64,6 +70,7 @@ export const Slider1 = () => {
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
+            <option value="días">Por Días</option>
             <option value="semanas">Por Semanas</option>
             <option value="meses">Por Meses</option>
             <option value="años">Por Años</option>
@@ -104,6 +111,8 @@ export const Slider1 = () => {
           </div>
         )}
 
+        {/* En modo días no se muestra selector de día; se grafican todos los días */}
+
         <div className="filter-group">
           <span
             style={{ fontSize: "12px", color: "#64748b", fontStyle: "italic" }}
@@ -115,23 +124,11 @@ export const Slider1 = () => {
 
       {/* Gráficas */}
       <div className="charts-grid">
-        <div className="chart-item">
-          <div className="chart-container-large">
-            <GraficaIngresosTotales filters={filters} />
-          </div>
-        </div>
+          <GraficaIngresosTotales filters={filters} />
 
-        <div className="chart-item">
-          <div className="chart-container-large">
-            <GraficaTotalGastos filters={filters} />
-          </div>
-        </div>
+          <GraficaTotalGastos filters={filters} />
 
-        <div className="chart-item">
-          <div className="chart-container-large">
-            <GraficaGananciaPerdida filters={filters} />
-          </div>
-        </div>
+          <GraficaGananciaPerdida filters={filters} />
       </div>
     </div>
   );

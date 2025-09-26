@@ -194,6 +194,8 @@ export const isValidMonth = (month) => {
 export const formatFilterDate = (type, month, year) => {
   if (type === "semanas") {
     return `${getMonthName(month)} ${year}`;
+  } else if (type === "días") {
+    return `${getMonthName(month)} ${year}`;
   } else if (type === "meses") {
     return `Año ${year}`;
   } else if (type === "años") {
@@ -203,35 +205,104 @@ export const formatFilterDate = (type, month, year) => {
 };
 
 /**
+ * Genera un array de días para un mes y año específicos
+ * @param {number} month - Número del mes (1-12)
+ * @param {number} year - Año
+ * @returns {Array<{value: number, label: string}>} Array de objetos con valor y etiqueta de cada día
+ */
+export const getDaysInMonth = (month, year) => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    days.push({
+      value: day,
+      label: `Día ${day}`,
+    });
+  }
+
+  return days;
+};
+
+/**
+ * Obtiene el día actual
+ * @returns {number} Día actual del mes
+ */
+export const getCurrentDay = () => {
+  return new Date().getDate();
+};
+
+/**
+ * Valida si un día está en el rango válido para un mes específico
+ * @param {number} day - Día a validar
+ * @param {number} month - Mes (1-12)
+ * @param {number} year - Año
+ * @returns {boolean} True si el día es válido para el mes/año
+ */
+export const isValidDay = (day, month, year) => {
+  if (!isValidMonth(month) || !isValidYear(year)) return false;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return day >= 1 && day <= daysInMonth;
+};
+
+/**
  * Obtiene las opciones de filtro según el tipo seleccionado
- * @param {string} filterType - Tipo de filtro ("semanas", "meses", "años")
+ * @param {string} filterType - Tipo de filtro ("días", "semanas", "meses", "años")
  * @returns {Object} Configuración de filtros disponibles
  */
 export const getFilterOptions = (filterType) => {
   switch (filterType) {
+    case "días":
+      return {
+        needsMonth: true,
+        needsYear: true,
+        needsDay: false,
+        description: "Mostrar todos los días del mes seleccionado",
+      };
     case "semanas":
       return {
         needsMonth: true,
         needsYear: true,
+        needsDay: false,
         description: "Comparar semanas dentro del mes seleccionado",
       };
     case "meses":
       return {
         needsMonth: false,
         needsYear: true,
+        needsDay: false,
         description: "Comparar meses dentro del año seleccionado",
       };
     case "años":
       return {
         needsMonth: false,
         needsYear: false,
+        needsDay: false,
         description: "Comparar diferentes años",
       };
     default:
       return {
         needsMonth: false,
         needsYear: true,
+        needsDay: false,
         description: "Filtro por defecto",
       };
   }
+};
+
+/**
+ * Devuelve los rangos de semanas para un mes/año dados
+ * @param {number} month - Mes 1-12
+ * @param {number} year - Año
+ * @returns {Array<{label:string, range:string}>}
+ */
+export const getWeekRangesForMonth = (month, year) => {
+  if (!month || !year) return [];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return [
+    { label: "Semana 1", range: `1-${Math.min(7, daysInMonth)}` },
+    { label: "Semana 2", range: `8-${Math.min(14, daysInMonth)}` },
+    { label: "Semana 3", range: `15-${Math.min(21, daysInMonth)}` },
+    { label: "Semana 4", range: `22-${daysInMonth}` },
+  ];
 };

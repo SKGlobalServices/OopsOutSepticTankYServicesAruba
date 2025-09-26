@@ -15,13 +15,21 @@ import {
   formatCurrency,
   formatTooltip,
 } from "../../../utils/chartDataUtils";
-import { formatFilterDate } from "../../../utils/dateUtils";
+import {
+  formatFilterDate,
+  getWeekRangesForMonth,
+} from "../../../utils/dateUtils";
 import "./Styles/GraficaIntercambio.css";
+import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de intercambio
 const IntercambioLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -32,6 +40,7 @@ const IntercambioLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -40,14 +49,17 @@ const IntercambioLabel = (props) => {
 
 export const GraficaIntercambio = ({ filters }) => {
   const { loading, error, data } = useChartData();
-
+  console.log(data);
   const chartData = React.useMemo(() => {
     if (!data?.registroFechas || !data?.data || !filters) return [];
+    console.log(data.registroFechas, data.data, filters);
     return processIntercambiosData(data.registroFechas, data.data, filters);
   }, [data, filters]);
 
   const totalValor = chartData.reduce((sum, item) => sum + item.valor, 0);
   const totalCantidad = chartData.reduce((sum, item) => sum + item.cantidad, 0);
+
+  console.log(chartData);
 
   if (loading) {
     return (
@@ -60,6 +72,25 @@ export const GraficaIntercambio = ({ filters }) => {
         </div>
         <div className="intercambio-filter-indicator">
           {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+          {filters?.type === "semanas" && filters?.month && filters?.year ? (
+            <>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#475569",
+                }}
+              >
+                Semana
+              </div>
+              <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                {getWeekRangesForMonth(filters.month, filters.year)
+                  .map((w) => `${w.label} (${w.range})`)
+                  .join(" • ")}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     );
@@ -77,6 +108,25 @@ export const GraficaIntercambio = ({ filters }) => {
         </div>
         <div className="intercambio-filter-indicator">
           {formatFilterDate(filters?.type, filters?.month, filters?.year)}
+          {filters?.type === "semanas" && filters?.month && filters?.year ? (
+            <>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#475569",
+                }}
+              >
+                Semana
+              </div>
+              <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                {getWeekRangesForMonth(filters.month, filters.year)
+                  .map((w) => `${w.label} (${w.range})`)
+                  .join(" • ")}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     );
@@ -135,11 +185,27 @@ export const GraficaIntercambio = ({ filters }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={
+                filters?.type === "semanas" ? <WeekTick /> : { fontSize: 12 }
+              }
               interval={0}
-              angle={chartData.length > 6 ? -45 : 0}
-              textAnchor={chartData.length > 6 ? "end" : "middle"}
-              height={chartData.length > 6 ? 60 : 30}
+              angle={
+                filters?.type === "semanas" ? 0 : chartData.length > 3 ? -90: 0
+              }
+              textAnchor={
+                filters?.type === "semanas"
+                  ? "end"
+                  : chartData.length > 3
+                  ? "end"
+                  : "middle"
+              }
+              height={
+                filters?.type === "semanas"
+                  ? 70
+                  : chartData.length > 3
+                  ? 60
+                  : 30
+              }
             />
             <YAxis
               tick={{ fontSize: 12 }}
@@ -153,14 +219,10 @@ export const GraficaIntercambio = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Intercambios"
             >
-              <LabelList content={<IntercambioLabel />} />
+              <LabelList content={(props) => <IntercambioLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </div>
-
-      <div className="intercambio-filter-indicator">
-        {formatFilterDate(filters?.type, filters?.month, filters?.year)}
       </div>
     </div>
   );
