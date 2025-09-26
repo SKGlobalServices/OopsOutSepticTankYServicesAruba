@@ -4134,13 +4134,7 @@ const Hojadefechas = () => {
                           <option value="Debe">Debe</option>
                           <option value="Pago">Pago</option>
                           <option value="Pendiente">Pendiente</option>
-<<<<<<< HEAD
-                          <option value="-">
-                            -
-                          </option>
-=======
                           <option value="Pendiente Fin De Mes">-</option>
->>>>>>> develop
                         </select>
                       </td>
 
