@@ -156,8 +156,9 @@ const Calendariouser = () => {
           title: "Cambio en horarios detectado",
           html: "Se detectaron cambios en el calendario. Actualiza la página para ver los horarios más recientes.",
           confirmButtonText: "Actualizar ahora",
-          showCancelButton: true,
-          cancelButtonText: "Más tarde",
+          showCancelButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
         }).then((res) => {
           if (res.isConfirmed) {
             window.location.reload();
@@ -262,7 +263,7 @@ const Calendariouser = () => {
 
       <div className="homepage-title">
         <div className="homepage-card">
-          <h1 className="title-page">Mi Calendario</h1>
+          <h1 className="title-page">Calendario Laboral</h1>
           <div className="current-date">
             <div style={{ cursor: "default" }}>{new Date().toLocaleDateString()}</div>
             <Clock />
