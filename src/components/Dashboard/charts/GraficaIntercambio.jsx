@@ -24,8 +24,12 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de intercambio
 const IntercambioLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -36,6 +40,7 @@ const IntercambioLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -214,7 +219,7 @@ export const GraficaIntercambio = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Intercambios"
             >
-              <LabelList content={<IntercambioLabel />} />
+              <LabelList content={(props) => <IntercambioLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

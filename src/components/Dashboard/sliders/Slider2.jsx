@@ -110,7 +110,6 @@ export const Slider2 = () => {
       {/* Gráfica de Transferencias */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Transferencias</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -166,15 +165,14 @@ export const Slider2 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaTransferencias filters={transferenciasFilters} />
-        </div>
+
+        <GraficaTransferencias filters={transferenciasFilters} />
       </div>
 
       {/* Gráfica de Efectivo */}
+      
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Efectivo</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -215,15 +213,13 @@ export const Slider2 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaEfectivo filters={efectivoFilters} />
-        </div>
+
+        <GraficaEfectivo filters={efectivoFilters} />
       </div>
 
       {/* Gráfica de Intercambios */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Intercambios</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -264,9 +260,8 @@ export const Slider2 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaIntercambio filters={intercambioFilters} />
-        </div>
+
+        <GraficaIntercambio filters={intercambioFilters} />
       </div>
     </div>
   );

@@ -23,8 +23,12 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de facturas
 const FacturasLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -35,6 +39,7 @@ const FacturasLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value}
     </text>
@@ -43,8 +48,12 @@ const FacturasLabel = (props) => {
 
 // Componente personalizado para etiquetas de deuda
 const DeudaLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + width / 2}, ${y - 5})` : undefined;
 
   return (
     <text
@@ -55,6 +64,7 @@ const DeudaLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -228,7 +238,7 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               name="Facturas Pendientes"
               maxBarSize={60}
             >
-              <LabelList content={<FacturasLabel />} />
+              <LabelList content={(props) => <FacturasLabel {...props} filters={filters} />} />
             </Bar>
             <Bar
               yAxisId="deuda"
@@ -238,7 +248,7 @@ export const GraficaFacturasDeudas = ({ filters }) => {
               name="Total Deuda"
               maxBarSize={60}
             >
-              <LabelList content={<DeudaLabel />} />
+              <LabelList content={(props) => <DeudaLabel {...props} filters={filters} />} />
             </Bar>
           </ComposedChart>
         </ResponsiveContainer>

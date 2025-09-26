@@ -18,8 +18,12 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de servicios
 const ServiciosLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x + 3}, ${y - 10})` : undefined;
 
   return (
     <text
@@ -30,6 +34,7 @@ const ServiciosLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value}
     </text>
@@ -154,7 +159,7 @@ export const GraficaServicios = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Servicios"
             >
-              <LabelList content={<ServiciosLabel />} />
+              <LabelList content={(props) => <ServiciosLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

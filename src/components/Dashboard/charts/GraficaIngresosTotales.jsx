@@ -23,13 +23,17 @@ import { WeekTick } from "./WeekTick";
 
 // Variante que centra la etiqueta sobre la barra (usa props de LabelList: x, y, width, value)
 const IngresosTotalBarLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || x === undefined || y === undefined || !width)
     return null;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
   const fontSize = isMobile ? 11 : 10;
   const display = value > 1000 ? `${(value / 1000).toFixed(1)}k` : value;
+  
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x - 4}, ${y - 11})` : undefined;
 
   return (
     <text
@@ -43,6 +47,7 @@ const IngresosTotalBarLabel = (props) => {
       textAnchor="middle"
       fontSize={fontSize}
       fontWeight="700"
+      transform={transform}
     >
       {display}
     </text>
@@ -252,6 +257,27 @@ export const GraficaIngresosTotales = ({ filters }) => {
               }}
             />
             <Tooltip content={<CustomTooltip />} />
+            
+            {/* Área y línea de tendencia detrás de las barras para dar sensación de continuidad */}
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#totalGradient)"
+              isAnimationActive={true}
+              animationDuration={700}
+            />
+            <Line
+              type="monotone"
+              dataKey="total"
+              strokeWidth={2}
+              dot={{ r: isMobile ? 2 : 3 }}
+              activeDot={{ r: isMobile ? 4 : 6 }}
+              isAnimationActive={true}
+              animationDuration={700}
+            />
+
             {/* Barras apiladas por tipo de ingreso (mejor lectura de composición) */}
             {visible.transferencias && (
               <Bar
@@ -290,36 +316,15 @@ export const GraficaIngresosTotales = ({ filters }) => {
               />
             )}
 
-            {/* Barra invisible separada para mostrar las etiquetas del total */}
+            {/* Barra invisible separada para mostrar las etiquetas del total (debe ir al final para que las etiquetas queden encima) */}
             <Bar
               dataKey="total"
               fill="transparent"
               barSize={isMobile ? 10 : 16}
               isAnimationActive={false}
             >
-              <LabelList dataKey="total" content={IngresosTotalBarLabel} />
+              <LabelList dataKey="total" content={(props) => <IngresosTotalBarLabel {...props} filters={filters} />} />
             </Bar>
-
-
-            {/* Área y línea de tendencia sobre las barras para dar sensación de continuidad */}
-            <Area
-              type="monotone"
-              dataKey="total"
-              stroke="#10b981"
-              strokeWidth={2}
-              fill="url(#totalGradient)"
-              isAnimationActive={true}
-              animationDuration={700}
-            />
-            <Line
-              type="monotone"
-              dataKey="total"
-              strokeWidth={2}
-              dot={{ r: isMobile ? 2 : 3 }}
-              activeDot={{ r: isMobile ? 4 : 6 }}
-              isAnimationActive={true}
-              animationDuration={700}
-            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

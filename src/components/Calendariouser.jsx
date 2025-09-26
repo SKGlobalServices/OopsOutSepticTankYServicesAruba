@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ref, get, child } from "firebase/database";
+import Swal from "sweetalert2";
+import { ref, get, child, onValue } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
 import { decryptData } from "../utils/security";
 import Clock from "./Clock";
@@ -29,7 +30,6 @@ const Calendariouser = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
   const toggleSlidebar = () => setShowSlidebar((s) => !s);
 
-  // Usuario logueado
   const loggedUser = decryptData(localStorage.getItem("user"));
   const myUserId = loggedUser?.id;
   const myName = loggedUser?.name || loggedUser?.displayName || loggedUser?.nombre || "";
@@ -41,12 +41,11 @@ const Calendariouser = () => {
   const m0 = viewDate.getMonth();
   const matrix = useMemo(() => buildMonthMatrix(year, m0), [year, m0]);
 
-  // Filas del mes (solo lectura)
-  const [rows, setRows] = useState([]); // [{dd,start,end,off,note,isWeekend,dow,dateStr}]
-  const cacheRef = useRef(new Map());   // key = `${userId}:${ym}` -> rows[]
-  const tableWrapRef = useRef(null);    // contenedor scrolleable para animar
+  const [rows, setRows] = useState([]);
+  const cacheRef = useRef(new Map());
+  const tableWrapRef = useRef(null);
 
-  // Construye filas vacías al vuelo (sin "cargando")
+  // Construye filas vacías
   const emptyRowsForMatrix = useCallback(
     () =>
       matrix.map((d) => ({
@@ -62,7 +61,7 @@ const Calendariouser = () => {
     [matrix]
   );
 
-  // Cargar calendario del usuario (sin flashes)
+  // Cargar calendario del usuario
   const loadMonth = useCallback(async () => {
     if (!myUserId) {
       setRows(emptyRowsForMatrix());
@@ -109,6 +108,82 @@ const Calendariouser = () => {
   useEffect(() => {
     loadMonth();
   }, [loadMonth]);
+
+  // Detectar cambios remotos: ignorar snapshot inicial; si hay cambio real,
+  // iniciar alerta diferida de 30s. No reprogramar si ya hay timer pendiente.
+  const alertTimerRef = useRef(null);
+  const alertPendingRef = useRef(false);
+  const seenInitialSnapshotRef = useRef(false);
+  const lastSnapshotValRef = useRef(null);
+
+  useEffect(() => {
+    if (!myUserId) return;
+
+    const path = `calendario/${myUserId}/${ym}`;
+    const dbRef = ref(database, path);
+
+    const onChange = (snapshot) => {
+      const val = snapshot.exists() ? snapshot.val() : null;
+
+      // Ignorar la primera invocación que devuelve el snapshot inicial
+      if (!seenInitialSnapshotRef.current) {
+        seenInitialSnapshotRef.current = true;
+        lastSnapshotValRef.current = val;
+        return;
+      }
+
+      // Si no cambió realmente el contenido, no hacer nada
+      try {
+        const prev = lastSnapshotValRef.current;
+        const same = JSON.stringify(prev) === JSON.stringify(val);
+        if (same) return;
+      } catch (e) {
+        // Si falla la comparación por tamaño, asumimos cambio y seguimos
+      }
+
+      // Guardar nuevo snapshot como referencia
+      lastSnapshotValRef.current = val;
+
+      // Si ya hay un timer pendiente, no volver a programar
+      if (alertPendingRef.current) return;
+
+      alertPendingRef.current = true;
+
+      // Programar la alerta para dentro de 30 segundos
+      alertTimerRef.current = setTimeout(() => {
+        Swal.fire({
+          icon: "info",
+          title: "Cambio en horarios detectado",
+          html: "Se detectaron cambios en el calendario. Actualiza la página para ver los horarios más recientes.",
+          confirmButtonText: "Actualizar ahora",
+          showCancelButton: true,
+          cancelButtonText: "Más tarde",
+        }).then((res) => {
+          if (res.isConfirmed) {
+            window.location.reload();
+          }
+        });
+
+        alertPendingRef.current = false;
+        alertTimerRef.current = null;
+      }, 30000);
+    };
+
+    const unsubscribe = onValue(dbRef, onChange);
+
+    return () => {
+      try {
+        if (typeof unsubscribe === "function") unsubscribe();
+      } catch (e) {}
+      if (alertTimerRef.current) {
+        clearTimeout(alertTimerRef.current);
+        alertTimerRef.current = null;
+      }
+      alertPendingRef.current = false;
+      seenInitialSnapshotRef.current = false;
+      lastSnapshotValRef.current = null;
+    };
+  }, [myUserId, ym]);
 
   // Navegación de mes
   const prevMonth = () =>

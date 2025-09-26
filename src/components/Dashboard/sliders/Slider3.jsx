@@ -96,7 +96,6 @@ export const Slider3 = () => {
       {/* Gráfica de Servicios */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Servicios</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -137,15 +136,13 @@ export const Slider3 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaServicios filters={serviciosFilters} />
-        </div>
+
+        <GraficaServicios filters={serviciosFilters} />
       </div>
 
       {/* Gráfica de Facturas y Deudas */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Facturas y Deudas</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -186,15 +183,13 @@ export const Slider3 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaFacturasDeudas filters={facturasFilters} />
-        </div>
+
+        <GraficaFacturasDeudas filters={facturasFilters} />
       </div>
 
       {/* Gráfica de Garantías */}
       <div className="chart-item">
         <div className="chart-item-header">
-          <h3>Garantías</h3>
           <div className="chart-filters">
             <select
               className="small-filter"
@@ -235,9 +230,8 @@ export const Slider3 = () => {
             {/* Sin selector de día */}
           </div>
         </div>
-        <div className="chart-container-large">
-          <GraficaGarantias filters={garantiasFilters} />
-        </div>
+
+        <GraficaGarantias filters={garantiasFilters} />
       </div>
     </div>
   );

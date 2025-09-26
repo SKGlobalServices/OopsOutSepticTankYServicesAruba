@@ -124,17 +124,11 @@ export const Slider1 = () => {
 
       {/* Gráficas */}
       <div className="charts-grid">
-        <div className="chart-container-large">
           <GraficaIngresosTotales filters={filters} />
-        </div>
 
-        <div className="chart-container-large">
           <GraficaTotalGastos filters={filters} />
-        </div>
 
-        <div className="chart-container-large">
           <GraficaGananciaPerdida filters={filters} />
-        </div>
       </div>
     </div>
   );

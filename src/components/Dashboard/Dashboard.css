@@ -28,6 +28,11 @@
     Roboto, sans-serif;
 }
 
+.recharts-surface{
+  background: #f8f8f8;
+  border-radius: 5%;
+}
+
 /* Header del Dashboard */
 .dashboard-header {
   display: flex;

@@ -22,8 +22,12 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de transferencias
 const TransferenciasLabel = (props) => {
-  const { x, y, width, value } = props;
+  const { x, y, width, value, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
+
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x - 1}, ${y - 13})` : undefined;
 
   return (
     <text
@@ -34,6 +38,7 @@ const TransferenciasLabel = (props) => {
       textAnchor="middle"
       fontSize="10"
       fontWeight="600"
+      transform={transform}
     >
       {value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
     </text>
@@ -180,7 +185,7 @@ export const GraficaTransferencias = ({ filters }) => {
               radius={[4, 4, 0, 0]}
               name="Transferencias"
             >
-              <LabelList content={<TransferenciasLabel />} />
+              <LabelList content={(props) => <TransferenciasLabel {...props} filters={filters} />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

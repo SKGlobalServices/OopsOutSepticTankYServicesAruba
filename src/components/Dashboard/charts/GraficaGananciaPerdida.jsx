@@ -23,7 +23,7 @@ import { WeekTick } from "./WeekTick";
 
 // Componente personalizado para etiquetas de ingresos
 const IngresosLabel = (props) => {
-  const { x, y, width, value, index } = props;
+  const { x, y, width, value, index, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
 
   // Detectar si es móvil basado en el ancho de la ventana
@@ -37,6 +37,10 @@ const IngresosLabel = (props) => {
   // En móviles pequeños, mostrar solo cada segundo label para evitar saturación
   if (isSmallMobile && index !== undefined && index % 2 !== 0) return null;
 
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x - 4}, ${y - 15})` : undefined;
+
   return (
     <text
       className="chart-bar-label"
@@ -46,6 +50,7 @@ const IngresosLabel = (props) => {
       textAnchor="middle"
       fontSize={fontSize}
       fontWeight="700"
+      transform={transform}
       style={{
         textShadow: isMobile
           ? "2px 2px 4px rgba(255, 255, 255, 0.9)"
@@ -60,7 +65,7 @@ const IngresosLabel = (props) => {
 
 // Componente personalizado para etiquetas de gastos
 const GastosLabel = (props) => {
-  const { x, y, width, value, index } = props;
+  const { x, y, width, value, index, filters } = props;
   if (!value || value === 0 || !x || !y || !width) return null;
 
   // Detectar si es móvil basado en el ancho de la ventana
@@ -74,6 +79,10 @@ const GastosLabel = (props) => {
   // En móviles pequeños, mostrar solo cada segundo label para evitar saturación
   if (isSmallMobile && index !== undefined && index % 2 !== 0) return null;
 
+  // Rotar texto a vertical cuando se filtra por días
+  const isVertical = filters?.type === "días";
+  const transform = isVertical ? `rotate(-90, ${x - 1}, ${y - 10})` : undefined;
+
   return (
     <text
       x={x + width / 2}
@@ -82,6 +91,7 @@ const GastosLabel = (props) => {
       textAnchor="middle"
       fontSize={fontSize}
       fontWeight="700"
+      transform={transform}
       style={{
         textShadow: isMobile
           ? "2px 2px 4px rgba(255, 255, 255, 0.9)"
@@ -325,24 +335,8 @@ export const GraficaGananciaPerdida = ({ filters }) => {
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="rect" />
-            <Bar
-              dataKey="ingresos"
-              fill="#10b981"
-              name="Ingresos"
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-            >
-              <LabelList content={<IngresosLabel />} />
-            </Bar>
-            <Bar
-              dataKey="gastos"
-              fill="#ef4444"
-              name="Gastos"
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-            >
-              <LabelList content={<GastosLabel />} />
-            </Bar>
+            
+            {/* Línea de ganancia detrás de las barras para que quede detrás de los valores */}
             <Line
               type="monotone"
               dataKey="ganancia"
@@ -352,8 +346,27 @@ export const GraficaGananciaPerdida = ({ filters }) => {
               dot={{ fill: "#6366f1", strokeWidth: 2, r: 5 }}
               activeDot={{ r: 7, stroke: "#6366f1", strokeWidth: 2 }}
             >
-              <LabelList content={<GananciaLabel />} />
+              <LabelList content={(props) => <GananciaLabel {...props} filters={filters} />} />
             </Line>
+            
+            <Bar
+              dataKey="ingresos"
+              fill="#10b981"
+              name="Ingresos"
+              radius={[4, 4, 0, 0]}
+              opacity={0.8}
+            >
+              <LabelList content={(props) => <IngresosLabel {...props} filters={filters} />} />
+            </Bar>
+            <Bar
+              dataKey="gastos"
+              fill="#ef4444"
+              name="Gastos"
+              radius={[4, 4, 0, 0]}
+              opacity={0.8}
+            >
+              <LabelList content={(props) => <GastosLabel {...props} filters={filters} />} />
+            </Bar>
           </ComposedChart>
         </ResponsiveContainer>
       </div>
