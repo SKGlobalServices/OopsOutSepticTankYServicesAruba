@@ -1397,7 +1397,9 @@ const Hojadefechas = () => {
         } else {
           setDataRegistroFechas((prev) =>
             prev.map((g) =>
-              g.fecha === fecha ? { ...g, registros: g.registros.map(updaterSolo) } : g
+              g.fecha === fecha
+                ? { ...g, registros: g.registros.map(updaterSolo) }
+                : g
             )
           );
         }
@@ -1453,7 +1455,9 @@ const Hojadefechas = () => {
               onValue(ref(database, "data"), resolve, { onlyOnce: true })
             ),
             new Promise((resolve) =>
-              onValue(ref(database, "registrofechas"), resolve, { onlyOnce: true })
+              onValue(ref(database, "registrofechas"), resolve, {
+                onlyOnce: true,
+              })
             ),
           ]);
 
@@ -1504,11 +1508,13 @@ const Hojadefechas = () => {
             });
           }
           if (registroFechasSnap && registroFechasSnap.exists()) {
-            Object.entries(registroFechasSnap.val()).forEach(([fechaReg, regs]) => {
-              Object.entries(regs).forEach(([id, r]) => {
-                if ((r.direccion || "") === direccion) affectedIds.add(id);
-              });
-            });
+            Object.entries(registroFechasSnap.val()).forEach(
+              ([fechaReg, regs]) => {
+                Object.entries(regs).forEach(([id, r]) => {
+                  if ((r.direccion || "") === direccion) affectedIds.add(id);
+                });
+              }
+            );
           }
 
           // Convertir a array y borrar claves del estado local
@@ -1529,13 +1535,16 @@ const Hojadefechas = () => {
       }
 
       // 3) Actualizar estado local para reflejar el cambio inmediato en UI
-      const updaterSelf = (r) => (r.id === registroId ? { ...r, anombrede: newNombre } : r);
+      const updaterSelf = (r) =>
+        r.id === registroId ? { ...r, anombrede: newNombre } : r;
       if (fromData) {
         setDataBranch((prev) => prev.map(updaterSelf));
       } else {
         setDataRegistroFechas((prev) =>
           prev.map((g) =>
-            g.fecha === fecha ? { ...g, registros: g.registros.map(updaterSelf) } : g
+            g.fecha === fecha
+              ? { ...g, registros: g.registros.map(updaterSelf) }
+              : g
           )
         );
       }
@@ -1543,13 +1552,19 @@ const Hojadefechas = () => {
       // También actualizar en memoria todos los registros que coincidan por dirección
       if (direccion) {
         setDataBranch((prev) =>
-          prev.map((r) => ((r.direccion || "") === direccion ? { ...r, anombrede: newNombre } : r))
+          prev.map((r) =>
+            (r.direccion || "") === direccion
+              ? { ...r, anombrede: newNombre }
+              : r
+          )
         );
         setDataRegistroFechas((prev) =>
           prev.map((g) => ({
             ...g,
             registros: g.registros.map((r) =>
-              (r.direccion || "") === direccion ? { ...r, anombrede: newNombre } : r
+              (r.direccion || "") === direccion
+                ? { ...r, anombrede: newNombre }
+                : r
             ),
           }))
         );
@@ -2248,7 +2263,7 @@ const Hojadefechas = () => {
     cubicos,
     facturaInfo,
   }) => {
-  // Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
+    // Usar siempre los datos del primer registro para el PDF (no se guardan en factura)
     console.log(`Generando PDF con datos dinámicos del primer registro:
       - Fecha base: ${fechaServicio}
       - Dirección: ${direccion}
@@ -2461,10 +2476,10 @@ const Hojadefechas = () => {
       });
     }
 
-  // USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
+    // USAR SOLO EL PRIMER REGISTRO para datos base (dirección, servicio, etc.)
     const base = selectedData[0];
 
-  // Determinar estado de pago basado en todos los servicios seleccionados
+    // Determinar estado de pago basado en todos los servicios seleccionados
     const todosPagados = selectedData.every(
       (servicio) => servicio.pago === "Pago"
     );
@@ -2844,7 +2859,7 @@ const Hojadefechas = () => {
       }
 
       return [
-  fechaFormateada, // Usar fecha de servicio del item formateada
+        fechaFormateada, // Usar fecha de servicio del item formateada
         item.item,
         item.description,
         item.qty,
@@ -2865,7 +2880,7 @@ const Hojadefechas = () => {
         qty: item.qty,
         rate: item.rate,
         amount: item.amount,
-  fechaServicioItem: item.fechaServicioItem, // Agregar fecha de servicio por item
+        fechaServicioItem: item.fechaServicioItem, // Agregar fecha de servicio por item
       };
     });
 
@@ -2915,7 +2930,7 @@ const Hojadefechas = () => {
         invoiceIdFinal = `${yy}${mm}${seq}`;
       }
 
-  // CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
+      // CREAR EL NUEVO NODO FACTURA (sin datos específicos del servicio)
       // Calcular payments totales y fecha de pago basados en el estado de los servicios
       let paymentsTotales = 0;
       let fechaPago = null;
@@ -2939,22 +2954,22 @@ const Hojadefechas = () => {
       const facturaData = {
         numerodefactura: invoiceIdFinal,
         timestamp: Date.now(),
-  fechaEmision: res.fechaEmision, // Guardar la fecha de emisión seleccionada
+        fechaEmision: res.fechaEmision, // Guardar la fecha de emisión seleccionada
         billTo: billToValue,
         invoiceItems: invoiceItems,
         totalAmount: totalAmount,
-  payment: paymentsTotales, // Payment basado en estado de servicios
-  deuda: totalAmount - paymentsTotales, // Deuda = Total - Payments
+        payment: paymentsTotales, // Payment basado en estado de servicios
+        deuda: totalAmount - paymentsTotales, // Deuda = Total - Payments
         pago: pagoStatus,
-  fechapago: fechaPago, // Fecha de pago del primer servicio pagado
-  banco: base.banco || "", // Banco del primer servicio seleccionado
-  // Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
+        fechapago: fechaPago, // Fecha de pago del primer servicio pagado
+        banco: base.banco || "", // Banco del primer servicio seleccionado
+        // Los datos del servicio (dirección, servicio, cúbicos) se obtienen del primer registro seleccionado
       };
 
       // Guardar la factura en el nuevo nodo
       await set(ref(database, `facturas/${invoiceIdFinal}`), facturaData);
 
-  // ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
+      // ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
       await Promise.all(
         selectedData.map((r) => {
           const origin = dataBranch.some((x) => x.id === r.id)
@@ -2986,9 +3001,9 @@ const Hojadefechas = () => {
         billToValue,
         numeroFactura: invoiceIdFinal,
         pagoStatus: pagoStatus,
-  pagoDate: fechaPago, // Usar la fecha de pago calculada
-  fechaEmision: res.fechaEmision, // Pasar la fecha de emisión al PDF
-  // Datos adicionales del primer registro para el PDF
+        pagoDate: fechaPago, // Usar la fecha de pago calculada
+        fechaEmision: res.fechaEmision, // Pasar la fecha de emisión al PDF
+        // Datos adicionales del primer registro para el PDF
         fechaServicio: base.fecha,
         direccion: base.direccion,
         servicio: base.servicio,
@@ -3003,7 +3018,7 @@ const Hojadefechas = () => {
   // Función para cancelar factura
   const cancelInvoice = async (fecha, registroId, numeroFactura, origin) => {
     try {
-  // 1) BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
+      // 1) BUSCAR TODOS LOS SERVICIOS RELACIONADOS CON LA FACTURA
       const serviciosRelacionados = [];
 
       // Buscar en dataBranch
@@ -3030,7 +3045,7 @@ const Hojadefechas = () => {
         });
       });
 
-  // 2) MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
+      // 2) MOSTRAR INFORMACIÓN DETALLADA ANTES DE CANCELAR
       const serviciosInfo = serviciosRelacionados
         .map(
           (servicio) =>
@@ -3069,12 +3084,12 @@ const Hojadefechas = () => {
 
       if (!isConfirmed) return;
 
-  // 3) ELIMINAR EL NODO FACTURA COMPLETO
+      // 3) ELIMINAR EL NODO FACTURA COMPLETO
       if (numeroFactura) {
         await set(ref(database, `facturas/${numeroFactura}`), null);
       }
 
-  // 4) LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
+      // 4) LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
       const updatePromises = serviciosRelacionados.map(async (servicio) => {
         const updateData = {
           factura: false,
@@ -3088,7 +3103,7 @@ const Hojadefechas = () => {
 
       await Promise.all(updatePromises);
 
-  // 5) AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
+      // 5) AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
       if (numeroFactura) {
         const numerosDisponiblesRef = ref(database, "facturasDisponibles");
         const newAvailableRef = push(numerosDisponiblesRef);
@@ -3098,7 +3113,7 @@ const Hojadefechas = () => {
         });
       }
 
-  // 6) ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
+      // 6) ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
       const updater = (r) => {
         if (r.numerodefactura === numeroFactura) {
           return {
@@ -3122,7 +3137,7 @@ const Hojadefechas = () => {
         }))
       );
 
-  // 7) MOSTRAR CONFIRMACIÓN
+      // 7) MOSTRAR CONFIRMACIÓN
       Swal.fire({
         icon: "success",
         title: "Factura Cancelada Exitosamente",
@@ -3147,7 +3162,7 @@ const Hojadefechas = () => {
   };
 
   const emitirFacturasSeleccionadas = async () => {
-  // Esta función ahora solo muestra confirmación ya que la emisión se hace arriba
+    // Esta función ahora solo muestra confirmación ya que la emisión se hace arriba
     Swal.fire({
       icon: "success",
       title: "Factura emitida correctamente",

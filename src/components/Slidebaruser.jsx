@@ -186,7 +186,7 @@ const Slidebaruser = () => {
                 className="icon-agendar2"
                 src={agendarIcon2}
               />
-              <span>ㅤﾠCalendario</span>
+              <span>ﾠHorario Laboral</span>
             </button>
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
