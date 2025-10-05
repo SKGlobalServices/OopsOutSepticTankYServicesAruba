@@ -16,7 +16,6 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
-import { ToggleButtonGroup } from "react-bootstrap";
 
 const Agendadinamicacontador = () => {
   const navigate = useNavigate();

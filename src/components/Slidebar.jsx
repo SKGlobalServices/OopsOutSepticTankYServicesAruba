@@ -223,6 +223,14 @@ const Slidebar = () => {
 
         {/* ===== MENÚ PRINCIPAL ===== */}
         {/* MÓDULO: AGENDA EXPRESS */}
+        <button className="btn-infEfec2" onClick={() => navigate("/test")}>
+          <img
+            className="icon-infEfec2"
+            src={informeEfectivoIcon2}
+            alt="Test"
+          />
+          <span>TEST</span>
+        </button>
         <button className="btn-infEfec2" onClick={() => navigate("/dashboard")}>
           <img
             className="icon-infEfec2"

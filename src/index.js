@@ -32,6 +32,9 @@ import Deducciones from "./components/Deducciones.jsx";
 import Calendarioadmin from "./components/Calendarioadmin.jsx";
 import Calendariouser from "./components/Calendariouser.jsx";
 import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx";
+import Informedetransferenciascontador from "./components/Informedetransferenciascontador.jsx";
+import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx";
+import Test from "./components/Test.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -68,6 +71,9 @@ root.render(
       <Route path="/calendarioadmin" element={<PageWrapper><Calendarioadmin /></PageWrapper>} />
       <Route path="/calendariouser" element={<PageWrapper><Calendariouser /></PageWrapper>} />
       <Route path="/informedeserviciosextras" element={<PageWrapper><Informedeserviciosextras /></PageWrapper>} />
+      <Route path="/informedetransferenciascontador" element={<PageWrapper><Informedetransferenciascontador /></PageWrapper>} />
+      <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
+      <Route path="/test" element={<PageWrapper><Test /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

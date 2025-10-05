@@ -15,13 +15,13 @@ import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import autoTable from "jspdf-autotable";
-import Slidebar from "./Slidebar";
+import Slidebarcontador from "./Slidebarcontador";
 import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
-import FacturaViewEdit from "./FacturaViewEdit";
+import FacturaViewContador from "./FacturaViewContador";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -43,7 +43,7 @@ const ITEM_RATES = {
   Pool: 0.0,
 };
 
-const Facturasemitidas = () => {
+const Facturasemitidascontador = () => {
   const [directions, setDirections] = useState([]);
   const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2662,7 +2662,7 @@ const Facturasemitidas = () => {
 
   return (
     <div className="homepage-container">
-      <Slidebar />
+      <Slidebarcontador />
       {/* Filtros */}
       <div className="filter-button-wrapper">
         <img
@@ -2890,9 +2890,6 @@ const Facturasemitidas = () => {
                 <th>Total Amount</th>
                 <th>Payment</th>
                 <th>Deuda</th>
-                <th>Ver/Editar</th>
-                <th>Payment Rápido</th>
-                <th>Cancelar</th>
               </tr>
             </thead>
             <tbody>
@@ -2916,9 +2913,8 @@ const Facturasemitidas = () => {
                         />
                       </td>
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                        <input
-                          type="date"
-                          value={(() => {
+                        <span>
+                          {(() => {
                             // 1. Buscar primero en la factura
                             if (
                               r.numerodefactura &&
@@ -2926,72 +2922,32 @@ const Facturasemitidas = () => {
                             ) {
                               const factura = facturasData[r.numerodefactura];
                               if (factura.fechaEmision) {
-                                // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+                                // Si la fecha está en formato DD/MM/YYYY, mostrar como está
                                 if (factura.fechaEmision.includes("/")) {
-                                  const [day, month, year] =
-                                    factura.fechaEmision.split("/");
-                                  return `${year}-${month}-${day}`;
+                                  return factura.fechaEmision;
                                 }
-                                // Si ya está en formato YYYY-MM-DD, usar directamente
-                                return factura.fechaEmision;
+                                // Si está en formato YYYY-MM-DD, convertir a DD/MM/YYYY
+                                const [year, month, day] = factura.fechaEmision.split("-");
+                                return `${day}/${month}/${year}`;
                               }
                             }
 
                             // 2. Si no está en la factura, buscar en el servicio
                             if (r.fechaEmision) {
-                              // Si la fecha está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+                              // Si la fecha está en formato DD/MM/YYYY, mostrar como está
                               if (r.fechaEmision.includes("/")) {
-                                const [day, month, year] =
-                                  r.fechaEmision.split("/");
-                                return `${year}-${month}-${day}`;
+                                return r.fechaEmision;
                               }
-                              // Si ya está en formato YYYY-MM-DD, usar directamente
-                              return r.fechaEmision;
+                              // Si está en formato YYYY-MM-DD, convertir a DD/MM/YYYY
+                              const [year, month, day] = r.fechaEmision.split("-");
+                              return `${day}/${month}/${year}`;
                             }
 
                             // 3. Si no hay fecha de emisión específica, usar el timestamp
                             const timestamp = new Date(r.timestamp);
-                            return timestamp.toISOString().split("T")[0];
+                            return timestamp.toLocaleDateString("es-ES");
                           })()}
-                          onChange={(e) => {
-                            // Convertir de YYYY-MM-DD a DD/MM/YYYY para Firebase
-                            const [year, month, day] =
-                              e.target.value.split("-");
-                            const fechaFormateada = `${day}/${month}/${year}`;
-
-                            // Prioridad: 1. Factura, 2. Servicio
-                            if (
-                              r.numerodefactura &&
-                              facturasData[r.numerodefactura]
-                            ) {
-                              // Si tiene factura, guardar en la factura
-                              const facturaRef = ref(
-                                database,
-                                `facturas/${r.numerodefactura}`
-                              );
-                              update(facturaRef, {
-                                fechaEmision: fechaFormateada,
-                              }).catch(console.error);
-                            } else {
-                              // Si no tiene factura, guardar en el servicio
-                              handleFieldChange(
-                                fecha,
-                                r.id,
-                                "fechaEmision",
-                                fechaFormateada,
-                                r.origin
-                              );
-                            }
-                          }}
-                          className={`fecha-emision-input ${
-                            r.numerodefactura ? "factura" : ""
-                          }`}
-                          title={
-                            r.numerodefactura
-                              ? "Editar fecha de emisión de la factura"
-                              : "Fecha de emisión (timestamp)"
-                          }
-                        />
+                        </span>
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <button
@@ -3003,150 +2959,53 @@ const Facturasemitidas = () => {
                         </button>
                       </td>
                       <td>
-                        <input
-                          type="text"
-                          style={{ width: "16ch" }}
-                          value={
-                            localValues[`${r.id}_anombrede`] ??
-                            r.anombrede ??
-                            ""
-                          }
-                          onChange={(e) =>
-                            setLocalValues((prev) => ({
-                              ...prev,
-                              [`${r.id}_anombrede`]: e.target.value,
-                            }))
-                          }
-                          onFocus={() => handleRowEdit(r.id)}
-                          onBlur={(e) => {
-                            handleRowEditEnd();
-                            if (e.target.value !== (r.anombrede || "")) {
-                              handleFieldChange(
-                                fecha,
-                                r.id,
-                                "anombrede",
-                                e.target.value,
-                                r.origin
-                              );
-                            }
-                          }}
-                        />
+                        <span style={{ padding: "5px", display: "block" }}>
+                          {r.anombrede || ""}
+                        </span>
                       </td>
                       <td>
-                        <input
-                          type="text"
-                          style={{ width: "20ch" }}
-                          value={
-                            localValues[`${r.id}_personalizado`] ??
-                            r.personalizado ??
-                            ""
-                          }
-                          onChange={(e) =>
-                            setLocalValues((prev) => ({
-                              ...prev,
-                              [`${r.id}_personalizado`]: e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            if (e.target.value !== (r.personalizado || "")) {
-                              handleFieldChange(
-                                fecha,
-                                r.id,
-                                "personalizado",
-                                e.target.value,
-                                r.origin
-                              );
-                            }
-                          }}
-                        />
+                        <span style={{ padding: "5px", display: "block" }}>
+                          {r.personalizado || ""}
+                        </span>
                       </td>
                       <td className="direccion-fixed-td">
-                        <div className="custom-select-container">
-                          <input
-                            className="direccion-fixed-input"
-                            style={{ width: "18ch" }}
-                            type="text"
-                            list={`dirs-${r.id}`}
-                            value={
-                              localValues[`${r.id}_direccion`] ??
-                              r.direccion ??
-                              ""
-                            }
-                            onChange={(e) =>
-                              setLocalValues((prev) => ({
-                                ...prev,
-                                [`${r.id}_direccion`]: e.target.value,
-                              }))
-                            }
-                            onFocus={() => handleRowEdit(r.id)}
-                            onBlur={(e) => {
-                              handleRowEditEnd();
-                              if (e.target.value !== (r.direccion || "")) {
-                                handleFieldChange(
-                                  fecha,
-                                  r.id,
-                                  "direccion",
-                                  e.target.value,
-                                  r.origin
-                                );
-                              }
-                            }}
-                          />
-                        </div>
+                        <span style={{ padding: "5px", display: "block" }}>
+                          {r.direccion || ""}
+                        </span>
                       </td>
                       <td style={{ textAlign: "center", width: "6ch" }}>
                         {calculateDaysDelay(r.timestamp, r.pago)}
                       </td>
                       <td>
-                        <input
-                          type="date"
-                          value={
-                            r.numerodefactura
+                        <span style={{ padding: "5px", display: "block" }}>
+                          {(() => {
+                            const fechaPago = r.numerodefactura
                               ? facturasData[r.numerodefactura]?.fechapago || ""
-                              : r.fechapago || ""
-                          }
-                          onChange={(e) =>
-                            handleFieldChange(
-                              fecha,
-                              r.id,
-                              r.numerodefactura
-                                ? "fechapago_factura"
-                                : "fechapago",
-                              e.target.value,
-                              r.origin
-                            )
-                          }
-                          style={{
-                            backgroundColor: r.numerodefactura
-                              ? "#f0f8ff"
-                              : "white",
-                            borderColor: r.numerodefactura ? "#007bff" : "#ccc",
-                          }}
-                          title={
-                            r.numerodefactura
-                              ? `Fecha de pago de la factura #${r.numerodefactura}`
-                              : "Fecha de pago del servicio individual"
-                          }
-                        />
+                              : r.fechapago || "";
+                            
+                            if (!fechaPago) return "";
+                            
+                            // Si la fecha está en formato YYYY-MM-DD, convertir a DD/MM/YYYY
+                            if (fechaPago.includes("-")) {
+                              const [year, month, day] = fechaPago.split("-");
+                              return `${day}/${month}/${year}`;
+                            }
+                            
+                            return fechaPago;
+                          })()}
+                        </span>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={r.pago === "Pago"}
-                          onChange={(e) =>
-                            handlePagoToggle(
-                              fecha,
-                              r.id,
-                              r.origin,
-                              e.target.checked
-                            )
-                          }
-                          style={{
-                            width: "3ch",
-                            height: "3ch",
-                            cursor: "pointer",
+                        <span 
+                          style={{ 
+                            padding: "5px", 
+                            display: "inline-block",
+                            color: r.pago === "Pago" ? "#28a745" : "#dc3545",
+                            fontWeight: "bold"
                           }}
-                        />
+                        >
+                          {r.pago === "Pago" ? "Pagado" : "Pendiente"}
+                        </span>
                       </td>
                       <td
                         className="factura-amount-cell"
@@ -3177,54 +3036,6 @@ const Facturasemitidas = () => {
                               facturasData[r.numerodefactura].deuda || 0
                             )} AWG`
                           : "N/A"}
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <button
-                          onClick={() => openFacturaModal(r.numerodefactura)}
-                          className="ver-editar-btn"
-                          title="Ver/Editar factura"
-                        >
-                          Ver/Editar
-                        </button>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        {r.numerodefactura && r.pago !== "Pago" ? (
-                          <button
-                            onClick={() => paymentRapido(r.numerodefactura)}
-                            className="payment-rapido-btn"
-                            title={`Payment rápido para factura ${r.numerodefactura}`}
-                          >
-                            Payment
-                          </button>
-                        ) : (
-                          <span
-                            className={`estado-pago-span ${
-                              r.pago === "Pago" ? "pagada" : ""
-                            }`}
-                          >
-                            {r.pago === "Pago" ? "Pagada" : "Sin factura"}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        {r.factura && r.numerodefactura ? (
-                          <button
-                            onClick={() =>
-                              cancelInvoice(
-                                fecha,
-                                r.id,
-                                r.numerodefactura,
-                                r.origin
-                              )
-                            }
-                            className="cancelar-factura-btn"
-                            title={`Cancelar factura ${r.numerodefactura}`}
-                          >
-                            Cancelar Factura
-                          </button>
-                        ) : (
-                          <span className="estado-pago-span">Sin factura</span>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -3312,32 +3123,6 @@ const Facturasemitidas = () => {
           >
             Generar Factura
           </button>
-          <button
-            style={{
-              backgroundColor: "#ce6814",
-              borderRadius: "5px",
-              border: "none",
-              padding: "10px",
-              color: "white",
-              cursor: "pointer",
-            }}
-            onClick={openConfigModal}
-          >
-            Configuración Factura
-          </button>
-          <button
-            style={{
-              backgroundColor: "#084cca",
-              borderRadius: "5px",
-              border: "none",
-              padding: "10px",
-              color: "white",
-              cursor: "pointer",
-            }}
-            onClick={addEmptyInvoice}
-          >
-            Agregar Factura Manual
-          </button>
         </div>
       </div>
 
@@ -3346,9 +3131,9 @@ const Facturasemitidas = () => {
         <img className="generate-button-imagen2" src={excel_icon} alt="Excel" />
       </button>
 
-      {/* Modal de Vista/Edición de Factura */}
+      {/* Modal de Vista de Factura */}
       {showFacturaModal && selectedFactura && (
-        <FacturaViewEdit
+        <FacturaViewContador
           numeroFactura={selectedFactura}
           onClose={closeFacturaModal}
         />
@@ -3357,4 +3142,4 @@ const Facturasemitidas = () => {
   );
 };
 
-export default React.memo(Facturasemitidas);
+export default React.memo(Facturasemitidascontador);
