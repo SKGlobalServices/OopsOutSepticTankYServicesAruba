@@ -72,7 +72,7 @@ const ROLLING_MONTHS_BACK = 1;
 
 const pSeries = () => `reprogramacion`;
 const pInstancesMonth = (calendarId, seriesId, y, m) =>
-  `serviceInstances/${calendarId}/${seriesId}/${y}/${pad2(m)}`;
+  `reprogramacion/${calendarId}/${seriesId}/${y}/${pad2(m)}`;
 
 function* occurGenerator({
   dtStart,
@@ -750,7 +750,7 @@ function ServiceForm({ open, onClose, onSave, initial, clients = [] }) {
 
 const Test = () => {
   const [loading, setLoading] = useState(true);
-  
+
   const [editingContext, setEditingContext] = useState(null);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -850,8 +850,6 @@ const Test = () => {
   // Guardar servicio (crear/editar)
   const handleSave = async (form) => {
     try {
-
-
       // Construcción de fechas - Los servicios son siempre todo el día
       const startDate = new Date(form.fecha);
       const st = startOfDay(startDate);
@@ -1035,12 +1033,12 @@ const Test = () => {
         const originalDate = new Date(editingContext.start.ts);
         const newDate = new Date(nextService.start.ts);
         const exdates = [...(editingSeries.exdates || [])];
-        
+
         // Si la nueva fecha es posterior, excluir los días intermedios
         if (newDate > originalDate) {
           const current = new Date(originalDate);
           current.setDate(current.getDate() + 1); // Empezar desde el día siguiente
-          
+
           while (current < newDate) {
             exdates.push(current.getTime());
             current.setDate(current.getDate() + 1);
