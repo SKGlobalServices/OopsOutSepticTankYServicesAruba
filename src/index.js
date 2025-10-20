@@ -10,7 +10,7 @@ import Hojapasadomañana from "./components/Hojapasadomañana.jsx";
 import Hojadefechas from "./components/Hojadefechas.jsx";
 import Facturasemitidas from "./components/Facturasemitidas.jsx";
 import Clientes from "./components/Hojaclientes.jsx";
-import Reprogramacionautomatica from "./components/Reprogramacionautomatica.jsx";
+import Reprogramacion from "./components/Reprogramacion.jsx";
 import Usuarios from "./components/Configuraciondeusuarios.jsx"
 import Informedeefectivo from "./components/Informedeefectivo.jsx"
 import Agendadeldiausuario from "./components/Agendadeldiausuario.jsx"
@@ -32,6 +32,8 @@ import Deducciones from "./components/Deducciones.jsx";
 import Calendarioadmin from "./components/Calendarioadmin.jsx";
 import Calendariouser from "./components/Calendariouser.jsx";
 import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx";
+import Informedetransferenciascontador from "./components/Informedetransferenciascontador.jsx";
+import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -46,7 +48,6 @@ root.render(
       <Route path="/hojadefechas" element={<PageWrapper><Hojadefechas /></PageWrapper>} />
       <Route path="/facturasemitidas" element={<PageWrapper><Facturasemitidas /></PageWrapper>} />
       <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
-      <Route path="/reprogramacionautomatica" element={<PageWrapper><Reprogramacionautomatica /></PageWrapper>} />
       <Route path="/clientesfijos" element={<PageWrapper><Clientesfijos /></PageWrapper>} />
       <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
       <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
@@ -68,6 +69,9 @@ root.render(
       <Route path="/calendarioadmin" element={<PageWrapper><Calendarioadmin /></PageWrapper>} />
       <Route path="/calendariouser" element={<PageWrapper><Calendariouser /></PageWrapper>} />
       <Route path="/informedeserviciosextras" element={<PageWrapper><Informedeserviciosextras /></PageWrapper>} />
+      <Route path="/informedetransferenciascontador" element={<PageWrapper><Informedetransferenciascontador /></PageWrapper>} />
+      <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
+      <Route path="/reprogramacion" element={<PageWrapper><Reprogramacion /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

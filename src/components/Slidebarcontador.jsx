@@ -8,27 +8,28 @@ import agendarIcon2 from "../assets/img/agendarIcon2.png";
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
 import barraIcon from "../assets/img/barra_icon.jpg";
 import logo from "../assets/img/logosolo.png";
+import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
 
 const Slidebarcontador = () => {
   const navigate = useNavigate();
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
   const user = useMemo(
-      () => decryptData(localStorage.getItem("user")) || {},
-      []
-    );
-  
-    useEffect(() => {
-      if (!user || !user.role) {
+    () => decryptData(localStorage.getItem("user")) || {},
+    []
+  );
+
+  useEffect(() => {
+    if (!user || !user.role) {
       navigate("/");
       return;
     }
-      if (user.role === "admin") {
-        navigate("/agendaexpress");
-      } else if (user.role === "user") {
-        navigate("/agendadeldiausuario");
-      }
-    }, [user, navigate]);
+    if (user.role === "admin") {
+      navigate("/agendaexpress");
+    } else if (user.role === "user") {
+      navigate("/agendadeldiausuario");
+    }
+  }, [user, navigate]);
 
   const handleLogout = async () => {
     const userData = decryptData(localStorage.getItem("user"));
@@ -41,7 +42,7 @@ const Slidebarcontador = () => {
       }
     }
     localStorage.clear();
-    sessionStorage.removeItem('navigated');
+    sessionStorage.removeItem("navigated");
     navigate("/");
   };
 
@@ -50,7 +51,7 @@ const Slidebarcontador = () => {
     const now = new Date();
     const hour = now.getHours();
     const minute = now.getMinutes();
-    
+
     // De 23:30 a 23:59 o de 00:00 a 01:59
     return (hour === 23 && minute >= 30) || hour === 0 || hour === 1;
   };
@@ -58,7 +59,7 @@ const Slidebarcontador = () => {
   // Función para cerrar sesión automáticamente
   const handleAutomaticLogout = async () => {
     let countdown = 30;
-    
+
     const result = await Swal.fire({
       icon: "warning",
       title: "Plataforma Cerrada",
@@ -76,9 +77,9 @@ const Slidebarcontador = () => {
             clearInterval(timer);
           }
         }, 1000);
-      }
+      },
     });
-    
+
     handleLogout();
   };
 
@@ -92,7 +93,7 @@ const Slidebarcontador = () => {
     };
 
     const interval = setInterval(checkPlatformStatus, 60000); // Cada minuto
-    
+
     // Verificar inmediatamente al cargar
     checkPlatformStatus();
 
@@ -118,11 +119,10 @@ const Slidebarcontador = () => {
 
   return (
     <div className="homepage-container">
-
+      {/* SLIDEBAR */}
       <button className="show-slidebar-button" onClick={toggleSlidebar}>
         <img src={barraIcon} alt="Menú" className="barra-icon-img" />
       </button>
-
 
       <div
         ref={slidebarRef}
@@ -130,7 +130,7 @@ const Slidebarcontador = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadeldiausuario">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadinamicacontador">
             <img
               className="user-photo"
               src={logo}
@@ -152,13 +152,36 @@ const Slidebarcontador = () => {
             src={agendarIcon2}
             alt="Agenda Dinamica"
           />
-          <span>Agenda Dinamica</span>
+          <span>ㅤAgenda Dinamica</span>
         </button>
-
+        {/* ===== Informe de transferencias ===== */}
+        <button
+          className="btn-servHoy2"
+          onClick={() => navigate("/informedetransferenciascontador")}
+        >
+          <img
+            className="icon-servHoy2"
+            src={informeEfectivoIcon2}
+            alt="Informe de Transferencias"
+          />
+          <span>Informe de Transferencias</span>
+        </button>
+        {/* ===== Facturas Emitidas ===== */}
+        <button
+          className="btn-servHoy2"
+          onClick={() => navigate("/facturasemitidascontador")}
+        >
+          <img
+            className="icon-servHoy2"
+            src={informeEfectivoIcon2}
+            alt="Facturas Emitidas"
+          />
+          <span>ㅤFacturas Emitidas</span>
+        </button>
         {/* ===== CERRAR SESION ===== */}
         <button className="btn-logout2" onClick={handleLogout}>
           <img className="icon-logout2" src={logoutIcon2} alt="Logout" />
-          <span>Cerrar Sesión</span>
+          <span>ㅤﾠCerrar Sesión</span>
         </button>
 
         {/* ===== FOOTER ===== */}

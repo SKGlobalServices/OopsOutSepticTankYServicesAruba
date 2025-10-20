@@ -9,126 +9,13 @@ import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import Slidebar from "./Slidebar";
+import Slidebarcontador from "./Slidebarcontador";
 import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
-// import FacturaViewEditTra from "./FacturaViewEditTra"; (no usado en este informe)
-
-const mobileStyles = `
-  @media (max-width: 768px) {
-    /* Inputs y selects generales */
-    .filter-slidebar input,
-    .filter-slidebar select,
-    .pagination-container select {
-      font-size: 13px !important;
-      padding: 4px 6px !important;
-      min-height: 30px !important;
-    }
-
-    /* Botones */
-    .filter-button,
-    .discard-filter-button,
-    .pagination-controls button,
-    .generate-button1,
-    .generate-button2 {
-      font-size: 13px !important;
-      padding: 6px 12px !important;
-      min-height: 35px !important;
-    }
-
-    /* Labels y texto general */
-    .filter-slidebar label,
-    .pagination-info span,
-    .pagination-info label,
-    .service-table th,
-    .service-table td {
-      font-size: 13px !important;
-    }
-
-    /* Headers de tabla */
-    .service-table th {
-      padding: 8px 4px !important;
-      min-width: 80px !important;
-    }
-
-    /* Celdas de tabla */
-    .service-table td {
-      padding: 6px 4px !important;
-      font-size: 12px !important;
-    }
-
-    /* DatePicker específico */
-    .react-datepicker-wrapper input {
-      font-size: 13px !important;
-      padding: 4px 6px !important;
-      min-height: 30px !important;
-    }
-
-    .react-datepicker {
-      font-size: 13px !important;
-    }
-
-    /* Contenedor de paginación */
-    .pagination-container {
-      flex-direction: column !important;
-      gap: 10px !important;
-    }
-
-    .pagination-info {
-      flex-direction: column !important;
-      gap: 8px !important;
-      text-align: center !important;
-    }
-
-    .items-per-page {
-      display: flex !important;
-      justify-content: center !important;
-      align-items: center !important;
-      gap: 5px !important;
-    }
-
-    /* Tarjetas de totales */
-    .homepage-card p {
-      font-size: 12px !important;
-    }
-
-    /* Botones de exportar */
-    .generate-button1,
-    .generate-button2 {
-      width: 45px !important;
-      height: 45px !important;
-    }
-
-    .generate-button-imagen1,
-    .generate-button-imagen2 {
-      width: 25px !important;
-      height: 25px !important;
-    }
-
-    /* Select filters React-Select */
-    .filter-slidebar .css-control,
-    .filter-slidebar .css-menu {
-      font-size: 13px !important;
-    }
-
-    /* Título de página */
-    .title-page {
-      font-size: 18px !important;
-    }
-
-    /* Ajustes específicos para tabla responsive */
-    .table-container {
-      overflow-x: auto !important;
-    }
-
-    .service-table {
-      min-width: 800px !important;
-    }
-  }
-`;
+import FacturaViewEditTra from "./FacturaViewEditTra";
 
 // Función auxiliar para formatear números
 const formatCurrency = (amount) => {
@@ -138,18 +25,158 @@ const formatCurrency = (amount) => {
   });
 };
 
-const Informedeserviciosextras = () => {
+const Informedetransferenciascontador = () => {
   const navigate = useNavigate();
 
+  // CSS embebido para mejoras móviles
+  const mobileStyles = `
+    /* Media Queries - Estilos para móviles (768px y menos) */
+    @media (max-width: 768px) {
+      /* Inputs y Selects más grandes en móviles */
+      .filter-slidebar input, .filter-slidebar select {
+        font-size: 13px !important;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Botones más grandes en móviles */
+      .filter-button, .discard-filter-button {
+        font-size: 13px;
+        padding: 6px 12px;
+        min-height: 32px;
+      }
+
+      .generate-button1, .generate-button2 {
+        width: 55px;
+        height: 55px;
+      }
+
+      .numero-factura-btn {
+        font-size: 13px !important;
+        padding: 4px 8px !important;
+        min-height: 30px;
+      }
+
+      /* Texto de párrafos más grande */
+      p {
+        font-size: 13px !important;
+      }
+
+      /* Labels más grandes */
+      label {
+        font-size: 13px;
+      }
+
+      /* Headers de tabla más grandes */
+      .service-table th {
+        font-size: 13px !important;
+        padding: 6px 4px;
+      }
+
+      /* Contenido de celdas de tabla */
+      .service-table td {
+        font-size: 13px !important;
+        padding: 4px 3px;
+      }
+
+      /* Controles de paginación más grandes */
+      .pagination-info span {
+        font-size: 13px;
+      }
+
+      .pagination-controls button {
+        font-size: 13px;
+        padding: 4px 8px;
+        min-height: 32px;
+      }
+
+      .pagination-controls span {
+        font-size: 13px;
+        padding: 4px 10px;
+      }
+
+      .items-per-page label,
+      .items-per-page span {
+        font-size: 13px;
+      }
+
+      .items-per-page select {
+        font-size: 13px;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Filtros en slidebar */
+      .filter-slidebar h2 {
+        font-size: 16px;
+      }
+
+      .filter-slidebar label {
+        font-size: 13px;
+      }
+
+      /* Asegurar que todos los elementos de tabla sean legibles */
+      .service-table {
+        font-size: 13px;
+      }
+
+      /* React-Select components */
+      .css-1s2u09g-control,
+      .css-1pahdxg-control {
+        min-height: 32px !important;
+        font-size: 13px !important;
+      }
+
+      .css-1wa3eu0-placeholder,
+      .css-1dimb5e-singleValue {
+        font-size: 13px !important;
+      }
+
+      /* DatePicker */
+      .react-datepicker {
+        font-size: 13px !important;
+      }
+
+      .react-datepicker__day,
+      .react-datepicker__day-name,
+      .react-datepicker__current-month {
+        font-size: 13px !important;
+      }
+
+      /* Summary cards */
+      .homepage-card div[style*="display: flex"] div {
+        font-size: 13px !important;
+      }
+
+      .homepage-card div[style*="display: flex"] div p {
+        font-size: 13px !important;
+      }
+
+      /* Title */
+      .title-page {
+        font-size: 20px !important;
+      }
+
+      .current-date {
+        font-size: 13px !important;
+      }
+
+      /* Spans in table cells */
+      .service-table td span {
+        font-size: 13px !important;
+      }
+    }
+  `;
+  
   // Verificación de autorización
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (!userData || userData.role !== "admin") {
+    if (!userData || userData.role !== "contador") {
       navigate("/");
       return;
     }
   }, [navigate]);
-
+  
   // Estados de carga
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
@@ -161,8 +188,6 @@ const Informedeserviciosextras = () => {
   const [dataRegistroFechas, setDataRegistroFechas] = useState([]);
   const [facturas, setFacturas] = useState({});
   const [todos, setTodos] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loadedUsers, setLoadedUsers] = useState(false);
 
   // UI Estados
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -170,7 +195,7 @@ const Informedeserviciosextras = () => {
   const slidebarRef = useRef(null);
   const filterSlidebarRef = useRef(null);
 
-  // Modal de factura (no usado en este informe)
+  // Modal de factura
   const [selectedFactura, setSelectedFactura] = useState(null);
   const [showFacturaModal, setShowFacturaModal] = useState(false);
 
@@ -179,20 +204,14 @@ const Informedeserviciosextras = () => {
   const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Filtros
-  const defaultFilters = {
-    realizadopor: [],
-    anombrede: [],
-    servicioextra: [],
+  const [filters, setFilters] = useState({
     direccion: [],
-    servicio: [],
-    cubicos: [],
     valor: [],
-    pago: [],
+    banco: [],
+    numerodefactura: "",
     fechaInicio: null,
     fechaFin: null,
-  };
-
-  const [filters, setFilters] = useState(defaultFilters);
+  });
 
   // DatePicker
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -202,7 +221,7 @@ const Informedeserviciosextras = () => {
     const loadData = async () => {
       const isAuthorized = await validateSessionForAction("cargar datos");
       if (!isAuthorized) return;
-
+      
       const dbRef = ref(database, "data");
       const unsubscribe = onValue(dbRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -225,7 +244,7 @@ const Informedeserviciosextras = () => {
       });
       return unsubscribe;
     };
-
+    
     loadData();
   }, []);
 
@@ -276,26 +295,6 @@ const Informedeserviciosextras = () => {
     return unsubscribe;
   }, []);
 
-  // Cargar usuarios (para mostrar nombre en 'Realizado Por')
-  useEffect(() => {
-    const usersRef = ref(database, "users");
-    const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const fetched = Object.entries(snapshot.val()).map(([id, u]) => ({
-          id,
-          ...u,
-        }));
-        fetched.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-        setUsers(fetched);
-        setLoadedUsers(true);
-      } else {
-        setUsers([]);
-        setLoadedUsers(true);
-      }
-    });
-    return unsubscribeUsers;
-  }, []);
-
   // Cuando todas las fuentes estén listas
   useEffect(() => {
     if (loadedData && loadedRegistro && loadedFacturas) {
@@ -320,23 +319,19 @@ const Informedeserviciosextras = () => {
     setTodos([...vivos, ...historicos]);
   }, [dataBranch, dataRegistroFechas]);
 
-  // Filtrar registros que tengan servicioextra (campo no vacío)
-  const serviciosextras = todos.filter((registro) => {
-    // Requerir que servicioextra exista y no sea vacío
-    if (
-      !registro.servicioextra ||
-      (registro.servicioextra ?? "").toString().trim() === ""
-    )
-      return false;
+  // Filtrar solo transferencias
+  const transferencias = todos.filter((registro) => {
+    // Solo mostrar registros con formadepago = "Transferencia"
+    if (registro.formadepago !== "Transferencia") return false;
 
-    // Filtrar por rango de fecha si aplica
+    // Aplicar filtros adicionales
     if (filters.fechaInicio && filters.fechaFin) {
       const [d, m, y] = registro.fecha.split("-");
       const f = new Date(y, m - 1, d);
       if (f < filters.fechaInicio || f > filters.fechaFin) return false;
     }
 
-    const matchMulti = (arr, field) =>
+    const match = (arr, field) =>
       !arr.length ||
       arr.some((opt) => {
         const val = (registro[field] ?? "").toString().toLowerCase();
@@ -344,14 +339,9 @@ const Informedeserviciosextras = () => {
         return val === optValue;
       });
 
-    if (!matchMulti(filters.realizadopor, "realizadopor")) return false;
-    if (!matchMulti(filters.anombrede, "anombrede")) return false;
-    if (!matchMulti(filters.direccion, "direccion")) return false;
-    if (!matchMulti(filters.servicio, "servicio")) return false;
-    if (!matchMulti(filters.servicioextra, "servicioextra")) return false;
-    if (!matchMulti(filters.cubicos, "cubicos")) return false;
-    if (!matchMulti(filters.valor, "valor")) return false;
-    if (!matchMulti(filters.pago, "pago")) return false;
+    if (!match(filters.direccion, "direccion")) return false;
+    if (!match(filters.valor, "valor")) return false;
+    if (!match(filters.banco, "banco")) return false;
 
     if (
       filters.numerodefactura &&
@@ -365,7 +355,7 @@ const Informedeserviciosextras = () => {
   });
 
   // Agrupar por fecha
-  const grouped = serviciosextras.reduce((acc, r) => {
+  const grouped = transferencias.reduce((acc, r) => {
     (acc[r.fecha] = acc[r.fecha] || []).push(r);
     return acc;
   }, {});
@@ -400,73 +390,30 @@ const Informedeserviciosextras = () => {
     });
 
   // Opciones para filtros
-  const allServiciosextras = serviciosextras;
-
-  // Índice de users para lookup id -> name
-  const usersIndex = new Map(users.map((u) => [u.id, u]));
+  const allTransferencias = transferencias;
 
   const direccionOptions = [
     ...Array.from(
-      new Set(allServiciosextras.map((r) => r.direccion).filter(Boolean))
+      new Set(allTransferencias.map((r) => r.direccion).filter(Boolean))
     )
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
   ];
 
-  const realizadoporOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.realizadopor).filter(Boolean))
-    )
-      .map((id) => ({ value: id, label: usersIndex.get(id)?.name || id }))
-      .sort((a, b) => (a.label || "").toString().localeCompare(b.label || "")),
-  ];
-
-  const anombredeOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.anombrede).filter(Boolean))
-    )
-      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
-      .map((v) => ({ value: v, label: v })),
-  ];
-
-  const servicioOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.servicio).filter(Boolean))
-    )
-      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
-      .map((v) => ({ value: v, label: v })),
-  ];
-
-  const servicioextraOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.servicioextra).filter(Boolean))
-    )
-      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
-      .map((v) => ({ value: v, label: v })),
-  ];
-
-  const cubicosOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.cubicos).filter(Boolean))
-    )
-      .sort((a, b) => (Number(a) || 0) - (Number(b) || 0))
-      .map((v) => ({ value: v.toString(), label: v.toString() })),
-  ];
-
-  const pagoOptions = [
-    ...Array.from(
-      new Set(allServiciosextras.map((r) => r.pago).filter(Boolean))
-    )
-      .sort((a, b) => (a || "").toString().localeCompare(b || ""))
-      .map((v) => ({ value: v, label: v })),
-  ];
-
   const valorOptions = [
     ...Array.from(
-      new Set(allServiciosextras.map((r) => r.valor).filter(Boolean))
+      new Set(allTransferencias.map((r) => r.valor).filter(Boolean))
     )
       .sort((a, b) => a - b)
       .map((v) => ({ value: v.toString(), label: formatCurrency(v) })),
+  ];
+
+  const bancoOptions = [
+    ...Array.from(
+      new Set(allTransferencias.map((r) => r.banco).filter(Boolean))
+    )
+      .sort()
+      .map((v) => ({ value: v, label: v })),
   ];
 
   // Navegación de páginas
@@ -517,33 +464,24 @@ const Informedeserviciosextras = () => {
     const exportData = filteredData.flatMap((item) =>
       item.registros.map((registro) => ({
         Fecha: item.fecha,
-        "Realizado Por":
-          usersIndex.get(registro.realizadopor)?.name ||
-          registro.realizadopor ||
-          "",
-        "A Nombre De": registro.anombrede || "",
-        "Servicio Extra": registro.servicioextra || "",
         Dirección: registro.direccion || "",
-        Servicio: registro.servicio || "",
-        Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        Pago: registro.pago || "",
+        "Forma De Pago": registro.formadepago || "",
+        Banco: registro.banco || "",
+        "N° Factura": registro.numerodefactura || "",
       }))
     );
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Servicios Extras");
+    const worksheet = workbook.addWorksheet("Transferencias");
 
     const headers = [
       "Fecha",
-      "Realizado Por",
-      "A Nombre De",
-      "Servicio Extra",
       "Dirección",
-      "Servicio",
-      "Cúbicos",
       "Valor",
-      "Pago",
+      "Forma De Pago",
+      "Banco",
+      "N° Factura",
     ];
 
     const headerRow = worksheet.addRow(headers);
@@ -570,13 +508,11 @@ const Informedeserviciosextras = () => {
 
     worksheet.columns = [
       { width: 12 },
-      { width: 20 },
-      { width: 20 },
       { width: 30 },
-      { width: 20 },
-      { width: 8 },
       { width: 12 },
-      { width: 12 },
+      { width: 18 },
+      { width: 25 },
+      { width: 16 },
     ];
 
     exportData.forEach((rowData) => {
@@ -598,7 +534,7 @@ const Informedeserviciosextras = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Informe_ServiciosExtras.xlsx";
+    a.download = "Informe_Transferencias.xlsx";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -608,58 +544,55 @@ const Informedeserviciosextras = () => {
     const exportData = filteredData.flatMap((item) =>
       item.registros.map((registro) => ({
         Fecha: item.fecha,
-        "Realizado Por":
-          usersIndex.get(registro.realizadopor)?.name ||
-          registro.realizadopor ||
-          "",
-        "A Nombre De": registro.anombrede || "",
         Dirección: registro.direccion || "",
-        Servicio: registro.servicio || "",
-        Cúbicos: registro.cubicos || "",
         Valor: registro.valor || "",
-        Pago: registro.pago || "",
+        "Forma De Pago": registro.formadepago || "",
+        Banco: registro.banco || "",
+        "N° Factura": registro.numerodefactura || "",
       }))
     );
 
     const doc = new jsPDF("p", "mm", "a4");
-
+    
     // Título
     doc.setFontSize(16);
-    doc.text("Informe de Servicios Extras", 105, 20, { align: "center" });
-
-    // Agregar suma Total General antes de la tabla
-    const totalGeneral = serviciosextras.reduce(
-      (sum, r) => sum + (parseFloat(r.valor) || 0),
-      0
-    );
+    doc.text("Informe de Transferencias", 105, 20, { align: "center" });
+    
+    // Calcular sumas por banco
+    const totalGeneral = transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalAruba = transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalCaribbean = transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    const totalRBC = transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
+    
+    // Agregar sumas antes de la tabla
     doc.setFontSize(10);
     let yPosition = 35;
     doc.text(`Total General: AWG ${totalGeneral.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`Aruba Bank N.V.: AWG ${totalAruba.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`Caribbean Mercantile Bank N.V.: AWG ${totalCaribbean.toFixed(2)}`, 20, yPosition);
+    yPosition += 7;
+    doc.text(`RBC Royal Bank N.V.: AWG ${totalRBC.toFixed(2)}`, 20, yPosition);
     yPosition += 10;
-
+    
     // Headers de la tabla
-    const headers = [
-      [
-        "Fecha",
-        "Realizado Por",
-        "A Nombre De",
-        "Dirección",
-        "Servicio",
-        "Cúbicos",
-        "Valor",
-        "Pago",
-      ],
-    ];
+    const headers = [[
+      "Fecha",
+      "Dirección",
+      "Valor",
+      "Forma De Pago",
+      "Banco",
+      "N° Factura",
+    ]];
 
     const dataRows = exportData.map((item) => [
       item.Fecha,
-      item["Realizado Por"],
-      item["A Nombre De"],
       item.Dirección,
-      item.Servicio,
-      item["Cúbicos"],
       item.Valor,
-      item.Pago,
+      item["Forma De Pago"],
+      item.Banco,
+      item["N° Factura"],
     ]);
 
     autoTable(doc, {
@@ -671,8 +604,8 @@ const Informedeserviciosextras = () => {
       styles: { fontSize: 8 },
       margin: { top: 30, left: 10, right: 10 },
     });
-
-    doc.save("Informe_ServiciosExtras.pdf");
+    
+    doc.save("Informe_Transferencias.pdf");
   };
 
   // Mostrar/ocultar slidebars
@@ -729,8 +662,10 @@ const Informedeserviciosextras = () => {
 
   return (
     <div className="homepage-container">
+      {/* Inyectar estilos CSS para móviles */}
       <style>{mobileStyles}</style>
-      <Slidebar />
+      
+      <Slidebarcontador />
       <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
 
       {/* FILTROS */}
@@ -745,9 +680,9 @@ const Informedeserviciosextras = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{ color: "white" }}>Filtros</h2>
-        <br />
-        <hr />
+        <h2 style={{color:"white"}}>Filtros</h2>
+        <br/>
+        <hr/>
 
         <button
           onClick={() => setShowDatePicker(!showDatePicker)}
@@ -768,40 +703,6 @@ const Informedeserviciosextras = () => {
           />
         )}
 
-        <label>Realizado Por</label>
-        <Select
-          isClearable
-          isMulti
-          options={realizadoporOptions}
-          value={filters.realizadopor}
-          onChange={(opts) =>
-            setFilters({ ...filters, realizadopor: opts || [] })
-          }
-          placeholder="Realizado por..."
-        />
-
-        <label>A Nombre De</label>
-        <Select
-          isClearable
-          isMulti
-          options={anombredeOptions}
-          value={filters.anombrede}
-          onChange={(opts) => setFilters({ ...filters, anombrede: opts || [] })}
-          placeholder="A nombre de..."
-        />
-
-        <label>Servicio Extra</label>
-        <Select
-          isClearable
-          isMulti
-          options={servicioextraOptions}
-          value={filters.servicioextra}
-          onChange={(opts) =>
-            setFilters({ ...filters, servicioextra: opts || [] })
-          }
-          placeholder="Servicio extra..."
-        />
-
         <label>Dirección</label>
         <Select
           isClearable
@@ -810,36 +711,6 @@ const Informedeserviciosextras = () => {
           value={filters.direccion}
           onChange={(opts) => setFilters({ ...filters, direccion: opts || [] })}
           placeholder="Dirección(es)..."
-        />
-
-        <label>Servicio</label>
-        <Select
-          isClearable
-          isMulti
-          options={servicioOptions}
-          value={filters.servicio}
-          onChange={(opts) => setFilters({ ...filters, servicio: opts || [] })}
-          placeholder="Servicio(s)..."
-        />
-
-        <label>Cúbicos</label>
-        <Select
-          isClearable
-          isMulti
-          options={cubicosOptions}
-          value={filters.cubicos}
-          onChange={(opts) => setFilters({ ...filters, cubicos: opts || [] })}
-          placeholder="Cúbicos..."
-        />
-
-        <label>Pago</label>
-        <Select
-          isClearable
-          isMulti
-          options={pagoOptions}
-          value={filters.pago}
-          onChange={(opts) => setFilters({ ...filters, pago: opts || [] })}
-          placeholder="Pago..."
         />
 
         <label>Valor</label>
@@ -852,13 +723,44 @@ const Informedeserviciosextras = () => {
           placeholder="Valor(es)..."
         />
 
+        <label>Banco</label>
+        <Select
+          isClearable
+          isMulti
+          options={bancoOptions}
+          value={filters.banco}
+          onChange={(opts) => setFilters({ ...filters, banco: opts || [] })}
+          placeholder="Banco(s)..."
+        />
+
+        <label>N° de Factura</label>
+        <input
+          type="text"
+          placeholder="Buscar número de factura..."
+          value={filters.numerodefactura}
+          onChange={(e) =>
+            setFilters({ ...filters, numerodefactura: e.target.value })
+          }
+          style={{
+            padding: "8px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            width: "100%",
+          }}
+        />
+
         <button
           className="discard-filter-button"
-          onClick={() => {
-            setFilters(defaultFilters);
-            setCurrentPage(1);
-            setShowFilterSlidebar(false);
-          }}
+          onClick={() =>
+            setFilters({
+              direccion: [],
+              valor: [],
+              banco: [],
+              numerodefactura: "",
+              fechaInicio: null,
+              fechaFin: null,
+            })
+          }
         >
           Descartar Filtros
         </button>
@@ -866,87 +768,132 @@ const Informedeserviciosextras = () => {
 
       <div className="homepage-title">
         <div className="homepage-card">
-          <h1 className="title-page">Informe de Servicios Extras</h1>
+          <h1 className="title-page">Informe de Transferencias</h1>
           <div className="current-date">
-            <div style={{ cursor: "default" }}>
-              {new Date().toLocaleDateString()}
-            </div>
+            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
             <Clock />
           </div>
         </div>
       </div>
 
       <div className="homepage-card">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "10px",
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#28a745',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}
-        >
-          <div
-            style={{
-              border: "1px solid #ddd",
-              color: "#fff",
-              borderRadius: "6px",
-              padding: "8px",
-              flex: 1,
-              textAlign: "center",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              backgroundColor: "#28a745",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-6px) scale(1.01)";
-              e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
-              e.currentTarget.style.borderColor = "#ddd";
-              e.currentTarget.style.backgroundColor = "#218838";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0) scale(1)";
-              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-              e.currentTarget.style.borderColor = "#ddd";
-              e.currentTarget.style.backgroundColor = "#28a745";
-            }}
-          >
-            <p
-              style={{
-                margin: "0",
-                fontSize: "12px",
-                pointerEvents: "none",
-                fontWeight: "bold",
-              }}
-            >
-              Total General Valor
-            </p>
-            <p
-              style={{
-                margin: "0",
-                fontSize: "12px",
-                pointerEvents: "none",
-                fontWeight: "bold",
-              }}
-            >
-              AWG{" "}
-              {serviciosextras
-                .reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)
-                .toFixed(2)}
-            </p>
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#218838';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#28a745';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Total General</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Aruba Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Aruba Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>Caribbean Mercantile Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "Caribbean Mercantile Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
+          </div>
+          <div style={{
+            border: '1px solid #ddd',
+            color:"#fff",
+            borderRadius: '6px',
+            padding: '8px',
+            flex: 1,
+            textAlign: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: '#5271ff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#375bffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            e.currentTarget.style.borderColor = '#ddd';
+            e.currentTarget.style.backgroundColor = '#5271ff';
+          }}>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>RBC Royal Bank N.V.</p>
+            <p style={{ margin: '0', fontSize: '12px', pointerEvents: 'none', fontWeight: 'bold' }}>AWG {transferencias.filter((r) => r.banco === "RBC Royal Bank N.V.").reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0).toFixed(2)}</p>
           </div>
         </div>
         <div className="table-container">
           <table className="service-table">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Realizado Por</th>
-                <th>A Nombre De</th>
-                <th>Servicio Extra</th>
-                <th>Dirección</th>
-                <th>Servicio</th>
-                <th>Cúbicos</th>
-                <th>Valor</th>
-                <th>Pago</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>Fecha</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>Dirección</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>Valor</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>Forma De Pago</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>Banco</th>
+                <th style={{userSelect: "none", pointerEvents: "none"}}>N° Factura</th>
               </tr>
             </thead>
             <tbody>
@@ -954,54 +901,41 @@ const Informedeserviciosextras = () => {
                 <React.Fragment key={item.fecha}>
                   {item.registros.map((registro) => (
                     <tr key={`${registro.origin}_${item.fecha}_${registro.id}`}>
-                      <td
-                        style={{
-                          textAlign: "center",
-                          fontWeight: "bold",
-                          padding: "5px",
-                        }}
-                      >
+                      <td style={{ textAlign: "center", fontWeight: "bold",padding:"5px", paddingRight:"10px", paddingRight:"10px", userSelect: "none", pointerEvents: "none" }}>
                         {item.fecha}
                       </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {usersIndex.get(registro.realizadopor)?.name ||
-                          registro.realizadopor ||
-                          ""}
-                      </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {registro.anombrede || ""}
-                      </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {registro.servicioextra || ""}
-                      </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {registro.direccion || ""}
-                      </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {registro.servicio || ""}
-                      </td>
-                      <td
-                        style={{
-                          paddingRight: "10px",
-                          paddingLeft: "10px",
-                          textAlign: "center",
-                        }}
-                      >
-                        {registro.cubicos || ""}
-                      </td>
-                      <td
-                        style={{
-                          paddingRight: "10px",
-                          paddingLeft: "10px",
-                          textAlign: "center",
-                        }}
-                      >
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", userSelect: "none", pointerEvents: "none"}}>{registro.direccion || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center", userSelect: "none", pointerEvents: "none" }}>
                         {formatCurrency(registro.valor || 0)}
                       </td>
-                      <td style={{ paddingRight: "10px", paddingLeft: "10px" }}>
-                        {registro.pago || ""}
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", userSelect: "none", pointerEvents: "none"}}>{registro.formadepago || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", userSelect: "none", pointerEvents: "none"}}>{registro.banco || ""}</td>
+                      <td style={{paddingRight:"10px",paddingLeft:"10px", textAlign: "center", userSelect: "none"}}>
+                        {registro.numerodefactura ? (
+                          <button
+                            onClick={() =>
+                              openFacturaModal(registro.numerodefactura)
+                            }
+                            className="numero-factura-btn"
+                            title={`Ver Factura N° ${registro.numerodefactura}`}
+                            style={{pointerEvents: "auto"}}
+                          >
+                            {registro.numerodefactura}
+                          </button>
+                        ) : (
+                          <span
+                            style={{
+                              color: "#ccc",
+                              fontSize: "11px",
+                              fontStyle: "italic",
+                              userSelect: "none",
+                              pointerEvents: "none"
+                            }}
+                          >
+                            Sin N°
+                          </span>
+                        )}
                       </td>
-                      {/* columna N° Factura removida */}
                     </tr>
                   ))}
                 </React.Fragment>
@@ -1015,7 +949,7 @@ const Informedeserviciosextras = () => {
           <div className="pagination-info">
             <span>
               Mostrando {startIndex + 1}-{Math.min(endIndex, totalItems)} de{" "}
-              {totalItems} registros
+              {totalItems} transferencias
             </span>
             <div className="items-per-page">
               <label>Mostrar:</label>
@@ -1078,9 +1012,15 @@ const Informedeserviciosextras = () => {
         <img className="generate-button-imagen2" src={pdf_icon} alt="PDF" />
       </button>
 
-      {/* Modal de Factura no usado en este informe */}
+      {/* Modal de Vista/Edición de Factura */}
+      {showFacturaModal && selectedFactura && (
+        <FacturaViewEditTra
+          numeroFactura={selectedFactura}
+          onClose={closeFacturaModal}
+        />
+      )}
     </div>
   );
 };
 
-export default React.memo(Informedeserviciosextras);
+export default React.memo(Informedetransferenciascontador);

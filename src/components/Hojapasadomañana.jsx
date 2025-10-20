@@ -1154,7 +1154,7 @@ const Hojapasadomañana = () => {
                           </option>
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
-                          <option value="pool">Pool</option>
+                          <option value="Pool">Pool</option>
                         </select>
                       </td>
                       <td>
@@ -1218,7 +1218,7 @@ const Hojapasadomañana = () => {
                           <option value="Debe">Debe</option>
                           <option value="Pago">Pago</option>
                           <option value="Pendiente">Pendiente</option>
-                          <option value="Pendiente Fin De Mes">-</option>
+                          <option value="-">-</option>
                         </select>
                       </td>
                       <td>

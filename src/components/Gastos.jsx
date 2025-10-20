@@ -15,6 +15,203 @@ import Select from "react-select";
 import Swal from "sweetalert2";
 
 const Gastos = () => {
+  // CSS embebido para mejoras móviles
+  const mobileStyles = `
+    /* Media Queries - Estilos para móviles (768px y menos) */
+    @media (max-width: 768px) {
+      /* Inputs y Selects más grandes en móviles */
+      .filter-slidebar input, .filter-slidebar select {
+        font-size: 13px !important;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Botones más grandes en móviles */
+      .filter-button, .discard-filter-button {
+        font-size: 13px;
+        padding: 6px 12px;
+        min-height: 32px;
+      }
+
+      .delete-button {
+        font-size: 13px !important;
+        padding: 4px 8px !important;
+        min-height: 30px;
+        min-width: 70px !important;
+      }
+
+      .create-table-button {
+        width: 55px;
+        height: 55px;
+        font-size: 26px;
+      }
+
+      .generate-button1, .generate-button2 {
+        width: 55px;
+        height: 55px;
+      }
+
+      /* Texto de párrafos más grande */
+      p {
+        font-size: 13px !important;
+      }
+
+      /* Labels más grandes */
+      label {
+        font-size: 13px;
+      }
+
+      /* Headers de tabla más grandes */
+      .service-table th {
+        font-size: 13px !important;
+        padding: 6px 4px;
+      }
+
+      /* Contenido de celdas de tabla */
+      .service-table td {
+        font-size: 13px !important;
+        padding: 4px 3px;
+      }
+
+      /* Inputs dentro de la tabla */
+      .service-table input[type="text"],
+      .service-table input[type="number"],
+      .service-table select {
+        font-size: 13px !important;
+        padding: 4px 6px !important;
+        min-height: 30px;
+      }
+
+      /* DatePicker personalizado en tabla */
+      .service-table input[readonly] {
+        font-size: 13px !important;
+        padding: 4px 6px !important;
+        min-height: 30px;
+        width: 110px !important;
+      }
+
+      /* DatePicker específico - mejor targeting */
+      .service-table .react-datepicker-wrapper {
+        width: 120px !important;
+      }
+
+      .service-table .react-datepicker__input-container input {
+        font-size: 13px !important;
+        padding: 4px 6px !important;
+        min-height: 30px !important;
+        width: 115px !important;
+        text-align: center !important;
+      }
+
+      /* Controles de paginación más grandes */
+      .pagination-info span {
+        font-size: 13px;
+      }
+
+      .pagination-controls button {
+        font-size: 13px;
+        padding: 4px 8px;
+        min-height: 32px;
+      }
+
+      .pagination-controls span {
+        font-size: 13px;
+        padding: 4px 10px;
+      }
+
+      .items-per-page label,
+      .items-per-page span {
+        font-size: 13px;
+      }
+
+      .items-per-page select {
+        font-size: 13px;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Filtros en slidebar */
+      .filter-slidebar h2 {
+        font-size: 16px;
+      }
+
+      .filter-slidebar label {
+        font-size: 13px;
+      }
+
+      /* React-Select components */
+      .css-1s2u09g-control,
+      .css-1pahdxg-control {
+        min-height: 32px !important;
+        font-size: 13px !important;
+      }
+
+      .css-1wa3eu0-placeholder,
+      .css-1dimb5e-singleValue {
+        font-size: 13px !important;
+      }
+
+      /* DatePicker */
+      .react-datepicker {
+        font-size: 13px !important;
+      }
+
+      .react-datepicker__day,
+      .react-datepicker__day-name,
+      .react-datepicker__current-month {
+        font-size: 13px !important;
+      }
+
+      /* Title */
+      .title-page {
+        font-size: 20px !important;
+      }
+
+      .current-date {
+        font-size: 13px !important;
+      }
+
+      /* Cards de resumen de gastos */
+      .homepage-card div[style*="display: flex"] div {
+        font-size: 13px !important;
+      }
+
+      .homepage-card div[style*="display: flex"] div p {
+        font-size: 13px !important;
+      }
+
+      /* Asegurar que todos los elementos de tabla sean legibles */
+      .service-table {
+        font-size: 13px;
+      }
+
+      /* SweetAlert2 overrides para móviles */
+      .swal2-popup .swal2-input,
+      .swal2-popup .swal2-select {
+        font-size: 13px !important;
+        min-height: 32px !important;
+      }
+
+      .swal2-popup .swal2-styled {
+        font-size: 13px !important;
+        padding: 8px 16px !important;
+      }
+
+      /* Inputs específicos en tabla con anchos fijos */
+      .service-table input[style*="width: 24ch"],
+      .service-table input[style*="width: 14ch"],
+      .service-table input[style*="width: 10ch"] {
+        min-width: 80px !important;
+      }
+
+      .service-table select[style*="width: 18ch"],
+      .service-table select[style*="width: 16ch"],
+      .service-table select[style*="width: 14ch"] {
+        min-width: 100px !important;
+      }
+    }
+  `;
+
   /* ---------- Estado UI y datos ---------- */
   const [cargando, setCargando] = useState(true);
   const [mostrarSlidebar, setMostrarSlidebar] = useState(false);
@@ -981,6 +1178,9 @@ const Gastos = () => {
   /* ---------- Render ---------- */
   return (
     <div className="homepage-container">
+      {/* Inyectar estilos CSS para móviles */}
+      <style>{mobileStyles}</style>
+      
       <Slidebar />
       <div onClick={() => setMostrarSlidebar((v) => !v)}></div>
 

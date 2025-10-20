@@ -209,7 +209,7 @@ const Slidebar = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendaexpress">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/dashboard">
             <img
               className="user-photo"
               src={logo}
@@ -282,14 +282,14 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-reprog2"
-              onClick={() => navigate("/reprogramacionautomatica")}
+              onClick={() => navigate("/reprogramacion")}
             >
               <img
                 className="icon-reprog2"
                 src={reprogramacionIcon2}
-                alt="Reprogramación Automática"
+                alt="Reprogramación"
               />
-              <span>Reprogramación Automática</span>
+              <span>Reprogramación</span>
             </button>
             <button
               className="btn-reprog2"

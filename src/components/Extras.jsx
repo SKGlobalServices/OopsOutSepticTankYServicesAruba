@@ -25,6 +25,184 @@ const formatCurrency = (amount) =>
   });
 
 const Extras = () => {
+  // CSS embebido para mejoras móviles
+  const mobileStyles = `
+    /* Media Queries - Estilos para móviles (768px y menos) */
+    @media (max-width: 768px) {
+      /* Inputs y Selects más grandes en móviles */
+      .filter-slidebar input, .filter-slidebar select {
+        font-size: 13px !important;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Botones más grandes en móviles */
+      .filter-button, .discard-filter-button {
+        font-size: 13px;
+        padding: 6px 12px;
+        min-height: 32px;
+      }
+
+      .delete-button {
+        font-size: 13px !important;
+        padding: 4px 8px !important;
+        min-height: 30px;
+        min-width: 70px !important;
+      }
+
+      .create-table-button {
+        width: 55px;
+        height: 55px;
+        font-size: 26px;
+      }
+
+      /* Texto de párrafos más grande */
+      p {
+        font-size: 13px !important;
+      }
+
+      /* Labels más grandes */
+      label {
+        font-size: 13px;
+      }
+
+      /* Headers de tabla más grandes */
+      .service-table th {
+        font-size: 13px !important;
+        padding: 6px 4px;
+      }
+
+      /* Contenido de celdas de tabla */
+      .service-table td {
+        font-size: 13px !important;
+        padding: 4px 3px;
+      }
+
+      /* Inputs dentro de la tabla */
+      .service-table input[type="number"],
+      .service-table select {
+        font-size: 13px !important;
+        padding: 4px 6px !important;
+        min-height: 30px;
+      }
+
+      /* DatePicker en tabla */
+      .calendar-datepicker {
+        font-size: 13px !important;
+        padding: 4px 6px !important;
+        min-height: 30px;
+        width: 120px !important;
+      }
+
+      /* Controles de paginación más grandes */
+      .pagination-info span {
+        font-size: 13px;
+      }
+
+      .pagination-controls button {
+        font-size: 13px;
+        padding: 4px 8px;
+        min-height: 32px;
+      }
+
+      .pagination-controls span {
+        font-size: 13px;
+        padding: 4px 10px;
+      }
+
+      .items-per-page label,
+      .items-per-page span {
+        font-size: 13px;
+      }
+
+      .items-per-page select {
+        font-size: 13px;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Filtros en slidebar */
+      .filter-slidebar h2 {
+        font-size: 16px;
+      }
+
+      .filter-slidebar label {
+        font-size: 13px;
+      }
+
+      /* React-Select components */
+      .css-1s2u09g-control,
+      .css-1pahdxg-control {
+        min-height: 32px !important;
+        font-size: 13px !important;
+      }
+
+      .css-1wa3eu0-placeholder,
+      .css-1dimb5e-singleValue {
+        font-size: 13px !important;
+      }
+
+      /* DatePicker */
+      .react-datepicker {
+        font-size: 13px !important;
+      }
+
+      .react-datepicker__day,
+      .react-datepicker__day-name,
+      .react-datepicker__current-month {
+        font-size: 13px !important;
+      }
+
+      /* Title */
+      .title-page {
+        font-size: 20px !important;
+      }
+
+      .current-date {
+        font-size: 13px !important;
+      }
+
+      /* Card de total */
+      .homepage-card div[style*="display: flex"] div {
+        font-size: 13px !important;
+      }
+
+      .homepage-card div[style*="display: flex"] div p {
+        font-size: 13px !important;
+      }
+
+      /* Asegurar que todos los elementos de tabla sean legibles */
+      .service-table {
+        font-size: 13px;
+      }
+
+      /* No hay registros mensaje */
+      .service-table td[colspan] {
+        font-size: 13px !important;
+        text-align: center;
+        padding: 20px;
+      }
+
+      /* Valores calculados en tabla */
+      .service-table td[style*="fontWeight: \"bold\""] {
+        font-size: 13px !important;
+      }
+
+      /* Selects específicos de la tabla */
+      .service-table select[style*="width: 140px"],
+      .service-table select[style*="width: 150px"] {
+        font-size: 13px !important;
+        min-width: 120px !important;
+      }
+
+      /* Input de valor para "Otros" */
+      .service-table input[style*="width: 80px"] {
+        font-size: 13px !important;
+        min-width: 70px !important;
+      }
+    }
+  `;
+
   const [extras, setExtras] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -344,6 +522,9 @@ const Extras = () => {
 
   return (
     <div className="homepage-container">
+      {/* Inyectar estilos CSS para móviles */}
+      <style>{mobileStyles}</style>
+      
       <Slidebar />
 
       {/* Filtros */}
