@@ -715,7 +715,16 @@ const Informedecobranza = () => {
     .text-center { text-align: center; }
 
     /* Row contenedor de tablas */
-    .tables-row { display: flex; flex-direction: row; gap: 20px; }
+    .tables-row { 
+      display: flex; 
+      flex-direction: row; 
+      gap: 20px; 
+      overflow-x: auto;
+      overflow-y: visible;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      min-width: 100%;
+    }
 
     /* Tarjeta de paginación */
     .pagination-card { margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; }
@@ -753,6 +762,175 @@ const Informedecobranza = () => {
 
     /* Ajustes del slidebar de filtros */
     .filter-slidebar h2, .filter-slidebar label { color: #fff; }
+
+    /* Media Queries - Estilos para móviles (768px y menos) */
+    @media (max-width: 768px) {
+      /* Mantener scroll horizontal en móviles */
+      .tables-row {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        scroll-behavior: smooth !important;
+        padding-bottom: 10px;
+      }
+
+      /* Asegurar que las tablas mantengan su ancho mínimo */
+      .service-table {
+        min-width: 300px;
+        flex-shrink: 0;
+      }
+      /* Inputs y Selects más grandes en móviles */
+      .input, .select {
+        font-size: 13px !important;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+      
+      .input-sm, .select-sm {
+        font-size: 13px !important;
+        padding: 4px 6px;
+        min-height: 30px;
+      }
+
+      /* Inputs específicos de las tablas */
+      .input-dir, .input-notes, .input-date, .input-center {
+        font-size: 13px !important;
+        min-height: 30px;
+      }
+
+      /* Todos los inputs dentro de las tablas */
+      .service-table input[type="text"],
+      .service-table input[type="number"],
+      .service-table input[type="date"] {
+        font-size: 13px !important;
+        padding: 4px 6px;
+        min-height: 30px;
+      }
+
+      /* Botones más grandes en móviles */
+      .filter-button, .delete-button, .discard-filter-button {
+        font-size: 13px;
+        padding: 6px 12px;
+        min-height: 32px;
+      }
+
+      .btn-xs {
+        font-size: 13px !important;
+        padding: 4px 8px !important;
+        margin: 1px;
+        min-height: 30px;
+        min-width: 65px;
+      }
+
+      .create-table-button {
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
+      }
+
+      /* Texto de párrafos más grande */
+      p {
+        font-size: 13px !important;
+      }
+
+      /* Labels más grandes */
+      label {
+        font-size: 13px;
+      }
+
+      /* Headers de tabla más grandes - TODOS los th */
+      .service-table th {
+        font-size: 13px !important;
+        padding: 6px 4px;
+      }
+
+      .thead-danger th, .thead-info th, .thead-success th, .thead-purple th {
+        font-size: 13px !important;
+        padding: 6px 4px;
+      }
+
+      /* Controles de paginación más grandes */
+      .page-info {
+        font-size: 13px;
+      }
+
+      .page-btn {
+        font-size: 13px;
+        padding: 6px 10px;
+        min-height: 32px;
+      }
+
+      .page-status {
+        font-size: 13px;
+        padding: 6px 12px;
+        min-height: 32px;
+      }
+
+      /* Select de items por página */
+      .items-per-page-select {
+        font-size: 13px;
+        padding: 6px 8px;
+        min-height: 32px;
+      }
+
+      /* Filtros en slidebar */
+      .filter-slidebar h2 {
+        font-size: 16px;
+      }
+
+      .filter-slidebar label {
+        font-size: 13px;
+      }
+
+      /* Contenido de celdas de tabla */
+      .service-table td {
+        font-size: 13px;
+      }
+
+      /* Pagination info y controls */
+      .pagination-info span {
+        font-size: 13px;
+      }
+
+      .pagination-controls button {
+        font-size: 13px;
+        padding: 4px 8px;
+        min-height: 32px;
+      }
+
+      .pagination-controls .page-info {
+        font-size: 13px;
+        padding: 4px 10px;
+      }
+
+      /* Pagination container */
+      .pagination-container {
+        font-size: 13px;
+      }
+
+      .pagination-info {
+        font-size: 13px;
+      }
+
+      .pagination-controls {
+        font-size: 13px;
+      }
+
+      /* Datalist options */
+      datalist option {
+        font-size: 13px;
+      }
+
+      /* Asegurar que todos los elementos de tabla sean legibles */
+      .service-table {
+        font-size: 13px;
+      }
+
+      .service-table tbody tr td {
+        font-size: 13px !important;
+        padding: 4px 3px;
+      }
+    }
   `;
 
   // Early return: mientras loading sea true, muestra el spinner
@@ -868,6 +1046,12 @@ const Informedecobranza = () => {
           {/* === TABLAS SEPARADAS CON FLEXBOX ROW === */}
           <div
             className="tables-row"
+            style={{ 
+              overflowX: 'auto', 
+              overflowY: 'visible',
+              scrollBehavior: 'smooth',
+              WebkitOverflowScrolling: 'touch'
+            }}
             onWheel={(e) => {
               if (e.deltaY !== 0) {
                 e.preventDefault();
@@ -1290,12 +1474,7 @@ const Informedecobranza = () => {
                           className="text-center"
                           style={{ fontWeight: "bold" }}
                         >
-                          <p
-                            style={{
-                              fontSize:
-                                window.innerWidth < 1024 ? "6px" : "12px",
-                            }}
-                          >
+                          <p>
                             AWG {formatMoney(montoTotal)}
                           </p>
                         </td>

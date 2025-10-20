@@ -130,7 +130,7 @@ const Slidebarcontador = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendaexpress">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadinamicacontador">
             <img
               className="user-photo"
               src={logo}

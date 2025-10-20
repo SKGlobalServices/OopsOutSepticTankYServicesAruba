@@ -6,13 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import "./App.css";
-import {
-  ref,
-  get,
-  child,
-  update,
-  onValue,
-} from "firebase/database";
+import { ref, get, child, update, onValue } from "firebase/database";
 import { database, auth, provider } from "./Database/firebaseConfig";
 import {
   signInWithPopup,
@@ -164,7 +158,6 @@ const App = () => {
           await processGoogleUser(result.user);
         }
       } catch (error) {
-  
         setMessage("Error al procesar login de Google.");
       }
     };
@@ -239,23 +232,23 @@ const App = () => {
     return false; // 02:00 ya abre
   };
 
-  // // Auto-refresh cuando la plataforma se abra
+  // Auto-refresh cuando la plataforma se abra
   useEffect(() => {
     const checkPlatformStatus = () => {
-      const wasClosed = localStorage.getItem('platformWasClosed');
+      const wasClosed = localStorage.getItem("platformWasClosed");
       const isClosed = isPlatformClosed();
-      
+
       if (isClosed) {
-        localStorage.setItem('platformWasClosed', 'true');
-      } else if (wasClosed === 'true') {
-        localStorage.removeItem('platformWasClosed');
+        localStorage.setItem("platformWasClosed", "true");
+      } else if (wasClosed === "true") {
+        localStorage.removeItem("platformWasClosed");
         window.location.reload();
       }
     };
 
     const interval = setInterval(checkPlatformStatus, 60000); // Check every minute
     checkPlatformStatus(); // Check immediately
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -353,14 +346,14 @@ const App = () => {
     }
   }, [blockedUntil]);
 
-  // // Mostrar alerta si la plataforma está cerrada al hacer click en inputs o botones
+  // Mostrar alerta si la plataforma está cerrada al hacer click en inputs o botones
   const handleInputClick = () => {
     if (isPlatformClosed()) {
       showClosedSwal();
     }
   };
 
-  // // Mostrar alerta si la plataforma está cerrada al hacer click en botones
+  // Mostrar alerta si la plataforma está cerrada al hacer click en botones
   const handleButtonClick = (e) => {
     if (isPlatformClosed()) {
       e.preventDefault();
@@ -384,7 +377,7 @@ const App = () => {
   const handleGoogleLogin = async () => {
     if (isPlatformClosed()) {
       showClosedSwal();
-      setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
+      setMessage("La plataforma está cerrada. Vuelve después de las 2:00 AM.");
       return;
     }
     if (blockedUntil && new Date() < blockedUntil) {
@@ -407,7 +400,6 @@ const App = () => {
 
       await processGoogleUser(result.user);
     } catch (error) {
-
       if (error.code === "auth/popup-closed-by-user") {
         setMessage("Login cancelado. Intentando método alternativo...");
         try {
@@ -540,7 +532,7 @@ const App = () => {
     e.preventDefault();
     if (isPlatformClosed()) {
       showClosedSwal();
-      setMessage("La plataforma está cerrada. Vuelve después de la 1:00 AM.");
+      setMessage("La plataforma está cerrada. Vuelve después de las 2:00 AM.");
       return;
     }
     if (blockedUntil && new Date() < blockedUntil) {

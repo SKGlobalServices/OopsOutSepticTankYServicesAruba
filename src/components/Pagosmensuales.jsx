@@ -8,6 +8,109 @@ import Clock from "./Clock";
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 
+const mobileStyles = `
+  @media (max-width: 768px) {
+    /* Inputs generales */
+    .service-table input[type="text"],
+    .service-table textarea,
+    .filter-slidebar input,
+    .filter-slidebar select,
+    .pagination-container select {
+      font-size: 13px !important;
+      padding: 4px 6px !important;
+      min-height: 30px !important;
+    }
+
+    /* Botones */
+    .service-table button,
+    .delete-button,
+    .discard-filter-button,
+    .pagination-controls button,
+    .create-table-button {
+      font-size: 13px !important;
+      padding: 6px 12px !important;
+      min-height: 35px !important;
+    }
+
+    /* Labels y texto general */
+    .filter-slidebar label,
+    .pagination-info span,
+    .pagination-info label,
+    .service-table th,
+    .service-table td {
+      font-size: 13px !important;
+    }
+
+    /* Headers de tabla */
+    .service-table th {
+      padding: 8px 4px !important;
+    }
+
+    /* Celdas de tabla */
+    .service-table td {
+      padding: 6px 4px !important;
+    }
+
+    /* Textarea específico para mes */
+    .service-table textarea {
+      min-width: 120px !important;
+      max-width: 200px !important;
+    }
+
+    /* Inputs específicos con anchos fijos para móvil */
+    .service-table input[style*="16ch"] {
+      width: 110px !important;
+    }
+
+    .service-table input[style*="22ch"] {
+      width: 130px !important;
+    }
+
+    .service-table input[style*="28ch"] {
+      width: 150px !important;
+    }
+
+    .service-table input[style*="10ch"] {
+      width: 90px !important;
+    }
+
+    .service-table input[style*="14ch"] {
+      width: 100px !important;
+    }
+
+    /* Contenedor de paginación */
+    .pagination-container {
+      flex-direction: column !important;
+      gap: 10px !important;
+    }
+
+    .pagination-info {
+      flex-direction: column !important;
+      gap: 8px !important;
+      text-align: center !important;
+    }
+
+    .items-per-page {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 5px !important;
+    }
+
+    /* Alertas de duplicados */
+    .alert-duplicates {
+      font-size: 13px !important;
+      padding: 8px 12px !important;
+    }
+
+    /* Select filters */
+    .filter-slidebar .css-control,
+    .filter-slidebar .css-menu {
+      font-size: 13px !important;
+    }
+  }
+`;
+
 const Pagosmensuales = () => {
   const [showSlidebar, setShowSlidebar] = useState(false);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
@@ -320,6 +423,7 @@ const Pagosmensuales = () => {
 
   return (
     <div className="homepage-container">
+      <style>{mobileStyles}</style>
       <Slidebar />
       <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
 
@@ -554,6 +658,7 @@ const Pagosmensuales = () => {
                             overflow: "hidden",
                             lineHeight: "1.2",
                             padding: "4px 6px",
+                            borderWidth: "0px",
                           }}
                         />
                       </td>

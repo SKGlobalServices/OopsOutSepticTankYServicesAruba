@@ -17,6 +17,119 @@ import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
 // import FacturaViewEditTra from "./FacturaViewEditTra"; (no usado en este informe)
 
+const mobileStyles = `
+  @media (max-width: 768px) {
+    /* Inputs y selects generales */
+    .filter-slidebar input,
+    .filter-slidebar select,
+    .pagination-container select {
+      font-size: 13px !important;
+      padding: 4px 6px !important;
+      min-height: 30px !important;
+    }
+
+    /* Botones */
+    .filter-button,
+    .discard-filter-button,
+    .pagination-controls button,
+    .generate-button1,
+    .generate-button2 {
+      font-size: 13px !important;
+      padding: 6px 12px !important;
+      min-height: 35px !important;
+    }
+
+    /* Labels y texto general */
+    .filter-slidebar label,
+    .pagination-info span,
+    .pagination-info label,
+    .service-table th,
+    .service-table td {
+      font-size: 13px !important;
+    }
+
+    /* Headers de tabla */
+    .service-table th {
+      padding: 8px 4px !important;
+      min-width: 80px !important;
+    }
+
+    /* Celdas de tabla */
+    .service-table td {
+      padding: 6px 4px !important;
+      font-size: 12px !important;
+    }
+
+    /* DatePicker específico */
+    .react-datepicker-wrapper input {
+      font-size: 13px !important;
+      padding: 4px 6px !important;
+      min-height: 30px !important;
+    }
+
+    .react-datepicker {
+      font-size: 13px !important;
+    }
+
+    /* Contenedor de paginación */
+    .pagination-container {
+      flex-direction: column !important;
+      gap: 10px !important;
+    }
+
+    .pagination-info {
+      flex-direction: column !important;
+      gap: 8px !important;
+      text-align: center !important;
+    }
+
+    .items-per-page {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 5px !important;
+    }
+
+    /* Tarjetas de totales */
+    .homepage-card p {
+      font-size: 12px !important;
+    }
+
+    /* Botones de exportar */
+    .generate-button1,
+    .generate-button2 {
+      width: 45px !important;
+      height: 45px !important;
+    }
+
+    .generate-button-imagen1,
+    .generate-button-imagen2 {
+      width: 25px !important;
+      height: 25px !important;
+    }
+
+    /* Select filters React-Select */
+    .filter-slidebar .css-control,
+    .filter-slidebar .css-menu {
+      font-size: 13px !important;
+    }
+
+    /* Título de página */
+    .title-page {
+      font-size: 18px !important;
+    }
+
+    /* Ajustes específicos para tabla responsive */
+    .table-container {
+      overflow-x: auto !important;
+    }
+
+    .service-table {
+      min-width: 800px !important;
+    }
+  }
+`;
+
 // Función auxiliar para formatear números
 const formatCurrency = (amount) => {
   return Number(amount || 0).toLocaleString("en-US", {
@@ -616,6 +729,7 @@ const Informedeserviciosextras = () => {
 
   return (
     <div className="homepage-container">
+      <style>{mobileStyles}</style>
       <Slidebar />
       <div onClick={() => toggleSlidebar(!showSlidebar)}></div>
 

@@ -209,7 +209,7 @@ const Slidebar = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendaexpress">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/dashboard">
             <img
               className="user-photo"
               src={logo}
@@ -223,14 +223,6 @@ const Slidebar = () => {
 
         {/* ===== MENÚ PRINCIPAL ===== */}
         {/* MÓDULO: AGENDA EXPRESS */}
-        <button className="btn-infEfec2" onClick={() => navigate("/test")}>
-          <img
-            className="icon-infEfec2"
-            src={informeEfectivoIcon2}
-            alt="Test"
-          />
-          <span>TEST</span>
-        </button>
         <button className="btn-infEfec2" onClick={() => navigate("/dashboard")}>
           <img
             className="icon-infEfec2"
@@ -290,14 +282,14 @@ const Slidebar = () => {
             </button>
             <button
               className="btn-reprog2"
-              onClick={() => navigate("/reprogramacionautomatica")}
+              onClick={() => navigate("/reprogramacion")}
             >
               <img
                 className="icon-reprog2"
                 src={reprogramacionIcon2}
-                alt="Reprogramación Automática"
+                alt="Reprogramación"
               />
-              <span>Reprogramación Automática</span>
+              <span>Reprogramación</span>
             </button>
             <button
               className="btn-reprog2"
