@@ -745,24 +745,24 @@
 }
 
 /* Variantes de colores para eventos */
-.calendar-event.moved {
-  background: #fef7e0;
-  color: #ea8600;
-  border-left-color: #ea8600;
+.calendar-event {
+  background: #e6f4ea !important;
+  color: #137333 !important;
+  border-left-color: #137333 !important;
 }
 
-.calendar-event.moved:hover {
-  background: #feefc3;
+.calendar-event:hover {
+  background: #ceead6 !important;
 }
 
 .calendar-event.recurring {
-  background: #e6f4ea;
-  color: #137333;
-  border-left-color: #137333;
+  background: #e6f4ea !important;
+  color: #137333 !important;
+  border-left-color: #137333 !important;
 }
 
 .calendar-event.recurring:hover {
-  background: #ceead6;
+  background: #ceead6 !important;
 }
 
 /* Mensaje cuando no hay eventos */
@@ -1420,16 +1420,10 @@
   }
 
   /* Efectos de tipo de evento */
-  .calendar-event.recurring {
-    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-    border-left: 3px solid #4caf50;
-    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
-  }
-
-  .calendar-event.moved {
-    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-    border-left: 3px solid #ff9800;
-    box-shadow: 0 2px 6px rgba(255, 152, 0, 0.2);
+  .calendar-event {
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%) !important;
+    border-left: 3px solid #4caf50 !important;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2) !important;
   }
 
   /* Animación de entrada para eventos */

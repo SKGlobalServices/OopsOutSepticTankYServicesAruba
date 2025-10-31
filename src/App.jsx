@@ -125,7 +125,7 @@ const App = () => {
             navigate("/agendadeldiausuario");
             break;
           case "contador":
-            navigate("/agendadinamicacontador");
+            navigate("/informedetransferenciascontador");
             break;
           default:
             setMessage("Rol no identificado");
@@ -513,7 +513,7 @@ const App = () => {
             navigate("/agendadeldiausuario");
             break;
           case "contador":
-            navigate("/agendadinamicacontador");
+            navigate("/informedetransferenciascontador");
             break;
           default:
             setMessage("Rol no identificado");

@@ -130,7 +130,7 @@ const Slidebarcontador = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/agendadinamicacontador">
+          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/informedetransferenciascontador">
             <img
               className="user-photo"
               src={logo}
@@ -141,19 +141,6 @@ const Slidebarcontador = () => {
             Bienvenido, {user.name || "Invitado"}
           </div>
         </div>
-
-        {/* ===== MENÚ PRINCIPAL ===== */}
-        <button
-          className="btn-servHoy2"
-          onClick={() => navigate("/agendadinamicacontador")}
-        >
-          <img
-            className="icon-servHoy2"
-            src={agendarIcon2}
-            alt="Agenda Dinamica"
-          />
-          <span>ㅤAgenda Dinamica</span>
-        </button>
         {/* ===== Informe de transferencias ===== */}
         <button
           className="btn-servHoy2"

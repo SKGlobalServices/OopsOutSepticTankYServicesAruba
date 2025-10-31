@@ -5,6 +5,8 @@ import Swal from "sweetalert2";
 import "./Reprogramacion.css";
 import Slidebar from "./Slidebar.jsx";
 import Clock from "./Clock.jsx";
+import ExcelJS from "exceljs";
+import excel_icon from "../assets/img/excel_icon.jpg";
 
 // ===================== Utilidades de fecha =====================
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -116,6 +118,102 @@ function expandSeries(series, rangeStart, rangeEnd) {
       }
       loopWeekStart = new Date(loopWeekStart.getTime() + interval * weekMs);
     }
+  } else if (r && r.freq === "LAST_WEEK_MONTHLY") {
+    const interval = Math.max(1, Number(r.interval || 1));
+    const untilStr = r.until || rangeEnd;
+    const until = parse(untilStr);
+    const endBound = parse(rangeEnd);
+    const hardEnd = until < endBound ? until : endBound;
+
+    // Días de la semana seleccionados
+    let byday = Array.isArray(r.byday) && r.byday.length
+      ? r.byday.map((s) => s.toUpperCase())
+      : [WD[parse(series.dtstart).getDay()]];
+    byday = byday.filter((d) => WD.includes(d));
+    
+    // Empezar desde el mes de la fecha inicial
+    let currentDate = new Date(parse(series.dtstart));
+    currentDate.setDate(1); // Ir al primer día del mes
+
+    while (currentDate <= hardEnd) {
+      // Obtener el último día del mes actual
+      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Ir al inicio de la última semana
+      const lastWeekStart = new Date(lastDay);
+      lastWeekStart.setDate(lastDay.getDate() - lastDay.getDay());
+
+      // Procesar cada día seleccionado de la última semana
+      for (const dayToken of byday) {
+        const dayIndex = WD.indexOf(dayToken);
+        const targetDate = new Date(lastWeekStart);
+        targetDate.setDate(lastWeekStart.getDate() + dayIndex);
+
+        // Si el día cae en el siguiente mes, retroceder una semana
+        if (targetDate.getMonth() !== lastDay.getMonth()) {
+          targetDate.setDate(targetDate.getDate() - 7);
+        }
+
+        // Verificar que esté dentro del rango y no sea una exclusión
+        const dayStr = fmt(targetDate);
+        if (targetDate >= parse(series.dtstart) && 
+            targetDate <= hardEnd &&
+            isBetween(dayStr, rangeStart, rangeEnd) && 
+            !exdates[dayStr]) {
+          base.add(dayStr);
+        }
+      }
+
+      // Avanzar al siguiente mes según el intervalo
+      currentDate.setMonth(currentDate.getMonth() + interval);
+    }
+  } else if (r && r.freq === "LAST_WEEK_MONTHLY") {
+    const interval = Math.max(1, Number(r.interval || 1));
+    const untilStr = r.until || rangeEnd;
+    const until = parse(untilStr);
+    const endBound = parse(rangeEnd);
+    const hardEnd = until < endBound ? until : endBound;
+
+    // Días de la semana seleccionados
+    let byday = Array.isArray(r.byday) && r.byday.length
+      ? r.byday.map((s) => s.toUpperCase())
+      : [WD[parse(series.dtstart).getDay()]];
+    byday = byday.filter((d) => WD.includes(d));
+    
+    // Empezar desde el mes de la fecha inicial
+    let currentDate = new Date(parse(series.dtstart));
+    currentDate.setDate(1); // Ir al primer día del mes
+
+    while (currentDate <= hardEnd) {
+      // Obtener el último día del mes actual
+      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Ir al inicio de la última semana
+      const lastWeekStart = new Date(lastDay);
+      lastWeekStart.setDate(lastDay.getDate() - lastDay.getDay());
+
+      // Procesar cada día seleccionado de la última semana
+      for (const dayToken of byday) {
+        const dayIndex = WD.indexOf(dayToken);
+        const targetDate = new Date(lastWeekStart);
+        targetDate.setDate(lastWeekStart.getDate() + dayIndex);
+
+        // Si el día cae en el siguiente mes, retroceder una semana
+        if (targetDate.getMonth() !== lastDay.getMonth()) {
+          targetDate.setDate(targetDate.getDate() - 7);
+        }
+
+        // Verificar que esté dentro del rango y no sea una exclusión
+        const dayStr = fmt(targetDate);
+        if (targetDate >= parse(series.dtstart) && 
+            targetDate <= hardEnd &&
+            isBetween(dayStr, rangeStart, rangeEnd) && 
+            !exdates[dayStr]) {
+          base.add(dayStr);
+        }
+      }
+
+      // Avanzar al siguiente mes según el intervalo
+      currentDate.setMonth(currentDate.getMonth() + interval);
+    }
   } else if (r && r.freq === "MONTHLY") {
     const interval = Math.max(1, Number(r.interval || 1));
     const untilStr = r.until || rangeEnd;
@@ -191,7 +289,7 @@ function expandSeries(series, rangeStart, rangeEnd) {
         date: instDate,
         title,
         seriesId: series.id,
-        recurid: inst.recurid || null,
+        recurid: null,
       });
     }
   }
@@ -214,6 +312,8 @@ function getEventTypeLabel(series) {
       return "Evento semanal";
     case "MONTHLY":
       return "Evento mensual";
+    case "LAST_WEEK_MONTHLY":
+      return "Evento última semana mensual";
     default:
       return "Evento recurrente";
   }
@@ -547,6 +647,14 @@ const Reprogramacion = () => {
               <div>
                 <div style="font-weight: 600; color: #1a202c; font-size: 16px;">🗓️ Evento Mensual</div>
                 <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite cada cierto número de meses</div>
+              </div>
+            </label>
+
+            <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+              <input type="radio" name="eventType" value="last_week_monthly" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+              <div>
+                <div style="font-weight: 600; color: #1a202c; font-size: 16px;">📅 Última Semana Mensual</div>
+                <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite en días específicos de la última semana de cada mes</div>
               </div>
             </label>
           </div>
@@ -1105,6 +1213,119 @@ const Reprogramacion = () => {
       ) {
         rrule.until = monthlyConfig.until;
       }
+    } else if (eventType === "last_week_monthly") {
+      const { value: weeklyConfig } = await Swal.fire({
+        title: "📅 Configuración de Última Semana Mensual",
+        html: `
+          <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+              <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento Última Semana Mensual</div>
+              <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá en los días seleccionados de la última semana de cada mes</div>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
+              <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #374151;">
+                📅 Días de la semana
+              </label>
+              <div style="display: flex; gap: 8px; justify-content: center;">
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">DO</span>
+                  <input type="checkbox" value="SU" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">LU</span>
+                  <input type="checkbox" value="MO" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MA</span>
+                  <input type="checkbox" value="TU" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MI</span>
+                  <input type="checkbox" value="WE" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">JU</span>
+                  <input type="checkbox" value="TH" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">VI</span>
+                  <input type="checkbox" value="FR" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">SA</span>
+                  <input type="checkbox" value="SA" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+              </div>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">
+                💡 Selecciona los días de la última semana del mes en los que se repetirá el evento
+              </div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                ⏱️ Intervalo de repetición
+              </label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                <span style="color: #4a5568; font-weight: 500;">meses</span>
+              </div>
+              <div class="swal-form-help">🗓️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                🏁 Fecha de finalización (opcional)
+              </label>
+              <input id="swal-until" type="date" class="swal2-input">
+              <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "✨ Crear Evento Recurrente",
+        cancelButtonText: "⬅️ Volver",
+        width: "600px",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+          cancelButton: "swal2-professional-cancel",
+        },
+        preConfirm: () => {
+          const selectedDays = Array.from(
+            document.querySelectorAll('input[type="checkbox"]:checked')
+          ).map((cb) => cb.value);
+          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const until = document.getElementById("swal-until").value;
+
+          if (selectedDays.length === 0) {
+            Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+            return false;
+          }
+
+          if (interval < 1) {
+            Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+            return false;
+          }
+
+          return { days: selectedDays, interval, until };
+        },
+      });
+
+      if (!weeklyConfig) return;
+
+      rrule = { 
+        freq: "LAST_WEEK_MONTHLY", 
+        interval: Math.max(1, weeklyConfig.interval),
+        byday: weeklyConfig.days
+      };
+      
+      if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+        rrule.until = weeklyConfig.until;
+      }
     }
 
     // Crear el evento
@@ -1485,6 +1706,258 @@ const Reprogramacion = () => {
         break;
       case "7": // Posponer 1 semana
         await postponeEvent(o, 7);
+        break;
+      case "last_week_monthly": // Evento última semana mensual
+        if (s.rrule && s.rrule.freq === "LAST_WEEK_MONTHLY") {
+          const { value: weeklyConfig } = await Swal.fire({
+            title: "📅 Configuración de Última Semana Mensual",
+            html: `
+              <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+                  <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+                  <div style="font-size: 18px; font-weight: 600;">Evento Última Semana Mensual</div>
+                  <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá en los días seleccionados de la última semana de cada mes</div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
+                  <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #374151;">
+                    📅 Días de la semana
+                  </label>
+                  <div style="display: flex; gap: 8px; justify-content: center;">
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">DO</span>
+                      <input type="checkbox" value="SU" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">LU</span>
+                      <input type="checkbox" value="MO" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MA</span>
+                      <input type="checkbox" value="TU" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MI</span>
+                      <input type="checkbox" value="WE" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">JU</span>
+                      <input type="checkbox" value="TH" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">VI</span>
+                      <input type="checkbox" value="FR" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">SA</span>
+                      <input type="checkbox" value="SA" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                  </div>
+                  <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">
+                    💡 Selecciona los días de la última semana del mes en los que se repetirá el evento
+                  </div>
+                </div>
+                
+                <div class="swal-form-group">
+                  <label class="swal-form-label">
+                    ⏱️ Intervalo de repetición
+                  </label>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                    <input id="swal-interval" type="number" class="swal2-input" value="${s.rrule.interval || 1}" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                    <span style="color: #4a5568; font-weight: 500;">meses</span>
+                  </div>
+                  <div class="swal-form-help">🗓️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
+                </div>
+                
+                <div class="swal-form-group">
+                  <label class="swal-form-label">
+                    🏁 Fecha de finalización (opcional)
+                  </label>
+                  <input id="swal-until" type="date" class="swal2-input" value="${s.rrule.until || ''}">
+                  <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+                </div>
+              </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: "✨ Actualizar Evento Recurrente",
+            cancelButtonText: "⬅️ Volver",
+            width: "600px",
+            customClass: {
+              popup: "swal2-professional-popup",
+              confirmButton: "swal2-professional-confirm",
+              cancelButton: "swal2-professional-cancel",
+            },
+            preConfirm: () => {
+              const selectedDays = Array.from(
+                document.querySelectorAll('input[type="checkbox"]:checked')
+              ).map((cb) => cb.value);
+              const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+              const until = document.getElementById("swal-until").value;
+
+              if (selectedDays.length === 0) {
+                Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+                return false;
+              }
+
+              if (interval < 1) {
+                Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+                return false;
+              }
+
+              return { days: selectedDays, interval, until };
+            },
+          });
+
+          if (weeklyConfig) {
+            const updatedRrule = { 
+              ...s.rrule,
+              interval: Math.max(1, weeklyConfig.interval),
+              byday: weeklyConfig.days
+            };
+            
+            if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+              updatedRrule.until = weeklyConfig.until;
+            } else {
+              delete updatedRrule.until;
+            }
+            
+            await rtdbUpdateSeries(o.seriesId, {
+              ...s,
+              rrule: updatedRrule
+            });
+          }
+        }
+        break;
+      case "last_week_monthly": // Evento última semana mensual
+        const eventTypeVar = choice;
+        if (eventTypeVar === "last_week_monthly") {
+          const { value: weeklyConfig } = await Swal.fire({
+            title: "📅 Configuración de Última Semana Mensual",
+            html: `
+              <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+                  <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+                  <div style="font-size: 18px; font-weight: 600;">Evento Última Semana Mensual</div>
+                  <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá en los días seleccionados de la última semana de cada mes</div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
+                  <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #374151;">
+                    📅 Días de la semana
+                  </label>
+                  <div style="display: flex; gap: 8px; justify-content: center;">
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">DO</span>
+                      <input type="checkbox" value="SU" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">LU</span>
+                      <input type="checkbox" value="MO" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MA</span>
+                      <input type="checkbox" value="TU" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MI</span>
+                      <input type="checkbox" value="WE" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">JU</span>
+                      <input type="checkbox" value="TH" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">VI</span>
+                      <input type="checkbox" value="FR" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                    <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                      <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">SA</span>
+                      <input type="checkbox" value="SA" style="width: 18px; height: 18px; cursor: pointer;">
+                    </label>
+                  </div>
+                  <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">
+                    💡 Selecciona los días de la última semana del mes en los que se repetirá el evento
+                  </div>
+                </div>
+                
+                <div class="swal-form-group">
+                  <label class="swal-form-label">
+                    ⏱️ Intervalo de repetición
+                  </label>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                    <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                    <span style="color: #4a5568; font-weight: 500;">meses</span>
+                  </div>
+                  <div class="swal-form-help">🗓️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
+                </div>
+                
+                <div class="swal-form-group">
+                  <label class="swal-form-label">
+                    🏁 Fecha de finalización (opcional)
+                  </label>
+                  <input id="swal-until" type="date" class="swal2-input">
+                  <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+                </div>
+              </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: "✨ Crear Evento Recurrente",
+            cancelButtonText: "⬅️ Volver",
+            width: "600px",
+            customClass: {
+              popup: "swal2-professional-popup",
+              confirmButton: "swal2-professional-confirm",
+              cancelButton: "swal2-professional-cancel",
+            },
+            preConfirm: () => {
+              const selectedDays = Array.from(
+                document.querySelectorAll('input[type="checkbox"]:checked')
+              ).map((cb) => cb.value);
+              const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+              const until = document.getElementById("swal-until").value;
+
+              if (selectedDays.length === 0) {
+                Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+                return false;
+              }
+
+              if (interval < 1) {
+                Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+                return false;
+              }
+
+              return { days: selectedDays, interval, until };
+            },
+          });
+
+          if (weeklyConfig) {
+            const rrule = { 
+              freq: "LAST_WEEK_MONTHLY", 
+              interval: Math.max(1, weeklyConfig.interval),
+              byday: weeklyConfig.days
+            };
+            
+            if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+              rrule.until = weeklyConfig.until;
+            }
+            
+            // Crear el evento con la configuración
+            await rtdbCreateSeries({
+              title: s.title,
+              dtstart: s.dtstart,
+              direccion: s.direccion || "",
+              anombrede: s.anombrede || "",
+              servicio: s.servicio || "",
+              cubicos: s.cubicos || "",
+              valor: s.valor || "",
+              rrule
+            });
+          }
+        }
         break;
     }
   }
@@ -2286,38 +2759,33 @@ const Reprogramacion = () => {
                               <div className="calendar-event-title">
                                 {o.title}
                               </div>
-                              {seriesMap[o.seriesId]?.direccion && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.direccion || seriesMap[o.seriesId]?.direccion) && (
                                 <div className="calendar-event-info">
-                                  📍 {seriesMap[o.seriesId].direccion}
+                                  📍 {seriesMap[o.seriesId]?.instances?.[o.date]?.direccion || seriesMap[o.seriesId].direccion}
                                 </div>
                               )}
-                              {seriesMap[o.seriesId]?.anombrede && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.anombrede || seriesMap[o.seriesId]?.anombrede) && (
                                 <div className="calendar-event-info">
-                                  👤 {seriesMap[o.seriesId].anombrede}
+                                  👤 {seriesMap[o.seriesId]?.instances?.[o.date]?.anombrede || seriesMap[o.seriesId].anombrede}
                                 </div>
                               )}
-                              {seriesMap[o.seriesId]?.servicio && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.servicio || seriesMap[o.seriesId]?.servicio) && (
                                 <div className="calendar-event-info">
-                                  🛠️ {seriesMap[o.seriesId].servicio}
+                                  🛠️ {seriesMap[o.seriesId]?.instances?.[o.date]?.servicio || seriesMap[o.seriesId].servicio}
                                 </div>
                               )}
                               <div className="calendar-event-details">
-                                {seriesMap[o.seriesId]?.cubicos && (
+                                {(seriesMap[o.seriesId]?.instances?.[o.date]?.cubicos || seriesMap[o.seriesId]?.cubicos) && (
                                   <span className="calendar-event-cubicos">
-                                    📦 {seriesMap[o.seriesId].cubicos} cúbicos
+                                    📦 {seriesMap[o.seriesId]?.instances?.[o.date]?.cubicos || seriesMap[o.seriesId].cubicos} cúbicos
                                   </span>
                                 )}
-                                {seriesMap[o.seriesId]?.valor && (
+                                {(seriesMap[o.seriesId]?.instances?.[o.date]?.valor || seriesMap[o.seriesId]?.valor) && (
                                   <span className="calendar-event-valor">
-                                    💰 ${seriesMap[o.seriesId].valor}
+                                    💰 ${seriesMap[o.seriesId]?.instances?.[o.date]?.valor || seriesMap[o.seriesId].valor}
                                   </span>
                                 )}
                               </div>
-                              {o.recurid && (
-                                <div className="calendar-event-subtitle">
-                                  (movido desde {o.recurid})
-                                </div>
-                              )}
                             </div>
                             <div className="calendar-event-actions">
                               <button
@@ -2355,8 +2823,132 @@ const Reprogramacion = () => {
       <button className="create-table-button" onClick={() => createEvent()}>
         +
       </button>
+      <button 
+        className="generate-button2"
+        onClick={() => generateExcel()}
+      >
+        <img className="generate-button-imagen1" src={excel_icon} alt="Excel" />
+      </button>
     </div>
   );
+
+  // Función para exportar a Excel
+  async function generateExcel() {
+    // Crear un nuevo workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Eventos');
+
+    // Configurar encabezados
+    const headers = ['Fecha', 'Cliente', 'Dirección', 'Servicio', 'Cúbicos', 'Valor'];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F81BD' }
+    };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Obtener eventos del mes actual o según los filtros
+    const currentEvents = Object.keys(filteredOccurrencesByDay).reduce((acc, date) => {
+      const events = filteredOccurrencesByDay[date].map(event => {
+        const series = seriesMap[event.seriesId];
+        return {
+          date,
+          title: event.title,
+          direccion: series.instances?.[date]?.direccion || series.direccion,
+          anombrede: series.instances?.[date]?.anombrede || series.anombrede,
+          servicio: series.instances?.[date]?.servicio || series.servicio,
+          cubicos: series.instances?.[date]?.cubicos || series.cubicos,
+          valor: series.instances?.[date]?.valor || series.valor
+        };
+      });
+      return [...acc, ...events];
+    }, []);
+
+    // Ordenar eventos por fecha
+    currentEvents.sort((a, b) => {
+      const [d1, m1, y1] = a.date.split('-').map(Number);
+      const [d2, m2, y2] = b.date.split('-').map(Number);
+      return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
+    });
+
+    // Agregar datos
+    currentEvents.forEach(event => {
+      const row = worksheet.addRow([
+        event.date,
+        event.anombrede || '',
+        event.direccion || '',
+        event.servicio || '',
+        event.cubicos || '',
+        event.valor || ''
+      ]);
+
+      // Alinear el contenido
+      row.alignment = { vertical: 'middle' };
+      row.getCell(1).alignment = { horizontal: 'center' }; // Fecha
+      row.getCell(5).alignment = { horizontal: 'center' }; // Cúbicos
+      row.getCell(6).alignment = { horizontal: 'right' }; // Valor
+
+      // Formatear valores numéricos
+      if (event.cubicos) {
+        row.getCell(5).numFmt = '0.0';
+      }
+      if (event.valor) {
+        row.getCell(6).numFmt = '$#,##0.00';
+      }
+    });
+
+    // Ajustar ancho de columnas
+    worksheet.columns.forEach((column, i) => {
+      let maxLength = 0;
+      column.eachCell({ includeEmpty: true }, cell => {
+        const columnLength = cell.value ? cell.value.toString().length : 10;
+        if (columnLength > maxLength) {
+          maxLength = columnLength;
+        }
+      });
+      column.width = Math.min(maxLength + 2, 50);
+    });
+
+    // Agregar bordes a todas las celdas
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+
+    // Obtener la fecha actual y el mes actual para el nombre del archivo
+    const currentDate = new Date();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const currentMonth = monthNames[monthAnchor.getMonth()];
+    const currentYear = monthAnchor.getFullYear();
+
+    // Generar el archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Eventos_${currentMonth}_${currentYear}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Mostrar mensaje de éxito
+    await Swal.fire({
+      icon: 'success',
+      title: '¡Exportación completada!',
+      text: `Se ha generado el archivo Excel con los eventos de ${currentMonth} ${currentYear}`,
+      confirmButtonText: '¡Perfecto!',
+      timer: 3000,
+      timerProgressBar: true
+    });
+  }
 };
 
 export default React.memo(Reprogramacion);

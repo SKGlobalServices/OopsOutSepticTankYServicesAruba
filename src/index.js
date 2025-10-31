@@ -15,7 +15,6 @@ import Usuarios from "./components/Configuraciondeusuarios.jsx"
 import Informedeefectivo from "./components/Informedeefectivo.jsx"
 import Agendadeldiausuario from "./components/Agendadeldiausuario.jsx"
 import Agendamañanausuario from "./components/Agendamañanausuario.jsx"
-import Agendadinamicacontador from "./components/Agendadinamicacontador.jsx"
 import Informedeefectivousuario from "./components/Informedeefectivousuario.jsx";
 import Informedecobranza from "./components/Informedecobranza.jsx";
 import Informedetransferencias from "./components/Informedetransferencias.jsx";
@@ -53,7 +52,6 @@ root.render(
       <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
       <Route path="/agendadeldiausuario" element={<PageWrapper><Agendadeldiausuario /></PageWrapper>} />
       <Route path="/agendamañanausuario" element={<PageWrapper><Agendamañanausuario /></PageWrapper>} />
-      <Route path="/agendadinamicacontador" element={<PageWrapper><Agendadinamicacontador /></PageWrapper>} />
       <Route path="/informedeefectivo" element={<PageWrapper><Informedeefectivo /></PageWrapper>} />
       <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
       <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />

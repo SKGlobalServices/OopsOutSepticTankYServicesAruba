@@ -75,6 +75,9 @@ const SAFE_DENOMS = [
   "005",
 ];
 
+// Clave para el valor USD-AWG
+const USD_AWG_KEY = "usdAwg";
+
 // Mapea clave segura -> valor numérico
 const keyToValue = (k) =>
   k === "050"
@@ -132,6 +135,7 @@ const Informedecobranza = () => {
 
   // Estado para conteo de efectivo
   const [conteoEfectivo, setConteoEfectivo] = useState({});
+  const [usdAwgValue, setUsdAwgValue] = useState(0);
 
   // === FILTROS ===
   const [dir3Filter, setDir3Filter] = useState("");
@@ -244,6 +248,7 @@ const Informedecobranza = () => {
           SAFE_DENOMS.map((d) => [d, 0])
         );
         setConteoEfectivo(defaultConteo);
+        setUsdAwgValue(0);
         setLoadedConteoEfectivo(true);
         return;
       }
@@ -253,6 +258,10 @@ const Informedecobranza = () => {
 
       // migra todas las claves a formato seguro
       Object.entries(raw).forEach(([k, v]) => {
+        if (k === USD_AWG_KEY) {
+          setUsdAwgValue(Number(v) || 0);
+          return;
+        }
         const sk = toSafe(String(k));
         safe[sk] = Number(v) || 0;
       });
@@ -610,20 +619,7 @@ const Informedecobranza = () => {
     setCurrentPageEfectivo(1);
   }, []);
 
-  const handleConteoChange = useCallback((tipoSeguro, cantidad) => {
-    const newCantidad = Math.max(0, Number(cantidad) || 0); // nunca negativo
-    if (!SAFE_DENOMS.includes(tipoSeguro)) return; // solo claves válidas
 
-    setConteoEfectivo((prev) => {
-      const sanitized = Object.fromEntries(
-        SAFE_DENOMS.map((k) => [k, Number(prev[k]) || 0])
-      );
-      sanitized[tipoSeguro] = newCantidad;
-
-      set(ref(database, "cobranzaefectivototal"), sanitized);
-      return sanitized;
-    });
-  }, []);
 
   // Reset página cuando cambien los filtros
   useEffect(() => {
@@ -653,8 +649,8 @@ const Informedecobranza = () => {
       const qty = Number(conteoEfectivo[k]) || 0;
       return acc + valorCents * qty;
     }, 0);
-    return cents / 100;
-  }, [conteoEfectivo]);
+    return (cents / 100) + (Number(usdAwgValue) || 0);
+  }, [conteoEfectivo, usdAwgValue]);
 
   const clearFilters = useCallback(() => {
     setDir3Filter("");
@@ -675,44 +671,54 @@ const Informedecobranza = () => {
   }, [clients]);
 
   const resetConteoEfectivo = useCallback(() => {
-  const zeros = Object.fromEntries(SAFE_DENOMS.map((k) => [k, 0]));
+    const zeros = Object.fromEntries(SAFE_DENOMS.map((k) => [k, 0]));
 
-  Swal.fire({
-    title: "¿Reiniciar conteo?",
-    html: "Esto pondrá todas las cantidades en <b>0</b>.",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Sí, reiniciar",
-    cancelButtonText: "Cancelar",
-    reverseButtons: true,
-    focusCancel: true,
-    allowOutsideClick: false,
-  }).then(async (result) => {
-    if (!result.isConfirmed) return;
+    Swal.fire({
+      title: "¿Reiniciar conteo?",
+      html: "Esto pondrá todas las cantidades en <b>0</b>.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, reiniciar",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+      focusCancel: true,
+      allowOutsideClick: false,
+    }).then(async (result) => {
+      if (!result.isConfirmed) return;
 
-    // guardamos el estado actual para poder revertir en caso de error
-    const prevState = conteoEfectivo;
+      // guardamos el estado actual para poder revertir en caso de error
+      const prevState = conteoEfectivo;
 
-    // optimista: actualiza UI
-    setConteoEfectivo(zeros);
+      // optimista: actualiza UI
+      setConteoEfectivo(zeros);
+      setUsdAwgValue(0);
 
-    try {
-      await set(ref(database, "cobranzaefectivototal"), zeros);
-      Swal.fire("Listo", "El contador fue reiniciado.", "success");
-    } catch (err) {
-      console.error("Error reseteando conteo:", err);
-      // rollback
-      setConteoEfectivo(prevState);
-      Swal.fire("Error", "No se pudo reiniciar el contador.", "error");
-    }
-  });
-}, [conteoEfectivo]);
-
+      try {
+        await set(ref(database, "cobranzaefectivototal"), { ...zeros, [USD_AWG_KEY]: 0 });
+        Swal.fire("Listo", "El contador fue reiniciado.", "success");
+      } catch (err) {
+        console.error("Error reseteando conteo:", err);
+        // rollback
+        setConteoEfectivo(prevState);
+        setUsdAwgValue(prevState[USD_AWG_KEY] || 0);
+        Swal.fire("Error", "No se pudo reiniciar el contador.", "error");
+      }
+    });
+  }, [conteoEfectivo]);
 
   // CSS embebido (no requiere archivo externo)
   const styles = `
     /* Utils */
     .text-center { text-align: center; }
+
+    /* Contenedor principal con scroll */
+    .table-container {
+      position: relative;
+      height: calc(100vh - 200px); /* Ajustamos la altura */
+      padding: 0;
+      margin: 0;
+      overflow-x: hidden; /* Evitamos scroll horizontal duplicado */
+    }
 
     /* Row contenedor de tablas */
     .tables-row { 
@@ -720,10 +726,69 @@ const Informedecobranza = () => {
       flex-direction: row; 
       gap: 20px; 
       overflow-x: auto;
-      overflow-y: visible;
+      overflow-y: auto;
+      height: calc(100% - 20px); /* Restamos espacio para la barra horizontal */
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
-      min-width: 100%;
+      padding: 0 15px;
+      position: sticky;
+      bottom: 25px; /* Subimos la barra horizontal */
+      margin-bottom: 5px; /* Espacio adicional al final */
+    }
+
+    /* Hacer que la barra de scroll horizontal siempre sea visible */
+    .tables-row::-webkit-scrollbar {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+    }
+    
+    .tables-row::-webkit-scrollbar-thumb {
+      background-color: rgba(0, 0, 0, .3);
+      border-radius: 6px;
+      border: 2px solid white;
+    }
+    
+    .tables-row::-webkit-scrollbar-track {
+      background-color: #fff;
+      border-radius: 6px;
+    }
+
+    /* Estilos para hacer la barra de scroll horizontal fija */
+    .tables-row::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+      background-color: #F5F5F5;
+    }
+
+    .tables-row::-webkit-scrollbar-thumb {
+      background-color: #888;
+      border-radius: 6px;
+      border: 2px solid #F5F5F5;
+    }
+
+    .tables-row::-webkit-scrollbar-track {
+      background-color: #F5F5F5;
+      border-radius: 6px;
+    }
+
+    /* Contenedor fijo para la barra de scroll horizontal */
+    .table-wrapper {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Contenedor para la barra de scroll horizontal */
+    .scroll-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 20px; /* Altura de la barra de scroll */
+      background-color: #fff;
+      box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+      overflow-x: auto;
     }
 
     /* Tarjeta de paginación */
@@ -1044,16 +1109,16 @@ const Informedecobranza = () => {
       <div className="homepage-card">
         <div className="table-container">
           {/* === TABLAS SEPARADAS CON FLEXBOX ROW === */}
-          <div
-            className="tables-row"
-            style={{ 
-              overflowX: 'auto', 
-              overflowY: 'visible',
-              scrollBehavior: 'smooth',
-              WebkitOverflowScrolling: 'touch'
+          <div className="tables-row"
+            style={{
+              overflowX: "auto",
+              overflowY: "visible",
+              scrollBehavior: "smooth",
+              WebkitOverflowScrolling: "touch",
             }}
             onWheel={(e) => {
-              if (e.deltaY !== 0) {
+              // Solo convertimos scroll vertical a horizontal cuando se presiona la tecla Shift
+              if (e.shiftKey && e.deltaY !== 0) {
                 e.preventDefault();
                 e.currentTarget.scrollLeft += e.deltaY;
               }
@@ -1460,13 +1525,15 @@ const Informedecobranza = () => {
                             type="number"
                             min="0"
                             className="input input-sm input-center"
-                            value={cantidad}
-                            onChange={(e) =>
-                              handleConteoChange(tipoKey, e.target.value)
-                            }
-                            onBlur={(e) =>
-                              handleConteoChange(tipoKey, e.target.value)
-                            }
+                            defaultValue={cantidad}
+                            onBlur={(e) => {
+                              const newValue = Math.max(0, Number(e.target.value) || 0);
+                              if (newValue !== cantidad) {
+                                update(ref(database, "cobranzaefectivototal"), {
+                                  [tipoKey]: newValue
+                                });
+                              }
+                            }}
                             placeholder="0"
                           />
                         </td>
@@ -1474,13 +1541,36 @@ const Informedecobranza = () => {
                           className="text-center"
                           style={{ fontWeight: "bold" }}
                         >
-                          <p>
-                            AWG {formatMoney(montoTotal)}
-                          </p>
+                          <p>AWG {formatMoney(montoTotal)}</p>
                         </td>
                       </tr>
                     );
                   })}
+                  <tr>
+                    <td className="text-center" style={{ fontWeight: "bold" }}>
+                      USD
+                    </td>
+                    <td className="text-center" style={{ fontWeight: "bold" }}>
+                      AWG
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input input-sm input-center"
+                        defaultValue={usdAwgValue}
+                        onBlur={(e) => {
+                          const newValue = Math.max(0, Number(e.target.value) || 0);
+                          if (newValue !== usdAwgValue) {
+                            update(ref(database, "cobranzaefectivototal"), {
+                              [USD_AWG_KEY]: newValue
+                            });
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                    </td>
+                  </tr>
                   <tr>
                     <td colSpan={3} className="text-center">
                       <button
