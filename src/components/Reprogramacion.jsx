@@ -336,6 +336,7 @@ async function rtdbCreateSeries(data) {
     servicio: data.servicio || "",
     cubicos: data.cubicos || "",
     valor: data.valor || "",
+    notas: data.notas || "",
     createdAt: now,
     updatedAt: now,
   };
@@ -764,6 +765,34 @@ const Reprogramacion = () => {
               <input id="swal-valor" type="number" class="swal2-input" placeholder="0.00" min="0" step="0.01">
             </div>
           </div>
+
+          <div class="swal-form-group">
+            <label class="swal-form-label">
+              📝 Notas
+            </label>
+            <textarea 
+              id="swal-notas" 
+              class="swal2-textarea" 
+              placeholder="Añade notas adicionales sobre el servicio..." 
+              style="
+                min-width: 80%;
+                min-height: 60px; 
+                padding: 12px; 
+                border: 2px solid #e2e8f0;
+                border-radius: 8px; 
+                margin-top: 4px;
+                font-size: 14px;
+                line-height: 1.5;
+                resize: vertical;
+                transition: all 0.3s ease;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                background: linear-gradient(to bottom, #ffffff, #fafafa);
+              "
+              onFocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'"
+              onBlur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.05)'"
+            ></textarea>
+            <div class="swal-form-help" style="color: #64748b; font-size: 12px; margin-top: 6px;">💡 Información adicional relevante para el servicio</div>
+          </div>
         </div>
       `,
       focusConfirm: false,
@@ -821,6 +850,7 @@ const Reprogramacion = () => {
         const servicio = document.getElementById("swal-servicio").value;
         const cubicos = document.getElementById("swal-cubicos").value;
         const valor = document.getElementById("swal-valor").value;
+        const notas = document.getElementById("swal-notas").value;
 
         // Si no hay título generado, crear uno básico
         const finalTitle =
@@ -834,6 +864,7 @@ const Reprogramacion = () => {
           servicio,
           cubicos,
           valor,
+          notas,
         };
       },
     });
@@ -1337,6 +1368,7 @@ const Reprogramacion = () => {
       servicio: formValues.servicio,
       cubicos: formValues.cubicos,
       valor: formValues.valor,
+      notas: formValues.notas,
       rrule,
     });
 
@@ -2157,7 +2189,7 @@ const Reprogramacion = () => {
             </select>
           </div>
           
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
             <div>
               <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
                 📦 Cúbicos
@@ -2176,8 +2208,44 @@ const Reprogramacion = () => {
               }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             </div>
           </div>
-          
-          ${
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+              📝 Notas
+            </label>
+            <textarea 
+              id="swal-notas" 
+              class="swal2-textarea" 
+              placeholder="Añade notas adicionales sobre el servicio..." 
+              style="
+                width: 100%; 
+                min-height: 80px; 
+                padding: 12px; 
+                border: 2px solid #e2e8f0;
+                border-radius: 8px; 
+                margin-top: 4px;
+                font-size: 14px;
+                line-height: 1.5;
+                resize: vertical;
+                transition: all 0.3s ease;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                background: linear-gradient(to bottom, #ffffff, #fafafa);
+              "
+              onFocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'"
+              onBlur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.05)'"
+            >${s.notas || ""}</textarea>
+            <div style="
+              font-size: 12px; 
+              color: #64748b; 
+              margin-top: 6px;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            ">
+              <span style="color: #3b82f6">💡</span> 
+              Información adicional relevante para el servicio
+            </div>
+          </div>          ${
             s.rrule && s.rrule.freq === "WEEKLY"
               ? `
           <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
@@ -2318,6 +2386,7 @@ const Reprogramacion = () => {
         const servicio = document.getElementById("swal-servicio").value;
         const cubicos = document.getElementById("swal-cubicos").value;
         const valor = document.getElementById("swal-valor").value;
+        const notas = document.getElementById("swal-notas").value;
 
         // Capturar días de la semana si es evento semanal
         let weeklyDays = null;
@@ -2361,6 +2430,7 @@ const Reprogramacion = () => {
           servicio,
           cubicos,
           valor,
+          notas,
           weeklyDays,
           monthlyDays,
         };
@@ -2371,17 +2441,16 @@ const Reprogramacion = () => {
 
     // Aplicar los cambios según el tipo de edición
     try {
-      const updatedData = {
-        title: formValues.title,
-        dtstart: formValues.date,
-        direccion: formValues.direccion,
-        anombrede: formValues.anombrede,
-        servicio: formValues.servicio,
-        cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : null,
-        valor: formValues.valor ? parseFloat(formValues.valor) : null,
-      };
-
-      if (editType === "single") {
+          const updatedData = {
+            title: formValues.title,
+            dtstart: formValues.date,
+            direccion: formValues.direccion || "",
+            anombrede: formValues.anombrede || "",
+            servicio: formValues.servicio || "",
+            cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
+            valor: formValues.valor ? parseFloat(formValues.valor) : "",
+            notas: formValues.notas || "",
+          };      if (editType === "single") {
         // Editar solo este evento
         if (s.rrule) {
           // Es un evento recurrente, crear una instancia específica
@@ -2391,6 +2460,9 @@ const Reprogramacion = () => {
           );
           await set(exdatesRef, true);
 
+          // Obtener el valor actual de las notas (ya sea de la instancia o del evento principal)
+          const currentNotes = s.instances?.[o.date]?.notas !== undefined ? s.instances[o.date].notas : s.notas;
+
           const instancesRef = ref(
             database,
             `/reprogramacion/${o.seriesId}/instances/${formValues.date}`
@@ -2398,6 +2470,7 @@ const Reprogramacion = () => {
           await set(instancesRef, {
             ...updatedData,
             recurid: o.date,
+            notas: formValues.notas || currentNotes || "",
           });
         } else {
           // Es un evento único, actualizar directamente
@@ -2786,6 +2859,25 @@ const Reprogramacion = () => {
                                   </span>
                                 )}
                               </div>
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.notas || seriesMap[o.seriesId]?.notas) && (
+                                <div className="calendar-event-notas" style={{ 
+                                  fontSize: '0.9em',
+                                  color: '#4b5563',
+                                  marginTop: '8px',
+                                  padding: '8px 12px',
+                                  backgroundColor: 'rgba(249, 250, 251, 0.9)',
+                                  borderRadius: '6px',
+                                  borderLeft: '3px solid #3b82f6',
+                                  lineHeight: '1.4',
+                                  position: 'relative',
+                                  boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
+                                  maxWidth: '100%',
+                                  wordBreak: 'break-word'
+                                }}>
+                                  <span style={{ marginRight: '4px', color: '#3b82f6' }}>📝</span>
+                                  {seriesMap[o.seriesId]?.instances?.[o.date]?.notas || seriesMap[o.seriesId].notas}
+                                </div>
+                              )}
                             </div>
                             <div className="calendar-event-actions">
                               <button

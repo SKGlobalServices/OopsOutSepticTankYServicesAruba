@@ -27,7 +27,16 @@ const formatCurrency = (amount) =>
 const Extras = () => {
   // CSS embebido para mejoras móviles
   const mobileStyles = `
-    /* Media Queries - Estilos para móviles (768px y menos) */
+    /* Estilos para texto ajustable */
+  .texto-ajustable {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Media Queries - Estilos para móviles (768px y menos) */
     @media (max-width: 768px) {
       /* Inputs y Selects más grandes en móviles */
       .filter-slidebar input, .filter-slidebar select {
@@ -210,6 +219,24 @@ const Extras = () => {
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [localValues, setLocalValues] = useState({});
 
+  // Manejo de notas
+  const handleNotesClick = (id, currentNotes) => {
+    Swal.fire({
+      title: "Notas",
+      input: "textarea", 
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const notes = result.value;
+        handleFieldChange(id, "notas", notes);
+        Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -351,6 +378,7 @@ const Extras = () => {
       cantidad: "",
       servicioAdicional: "",
       realizado: "",
+      notas: "",
       valor: 0,
       timestamp: Date.now(),
       createdBy: decryptData(localStorage.getItem("user"))?.name || "Admin",
@@ -701,6 +729,7 @@ const Extras = () => {
                 <th>Cantidad</th>
                 <th>Servicio Adicional</th>
                 <th>Realizado</th>
+                <th>Notas</th>
                 <th>Valor</th>
                 <th>Acción</th>
               </tr>
@@ -809,6 +838,36 @@ const Extras = () => {
                             </option>
                           ))}
                         </select>
+                      </td>
+
+                      <td>
+                        <button
+                          style={{
+                            border: "none",
+                            backgroundColor: "transparent", 
+                            borderRadius: "0.25em",
+                            color: "black",
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            maxWidth: "20ch",
+                            textAlign: "left",
+                            width: "100%",
+                          }}
+                          onClick={() => handleNotesClick(extra.id, extra.notas)}
+                        >
+                          {extra.notas ? (
+                            <p className="texto-ajustable">
+                              {extra.notas || ""}
+                            </p>
+                          ) : (
+                            <span
+                              style={{
+                                width: "100%",
+                                display: "inline-block",
+                              }}
+                            ></span>
+                          )}
+                        </button>
                       </td>
 
                       <td style={{ textAlign: "center", fontWeight: "bold" }}>

@@ -740,7 +740,6 @@ const Hojapasadomañana = () => {
     Swal.fire({
       title: "Notas",
       input: "textarea",
-      inputLabel: "Notas",
       inputValue: currentNotes || "",
       showCancelButton: true,
       confirmButtonText: "Guardar",
