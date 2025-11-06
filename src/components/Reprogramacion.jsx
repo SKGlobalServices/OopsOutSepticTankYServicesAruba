@@ -126,18 +126,23 @@ function expandSeries(series, rangeStart, rangeEnd) {
     const hardEnd = until < endBound ? until : endBound;
 
     // Días de la semana seleccionados
-    let byday = Array.isArray(r.byday) && r.byday.length
-      ? r.byday.map((s) => s.toUpperCase())
-      : [WD[parse(series.dtstart).getDay()]];
+    let byday =
+      Array.isArray(r.byday) && r.byday.length
+        ? r.byday.map((s) => s.toUpperCase())
+        : [WD[parse(series.dtstart).getDay()]];
     byday = byday.filter((d) => WD.includes(d));
-    
+
     // Empezar desde el mes de la fecha inicial
     let currentDate = new Date(parse(series.dtstart));
     currentDate.setDate(1); // Ir al primer día del mes
 
     while (currentDate <= hardEnd) {
       // Obtener el último día del mes actual
-      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      const lastDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      );
       // Ir al inicio de la última semana
       const lastWeekStart = new Date(lastDay);
       lastWeekStart.setDate(lastDay.getDate() - lastDay.getDay());
@@ -155,10 +160,12 @@ function expandSeries(series, rangeStart, rangeEnd) {
 
         // Verificar que esté dentro del rango y no sea una exclusión
         const dayStr = fmt(targetDate);
-        if (targetDate >= parse(series.dtstart) && 
-            targetDate <= hardEnd &&
-            isBetween(dayStr, rangeStart, rangeEnd) && 
-            !exdates[dayStr]) {
+        if (
+          targetDate >= parse(series.dtstart) &&
+          targetDate <= hardEnd &&
+          isBetween(dayStr, rangeStart, rangeEnd) &&
+          !exdates[dayStr]
+        ) {
           base.add(dayStr);
         }
       }
@@ -174,18 +181,23 @@ function expandSeries(series, rangeStart, rangeEnd) {
     const hardEnd = until < endBound ? until : endBound;
 
     // Días de la semana seleccionados
-    let byday = Array.isArray(r.byday) && r.byday.length
-      ? r.byday.map((s) => s.toUpperCase())
-      : [WD[parse(series.dtstart).getDay()]];
+    let byday =
+      Array.isArray(r.byday) && r.byday.length
+        ? r.byday.map((s) => s.toUpperCase())
+        : [WD[parse(series.dtstart).getDay()]];
     byday = byday.filter((d) => WD.includes(d));
-    
+
     // Empezar desde el mes de la fecha inicial
     let currentDate = new Date(parse(series.dtstart));
     currentDate.setDate(1); // Ir al primer día del mes
 
     while (currentDate <= hardEnd) {
       // Obtener el último día del mes actual
-      const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      const lastDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      );
       // Ir al inicio de la última semana
       const lastWeekStart = new Date(lastDay);
       lastWeekStart.setDate(lastDay.getDate() - lastDay.getDay());
@@ -203,10 +215,12 @@ function expandSeries(series, rangeStart, rangeEnd) {
 
         // Verificar que esté dentro del rango y no sea una exclusión
         const dayStr = fmt(targetDate);
-        if (targetDate >= parse(series.dtstart) && 
-            targetDate <= hardEnd &&
-            isBetween(dayStr, rangeStart, rangeEnd) && 
-            !exdates[dayStr]) {
+        if (
+          targetDate >= parse(series.dtstart) &&
+          targetDate <= hardEnd &&
+          isBetween(dayStr, rangeStart, rangeEnd) &&
+          !exdates[dayStr]
+        ) {
           base.add(dayStr);
         }
       }
@@ -354,7 +368,7 @@ const Reprogramacion = () => {
   const slidebarRef = useRef(null);
   const tableContainerRef = useRef(null);
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
-  
+
   // Estados para la funcionalidad de búsqueda
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -482,15 +496,28 @@ const Reprogramacion = () => {
         const series = seriesMap[event.seriesId];
         if (!series) return false;
 
-        // Buscar solo en título y servicio
+        // Obtener los datos de la instancia si existen
+        const instance = series.instances?.[event.date];
+        
+        // Recopilar todos los campos de búsqueda posibles
         const searchFields = [
-          event.title,
-          series.servicio,
-        ].filter(Boolean);
+          event.title,                    // Título del evento
+          instance?.title,                // Título de la instancia si existe
+          series.servicio,                // Servicio de la serie
+          instance?.servicio,             // Servicio de la instancia si existe
+          series.direccion,               // Dirección de la serie
+          instance?.direccion,            // Dirección de la instancia si existe
+          series.notas,                   // Notas de la serie
+          instance?.notas                 // Notas de la instancia si existe
+        ].filter(Boolean);               // Eliminar valores undefined/null
 
+        // Crear un texto combinado para buscar palabras que pueden estar divididas entre campos
+        const combinedText = searchFields.join(" ").toLowerCase();
+        
+        // Buscar tanto en campos individuales como en el texto combinado
         return searchFields.some((field) =>
           field.toLowerCase().includes(queryLower)
-        );
+        ) || combinedText.includes(queryLower);
       });
 
       // Solo incluir días que tienen eventos que coinciden con la búsqueda
@@ -1329,11 +1356,14 @@ const Reprogramacion = () => {
           const selectedDays = Array.from(
             document.querySelectorAll('input[type="checkbox"]:checked')
           ).map((cb) => cb.value);
-          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const interval =
+            parseInt(document.getElementById("swal-interval").value) || 1;
           const until = document.getElementById("swal-until").value;
 
           if (selectedDays.length === 0) {
-            Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+            Swal.showValidationMessage(
+              "Por favor selecciona al menos un día de la semana"
+            );
             return false;
           }
 
@@ -1348,13 +1378,16 @@ const Reprogramacion = () => {
 
       if (!weeklyConfig) return;
 
-      rrule = { 
-        freq: "LAST_WEEK_MONTHLY", 
+      rrule = {
+        freq: "LAST_WEEK_MONTHLY",
         interval: Math.max(1, weeklyConfig.interval),
-        byday: weeklyConfig.days
+        byday: weeklyConfig.days,
       };
-      
-      if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+
+      if (
+        weeklyConfig.until &&
+        /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)
+      ) {
         rrule.until = weeklyConfig.until;
       }
     }
@@ -1796,7 +1829,9 @@ const Reprogramacion = () => {
                   </label>
                   <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="color: #4a5568; font-weight: 500;">Cada</span>
-                    <input id="swal-interval" type="number" class="swal2-input" value="${s.rrule.interval || 1}" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                    <input id="swal-interval" type="number" class="swal2-input" value="${
+                      s.rrule.interval || 1
+                    }" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
                     <span style="color: #4a5568; font-weight: 500;">meses</span>
                   </div>
                   <div class="swal-form-help">🗓️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
@@ -1806,7 +1841,9 @@ const Reprogramacion = () => {
                   <label class="swal-form-label">
                     🏁 Fecha de finalización (opcional)
                   </label>
-                  <input id="swal-until" type="date" class="swal2-input" value="${s.rrule.until || ''}">
+                  <input id="swal-until" type="date" class="swal2-input" value="${
+                    s.rrule.until || ""
+                  }">
                   <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
                 </div>
               </div>
@@ -1825,16 +1862,21 @@ const Reprogramacion = () => {
               const selectedDays = Array.from(
                 document.querySelectorAll('input[type="checkbox"]:checked')
               ).map((cb) => cb.value);
-              const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+              const interval =
+                parseInt(document.getElementById("swal-interval").value) || 1;
               const until = document.getElementById("swal-until").value;
 
               if (selectedDays.length === 0) {
-                Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+                Swal.showValidationMessage(
+                  "Por favor selecciona al menos un día de la semana"
+                );
                 return false;
               }
 
               if (interval < 1) {
-                Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+                Swal.showValidationMessage(
+                  "El intervalo debe ser al menos 1 mes"
+                );
                 return false;
               }
 
@@ -1843,21 +1885,24 @@ const Reprogramacion = () => {
           });
 
           if (weeklyConfig) {
-            const updatedRrule = { 
+            const updatedRrule = {
               ...s.rrule,
               interval: Math.max(1, weeklyConfig.interval),
-              byday: weeklyConfig.days
+              byday: weeklyConfig.days,
             };
-            
-            if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+
+            if (
+              weeklyConfig.until &&
+              /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)
+            ) {
               updatedRrule.until = weeklyConfig.until;
             } else {
               delete updatedRrule.until;
             }
-            
+
             await rtdbUpdateSeries(o.seriesId, {
               ...s,
-              rrule: updatedRrule
+              rrule: updatedRrule,
             });
           }
         }
@@ -1949,16 +1994,21 @@ const Reprogramacion = () => {
               const selectedDays = Array.from(
                 document.querySelectorAll('input[type="checkbox"]:checked')
               ).map((cb) => cb.value);
-              const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+              const interval =
+                parseInt(document.getElementById("swal-interval").value) || 1;
               const until = document.getElementById("swal-until").value;
 
               if (selectedDays.length === 0) {
-                Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+                Swal.showValidationMessage(
+                  "Por favor selecciona al menos un día de la semana"
+                );
                 return false;
               }
 
               if (interval < 1) {
-                Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+                Swal.showValidationMessage(
+                  "El intervalo debe ser al menos 1 mes"
+                );
                 return false;
               }
 
@@ -1967,16 +2017,19 @@ const Reprogramacion = () => {
           });
 
           if (weeklyConfig) {
-            const rrule = { 
-              freq: "LAST_WEEK_MONTHLY", 
+            const rrule = {
+              freq: "LAST_WEEK_MONTHLY",
               interval: Math.max(1, weeklyConfig.interval),
-              byday: weeklyConfig.days
+              byday: weeklyConfig.days,
             };
-            
-            if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+
+            if (
+              weeklyConfig.until &&
+              /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)
+            ) {
               rrule.until = weeklyConfig.until;
             }
-            
+
             // Crear el evento con la configuración
             await rtdbCreateSeries({
               title: s.title,
@@ -1986,7 +2039,7 @@ const Reprogramacion = () => {
               servicio: s.servicio || "",
               cubicos: s.cubicos || "",
               valor: s.valor || "",
-              rrule
+              rrule,
             });
           }
         }
@@ -2012,6 +2065,20 @@ const Reprogramacion = () => {
   async function editEvent(o, editType) {
     const s = seriesMap[o.seriesId];
     if (!s) return;
+
+    // Obtener los datos de la instancia si existe
+    const instance = s.instances?.[o.date];
+    
+    // Usar los datos de la instancia si existen, o los de la serie si no
+    const currentData = {
+      title: instance?.title || s.title || "",
+      direccion: instance?.direccion || s.direccion || "",
+      anombrede: instance?.anombrede || s.anombrede || "",
+      servicio: instance?.servicio || s.servicio || "",
+      cubicos: instance?.cubicos || s.cubicos || "",
+      valor: instance?.valor || s.valor || "",
+      notas: instance?.notas || s.notas || ""
+    };
 
     // Mostrar información actual del evento en el formulario de edición
     const { value: formValues } = await Swal.fire({
@@ -2119,7 +2186,7 @@ const Reprogramacion = () => {
               🏠 Dirección del servicio
             </label>
             <input id="swal-direccion" class="swal2-input" placeholder="Selecciona o escribe la dirección" list="direcciones-list" autocomplete="off" value="${
-              s.direccion || ""
+              currentData.direccion
             }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             <datalist id="direcciones-list">
               ${Object.entries(clientes)
@@ -2141,7 +2208,7 @@ const Reprogramacion = () => {
               👤 A nombre de
             </label>
             <input id="swal-anombrede" class="swal2-input" placeholder="Nombre del cliente" value="${
-              s.anombrede || ""
+              currentData.anombrede
             }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Se completará automáticamente al seleccionar dirección</div>
           </div>
@@ -2151,7 +2218,7 @@ const Reprogramacion = () => {
               📄 Título del evento
             </label>
             <input id="swal-title" class="swal2-input" placeholder="Título del evento" value="${
-              s.title || ""
+              currentData.title
             }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">✨ Se puede generar automáticamente: "Cliente - Dirección"</div>
           </div>
@@ -2163,28 +2230,28 @@ const Reprogramacion = () => {
             <select id="swal-servicio" class="swal2-input" style="width: 100%; height: auto; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
               <option value="">Selecciona un servicio</option>
               <option value="Poso" ${
-                (s.servicio || "") === "Poso" ? "selected" : ""
+                currentData.servicio === "Poso" ? "selected" : ""
               }>Poso</option>
               <option value="Tuberia" ${
-                (s.servicio || "") === "Tuberia" ? "selected" : ""
+                currentData.servicio === "Tuberia" ? "selected" : ""
               }>Tuberia</option>
               <option value="Poso + Tuberia" ${
-                (s.servicio || "") === "Poso + Tuberia" ? "selected" : ""
+                currentData.servicio === "Poso + Tuberia" ? "selected" : ""
               }>Poso + Tuberia</option>
               <option value="Poso + Grease Trap" ${
-                (s.servicio || "") === "Poso + Grease Trap" ? "selected" : ""
+                currentData.servicio === "Poso + Grease Trap" ? "selected" : ""
               }>Poso + Grease Trap</option>
               <option value="Tuberia + Grease Trap" ${
-                (s.servicio || "") === "Tuberia + Grease Trap" ? "selected" : ""
+                currentData.servicio === "Tuberia + Grease Trap" ? "selected" : ""
               }>Tuberia + Grease Trap</option>
               <option value="Grease Trap" ${
-                (s.servicio || "") === "Grease Trap" ? "selected" : ""
+                currentData.servicio === "Grease Trap" ? "selected" : ""
               }>Grease Trap</option>
               <option value="Water" ${
-                (s.servicio || "") === "Water" ? "selected" : ""
+                currentData.servicio === "Water" ? "selected" : ""
               }>Water</option>
               <option value="Pool" ${
-                (s.servicio || "") === "Pool" ? "selected" : ""
+                currentData.servicio === "Pool" ? "selected" : ""
               }>Pool</option>
             </select>
           </div>
@@ -2195,7 +2262,7 @@ const Reprogramacion = () => {
                 📦 Cúbicos
               </label>
               <input id="swal-cubicos" type="number" class="swal2-input" placeholder="0" min="0" step="0.1" value="${
-                s.cubicos || ""
+                currentData.cubicos
               }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             </div>
             
@@ -2204,7 +2271,7 @@ const Reprogramacion = () => {
                 💰 Valor (AWG)
               </label>
               <input id="swal-valor" type="number" class="swal2-input" placeholder="0.00" min="0" step="0.01" value="${
-                s.valor || ""
+                currentData.valor
               }" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
             </div>
           </div>
@@ -2233,7 +2300,7 @@ const Reprogramacion = () => {
               "
               onFocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'"
               onBlur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.05)'"
-            >${s.notas || ""}</textarea>
+            >${currentData.notas}</textarea>
             <div style="
               font-size: 12px; 
               color: #64748b; 
@@ -2441,16 +2508,43 @@ const Reprogramacion = () => {
 
     // Aplicar los cambios según el tipo de edición
     try {
-          const updatedData = {
-            title: formValues.title,
-            dtstart: formValues.date,
-            direccion: formValues.direccion || "",
+      // Actualizar o crear cliente en la base de datos si hay dirección
+      if (formValues.direccion) {
+        const clienteExistente = Object.entries(clientes).find(
+          ([_, cliente]) => cliente.direccion === formValues.direccion
+        );
+
+        if (!clienteExistente) {
+          // Si no existe el cliente, lo creamos
+          const newClientRef = push(ref(database, "clientes"));
+          await set(newClientRef, {
+            direccion: formValues.direccion,
             anombrede: formValues.anombrede || "",
-            servicio: formValues.servicio || "",
             cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
             valor: formValues.valor ? parseFloat(formValues.valor) : "",
-            notas: formValues.notas || "",
-          };      if (editType === "single") {
+          });
+        } else {
+          // Si existe, actualizamos sus datos
+          const [clienteId, _] = clienteExistente;
+          await update(ref(database, `clientes/${clienteId}`), {
+            anombrede: formValues.anombrede || "",
+            cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
+            valor: formValues.valor ? parseFloat(formValues.valor) : "",
+          });
+        }
+      }
+
+      const updatedData = {
+        title: formValues.title,
+        dtstart: formValues.date,
+        direccion: formValues.direccion || "",
+        anombrede: formValues.anombrede || "",
+        servicio: formValues.servicio || "",
+        cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
+        valor: formValues.valor ? parseFloat(formValues.valor) : "",
+        notas: formValues.notas || "",
+      };
+      if (editType === "single") {
         // Editar solo este evento
         if (s.rrule) {
           // Es un evento recurrente, crear una instancia específica
@@ -2461,7 +2555,10 @@ const Reprogramacion = () => {
           await set(exdatesRef, true);
 
           // Obtener el valor actual de las notas (ya sea de la instancia o del evento principal)
-          const currentNotes = s.instances?.[o.date]?.notas !== undefined ? s.instances[o.date].notas : s.notas;
+          const currentNotes =
+            s.instances?.[o.date]?.notas !== undefined
+              ? s.instances[o.date].notas
+              : s.notas;
 
           const instancesRef = ref(
             database,
@@ -2746,14 +2843,14 @@ const Reprogramacion = () => {
               )}
             </div>
             <div className="search-buttons">
-              <button 
+              <button
                 className="search-btn"
                 onClick={handleSearch}
                 disabled={!searchQuery.trim()}
               >
                 🔍 Buscar
               </button>
-              <button 
+              <button
                 className="clear-btn"
                 onClick={handleClearSearch}
                 disabled={!isSearchActive}
@@ -2769,11 +2866,13 @@ const Reprogramacion = () => {
             {isSearchActive && daysToShow.length === 0 ? (
               <div className="no-results-message">
                 <div className="no-results-icon">🔍</div>
-                <div className="no-results-title">No se encontraron resultados</div>
+                <div className="no-results-title">
+                  No se encontraron resultados
+                </div>
                 <div className="no-results-subtitle">
                   No hay eventos que coincidan con "{activeSearchQuery}"
                 </div>
-                <button 
+                <button
                   className="clear-search-btn"
                   onClick={handleClearSearch}
                 >
@@ -2832,50 +2931,89 @@ const Reprogramacion = () => {
                               <div className="calendar-event-title">
                                 {o.title}
                               </div>
-                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.direccion || seriesMap[o.seriesId]?.direccion) && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                ?.direccion ||
+                                seriesMap[o.seriesId]?.direccion) && (
                                 <div className="calendar-event-info">
-                                  📍 {seriesMap[o.seriesId]?.instances?.[o.date]?.direccion || seriesMap[o.seriesId].direccion}
+                                  📍{" "}
+                                  {seriesMap[o.seriesId]?.instances?.[o.date]
+                                    ?.direccion ||
+                                    seriesMap[o.seriesId].direccion}
                                 </div>
                               )}
-                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.anombrede || seriesMap[o.seriesId]?.anombrede) && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                ?.anombrede ||
+                                seriesMap[o.seriesId]?.anombrede) && (
                                 <div className="calendar-event-info">
-                                  👤 {seriesMap[o.seriesId]?.instances?.[o.date]?.anombrede || seriesMap[o.seriesId].anombrede}
+                                  👤{" "}
+                                  {seriesMap[o.seriesId]?.instances?.[o.date]
+                                    ?.anombrede ||
+                                    seriesMap[o.seriesId].anombrede}
                                 </div>
                               )}
-                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.servicio || seriesMap[o.seriesId]?.servicio) && (
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                ?.servicio ||
+                                seriesMap[o.seriesId]?.servicio) && (
                                 <div className="calendar-event-info">
-                                  🛠️ {seriesMap[o.seriesId]?.instances?.[o.date]?.servicio || seriesMap[o.seriesId].servicio}
+                                  🛠️{" "}
+                                  {seriesMap[o.seriesId]?.instances?.[o.date]
+                                    ?.servicio ||
+                                    seriesMap[o.seriesId].servicio}
                                 </div>
                               )}
                               <div className="calendar-event-details">
-                                {(seriesMap[o.seriesId]?.instances?.[o.date]?.cubicos || seriesMap[o.seriesId]?.cubicos) && (
+                                {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                  ?.cubicos ||
+                                  seriesMap[o.seriesId]?.cubicos) && (
                                   <span className="calendar-event-cubicos">
-                                    📦 {seriesMap[o.seriesId]?.instances?.[o.date]?.cubicos || seriesMap[o.seriesId].cubicos} cúbicos
+                                    📦{" "}
+                                    {seriesMap[o.seriesId]?.instances?.[o.date]
+                                      ?.cubicos ||
+                                      seriesMap[o.seriesId].cubicos}{" "}
+                                    cúbicos
                                   </span>
                                 )}
-                                {(seriesMap[o.seriesId]?.instances?.[o.date]?.valor || seriesMap[o.seriesId]?.valor) && (
+                                {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                  ?.valor ||
+                                  seriesMap[o.seriesId]?.valor) && (
                                   <span className="calendar-event-valor">
-                                    💰 ${seriesMap[o.seriesId]?.instances?.[o.date]?.valor || seriesMap[o.seriesId].valor}
+                                    💰 $
+                                    {seriesMap[o.seriesId]?.instances?.[o.date]
+                                      ?.valor || seriesMap[o.seriesId].valor}
                                   </span>
                                 )}
                               </div>
-                              {(seriesMap[o.seriesId]?.instances?.[o.date]?.notas || seriesMap[o.seriesId]?.notas) && (
-                                <div className="calendar-event-notas" style={{ 
-                                  fontSize: '0.9em',
-                                  color: '#4b5563',
-                                  marginTop: '8px',
-                                  padding: '8px 12px',
-                                  backgroundColor: 'rgba(249, 250, 251, 0.9)',
-                                  borderRadius: '6px',
-                                  borderLeft: '3px solid #3b82f6',
-                                  lineHeight: '1.4',
-                                  position: 'relative',
-                                  boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
-                                  maxWidth: '100%',
-                                  wordBreak: 'break-word'
-                                }}>
-                                  <span style={{ marginRight: '4px', color: '#3b82f6' }}>📝</span>
-                                  {seriesMap[o.seriesId]?.instances?.[o.date]?.notas || seriesMap[o.seriesId].notas}
+                              {(seriesMap[o.seriesId]?.instances?.[o.date]
+                                ?.notas ||
+                                seriesMap[o.seriesId]?.notas) && (
+                                <div
+                                  className="calendar-event-notas"
+                                  style={{
+                                    fontSize: "0.9em",
+                                    color: "#4b5563",
+                                    marginTop: "8px",
+                                    padding: "8px 12px",
+                                    backgroundColor: "rgba(249, 250, 251, 0.9)",
+                                    borderRadius: "6px",
+                                    borderLeft: "3px solid #3b82f6",
+                                    lineHeight: "1.4",
+                                    position: "relative",
+                                    boxShadow:
+                                      "inset 0 1px 2px rgba(0, 0, 0, 0.05)",
+                                    maxWidth: "100%",
+                                    wordBreak: "break-word",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      marginRight: "4px",
+                                      color: "#3b82f6",
+                                    }}
+                                  >
+                                    📝
+                                  </span>
+                                  {seriesMap[o.seriesId]?.instances?.[o.date]
+                                    ?.notas || seriesMap[o.seriesId].notas}
                                 </div>
                               )}
                             </div>
@@ -2915,10 +3053,7 @@ const Reprogramacion = () => {
       <button className="create-table-button" onClick={() => createEvent()}>
         +
       </button>
-      <button 
-        className="generate-button2"
-        onClick={() => generateExcel()}
-      >
+      <button className="generate-button2" onClick={() => generateExcel()}>
         <img className="generate-button-imagen1" src={excel_icon} alt="Excel" />
       </button>
     </div>
@@ -2928,73 +3063,83 @@ const Reprogramacion = () => {
   async function generateExcel() {
     // Crear un nuevo workbook
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Eventos');
+    const worksheet = workbook.addWorksheet("Eventos");
 
     // Configurar encabezados
-    const headers = ['Fecha', 'Cliente', 'Dirección', 'Servicio', 'Cúbicos', 'Valor'];
+    const headers = [
+      "Fecha",
+      "Cliente",
+      "Dirección",
+      "Servicio",
+      "Cúbicos",
+      "Valor",
+    ];
     const headerRow = worksheet.addRow(headers);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF4F81BD' }
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF4F81BD" },
     };
-    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
 
     // Obtener eventos del mes actual o según los filtros
-    const currentEvents = Object.keys(filteredOccurrencesByDay).reduce((acc, date) => {
-      const events = filteredOccurrencesByDay[date].map(event => {
-        const series = seriesMap[event.seriesId];
-        return {
-          date,
-          title: event.title,
-          direccion: series.instances?.[date]?.direccion || series.direccion,
-          anombrede: series.instances?.[date]?.anombrede || series.anombrede,
-          servicio: series.instances?.[date]?.servicio || series.servicio,
-          cubicos: series.instances?.[date]?.cubicos || series.cubicos,
-          valor: series.instances?.[date]?.valor || series.valor
-        };
-      });
-      return [...acc, ...events];
-    }, []);
+    const currentEvents = Object.keys(filteredOccurrencesByDay).reduce(
+      (acc, date) => {
+        const events = filteredOccurrencesByDay[date].map((event) => {
+          const series = seriesMap[event.seriesId];
+          return {
+            date,
+            title: event.title,
+            direccion: series.instances?.[date]?.direccion || series.direccion,
+            anombrede: series.instances?.[date]?.anombrede || series.anombrede,
+            servicio: series.instances?.[date]?.servicio || series.servicio,
+            cubicos: series.instances?.[date]?.cubicos || series.cubicos,
+            valor: series.instances?.[date]?.valor || series.valor,
+          };
+        });
+        return [...acc, ...events];
+      },
+      []
+    );
 
     // Ordenar eventos por fecha
     currentEvents.sort((a, b) => {
-      const [d1, m1, y1] = a.date.split('-').map(Number);
-      const [d2, m2, y2] = b.date.split('-').map(Number);
+      const [d1, m1, y1] = a.date.split("-").map(Number);
+      const [d2, m2, y2] = b.date.split("-").map(Number);
       return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
     });
 
     // Agregar datos
-    currentEvents.forEach(event => {
+    currentEvents.forEach((event) => {
       const row = worksheet.addRow([
         event.date,
-        event.anombrede || '',
-        event.direccion || '',
-        event.servicio || '',
-        event.cubicos || '',
-        event.valor || ''
+        event.anombrede || "",
+        event.direccion || "",
+        event.servicio || "",
+        event.cubicos || "",
+        event.valor || "",
       ]);
 
       // Alinear el contenido
-      row.alignment = { vertical: 'middle' };
-      row.getCell(1).alignment = { horizontal: 'center' }; // Fecha
-      row.getCell(5).alignment = { horizontal: 'center' }; // Cúbicos
-      row.getCell(6).alignment = { horizontal: 'right' }; // Valor
+      row.alignment = { vertical: "middle" };
+      row.getCell(1).alignment = { horizontal: "center" }; // Fecha
+      row.getCell(5).alignment = { horizontal: "center" }; // Cúbicos
+      row.getCell(6).alignment = { horizontal: "right" }; // Valor
 
       // Formatear valores numéricos
       if (event.cubicos) {
-        row.getCell(5).numFmt = '0.0';
+        row.getCell(5).numFmt = "0.0";
       }
       if (event.valor) {
-        row.getCell(6).numFmt = '$#,##0.00';
+        row.getCell(6).numFmt = "$#,##0.00";
       }
     });
 
     // Ajustar ancho de columnas
     worksheet.columns.forEach((column, i) => {
       let maxLength = 0;
-      column.eachCell({ includeEmpty: true }, cell => {
+      column.eachCell({ includeEmpty: true }, (cell) => {
         const columnLength = cell.value ? cell.value.toString().length : 10;
         if (columnLength > maxLength) {
           maxLength = columnLength;
@@ -3007,25 +3152,40 @@ const Reprogramacion = () => {
     worksheet.eachRow((row, rowNumber) => {
       row.eachCell((cell) => {
         cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
         };
       });
     });
 
     // Obtener la fecha actual y el mes actual para el nombre del archivo
     const currentDate = new Date();
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const monthNames = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
+    ];
     const currentMonth = monthNames[monthAnchor.getMonth()];
     const currentYear = monthAnchor.getFullYear();
 
     // Generar el archivo
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `Eventos_${currentMonth}_${currentYear}.xlsx`;
     a.click();
@@ -3033,12 +3193,12 @@ const Reprogramacion = () => {
 
     // Mostrar mensaje de éxito
     await Swal.fire({
-      icon: 'success',
-      title: '¡Exportación completada!',
+      icon: "success",
+      title: "¡Exportación completada!",
       text: `Se ha generado el archivo Excel con los eventos de ${currentMonth} ${currentYear}`,
-      confirmButtonText: '¡Perfecto!',
+      confirmButtonText: "¡Perfecto!",
       timer: 3000,
-      timerProgressBar: true
+      timerProgressBar: true,
     });
   }
 };
