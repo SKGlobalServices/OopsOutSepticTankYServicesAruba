@@ -17,7 +17,6 @@ const Fastmark = () => {
 
   const [data, setData] = useState([]);
   const [localValues, setLocalValues] = useState({});
-  const [showDireccionAlert, setShowDireccionAlert] = useState(true);
 
   // clientes para poblar el datalist de Dirección (igual que en Homepage)
   const [clients, setClients] = useState([]);
@@ -463,67 +462,6 @@ const Fastmark = () => {
           </div>
         </div>
       </div>
-
-      {/* Alerta de direcciones duplicadas */}
-      {showDireccionAlert &&
-        Object.keys(direccionCounts).filter((dir) => direccionCounts[dir] > 1)
-          .length > 0 && (
-          <div
-            style={{
-              background: "#fff3cd",
-              color: "#856404",
-              border: "1px solid #ffeeba",
-              borderRadius: "6px",
-              padding: "10px 16px",
-              marginBottom: "12px",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              fontSize: "15px",
-              position: "relative",
-            }}
-          >
-            <span style={{ fontSize: "1.3em" }}>⚠️</span>
-            <span style={{ flex: 1 }}>
-              <b>¡Atención!</b> Hay direcciones duplicadas en los registros
-              filtrados:
-              <ul
-                style={{
-                  margin: "6px 0 0 18px",
-                  fontWeight: "normal",
-                  fontSize: "14px",
-                }}
-              >
-                {Object.entries(direccionCounts)
-                  .filter(([_, count]) => count > 1)
-                  .map(([dir, count]) => (
-                    <li key={dir}>
-                      <b>{dir}</b> ({count} veces)
-                    </li>
-                  ))}
-              </ul>
-            </span>
-            <button
-              onClick={() => setShowDireccionAlert(false)}
-              style={{
-                background: "#ffeeba",
-                color: "#856404",
-                border: "1px solid #ffeeba",
-                borderRadius: "4px",
-                padding: "2px 10px",
-                fontWeight: "bold",
-                cursor: "pointer",
-                fontSize: "13px",
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-              }}
-            >
-              Ocultar
-            </button>
-          </div>
-        )}
 
       {/* Tabla */}
       <div className="homepage-card">

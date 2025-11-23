@@ -1479,12 +1479,21 @@ const Reprogramacion = () => {
     const s = seriesMap[o.seriesId];
 
     if (s?.rrule) {
-      // Es evento recurrente, agregar a exdates
+      // Es evento recurrente, agregar a exdates para excluir esta fecha
       const exdatesRef = ref(
         database,
         `/reprogramacion/${o.seriesId}/exdates/${o.date}`
       );
       await set(exdatesRef, true);
+      
+      // Si existe una instancia específica para esta fecha, también eliminarla
+      if (s.instances && s.instances[o.date]) {
+        const instanceRef = ref(
+          database,
+          `/reprogramacion/${o.seriesId}/instances/${o.date}`
+        );
+        await remove(instanceRef);
+      }
     } else {
       // Es evento único, eliminar toda la serie
       await remove(seriesRef);
