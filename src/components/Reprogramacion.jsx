@@ -1762,6 +1762,567 @@ const Reprogramacion = () => {
     }
   }
 
+  // Función para manejar la reconstrucción de eventos
+  async function handleReconstructEvent(o, eventType, editType = "entire") {
+    const s = seriesMap[o.seriesId];
+    if (!s) return;
+
+    // Obtener los datos actuales del evento
+    const instance = s.instances?.[o.date];
+    const currentData = {
+      title: instance?.title || s.title || "",
+      direccion: instance?.direccion || s.direccion || "",
+      anombrede: instance?.anombrede || s.anombrede || "",
+      servicio: instance?.servicio || s.servicio || "",
+      cubicos: instance?.cubicos || s.cubicos || "",
+      valor: instance?.valor || s.valor || "",
+      notas: instance?.notas || s.notas || ""
+    };
+
+    let rrule = null;
+
+    // Configurar según el tipo de evento seleccionado
+    if (eventType === "daily") {
+      const { value: dailyConfig } = await Swal.fire({
+        title: "🔄 Configuración de Repetición Diaria",
+        html: `
+          <div style="max-width: 400px; margin: 0 auto; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+              <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento Recurrente Diario</div>
+              <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá automáticamente</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                ⏱️ Intervalo de repetición
+              </label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="365" style="width: 80px; text-align: center; margin: 0;">
+                <span style="color: #4a5568; font-weight: 500;">días</span>
+              </div>
+              <div class="swal-form-help">💡 Por ejemplo: 1 = diario, 7 = semanal, 15 = quincenal</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                🏁 Fecha de finalización (opcional)
+              </label>
+              <input id="swal-until" type="date" class="swal2-input">
+              <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "✨ Reconstruir Evento",
+        cancelButtonText: "⬅️ Volver",
+        width: "500px",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+          cancelButton: "swal2-professional-cancel",
+        },
+        preConfirm: () => {
+          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const until = document.getElementById("swal-until").value;
+          if (interval < 1) {
+            Swal.showValidationMessage("El intervalo debe ser al menos 1 día");
+            return false;
+          }
+          return { interval, until };
+        },
+      });
+
+      if (!dailyConfig) return;
+
+      rrule = { freq: "DAILY", interval: Math.max(1, dailyConfig.interval) };
+      if (dailyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(dailyConfig.until)) {
+        rrule.until = dailyConfig.until;
+      }
+    } else if (eventType === "weekly") {
+      const { value: weeklyConfig } = await Swal.fire({
+        title: "📅 Configuración de Repetición Semanal",
+        html: `
+          <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+              <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento Recurrente Semanal</div>
+              <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Selecciona los días específicos</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                📋 Días de la semana
+              </label>
+              <div style="display: flex; gap: 8px; justify-content: center; margin: 16px 0; padding: 12px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">DO</span>
+                  <input type="checkbox" value="SU" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">LU</span>
+                  <input type="checkbox" value="MO" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MA</span>
+                  <input type="checkbox" value="TU" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MI</span>
+                  <input type="checkbox" value="WE" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">JU</span>
+                  <input type="checkbox" value="TH" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">VI</span>
+                  <input type="checkbox" value="FR" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; min-width: 40px;" onmouseover="this.style.backgroundColor='rgba(26,115,232,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">SA</span>
+                  <input type="checkbox" value="SA" style="width: 18px; height: 18px; cursor: pointer; accent-color: #1a73e8;">
+                </label>
+              </div>
+              <div class="swal-form-help">💡 Si no seleccionas ningún día, usará el día de la fecha inicial</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                ⏱️ Intervalo de repetición
+              </label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="52" style="width: 80px; text-align: center; margin: 0;">
+                <span style="color: #4a5568; font-weight: 500;">semanas</span>
+              </div>
+              <div class="swal-form-help">📅 Por ejemplo: 1 = cada semana, 2 = cada dos semanas</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                🏁 Fecha de finalización (opcional)
+              </label>
+              <input id="swal-until" type="date" class="swal2-input">
+              <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "✨ Reconstruir Evento",
+        cancelButtonText: "⬅️ Volver",
+        width: "600px",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+          cancelButton: "swal2-professional-cancel",
+        },
+        preConfirm: () => {
+          const selectedDays = Array.from(
+            document.querySelectorAll('input[type="checkbox"]:checked')
+          ).map((cb) => cb.value);
+          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const until = document.getElementById("swal-until").value;
+          if (interval < 1) {
+            Swal.showValidationMessage("El intervalo debe ser al menos 1 semana");
+            return false;
+          }
+          return { days: selectedDays, interval, until };
+        },
+      });
+
+      if (!weeklyConfig) return;
+
+      let byday = weeklyConfig.days || [];
+      const wd = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+      byday = byday.filter((d) => wd.includes(d));
+
+      rrule = { freq: "WEEKLY", interval: Math.max(1, weeklyConfig.interval) };
+      if (byday.length) rrule.byday = byday;
+      if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+        rrule.until = weeklyConfig.until;
+      }
+    } else if (eventType === "monthly") {
+      const { value: monthlyConfig } = await Swal.fire({
+        title: "🗺️ Configuración de Repetición Mensual",
+        html: `
+          <style>
+            .swal2-html-container { overflow-x: hidden !important; }
+            .dias-mes-grid {
+              display: grid; 
+              grid-template-columns: repeat(7, 1fr); 
+              gap: 10px; 
+              justify-items: center; 
+              width: 100% !important; 
+              margin: 15px 0;
+              padding: 15px;
+              background: rgba(255, 255, 255, 0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .dia-mes { 
+              display: flex; 
+              flex-direction: column-reverse; 
+              align-items: center; 
+              position: relative;
+              cursor: pointer;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              padding: 8px;
+              border-radius: 10px;
+              min-height: 50px;
+              justify-content: center;
+            }
+            .dia-mes:hover {
+              transform: translateY(-2px);
+              background: rgba(26, 115, 232, 0.15);
+              box-shadow: 0 8px 25px rgba(26, 115, 232, 0.2);
+            }
+            .dia-mes label {
+              font-size: 13px !important;
+              font-weight: 700 !important;
+              color: #1a202c !important;
+              margin: 0 !important;
+              cursor: pointer !important;
+              transition: all 0.2s ease !important;
+              text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+              user-select: none;
+            }
+            .dia-mes input[type="checkbox"] {
+              appearance: none !important;
+              width: 20px !important;
+              height: 20px !important;
+              border: 2px solid #e2e8f0 !important;
+              border-radius: 6px !important;
+              background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+              cursor: pointer !important;
+              position: relative !important;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+              margin-top: 6px !important;
+            }
+            .dia-mes input[type="checkbox"]:hover {
+              border-color: #1a73e8 !important;
+              box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+              transform: scale(1.05) !important;
+            }
+            .dia-mes input[type="checkbox"]:checked {
+              background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%) !important;
+              border-color: #1a73e8 !important;
+              box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            }
+            .dia-mes input[type="checkbox"]:checked::after {
+              content: "✓" !important;
+              position: absolute !important;
+              top: 50% !important;
+              left: 50% !important;
+              transform: translate(-50%, -50%) !important;
+              color: white !important;
+              font-size: 12px !important;
+              font-weight: bold !important;
+              text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            }
+            .dia-mes:has(input:checked) label {
+              color: #1a73e8 !important;
+              font-weight: 800 !important;
+              text-shadow: 0 1px 2px rgba(26, 115, 232, 0.2) !important;
+            }
+          </style>
+          <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+              <div style="font-size: 2rem; margin-bottom: 8px;">🗺️</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento Recurrente Mensual</div>
+              <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá cada mes en los días especificados</div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+              <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #374151;">Selecciona días del mes:</label>
+              <div class="dias-mes-grid">
+                ${Array.from({ length: 31 }, (_, i) => i + 1)
+                  .map(
+                    (day) => `
+                  <div class="dia-mes">
+                    <input type="checkbox" id="dia-mes-${day}" value="${day}" />
+                    <label for="dia-mes-${day}">${day}</label>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                ⏱️ Intervalo de repetición
+              </label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                <span style="color: #4a5568; font-weight: 500;">meses</span>
+              </div>
+              <div class="swal-form-help">🗺️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                🏁 Fecha de finalización (opcional)
+              </label>
+              <input id="swal-until" type="date" class="swal2-input">
+              <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "✨ Reconstruir Evento",
+        cancelButtonText: "⬅️ Volver",
+        width: "600px",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+          cancelButton: "swal2-professional-cancel",
+        },
+        preConfirm: () => {
+          const selectedDays = [];
+          for (let day = 1; day <= 31; day++) {
+            const checkbox = document.getElementById(`dia-mes-${day}`);
+            if (checkbox && checkbox.checked) {
+              selectedDays.push(day);
+            }
+          }
+          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const until = document.getElementById("swal-until").value;
+          if (selectedDays.length === 0) {
+            Swal.showValidationMessage("Por favor selecciona al menos un día del mes");
+            return false;
+          }
+          if (interval < 1) {
+            Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+            return false;
+          }
+          return { monthDays: selectedDays, interval, until };
+        },
+      });
+
+      if (!monthlyConfig) return;
+
+      rrule = {
+        freq: "MONTHLY",
+        interval: Math.max(1, monthlyConfig.interval),
+        bymonthday: monthlyConfig.monthDays,
+      };
+      if (monthlyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(monthlyConfig.until)) {
+        rrule.until = monthlyConfig.until;
+      }
+    } else if (eventType === "last_week_monthly") {
+      const { value: weeklyConfig } = await Swal.fire({
+        title: "📅 Configuración de Última Semana Mensual",
+        html: `
+          <div style="max-width: 500px; margin: 0 auto; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white; text-align: center;">
+              <div style="font-size: 2rem; margin-bottom: 8px;">📅</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento Última Semana Mensual</div>
+              <div style="font-size: 14px; opacity: 0.9; margin-top: 4px;">Se repetirá en los días seleccionados de la última semana de cada mes</div>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 1px solid #dee2e6;">
+              <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #374151;">
+                📅 Días de la semana
+              </label>
+              <div style="display: flex; gap: 8px; justify-content: center;">
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">DO</span>
+                  <input type="checkbox" value="SU" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">LU</span>
+                  <input type="checkbox" value="MO" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MA</span>
+                  <input type="checkbox" value="TU" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">MI</span>
+                  <input type="checkbox" value="WE" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">JU</span>
+                  <input type="checkbox" value="TH" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">VI</span>
+                  <input type="checkbox" value="FR" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;">
+                  <span style="font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 6px;">SA</span>
+                  <input type="checkbox" value="SA" style="width: 18px; height: 18px; cursor: pointer;">
+                </label>
+              </div>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">
+                💡 Selecciona los días de la última semana del mes en los que se repetirá el evento
+              </div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                ⏱️ Intervalo de repetición
+              </label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: #4a5568; font-weight: 500;">Cada</span>
+                <input id="swal-interval" type="number" class="swal2-input" value="1" min="1" max="12" style="width: 80px; text-align: center; margin: 0;">
+                <span style="color: #4a5568; font-weight: 500;">meses</span>
+              </div>
+              <div class="swal-form-help">🗺️ Por ejemplo: 1 = mensual, 2 = bimensual, 3 = trimestral</div>
+            </div>
+            
+            <div class="swal-form-group">
+              <label class="swal-form-label">
+                🏁 Fecha de finalización (opcional)
+              </label>
+              <input id="swal-until" type="date" class="swal2-input">
+              <div class="swal-form-help">🔄 Deja vacío para que se repita indefinidamente</div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "✨ Reconstruir Evento",
+        cancelButtonText: "⬅️ Volver",
+        width: "600px",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+          cancelButton: "swal2-professional-cancel",
+        },
+        preConfirm: () => {
+          const selectedDays = Array.from(
+            document.querySelectorAll('input[type="checkbox"]:checked')
+          ).map((cb) => cb.value);
+          const interval = parseInt(document.getElementById("swal-interval").value) || 1;
+          const until = document.getElementById("swal-until").value;
+          if (selectedDays.length === 0) {
+            Swal.showValidationMessage("Por favor selecciona al menos un día de la semana");
+            return false;
+          }
+          if (interval < 1) {
+            Swal.showValidationMessage("El intervalo debe ser al menos 1 mes");
+            return false;
+          }
+          return { days: selectedDays, interval, until };
+        },
+      });
+
+      if (!weeklyConfig) return;
+
+      rrule = {
+        freq: "LAST_WEEK_MONTHLY",
+        interval: Math.max(1, weeklyConfig.interval),
+        byday: weeklyConfig.days,
+      };
+      if (weeklyConfig.until && /^\d{4}-\d{2}-\d{2}$/.test(weeklyConfig.until)) {
+        rrule.until = weeklyConfig.until;
+      }
+    }
+
+    try {
+      if (editType === "fromThis") {
+        // Para "Este y siguientes": terminar la serie actual y crear nueva desde esta fecha
+        const previousDate = addDays(o.date, -1);
+        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
+        await update(seriesRef, {
+          rrule: s.rrule ? { ...s.rrule, until: previousDate } : null,
+        });
+        
+        // Crear nueva serie desde esta fecha
+        await rtdbCreateSeries({
+          title: currentData.title,
+          dtstart: o.date,
+          direccion: currentData.direccion,
+          anombrede: currentData.anombrede,
+          servicio: currentData.servicio,
+          cubicos: currentData.cubicos,
+          valor: currentData.valor,
+          notas: currentData.notas,
+          rrule,
+        });
+      } else {
+        // Para "Toda la serie" o eventos únicos: eliminar y recrear
+        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
+        await remove(seriesRef);
+
+        // Crear el nuevo evento con la configuración seleccionada
+        await rtdbCreateSeries({
+          title: currentData.title,
+          dtstart: o.date,
+          direccion: currentData.direccion,
+          anombrede: currentData.anombrede,
+          servicio: currentData.servicio,
+          cubicos: currentData.cubicos,
+          valor: currentData.valor,
+          notas: currentData.notas,
+          rrule,
+        });
+      }
+
+      // Mensaje de éxito
+      const eventTypeText =
+        eventType === "single"
+          ? "único"
+          : eventType === "daily"
+          ? "recurrente diario"
+          : eventType === "weekly"
+          ? "recurrente semanal"
+          : eventType === "monthly"
+          ? "recurrente mensual"
+          : "recurrente de última semana mensual";
+
+      await Swal.fire({
+        icon: "success",
+        title: "🎉 ¡Evento reconstruido exitosamente!",
+        html: `
+          <div style="text-align: center; padding: 20px 0;">
+            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 20px; border-radius: 12px; color: white; margin-bottom: 20px;">
+              <div style="font-size: 2.5rem; margin-bottom: 8px;">✅</div>
+              <div style="font-size: 18px; font-weight: 600;">Evento ${eventTypeText} reconstruido</div>
+            </div>
+            
+            <div style="text-align: left; background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 16px 0;">
+              <div style="font-weight: 600; color: #1a202c; margin-bottom: 8px;">📋 Detalles del evento:</div>
+              <div style="margin: 4px 0;"><strong>📄 Título:</strong> ${currentData.title}</div>
+              <div style="margin: 4px 0;"><strong>📅 Fecha:</strong> ${o.date}</div>
+              ${currentData.direccion ? `<div style="margin: 4px 0;"><strong>🏠 Dirección:</strong> ${currentData.direccion}</div>` : ""}
+              ${currentData.anombrede ? `<div style="margin: 4px 0;"><strong>👤 Cliente:</strong> ${currentData.anombrede}</div>` : ""}
+              ${currentData.servicio ? `<div style="margin: 4px 0;"><strong>🛠️ Servicio:</strong> ${currentData.servicio}</div>` : ""}
+            </div>
+            
+            <div style="color: #4a5568; font-size: 14px;">
+              ${eventType !== "single" ? "🔄 El evento se repetirá automáticamente según la nueva configuración" : ""}
+            </div>
+          </div>
+        `,
+        confirmButtonText: "🎯 ¡Perfecto!",
+        customClass: {
+          popup: "swal2-professional-popup",
+          confirmButton: "swal2-professional-confirm",
+        },
+        width: "500px",
+      });
+    } catch (error) {
+      console.error("Error reconstruyendo evento:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "❌ Error",
+        text: "No se pudo reconstruir el evento",
+        customClass: {
+          popup: "swal2-popup-custom",
+        },
+      });
+    }
+  }
+
   async function handleEditChoice(o, choice) {
     const s = seriesMap[o.seriesId];
 
@@ -2294,8 +2855,8 @@ const Reprogramacion = () => {
               class="swal2-textarea" 
               placeholder="Añade notas adicionales sobre el servicio..." 
               style="
-                width: 100%; 
-                min-height: 80px; 
+                min-width: 80%;
+                min-height: 60px; 
                 padding: 12px; 
                 border: 2px solid #e2e8f0;
                 border-radius: 8px; 
@@ -2310,17 +2871,30 @@ const Reprogramacion = () => {
               onFocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'"
               onBlur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.05)'"
             >${currentData.notas}</textarea>
-            <div style="
-              font-size: 12px; 
-              color: #64748b; 
-              margin-top: 6px;
-              display: flex;
-              align-items: center;
-              gap: 4px;
-            ">
-              <span style="color: #3b82f6">💡</span> 
-              Información adicional relevante para el servicio
-            </div>
+            <div class="swal-form-help" style="color: #64748b; font-size: 12px; margin-top: 6px;">💡 Información adicional relevante para el servicio</div>
+          </div>
+          
+          <div style="margin-top: 30px; text-align: center; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <button 
+              id="reconstruct-event-btn" 
+              type="button" 
+              style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+              "
+              onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.4)'"
+              onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.3)'"
+            >
+              🔄 Reconstruir evento
+            </button>
           </div>          ${
             s.rrule && s.rrule.freq === "WEEKLY"
               ? `
@@ -2426,6 +3000,7 @@ const Reprogramacion = () => {
         const cubicosInput = document.getElementById("swal-cubicos");
         const valorInput = document.getElementById("swal-valor");
         const titleInput = document.getElementById("swal-title");
+        const reconstructBtn = document.getElementById("reconstruct-event-btn");
 
         const updateTitle = () => {
           const anombrede = anombredeInput.value.trim();
@@ -2453,6 +3028,87 @@ const Reprogramacion = () => {
         });
 
         anombredeInput.addEventListener("input", updateTitle);
+        
+        // Funcionalidad del botón Reconstruir evento
+        reconstructBtn.addEventListener("click", async () => {
+          // Cerrar el modal actual
+          Swal.close();
+          
+          // Determinar el tipo de edición actual basado en el título del modal
+          const currentEditType = editType || "entire"; // usar el editType del contexto actual
+          
+          // Mostrar modal de selección de tipo de evento
+          const { value: eventType } = await Swal.fire({
+            title: "🎯 Reconstruir Evento",
+            html: `
+              <div style="text-align: left; padding: 20px 0;">
+                <p style="color: #4a5568; margin-bottom: 20px; font-size: 16px;">
+                  Selecciona el nuevo tipo de evento:
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+                    <input type="radio" name="eventType" value="single" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+                    <div>
+                      <div style="font-weight: 600; color: #1a202c; font-size: 16px;">📅 Evento Único</div>
+                      <div style="color: #718096; font-size: 14px; margin-top: 4px;">Un evento que ocurre solo una vez</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+                    <input type="radio" name="eventType" value="daily" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+                    <div>
+                      <div style="font-weight: 600; color: #1a202c; font-size: 16px;">🔄 Evento Diario</div>
+                      <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite cada cierto número de días</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+                    <input type="radio" name="eventType" value="weekly" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+                    <div>
+                      <div style="font-weight: 600; color: #1a202c; font-size: 16px;">📅 Evento Semanal</div>
+                      <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite ciertos días de la semana</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+                    <input type="radio" name="eventType" value="monthly" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+                    <div>
+                      <div style="font-weight: 600; color: #1a202c; font-size: 16px;">🗺️ Evento Mensual</div>
+                      <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite cada cierto número de meses</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; align-items: center; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#1a73e8'; this.style.backgroundColor='#f7faff'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white'">
+                    <input type="radio" name="eventType" value="last_week_monthly" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;">
+                    <div>
+                      <div style="font-weight: 600; color: #1a202c; font-size: 16px;">📅 Última Semana Mensual</div>
+                      <div style="color: #718096; font-size: 14px; margin-top: 4px;">Se repite en días específicos de la última semana de cada mes</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: "✨ Continuar",
+            cancelButtonText: "❌ Cancelar",
+            customClass: {
+              popup: "swal2-professional-popup",
+              confirmButton: "swal2-professional-confirm",
+              cancelButton: "swal2-professional-cancel",
+            },
+            preConfirm: () => {
+              const selected = document.querySelector(
+                'input[name="eventType"]:checked'
+              );
+              if (!selected) {
+                Swal.showValidationMessage("Por favor selecciona un tipo de evento");
+                return false;
+              }
+              return selected.value;
+            },
+          });
+          
+          if (eventType) {
+            // Llamar a la función de reconstrucción con el tipo seleccionado y el contexto de edición
+            await handleReconstructEvent(o, eventType, currentEditType);
+          }
+        });
       },
       preConfirm: () => {
         const title = document.getElementById("swal-title").value;
@@ -2592,7 +3248,7 @@ const Reprogramacion = () => {
           rrule: s.rrule ? { ...s.rrule, until: previousDate } : null,
         });
 
-        // Crear nueva serie desde esta fecha
+        // Crear nueva serie desde esta fecha (usar la fecha del evento actual)
         let newRrule = s.rrule;
 
         // Para eventos mensuales, actualizar el bymonthday
@@ -2629,6 +3285,7 @@ const Reprogramacion = () => {
         const newSeriesRef = push(ref(database, "reprogramacion"));
         await set(newSeriesRef, {
           ...updatedData,
+          dtstart: o.date, // Usar la fecha del evento actual, no la modificada
           rrule: newRrule,
           createdAt: Date.now(),
           updatedAt: Date.now(),

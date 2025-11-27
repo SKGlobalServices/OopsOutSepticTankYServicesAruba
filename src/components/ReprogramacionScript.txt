@@ -1,0 +1,527 @@
+/*******************************
+ * Horarios: 22:40, 00:05, 00:20, 00:45
+ *******************************/
+
+// URL de tu Firebase RTDB
+const firebaseUrl = "https://oops-out-septic-tank-test-default-rtdb.firebaseio.com/";
+
+// Nombre de la función programada (esta versión v2 para no chocar con la v1)
+const SCHEDULED_FN_V2 = "executeScheduledTasksV2";
+// Clave anti-doble-ejecución por minuto
+const LAST_RUN_PROP_KEY_V2 = "lastRunMinuteKeyV2";
+// Zona horaria fija (evita depender de la config del contenedor)
+const TZ = "America/Bogota";
+
+// Ventana de gracia en minutos para tareas cronometradas (±2 por defecto)
+const GRACE_MIN = 2;
+
+// Rutas en RTDB usadas por los traspasos nocturnos
+const PATH_REPROGRAMACION = "reprogramacion";         // NUEVO motor (rrule/exdates/instances)
+const PATH_DATA = "data";
+const PATH_HOJA_MAÑANA = "hojamañana";
+const PATH_HOJA_PASADO = "hojapasadomañana";
+const PATH_REGISTRO_FECHAS = "registrofechas";
+
+/* ==================== Menú en UI (opcional) para instalar/quitar el trigger ==================== */
+function onOpen() {
+  try {
+    const ui = SpreadsheetApp.getUi?.() || DocumentApp.getUi?.();
+    if (!ui) return;
+    ui.createMenu("⏱ Programación v2")
+      .addItem("Instalar trigger cada minuto (v2)", "installPerMinuteTriggerV2")
+      .addItem("Eliminar triggers (v2)", "removeExecuteScheduledTasksTriggersV2")
+      .addSeparator()
+      .addItem("Probar ahora → 22:40", "transferDataAt22_40_v2")
+      .addItem("Probar ahora → 00:05", "transferDataAt00_05_v2")
+      .addItem("Probar ahora → 00:20", "transferDataAt00_20_v2")
+      .addItem("Probar ahora → 00:45 (RRULE)", "transferReprogramacionAt00_45_v2")
+      .addToUi();
+  } catch (e) {
+    // Si no está ligado a Spreadsheet/Document, omitir
+  }
+}
+
+function installPerMinuteTriggerV2() {
+  removeExecuteScheduledTasksTriggersV2(); // Limpieza de duplicados
+  ScriptApp.newTrigger(SCHEDULED_FN_V2).timeBased().everyMinutes(1).create();
+  Logger.log("✅ Trigger creado (v2): " + SCHEDULED_FN_V2 + " → cada 1 minuto.");
+}
+
+function removeExecuteScheduledTasksTriggersV2() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(tr => {
+    if (tr.getHandlerFunction && tr.getHandlerFunction() === SCHEDULED_FN_V2) {
+      ScriptApp.deleteTrigger(tr);
+    }
+  });
+  Logger.log("🧹 Triggers eliminados para (v2): " + SCHEDULED_FN_V2);
+}
+
+/* ==================== Helpers de fecha ==================== */
+function pad2(n) { return ("0" + n).slice(-2); }
+function fmtYMD(date) { return Utilities.formatDate(date, TZ, "yyyy-MM-dd"); }
+function fmtDMY(date) { return Utilities.formatDate(date, TZ, "dd-MM-yyyy"); }
+function parseYMD(s) {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const Y = +m[1], M = +m[2], D = +m[3];
+  const d = new Date(Y, M - 1, D, 0, 0, 0, 0);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+function getDayToken(d) { // SU..SA
+  return ["SU","MO","TU","WE","TH","FR","SA"][d.getDay()];
+}
+function getWeekStartSunday(d) {
+  const x = new Date(d);
+  x.setDate(x.getDate() - x.getDay()); // domingo
+  x.setHours(0,0,0,0);
+  return x;
+}
+function monthDiff(a, b) {
+  // meses desde a → b
+  return (b.getFullYear() - a.getFullYear())*12 + (b.getMonth() - a.getMonth());
+}
+
+/** Verifica si (hora:min) actual está dentro de una ventana ±GRACE_MIN */
+function isWithinWindow(targetHour, targetMinute, now) {
+  const tzNow = now || new Date();
+  const base = new Date(Utilities.formatDate(tzNow, TZ, "yyyy-MM-dd'T'HH:mm:ss"));
+  const target = new Date(base);
+  target.setHours(targetHour, targetMinute, 0, 0);
+  const diffMin = Math.abs(Math.round((base - target) / 60000));
+  return diffMin <= GRACE_MIN;
+}
+
+/* ==================== HTTP helpers (REST RTDB) ==================== */
+function buildPath(/* segments... */) {
+  const base = firebaseUrl.replace(/\/+$/, "");
+  const segs = Array.prototype.slice.call(arguments)
+    .filter(Boolean).map(s => String(s));
+  const encoded = segs.map(s => s.split("/").map(encodeURIComponent).join("/")).join("/");
+  return encoded.endsWith(".json") ? (base + "/" + encoded) : (base + "/" + encoded + ".json");
+}
+function fetchJson(url, opts, retries) {
+  const maxRetries = retries == null ? 2 : retries;
+  let lastErr = null;
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      const res = UrlFetchApp.fetch(url, Object.assign({
+        muteHttpExceptions: true,
+        contentType: "application/json",
+      }, opts || {}));
+      const code = res.getResponseCode();
+      const text = res.getContentText();
+      if (code >= 200 && code < 300) {
+        return { ok: true, code, text, json: text ? JSON.parse(text) : null };
+      }
+      if (code === 429 || code >= 500) {
+        Utilities.sleep(400 * (i + 1)); // backoff suave
+        continue;
+      }
+      return { ok: false, code, text, json: null };
+    } catch (e) {
+      lastErr = e;
+      Utilities.sleep(200 * (i + 1));
+    }
+  }
+  return { ok: false, code: -1, text: String(lastErr || "Unknown fetch error"), json: null };
+}
+function httpGET()              { return fetchJson(buildPath.apply(null, arguments), { method: "get" }); }
+function httpPUT(p, body)       { return fetchJson(buildPath(p), { method: "put", payload: JSON.stringify(body || {}) }); }
+function httpPOST(p, body)      { return fetchJson(buildPath(p), { method: "post", payload: JSON.stringify(body || {}) }); }
+function httpPATCH(p, body)     { return fetchJson(buildPath(p), { method: "patch", payload: JSON.stringify(body || {}) }); }
+function httpDELETE()           { return fetchJson(buildPath.apply(null, arguments), { method: "delete" }); }
+
+/* ==================== Motor de evaluación RRULE (DAILY / WEEKLY / MONTHLY) ==================== */
+/**
+ * Determina si una serie (registro en /reprogramacion) genera una ocurrencia en ymdTarget.
+ * Respeta:
+ *   - rrule (freq+interval [+byday | +bymonthday] [+until])
+ *   - exdates (mapa de YYYY-MM-DD → true)
+ *   - instances[YYYY-MM-DD] (mueve o crea ocurrencias puntuales)
+ * Devuelve { ok: boolean, reason: string, title: string|null, recurid: string|null }
+ */
+function evaluateSeriesForDate(series, ymdTarget) {
+  try {
+    const targetDate = parseYMD(ymdTarget);
+    if (!targetDate) return { ok:false, reason:"target inválido", title:null, recurid:null };
+
+    const exdates = series.exdates || {};
+    const instances = series.instances || {};
+    const inst = instances[ymdTarget];
+
+    // 1) Instancia explícita (si hay, siempre hay ocurrencia en esa fecha)
+    if (inst) {
+      const title = (inst.title && String(inst.title)) || String(series.title || "");
+      const recurid = inst.recurid || null;
+      return { ok:true, reason:"instance", title, recurid };
+    }
+
+    // 2) Si exdates tiene esa fecha → no hay base
+    if (exdates && exdates[ymdTarget]) {
+      return { ok:false, reason:"exdate", title:null, recurid:null };
+    }
+
+    // 3) Evento único (sin rrule)
+    if (!series.rrule) {
+      const base = series.dtstart;
+      if (base === ymdTarget) {
+        const title = String(series.title || "");
+        return { ok:true, reason:"single", title, recurid:null };
+      }
+      return { ok:false, reason:"single-no-match", title:null, recurid:null };
+    }
+
+    // 4) Evento recurrente
+    const r = series.rrule || {};
+    const freq = (r.freq || "").toUpperCase();
+    const interval = Math.max(1, Number(r.interval || 1));
+    const dtstart = parseYMD(series.dtstart);
+    if (!dtstart) return { ok:false, reason:"dtstart inválido", title:null, recurid:null };
+
+    // UNTIL (si existe, no exceder)
+    if (r.until) {
+      const until = parseYMD(r.until);
+      if (until && targetDate > until) {
+        return { ok:false, reason:"after-until", title:null, recurid:null };
+      }
+    }
+    if (targetDate < dtstart) {
+      return { ok:false, reason:"before-start", title:null, recurid:null };
+    }
+
+    let match = false;
+
+    if (freq === "DAILY") {
+      const diffDays = Math.floor((targetDate - dtstart) / 86400000);
+      match = (diffDays >= 0) && (diffDays % interval === 0);
+    }
+    else if (freq === "WEEKLY") {
+      const anchorWeekStart = getWeekStartSunday(dtstart);
+      const targetWeekStart = getWeekStartSunday(targetDate);
+      const weeks = Math.floor((targetWeekStart - anchorWeekStart) / (7*24*3600*1000));
+      const okInterval = (weeks >= 0) && (weeks % interval === 0);
+
+      let byday = Array.isArray(r.byday) ? r.byday.slice() : [];
+      if (!byday.length) {
+        byday = [getDayToken(dtstart)]; // por defecto, día de dtstart
+      }
+      const token = getDayToken(targetDate);
+      const okDay = byday.indexOf(token) !== -1;
+
+      match = okInterval && okDay;
+    }
+    else if (freq === "MONTHLY") {
+      const months = monthDiff(dtstart, targetDate);
+      const okInterval = (months >= 0) && (months % interval === 0);
+
+      // bymonthday (array o valor); si no viene, usar día de dtstart
+      let monthDays = r.bymonthday;
+      if (monthDays == null) monthDays = dtstart.getDate();
+      if (!Array.isArray(monthDays)) monthDays = [monthDays];
+
+      // ¿ymdTarget coincide con alguno de los días del mes (con fallback al último día si no existe)?
+      const ty = targetDate.getFullYear();
+      const tm = targetDate.getMonth(); // 0..11
+      let okDay = false;
+
+      for (let i=0;i<monthDays.length;i++) {
+        const dayNum = Number(monthDays[i]);
+        if (!dayNum || dayNum < 1) continue;
+        let cand = new Date(ty, tm, dayNum, 0,0,0,0);
+        if (cand.getMonth() !== tm) {
+          // El día no existe en este mes → usar último día del mes
+          cand.setDate(0); // último del mes anterior → si tm=Feb, cand queda en Feb 28/29
+        }
+        if (fmtYMD(cand) === ymdTarget) { okDay = true; break; }
+      }
+      match = okInterval && okDay;
+    }
+
+    if (match) {
+      const title = String(series.title || "");
+      return { ok:true, reason:"rrule", title, recurid:null };
+    }
+    return { ok:false, reason:"rrule-no-match", title:null, recurid:null };
+  } catch (e) {
+    return { ok:false, reason:String(e), title:null, recurid:null };
+  }
+}
+
+/* ==================== Tarea programada principal (cada minuto) – v2 ==================== */
+function executeScheduledTasksV2() {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (e) {
+    Logger.log("⛔ (v2) No se pudo adquirir lock (otra ejecución en curso). " + e);
+    return;
+  }
+
+  try {
+    const now = new Date();
+    const currentMinuteKey = Utilities.formatDate(now, TZ, "yyyy-MM-dd HH:mm");
+
+    // Anti-doble-ejecución por minuto
+    const props = PropertiesService.getScriptProperties();
+    const lastKey = props.getProperty(LAST_RUN_PROP_KEY_V2);
+    if (lastKey === currentMinuteKey) {
+      Logger.log("⏭️ (v2) Ya se ejecutó en este minuto: " + currentMinuteKey);
+      return;
+    }
+    props.setProperty(LAST_RUN_PROP_KEY_V2, currentMinuteKey);
+
+    const hours   = parseInt(Utilities.formatDate(now, TZ, "H"), 10);
+    const minutes = parseInt(Utilities.formatDate(now, TZ, "m"), 10);
+
+    Logger.log(
+      "▶️ (v2) executeScheduledTasksV2 - " +
+      Utilities.formatDate(now, TZ, "yyyy-MM-dd HH:mm:ss") +
+      " (H=" + hours + ", m=" + minutes + ", TZ=" + TZ + ")"
+    );
+
+    // 00:05 → 'hojamañana' → 'data'
+    if (isWithinWindow(0, 5, now)) {
+      Logger.log("⏰ (v2) Ventana 00:05 detectada");
+      transferDataAt00_05_v2();
+    }
+
+    // 00:20 → 'hojapasadomañana' → 'hojamañana'
+    if (isWithinWindow(0, 20, now)) {
+      Logger.log("⏰ (v2) Ventana 00:20 detectada");
+      transferDataAt00_20_v2();
+    }
+
+    // 00:45 → '/reprogramacion' (rrule) → 'hojapasadomañana'
+    if (isWithinWindow(0, 45, now)) {
+      Logger.log("⏰ (v2) Ventana 00:45 detectada");
+      transferReprogramacionAt00_45_v2();
+    }
+
+    // 22:40 → 'data' → 'registrofechas'
+    if (isWithinWindow(22, 40, now)) {
+      Logger.log("⏰ (v2) Ventana 22:40 detectada");
+      transferDataAt22_40_v2();
+    }
+
+  } catch (err) {
+    Logger.log("💥 (v2) Error en executeScheduledTasksV2: " + err);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/* ==================== 22:40 - Transfiere 'data' → 'registrofechas' ==================== */
+function transferDataAt22_40_v2() {
+  const dateId = Utilities.formatDate(new Date(), TZ, "dd-MM-yyyy"); // dd-MM-yyyy
+
+  const getRes = httpGET(PATH_DATA);
+  if (!getRes.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_DATA + ": HTTP " + getRes.code + " " + getRes.text);
+    return;
+  }
+  const data = getRes.json || {};
+  if (!data || !Object.keys(data).length) {
+    Logger.log("ℹ️ (v2) No hay datos para transferir a las 22:40.");
+    return;
+  }
+
+  let moved = 0;
+  for (const id in data) {
+    const registroData = Object.assign({}, data[id], { fecha: dateId });
+
+    const putRes = httpPUT(PATH_REGISTRO_FECHAS + "/" + dateId + "/" + id, registroData);
+    if (!putRes.ok) {
+      Logger.log("❌ (v2) PUT /" + PATH_REGISTRO_FECHAS + "/" + dateId + "/" + id + ": HTTP " + putRes.code + " " + putRes.text);
+      continue;
+    }
+
+    const delRes = httpDELETE(PATH_DATA + "/" + id);
+    if (!delRes.ok) {
+      Logger.log("⚠️ (v2) DELETE /" + PATH_DATA + "/" + id + " falló: HTTP " + delRes.code + " " + delRes.text);
+    }
+    moved++;
+  }
+  Logger.log("✅ (v2) " + moved + " registro(s) → '" + PATH_REGISTRO_FECHAS + "/" + dateId + "' y limpiados de '" + PATH_DATA + "'.");
+}
+
+/* ==================== 00:05 - Transfiere 'hojamañana' → 'data' ==================== */
+function transferDataAt00_05_v2() {
+  const getHM = httpGET(PATH_HOJA_MAÑANA);
+  if (!getHM.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_HOJA_MAÑANA + ": HTTP " + getHM.code + " " + getHM.text);
+    return;
+  }
+  const hojaMananaData = getHM.json || {};
+  if (!hojaMananaData || !Object.keys(hojaMananaData).length) {
+    Logger.log("ℹ️ (v2) No hay datos en '" + PATH_HOJA_MAÑANA + "' para transferir a las 00:05.");
+    return;
+  }
+
+  const getData = httpGET(PATH_DATA);
+  if (!getData.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_DATA + ": HTTP " + getData.code + " " + getData.text);
+    return;
+  }
+  const existingData = getData.json || {};
+  const mergedData = Object.assign({}, existingData, hojaMananaData);
+
+  const putData = httpPUT(PATH_DATA, mergedData);
+  if (!putData.ok) {
+    Logger.log("❌ (v2) PUT /" + PATH_DATA + ": HTTP " + putData.code + " " + putData.text);
+    return;
+  }
+
+  let deleted = 0;
+  for (const id in hojaMananaData) {
+    const del = httpDELETE(PATH_HOJA_MAÑANA + "/" + id);
+    if (!del.ok) {
+      Logger.log("⚠️ (v2) DELETE /" + PATH_HOJA_MAÑANA + "/" + id + ": HTTP " + del.code + " " + del.text);
+      continue;
+    }
+    deleted++;
+  }
+  Logger.log("✅ (v2) '" + PATH_HOJA_MAÑANA + "' → '" + PATH_DATA + "' OK. Eliminados de '" + PATH_HOJA_MAÑANA + "': " + deleted);
+}
+
+/* ==================== 00:20 - Transfiere 'hojapasadomañana' → 'hojamañana' ==================== */
+function transferDataAt00_20_v2() {
+  const getPM = httpGET(PATH_HOJA_PASADO);
+  if (!getPM.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_HOJA_PASADO + ": HTTP " + getPM.code + " " + getPM.text);
+    return;
+  }
+  const hojaPasadoMananaData = getPM.json || {};
+  if (!hojaPasadoMananaData || !Object.keys(hojaPasadoMananaData).length) {
+    Logger.log("ℹ️ (v2) No hay datos en '" + PATH_HOJA_PASADO + "' para transferir a las 00:20.");
+    return;
+  }
+
+  const getHM = httpGET(PATH_HOJA_MAÑANA);
+  if (!getHM.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_HOJA_MAÑANA + ": HTTP " + getHM.code + " " + getHM.text);
+    return;
+  }
+  const existingHM = getHM.json || {};
+  const merged = Object.assign({}, existingHM, hojaPasadoMananaData);
+
+  const putHM = httpPUT(PATH_HOJA_MAÑANA, merged);
+  if (!putHM.ok) {
+    Logger.log("❌ (v2) PUT /" + PATH_HOJA_MAÑANA + ": HTTP " + putHM.code + " " + putHM.text);
+    return;
+  }
+
+  let deleted = 0;
+  for (const id in hojaPasadoMananaData) {
+    const del = httpDELETE(PATH_HOJA_PASADO + "/" + id);
+    if (!del.ok) {
+      Logger.log("⚠️ (v2) DELETE /" + PATH_HOJA_PASADO + "/" + id + ": HTTP " + del.code + " " + del.text);
+      continue;
+    }
+    deleted++;
+  }
+  Logger.log("✅ (v2) '" + PATH_HOJA_PASADO + "' → '" + PATH_HOJA_MAÑANA + "' OK. Eliminados de '" + PATH_HOJA_PASADO + "': " + deleted);
+}
+
+/* ==================== 00:45 - Reprogramación RRULE → 'hojapasadomañana' ==================== */
+function transferReprogramacionAt00_45_v2() {
+  const now = new Date();
+  const todayMid = new Date(Utilities.formatDate(now, TZ, "yyyy-MM-dd'T'00:00:00"));
+  const dayAfterTomorrow = new Date(todayMid); dayAfterTomorrow.setDate(todayMid.getDate() + 2);
+
+  const ymdTarget = fmtYMD(dayAfterTomorrow);
+  const dmyTarget = fmtDMY(dayAfterTomorrow);
+  Logger.log("🗓️ (v2) Procesando RRULE para: " + ymdTarget);
+
+  const getReprog = httpGET(PATH_REPROGRAMACION);
+  if (!getReprog.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_REPROGRAMACION + ": HTTP " + getReprog.code + " " + getReprog.text);
+    return;
+  }
+  const reprogramData = getReprog.json || {};
+  let created = 0;
+
+  for (const id in reprogramData) {
+    try {
+      const record = reprogramData[id] || {};
+
+      // De-duplicación por configuración (evita rehacer si ya se procesó y no cambió nada)
+      const updatedAt = record.updatedAt || 0;
+      const lastRunAt = record.lastRunAt || 0;
+      const cfgChangedAfterRun = updatedAt > lastRunAt;
+      if (record.lastRunFor === ymdTarget && !cfgChangedAfterRun) {
+        Logger.log("↩️ (v2) " + (record.title || id) + ": ya procesado para " + ymdTarget);
+        continue;
+      }
+
+      // Evaluar si esta serie genera ocurrencia para ymdTarget
+      const ev = evaluateSeriesForDate(record, ymdTarget);
+      if (ev.ok) {
+        // Solo los campos necesarios para hojapasadomañana
+        const payload = Object.assign({}, record, { 
+          fecha: dmyTarget     // dd-MM-yyyy
+        });
+
+        // Insertar un nodo nuevo en 'hojapasadomañana' (POST → key auto)
+        const post = httpPOST(PATH_HOJA_PASADO, payload);
+        if (!post.ok) {
+          Logger.log("❌ (v2) POST /" + PATH_HOJA_PASADO + ": " + post.code + " " + post.text);
+        } else {
+          created++;
+          // Marcar lastRunFor / lastRunAt
+          httpPATCH(PATH_REPROGRAMACION + "/" + id, { lastRunFor: ymdTarget, lastRunAt: Date.now() });
+          Logger.log("✅ (v2) " + (payload.title || id) + " → '" + PATH_HOJA_PASADO + "' para " + dmyTarget + " (reason=" + ev.reason + ")");
+        }
+      } else {
+        // No genera; de todos modos marcamos lastRun para no reevaluar infinito
+        httpPATCH(PATH_REPROGRAMACION + "/" + id, { lastRunFor: ymdTarget, lastRunAt: Date.now() });
+        Logger.log("… (v2) " + (record.title || id) + ": NO genera para " + ymdTarget + " (reason=" + ev.reason + ")");
+      }
+    } catch (e) {
+      Logger.log("💥 (v2) Error con serie " + id + ": " + e);
+    }
+  }
+
+  Logger.log("✅ (v2) transferReprogramacionAt00_45_v2 completado. Creados: " + created);
+}
+
+/* ==================== Utilidad: evaluación manual de una serie ==================== */
+/**
+ * Probar manualmente si una serie específica genera ocurrencia en una fecha.
+ * Ejemplo en la consola de Apps Script:
+ *   testEvaluateSeries("SERIE_ID", "2025-12-31");
+ */
+function testEvaluateSeries(serieId, ymd) {
+  const res = httpGET(PATH_REPROGRAMACION + "/" + serieId);
+  if (!res.ok || !res.json) {
+    Logger.log("❌ (v2) No se pudo leer la serie " + serieId);
+    return;
+  }
+  const ev = evaluateSeriesForDate(res.json, ymd);
+  Logger.log("Serie " + serieId + " @ " + ymd + " → ok=" + ev.ok + " reason=" + ev.reason + " title=" + ev.title + " recurid=" + ev.recurid);
+}
+
+/* ==================== Utilidad: resumen para el día procesado (debug) ==================== */
+/**
+ * Lista cuántas series calzan para pasado mañana (sin escribir nada).
+ */
+function debugCountMatchesForDayAfterTomorrow_v2() {
+  const now = new Date();
+  const todayMid = new Date(Utilities.formatDate(now, TZ, "yyyy-MM-dd'T'00:00:00"));
+  const dayAfterTomorrow = new Date(todayMid); dayAfterTomorrow.setDate(todayMid.getDate() + 2);
+  const ymdTarget = fmtYMD(dayAfterTomorrow);
+
+  const getReprog = httpGET(PATH_REPROGRAMACION);
+  if (!getReprog.ok) {
+    Logger.log("❌ (v2) GET /" + PATH_REPROGRAMACION + ": HTTP " + getReprog.code + " " + getReprog.text);
+    return;
+  }
+  const reprogramData = getReprog.json || {};
+  let hits = 0, total = 0;
+  for (const id in reprogramData) {
+    total++;
+    const ev = evaluateSeriesForDate(reprogramData[id], ymdTarget);
+    if (ev.ok) hits++;
+  }
+  Logger.log("🔎 (v2) " + hits + "/" + total + " series generan ocurrencia en " + ymdTarget);
+}
