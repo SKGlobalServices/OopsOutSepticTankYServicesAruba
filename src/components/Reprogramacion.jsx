@@ -1500,6 +1500,33 @@ const Reprogramacion = () => {
     }
   }
 
+  async function deleteFromThisEvent(o) {
+    const s = seriesMap[o.seriesId];
+    if (!s) return;
+
+    if (s.rrule) {
+      // Es evento recurrente, terminar la serie en la fecha anterior
+      const previousDate = addDays(o.date, -1);
+      const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
+      await update(seriesRef, {
+        rrule: { ...s.rrule, until: previousDate },
+      });
+      
+      // Si existe una instancia específica para esta fecha, también eliminarla
+      if (s.instances && s.instances[o.date]) {
+        const instanceRef = ref(
+          database,
+          `/reprogramacion/${o.seriesId}/instances/${o.date}`
+        );
+        await remove(instanceRef);
+      }
+    } else {
+      // Es evento único, eliminar toda la serie
+      const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
+      await remove(seriesRef);
+    }
+  }
+
   async function deleteEntireSeries(seriesId) {
     // Obtener la serie que queremos eliminar
     const targetSeries = seriesMap[seriesId];
@@ -1582,6 +1609,14 @@ const Reprogramacion = () => {
               isRecurring
                 ? `
             <label style="display: flex; align-items: center; padding: 18px 20px; border: 2px solid #fed7d7; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; background: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='#e53e3e'; this.style.backgroundColor='#fef5f5'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='#fed7d7'; this.style.backgroundColor='#ffffff'; this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+              <input type="radio" name="deleteChoice" value="fromThis" style="margin-right: 16px; transform: scale(1.3); cursor: pointer; accent-color: #e53e3e;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: #e53e3e; font-size: 16px; margin-bottom: 4px;">📅 Eliminar este evento y los siguientes</div>
+                <div style="color: #6b7280; font-size: 14px; line-height: 1.4;">Elimina desde el ${o.date} en adelante</div>
+              </div>
+            </label>
+            
+            <label style="display: flex; align-items: center; padding: 18px 20px; border: 2px solid #fed7d7; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; background: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='#e53e3e'; this.style.backgroundColor='#fef5f5'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='#fed7d7'; this.style.backgroundColor='#ffffff'; this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
               <input type="radio" name="deleteChoice" value="series" style="margin-right: 16px; transform: scale(1.3); cursor: pointer; accent-color: #e53e3e;">
               <div style="flex: 1;">
                 <div style="font-weight: 600; color: #e53e3e; font-size: 16px; margin-bottom: 4px;">💥 Eliminar toda la serie</div>
@@ -1630,6 +1665,8 @@ const Reprogramacion = () => {
       try {
         if (choice === "single") {
           await deleteSingleEvent(o);
+        } else if (choice === "fromThis") {
+          await deleteFromThisEvent(o);
         } else if (choice === "series") {
           await deleteEntireSeries(o.seriesId);
         }
@@ -1639,6 +1676,8 @@ const Reprogramacion = () => {
           text:
             choice === "single"
               ? "Evento eliminado correctamente"
+              : choice === "fromThis"
+              ? "Eventos eliminados desde esta fecha en adelante"
               : "Serie eliminada correctamente",
           icon: "success",
           timer: 2000,
@@ -3282,10 +3321,29 @@ const Reprogramacion = () => {
           };
         }
 
+        // Calcular la fecha de inicio correcta para eventos semanales
+        let newStartDate = formValues.date;
+        
+        // Si es evento semanal y se cambiaron los días, buscar el próximo día válido
+        if (newRrule && newRrule.freq === "WEEKLY" && newRrule.byday && newRrule.byday.length > 0) {
+          const targetDays = newRrule.byday.map(day => WD.indexOf(day));
+          const baseDate = parse(formValues.date);
+          let searchDate = new Date(baseDate);
+          
+          // Buscar hacia adelante hasta encontrar un día que coincida
+          for (let i = 0; i < 7; i++) {
+            if (targetDays.includes(searchDate.getDay())) {
+              newStartDate = fmt(searchDate);
+              break;
+            }
+            searchDate.setDate(searchDate.getDate() + 1);
+          }
+        }
+
         const newSeriesRef = push(ref(database, "reprogramacion"));
         await set(newSeriesRef, {
           ...updatedData,
-          dtstart: o.date, // Usar la fecha del evento actual, no la modificada
+          dtstart: newStartDate,
           rrule: newRrule,
           createdAt: Date.now(),
           updatedAt: Date.now(),
