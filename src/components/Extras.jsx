@@ -253,6 +253,7 @@ const Extras = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const serviciosAdicionales = {
+    Semanal_2026: 20,
     Semanal: 15,
     Dominical: 50,
     Emergencia: 50,
