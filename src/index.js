@@ -9,6 +9,7 @@ import Hojamañana from "./components/Hojamañana.jsx";
 import Hojapasadomañana from "./components/Hojapasadomañana.jsx";
 import Hojadefechas from "./components/Hojadefechas.jsx";
 import Facturasemitidas from "./components/Facturasemitidas.jsx";
+import Cotizacion from "./components/Cotizacion.jsx";
 import Clientes from "./components/Hojaclientes.jsx";
 import Reprogramacion from "./components/Reprogramacion.jsx";
 import Usuarios from "./components/Configuraciondeusuarios.jsx"
@@ -33,6 +34,7 @@ import Calendariouser from "./components/Calendariouser.jsx";
 import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx";
 import Informedetransferenciascontador from "./components/Informedetransferenciascontador.jsx";
 import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx";
+import Clientesnuevos from "./components/Clientesnuevos.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -46,6 +48,7 @@ root.render(
       <Route path="/hojapasadomañana" element={<PageWrapper><Hojapasadomañana /></PageWrapper>} />
       <Route path="/hojadefechas" element={<PageWrapper><Hojadefechas /></PageWrapper>} />
       <Route path="/facturasemitidas" element={<PageWrapper><Facturasemitidas /></PageWrapper>} />
+      <Route path="/cotizacion" element={<PageWrapper><Cotizacion /></PageWrapper>} />
       <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
       <Route path="/clientesfijos" element={<PageWrapper><Clientesfijos /></PageWrapper>} />
       <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
@@ -56,6 +59,7 @@ root.render(
       <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
       <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
       <Route path="/fastmark" element={<PageWrapper><Fastmark /></PageWrapper>} />
+      <Route path="/clientesnuevos" element={<PageWrapper><Clientesnuevos /></PageWrapper>} />
       <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
       <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
       <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />

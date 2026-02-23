@@ -59,6 +59,8 @@ const Hojadefechas = () => {
   // === Casillas de seleccion ===
   const [showCobranzaSelection, setShowCobranzaSelection] = useState(false);
   const [cobranzaSelectedRows, setCobranzaSelectedRows] = useState({});
+  const [showClientesNuevosSelection, setShowClientesNuevosSelection] = useState(false);
+  const [clientesNuevosSelectedRows, setClientesNuevosSelectedRows] = useState({});
   const [selectedRows, setSelectedRows] = useState({});
 
   // Estado para el modal de vista/edición de factura
@@ -765,12 +767,110 @@ const Hojadefechas = () => {
     setCobranzaSelectedRows((prev) => ({ ...prev, [key]: checked }));
   };
 
+  const handleClientesNuevosRowSelection = (_fecha, registroId, checked) => {
+    const key = registroId;
+    setClientesNuevosSelectedRows((prev) => ({ ...prev, [key]: checked }));
+  };
+
   const getTodayDDMMYYYY = () => {
     const d = new Date();
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
+  };
+
+  // Acción principal del botón "Clientes Nuevos"
+  const GestionarClientesNuevos = async () => {
+    if (!showClientesNuevosSelection) {
+      setShowClientesNuevosSelection(true);
+      return;
+    }
+
+    const haySeleccion = Object.values(clientesNuevosSelectedRows).some(Boolean);
+    if (!haySeleccion) {
+      setShowClientesNuevosSelection(false);
+      setClientesNuevosSelectedRows({});
+      return;
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      title: "Enviar a Clientes Nuevos",
+      html: `
+      <p style="margin:0 0 8px;">Se copiarán los registros seleccionados a <b>Clientes Nuevos</b>.</p>
+      <p style="margin:0;">Solo se enviarán <b>dirección</b> y <b>cúbicos</b>.</p>
+      <p style="margin:8px 0 0;color:#d35400;font-size:0.9em;">
+        Nota: si ya existía una copia para un id, será <b>actualizada</b>.
+      </p>
+    `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, enviar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!isConfirmed) return;
+
+    Swal.fire({
+      title: "Enviando...",
+      text: "Se están enviando los datos a clientes nuevos",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const flatAll = filteredData.flatMap((group) =>
+        group.registros.map((r) => ({ ...r, fecha: group.fecha }))
+      );
+
+      const seleccionados = flatAll.filter((r) => !!clientesNuevosSelectedRows[r.id]);
+
+      if (seleccionados.length === 0) {
+        Swal.close();
+        await Swal.fire({
+          icon: "info",
+          title: "Sin registros",
+          text: "No hay registros seleccionados para clientes nuevos.",
+        });
+        return;
+      }
+
+      const writes = seleccionados.map((reg) => {
+        const now = new Date();
+        const fechaTraslado = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+        const horaTraslado = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const copy = {
+          direccion: reg.direccion || "",
+          cubicos: reg.cubicos || "",
+          fechaTraslado: fechaTraslado,
+          horaTraslado: horaTraslado,
+        };
+
+        const itemRef = ref(database, `clientesnuevos/${reg.id}`);
+        return set(itemRef, copy);
+      });
+
+      await Promise.all(writes);
+
+      Swal.close();
+      await Swal.fire({
+        icon: "success",
+        title: "Copiados a Clientes Nuevos",
+        text: `Se copiaron ${seleccionados.length} registro(s) en 'Clientes Nuevos'.`,
+        timer: 2200,
+      });
+
+      setShowClientesNuevosSelection(false);
+      setClientesNuevosSelectedRows({});
+    } catch (err) {
+      console.error("Error copiando a clientesnuevos:", err);
+      Swal.close();
+      await Swal.fire({
+        icon: "error",
+        title: "Error al enviar",
+        text: "No se pudo copiar a Clientes Nuevos. Intenta de nuevo.",
+      });
+    }
   };
 
   // Acción principal del botón “Cobranza”
@@ -3822,6 +3922,7 @@ const Hojadefechas = () => {
                 <th>Valor</th>
                 <th>Pago</th>
                 {showCobranzaSelection && <th></th>}
+                {showClientesNuevosSelection && <th></th>}
                 <th>Fecha de Pago</th>
                 <th>Forma De Pago</th>
                 <th>Banco</th>
@@ -4167,6 +4268,25 @@ const Hojadefechas = () => {
                               )
                             }
                             title="Marcar para enviar a Informe de Cobranza"
+                          />
+                        </td>
+                      )}
+
+                      {/* Selección Clientes Nuevos */}
+                      {showClientesNuevosSelection && (
+                        <td style={{ textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: "3ch", height: "3ch" }}
+                            checked={!!clientesNuevosSelectedRows[registro.id]}
+                            onChange={(e) =>
+                              handleClientesNuevosRowSelection(
+                                null,
+                                registro.id,
+                                e.target.checked
+                              )
+                            }
+                            title="Marcar para enviar a Clientes Nuevos"
                           />
                         </td>
                       )}
@@ -4636,6 +4756,17 @@ const Hojadefechas = () => {
               ? "Eliminar Servicio"
               : selectedKey
               ? "Eliminar Servicio"
+              : "Ocultar casillas"}
+          </button>
+          <button
+            style={{ backgroundColor: "#00a3d3ff" }}
+            onClick={GestionarClientesNuevos}
+            className="filter-button"
+          >
+            {!showClientesNuevosSelection
+              ? "Clientes Nuevos"
+              : clientesNuevosSelectedRows
+              ? "Enviar a Clientes Nuevos"
               : "Ocultar casillas"}
           </button>
         </div>

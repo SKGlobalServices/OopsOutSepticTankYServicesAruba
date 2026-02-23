@@ -58,6 +58,7 @@ const Clientes = () => {
             anombrede,
             cubicos: cliente.cubicos || 0,
             email: cliente.email || "",
+            notas: cliente.notas || "",
           });
           if (direccion) uniqueDirections.add(direccion);
           if (anombrede) uniqueNames.add(anombrede);
@@ -177,7 +178,8 @@ const Clientes = () => {
         `<input id="swal-anombrede" class="swal2-input" placeholder="A nombre de (opcional)">` +
         `<input id="swal-cubicos" type="number" min="0" class="swal2-input" placeholder="Cúbicos (opcional)">` +
         `<input id="swal-valor" type="number" min="0" class="swal2-input" placeholder="Valor (opcional)">` +
-        `<input id="swal-email" type="email" class="swal2-input" placeholder="Email (opcional)">`,
+        `<input id="swal-email" type="email" class="swal2-input" placeholder="Email (opcional)">` +
+        `<textarea id="swal-notas" class="swal2-textarea" placeholder="Notas (opcional)" style="width:100%;height:80px;margin-top:10px;"></textarea>`,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: "Agregar",
@@ -193,6 +195,7 @@ const Clientes = () => {
         const cubicosVal = document.getElementById("swal-cubicos").value;
         const valorVal = document.getElementById("swal-valor").value;
         const email = document.getElementById("swal-email").value.trim();
+        const notas = document.getElementById("swal-notas").value.trim();
 
         // Validación: dirección obligatoria
         if (!direccion) {
@@ -206,6 +209,7 @@ const Clientes = () => {
           cubicos: cubicosVal ? Number(cubicosVal) : 0,
           valor: valorVal ? Number(valorVal) : 0,
           email: email || null,
+          notas: notas || null,
         };
 
         // Push dentro de preConfirm para integrar la operación en el flujo
@@ -243,6 +247,7 @@ const Clientes = () => {
         "Cúbicos": cliente.cubicos || 0,
         "Valor": formatCurrency(cliente.valor || 0),
         "Email": cliente.email || "",
+        "Notas": cliente.notas || "",
       }));
 
       const workbook = new ExcelJS.Workbook();
@@ -253,7 +258,8 @@ const Clientes = () => {
         "Dirección", 
         "Cúbicos",
         "Valor",
-        "Email"
+        "Email",
+        "Notas"
       ];
 
       // Agregar cabecera
@@ -287,6 +293,7 @@ const Clientes = () => {
         { width: 15 }, // Cúbicos
         { width: 15 }, // Valor
         { width: 30 }, // Email
+        { width: 40 }, // Notas
       ];
 
       // Agregar datos
@@ -352,6 +359,23 @@ const Clientes = () => {
     setSelectedClientes((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+
+  const handleNotesClick = (id, currentNotes) => {
+    Swal.fire({
+      title: "Notas",
+      input: "textarea",
+      inputValue: currentNotes || "",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const notes = result.value;
+        handleFieldChange(id, "notas", notes);
+        Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
 
   // Aplicar filtros sobre todos los datos (sin paginación)
   const filteredData = data
@@ -549,6 +573,9 @@ const Clientes = () => {
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Email</th>
+                <th>
+                  Notas
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -670,11 +697,40 @@ const Clientes = () => {
                         }}
                       />
                     </td>
+                    <td>
+                      <button
+                        style={{
+                          border: "none",
+                          backgroundColor: "transparent",
+                          borderRadius: "0.25em",
+                          color: "black",
+                          cursor: "pointer",
+                          fontSize: "1em",
+                          maxWidth: "20ch",
+                          textAlign: "left",
+                          width: "100%",
+                        }}
+                        onClick={() => handleNotesClick(cliente.id, cliente.notas)}
+                      >
+                        {cliente.notas ? (
+                          <p className="texto-ajustable">
+                            {cliente.notas || ""}
+                          </p>
+                        ) : (
+                          <span
+                            style={{
+                              width: "100%",
+                              display: "inline-block",
+                            }}
+                          ></span>
+                        )}
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6">No se encontraron clientes</td>
+                  <td colSpan="7">No se encontraron clientes</td>
                 </tr>
               )}
             </tbody>

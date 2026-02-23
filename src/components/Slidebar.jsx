@@ -353,6 +353,17 @@ const Slidebar = () => {
               />
               <span>Pagos Anticipados</span>
             </button>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/cotizacion")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Cotizaciones"
+              />
+              <span>ﾠﾠCotizaciones</span>
+            </button>
           </div>
         </details>
 
@@ -469,6 +480,17 @@ const Slidebar = () => {
               />
               <span>Servicios Extras</span>
             </button>
+            <button
+              className="btn-infEfec2"
+              onClick={() => navigate("/clientesnuevos")}
+            >
+              <img
+                className="icon-infEfec2"
+                src={informeEfectivoIcon2}
+                alt="Informe De Clientes Nuevos"
+              />
+              <span>Clientes Nuevos</span>
+            </button>
           </div>
         </details>
 
@@ -504,6 +526,19 @@ const Slidebar = () => {
                 alt="Configuración de Usuarios"
               />
               <span>Configuración De Usuarios</span>
+            </button>
+            <button
+              className="btn-configUsr2"
+              onClick={() => navigate("/historialdecambios")}
+              disabled
+              style={{cursor:"no-drop"}}
+            >
+              <img
+                className="icon-configUsr2"
+                src={informeEfectivoIcon2}
+                alt="Historial De Cambios"
+              />
+              <span>Historial De Cambios</span>
             </button>
           </div>
         </details>
