@@ -40,8 +40,7 @@ const Agendadeldiausuario = () => {
   useEffect(() => {
     const unsubData = onValue(ref(database, "data"), (snap) => {
       if (snap.exists()) {
-        const fetched = Object.entries(snap.val())
-          .filter(([, it]) => !it.realizadopor || it.realizadopor === myUserId);
+        const fetched = Object.entries(snap.val());
         const con = fetched.filter(([, it]) => !!it.realizadopor);
         const sin = fetched.filter(([, it]) => !it.realizadopor);
 
