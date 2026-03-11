@@ -744,9 +744,12 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
         }
       });
 
+      // Sanitizar: Firebase no acepta undefined, reemplazar por null
+      const sanitized = JSON.parse(JSON.stringify(cotizacionData, (_, v) => v === undefined ? null : v));
+
       // Actualizar cotizacion completa en Firebase
       const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}`);
-      await update(cotizacionRef, cotizacionData);
+      await update(cotizacionRef, sanitized);
       
       setHasUnsavedChanges(false);
       setEditMode(false);
