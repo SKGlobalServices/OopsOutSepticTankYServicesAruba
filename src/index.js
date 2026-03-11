@@ -35,6 +35,7 @@ import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx"
 import Informedetransferenciascontador from "./components/Informedetransferenciascontador.jsx";
 import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx";
 import Clientesnuevos from "./components/Clientesnuevos.jsx";
+import HistorialCambios from "./components/HistorialCambios.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -74,6 +75,7 @@ root.render(
       <Route path="/informedetransferenciascontador" element={<PageWrapper><Informedetransferenciascontador /></PageWrapper>} />
       <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
       <Route path="/reprogramacion" element={<PageWrapper><Reprogramacion /></PageWrapper>} />
+      <Route path="/historialcambios" element={<PageWrapper><HistorialCambios /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );
