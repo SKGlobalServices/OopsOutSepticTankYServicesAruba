@@ -57,6 +57,7 @@ const Clientes = () => {
             direccion,
             anombrede,
             cubicos: cliente.cubicos || 0,
+            valor: cliente.valor || 0,
             email: cliente.email || "",
             notas: cliente.notas || "",
           });
