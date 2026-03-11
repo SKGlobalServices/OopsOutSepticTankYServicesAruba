@@ -1,12 +1,13 @@
 /* ─────────────────────  AgendaExpress.jsx  ───────────────────── */
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
-import { push, ref, set, onValue } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import servicioPasadoMananaIcon2 from "../assets/img/servicioPasadoMananaIcon2.png";
+import { auditCreate } from "../utils/auditLogger";
 
 /*  rutas Firebase por día  */
 const RUTA = {
@@ -231,9 +232,13 @@ const AgendaExpress = () => {
   /* ---------- guardar ---------- */
   const save = async (payload) => {
     try {
-      await set(push(ref(database, RUTA[dia])), {
+      const moduloNombres = { hoy: "Servicios Hoy", manana: "Servicios Mañana", pasado: "Servicios Pasado Mañana" };
+      await auditCreate(RUTA[dia], {
         ...payload,
         creadoEn: Date.now(),
+      }, {
+        modulo: "Agenda Express",
+        extra: `Agendado en ${moduloNombres[dia]} - Dirección: ${payload.direccion || " - "}`,
       });
       Swal.fire({ icon: "success", title: "¡Agendado!" });
       setFase("seleccion");
