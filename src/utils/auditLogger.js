@@ -157,9 +157,9 @@ const generarDetalle = (accion, modulo, campoLabel, valorAnterior, valorNuevo, e
         const nuevo = valorNuevo !== undefined && valorNuevo !== null && valorNuevo !== ""
           ? `"${valorNuevo}"`
           : "(vacío)";
-        return `Cambió en "${campoLabel}" de ${anterior} a ${nuevo}`;
+        return `Cambió en "${campoLabel}" de ${anterior} a ${nuevo}${extra ? ` | ${extra}` : ""}`;
       }
-      return `Editó un registro en ${modulo}`;
+      return `Editó un registro en ${modulo}${extra ? ` | ${extra}` : ""}`;
     case "eliminar":
       return `Eliminó un registro de ${modulo}${extra ? `: ${extra}` : ""}`;
     case "mover":
