@@ -5,12 +5,12 @@ import {
   set,
   onValue,
   onChildRemoved,
-  onChildChanged,
   push,
   update,
   remove,
 } from "firebase/database";
 import { sanitizeForLog } from "../utils/security";
+import { registrarCambio } from "../utils/auditLogger";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Slidebar from "./Slidebar";
@@ -41,6 +41,7 @@ const Informedeefectivo = () => {
   const [directions, setDirections] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
+  const initialSyncDone = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadedRegistroFechas, setLoadedRegistroFechas] = useState(false);
   const [loadedData, setLoadedData] = useState(false);
@@ -204,9 +205,11 @@ const Informedeefectivo = () => {
     setDirections([...newDirections].sort());
   }, [registroFechasData, dataData, dataInformedeefectivoData]);
 
-  // --- SINCRONIZAR A "informedeefectivo" (bidireccional) ---
-  // Desde registrofechas (creación y cambios)
+  // --- SINCRONIZAR A "informedeefectivo" (solo al cargar por primera vez) ---
   useEffect(() => {
+    if (initialSyncDone.current || !loadedRegistroFechas || !loadedData) return;
+    initialSyncDone.current = true;
+
     registroFechasData.forEach((record) => {
       set(ref(database, `informedeefectivo/${record.id}`), {
         ...record,
@@ -219,10 +222,7 @@ const Informedeefectivo = () => {
         );
       });
     });
-  }, [registroFechasData]);
 
-  // Desde data (creación y cambios)
-  useEffect(() => {
     dataData.forEach((record) => {
       set(ref(database, `informedeefectivo/${record.id}`), {
         ...record,
@@ -232,27 +232,11 @@ const Informedeefectivo = () => {
         console.error("Error sincronizando data → informedeefectivo:", sanitizeForLog(error.message));
       });
     });
-  }, [dataData]);
+  }, [registroFechasData, dataData, loadedRegistroFechas, loadedData]);
 
-  // --- PROPAGAR CAMBIOS Y ELIMINACIONES DESDE informedeefectivo ---
-  // Actualizaciones
+  // --- PROPAGAR ELIMINACIONES DESDE informedeefectivo ---
   useEffect(() => {
     const infRef = ref(database, "informedeefectivo");
-    const unsubscribeChange = onChildChanged(infRef, (snapshot) => {
-      const record = snapshot.val();
-      const id = snapshot.key;
-      if (record.origin === "registrofechas" && record.fecha) {
-        update(
-          ref(database, `registrofechas/${record.fecha}/${id}`),
-          record
-        ).catch((err) => console.error("Error update → registrofechas:", sanitizeForLog(err.message)));
-      }
-      if (record.origin === "data") {
-        update(ref(database, `data/${id}`), record).catch((err) =>
-          console.error("Error update → data:", sanitizeForLog(err.message))
-        );
-      }
-    });
     const unsubscribeRemove = onChildRemoved(infRef, (snapshot) => {
       const record = snapshot.val();
       const id = snapshot.key;
@@ -268,7 +252,6 @@ const Informedeefectivo = () => {
       }
     });
     return () => {
-      unsubscribeChange();
       unsubscribeRemove();
     };
   }, []);
@@ -447,6 +430,16 @@ const Informedeefectivo = () => {
       // Y también la intermedia "informedeefectivo"
       actualizar(setInformedeefectivoData, "informedeefectivo");
     }
+
+    // Auditoría del cambio de campo
+    registrarCambio({
+      modulo: "Informe de Efectivo",
+      accion: "editar",
+      nodoFirebase: origin === "registrofechas" ? `registrofechas/${fecha}` : origin,
+      registroId: id,
+      campo: field,
+      valorNuevo: value,
+    }).catch(() => {});
 
     // Lógica especial para cuando cambiamos la dirección: sincronizar cúbicos
     if (field === "direccion") {
@@ -791,6 +784,13 @@ const Informedeefectivo = () => {
     await set(newDataRef, newData).catch((error) => {
       console.error("Error adding data: ", sanitizeForLog(error.message));
     });
+    registrarCambio({
+      modulo: "Informe de Efectivo",
+      accion: "crear",
+      nodoFirebase: "informedeefectivo",
+      registroId: newDataRef.key,
+      valorNuevo: newData,
+    }).catch(() => {});
     setLastAddedId(newDataRef.key);
   };
 
@@ -1159,6 +1159,13 @@ const Informedeefectivo = () => {
                                   cancelButtonText: "Cancelar",
                                 }).then((result) => {
                                   if (result.isConfirmed) {
+                                    registrarCambio({
+                                      modulo: "Informe de Efectivo",
+                                      accion: "eliminar",
+                                      nodoFirebase: "informedeefectivo",
+                                      registroId: registro.id,
+                                      extra: `Dirección: ${registro.direccion || "-"}`,
+                                    }).catch(() => {});
                                     remove(
                                       ref(
                                         database,

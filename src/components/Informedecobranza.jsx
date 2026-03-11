@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
+import { registrarCambio } from "../utils/auditLogger";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
@@ -361,6 +362,14 @@ const Informedecobranza = () => {
         }),
         set(ref(database, `cobranzapendientes/${rowId}`), null),
       ]);
+      registrarCambio({
+        modulo: "Informe de Cobranza",
+        accion: "mover",
+        nodoFirebase: "cobranzaconfirmacion",
+        registroId: rowId,
+        extra: "Pendientes \u2192 Confirmaci\u00f3n",
+        valorNuevo: row.direccion,
+      }).catch(() => {});
     },
     [pendientesRows]
   );
@@ -381,6 +390,14 @@ const Informedecobranza = () => {
         }),
         set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
       ]);
+      registrarCambio({
+        modulo: "Informe de Cobranza",
+        accion: "mover",
+        nodoFirebase: "cobranzaefectivo",
+        registroId: rowId,
+        extra: "Confirmaci\u00f3n \u2192 Efectivo",
+        valorNuevo: row.direccion,
+      }).catch(() => {});
     },
     [confirmacionRows]
   );
@@ -400,6 +417,14 @@ const Informedecobranza = () => {
         }),
         set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
       ]);
+      registrarCambio({
+        modulo: "Informe de Cobranza",
+        accion: "mover",
+        nodoFirebase: "cobranzapendientes",
+        registroId: rowId,
+        extra: "Confirmaci\u00f3n \u2192 Pendientes",
+        valorNuevo: row.direccion,
+      }).catch(() => {});
     },
     [confirmacionRows]
   );
@@ -419,6 +444,14 @@ const Informedecobranza = () => {
         }),
         set(ref(database, `cobranzaefectivo/${rowId}`), null),
       ]);
+      registrarCambio({
+        modulo: "Informe de Cobranza",
+        accion: "mover",
+        nodoFirebase: "cobranzaconfirmacion",
+        registroId: rowId,
+        extra: "Efectivo \u2192 Confirmaci\u00f3n",
+        valorNuevo: row.direccion,
+      }).catch(() => {});
     },
     [efectivoRows]
   );
@@ -427,7 +460,7 @@ const Informedecobranza = () => {
   // CRUD / Guardado optimizado
   // ======================
   const saveField = useCallback(
-    async (rowId, field, value, table = "pendientes") => {
+    async (rowId, field, value, table = "pendientes", valorAnterior) => {
       const tableName =
         table === "pendientes"
           ? "cobranzapendientes"
@@ -438,35 +471,47 @@ const Informedecobranza = () => {
       await update(ref(database, `${tableName}/${rowId}`), {
         [field]: value ?? "",
       });
+      registrarCambio({
+        modulo: "Informe de Cobranza",
+        accion: "editar",
+        nodoFirebase: tableName,
+        registroId: rowId,
+        campo: field,
+        valorAnterior: valorAnterior ?? "",
+        valorNuevo: value ?? "",
+      }).catch(() => {});
     },
     []
   );
 
-  // Handlers optimizados
+  // Handlers optimizados - solo guardan si el valor realmente cambió
   const handleTextBlur = useCallback(
-    (rowId, field, table = "pendientes") =>
+    (rowId, field, table = "pendientes", originalValue) =>
       (e) => {
         const v = (e.target.value || "").trim();
-        saveField(rowId, field, v, table);
+        const prev = (originalValue || "").trim();
+        if (v === prev) return;
+        saveField(rowId, field, v, table, prev);
       },
     [saveField]
   );
 
   const handleMoneyBlur = useCallback(
-    (rowId, field, table = "pendientes") =>
+    (rowId, field, table = "pendientes", originalValue) =>
       (e) => {
         const parsed = parseMoney(e.target.value);
-        saveField(rowId, field, parsed, table);
+        const prevParsed = parseMoney(originalValue);
+        if (String(parsed) === String(prevParsed)) return;
+        saveField(rowId, field, parsed, table, prevParsed);
       },
     [saveField]
   );
 
   const handleDateBlur = useCallback(
-    (rowId) => (e) => {
+    (rowId, originalFecha) => (e) => {
       const newDmy = inputToDmy(e.target.value);
-      if (newDmy) {
-        saveField(rowId, "fecha", newDmy, "efectivo");
-      }
+      if (!newDmy || newDmy === (originalFecha || "")) return;
+      saveField(rowId, "fecha", newDmy, "efectivo", originalFecha);
     },
     [saveField]
   );
@@ -481,6 +526,12 @@ const Informedecobranza = () => {
       fecha: fmtHoy(),
       timestamp: new Date().toISOString(),
     });
+    registrarCambio({
+      modulo: "Informe de Cobranza",
+      accion: "crear",
+      nodoFirebase: "cobranzaefectivo",
+      registroId: newRef.key,
+    }).catch(() => {});
     setCurrentPageEfectivo(1);
   }, []);
 
@@ -501,6 +552,12 @@ const Informedecobranza = () => {
             ? "cobranzaconfirmacion"
             : "cobranzaefectivo";
         set(ref(database, `${tableName}/${rowId}`), null);
+        registrarCambio({
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          nodoFirebase: tableName,
+          registroId: rowId,
+        }).catch(() => {});
       }
     });
   }, []);
@@ -695,6 +752,12 @@ const Informedecobranza = () => {
 
       try {
         await set(ref(database, "cobranzaefectivototal"), { ...zeros, [USD_AWG_KEY]: 0 });
+        registrarCambio({
+          modulo: "Informe de Cobranza",
+          accion: "editar",
+          nodoFirebase: "cobranzaefectivototal",
+          extra: "Conteo de efectivo reiniciado",
+        }).catch(() => {});
         Swal.fire("Listo", "El contador fue reiniciado.", "success");
       } catch (err) {
         console.error("Error reseteando conteo:", err);
@@ -1164,7 +1227,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "pendientes"
+                              "pendientes",
+                              r.direccion
                             )}
                             list={`dir-opt-1-${r.id}`}
                           />
@@ -1183,7 +1247,8 @@ const Informedecobranza = () => {
                             onBlur={handleMoneyBlur(
                               r.id,
                               "valor",
-                              "pendientes"
+                              "pendientes",
+                              r.valor
                             )}
                           />
                         </td>
@@ -1192,7 +1257,7 @@ const Informedecobranza = () => {
                             type="text"
                             className="input input-sm input-notes"
                             defaultValue={r.notas || ""}
-                            onBlur={handleTextBlur(r.id, "notas", "pendientes")}
+                            onBlur={handleTextBlur(r.id, "notas", "pendientes", r.notas)}
                           />
                         </td>
                         <td className="text-center">
@@ -1269,7 +1334,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "confirmacion"
+                              "confirmacion",
+                              r.direccion
                             )}
                             list={`dir-opt-2-${r.id}`}
                           />
@@ -1288,7 +1354,8 @@ const Informedecobranza = () => {
                             onBlur={handleMoneyBlur(
                               r.id,
                               "valor",
-                              "confirmacion"
+                              "confirmacion",
+                              r.valor
                             )}
                           />
                         </td>
@@ -1300,7 +1367,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "notas",
-                              "confirmacion"
+                              "confirmacion",
+                              r.notas
                             )}
                           />
                         </td>
@@ -1377,7 +1445,7 @@ const Informedecobranza = () => {
                             type="date"
                             className="input input-sm input-date"
                             defaultValue={dmyToInput(r.fecha)}
-                            onBlur={handleDateBlur(r.id)}
+                            onBlur={handleDateBlur(r.id, r.fecha)}
                           />
                         </td>
                         <td>
@@ -1388,7 +1456,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "efectivo"
+                              "efectivo",
+                              r.direccion
                             )}
                             list={`dir-opt-3-${r.id}`}
                           />
@@ -1404,7 +1473,7 @@ const Informedecobranza = () => {
                             inputMode="decimal"
                             className="input input-sm input-center"
                             defaultValue={formatMoney(r.valor || 0)}
-                            onBlur={handleMoneyBlur(r.id, "valor", "efectivo")}
+                            onBlur={handleMoneyBlur(r.id, "valor", "efectivo", r.valor)}
                           />
                         </td>
                         <td className="text-center">
@@ -1418,7 +1487,7 @@ const Informedecobranza = () => {
                             type="text"
                             className="input input-sm input-notes"
                             defaultValue={r.notas || ""}
-                            onBlur={handleTextBlur(r.id, "notas", "efectivo")}
+                            onBlur={handleTextBlur(r.id, "notas", "efectivo", r.notas)}
                           />
                         </td>
                         <td className="text-center">

@@ -6,7 +6,8 @@ import React, {
   useMemo,
 } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, push, onValue, set, update, remove } from "firebase/database";
+import { ref, push, onValue, set, update, remove, get } from "firebase/database";
+import { registrarCambio } from "../utils/auditLogger";
 import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import "react-datepicker/dist/react-datepicker.css";
@@ -483,6 +484,13 @@ const Nomina = () => {
       };
 
       await set(ref(database, `nominas/${nominaId}`), newNomina);
+      registrarCambio({
+        modulo: "N\u00f3mina",
+        accion: "crear",
+        nodoFirebase: `nominas/${nominaId}`,
+        registroId: nominaId,
+        extra: `Per\u00edodo: ${convertirFecha(fechaDesde)} - ${convertirFecha(fechaHasta)}`,
+      }).catch(() => {});
       setCurrentNomina(newNomina);
       setNominaData([]);
       setShowInitialDialog(false);
@@ -508,9 +516,8 @@ const Nomina = () => {
   // Cargar última nómina
   const loadLastNomina = () => {
     const nominasRef = ref(database, "nominas");
-    onValue(
-      nominasRef,
-      (snapshot) => {
+    get(nominasRef)
+      .then((snapshot) => {
         if (snapshot.exists()) {
           const nominasData = snapshot.val();
           const nominasList = Object.entries(nominasData).map(
@@ -579,9 +586,22 @@ const Nomina = () => {
             showDateRangeDialog();
           });
         }
-      },
-      { onlyOnce: true }
-    );
+      })
+      .catch((error) => {
+        console.error("Error loading nominas:", error);
+        Swal.fire({
+          title: "Info",
+          text: "No hay nóminas anteriores",
+          icon: "info",
+          confirmButtonText: "Crear Nueva Nómina",
+          allowOutsideClick: false,
+          customClass: {
+            popup: "swal-wide",
+          },
+        }).then(() => {
+          showDateRangeDialog();
+        });
+      });
   };
 
   // Agregar registro a nómina
@@ -618,6 +638,12 @@ const Nomina = () => {
         ref(database, `nominas/${currentNomina.id}/registros`)
       );
       await set(recordRef, newRecord);
+      registrarCambio({
+        modulo: "N\u00f3mina",
+        accion: "crear",
+        nodoFirebase: `nominas/${currentNomina.id}/registros`,
+        registroId: recordRef.key,
+      }).catch(() => {});
     } catch (error) {
       console.error("Error adding record:", error);
       Swal.fire({
@@ -715,6 +741,17 @@ const Nomina = () => {
         ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
         updateData
       );
+      const employeeName = getUserNameWithFallback(currentRecord);
+      registrarCambio({
+        modulo: "Nómina",
+        accion: "editar",
+        nodoFirebase: `nominas/${currentNomina.id}/registros`,
+        registroId: recordId,
+        campo: field,
+        valorAnterior: currentRecord ? currentRecord[field] : undefined,
+        valorNuevo: value,
+        extra: `Empleado: ${employeeName}`,
+      }).catch(() => {});
 
       // Actualizar estado local
       setNominaData((prev) =>
@@ -760,6 +797,16 @@ const Nomina = () => {
           total: saldoInicial,
         }
       );
+      const employeeName = getUserNameWithFallback(currentRecord);
+      registrarCambio({
+        modulo: "Nómina",
+        accion: "editar",
+        nodoFirebase: `nominas/${currentNomina.id}/registros`,
+        registroId: recordId,
+        campo: "efectivo",
+        valorNuevo: totalEfectivo,
+        extra: `Empleado: ${employeeName} — Efectivo total (sin rango) aplicado`,
+      }).catch(() => {});
 
       setNominaData((prev) =>
         prev.map((r) =>
@@ -810,9 +857,18 @@ const Nomina = () => {
 
     if (result.isConfirmed) {
       try {
+        const deletedRecord = nominaData.find((r) => r.id === recordId);
+        const employeeName = deletedRecord ? getUserNameWithFallback(deletedRecord) : "Sin asignar";
         await remove(
           ref(database, `nominas/${currentNomina.id}/registros/${recordId}`)
         );
+        registrarCambio({
+          modulo: "Nómina",
+          accion: "eliminar",
+          nodoFirebase: `nominas/${currentNomina.id}/registros`,
+          registroId: recordId,
+          extra: `Empleado: ${employeeName}`,
+        }).catch(() => {});
         setNominaData((prev) =>
           prev.filter((record) => record.id !== recordId)
         );
