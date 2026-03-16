@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, push, onValue, set, update, remove } from "firebase/database";
-import { registrarCambio } from "../utils/auditLogger";
+import { ref, onValue } from "firebase/database";
+import { auditCreate, auditRemove, auditUpdate } from "../utils/auditLogger";
 import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
@@ -350,16 +350,11 @@ const Extras = () => {
         updateData.valor = Number.isFinite(num) ? num : 0;
       }
 
-      await update(ref(database, `extras/${id}`), updateData);
-      registrarCambio({
+      await auditUpdate(`extras/${id}`, updateData, {
         modulo: "Extras",
-        accion: "editar",
-        nodoFirebase: "extras",
         registroId: id,
-        campo: field,
-        valorAnterior: currentExtra[field],
-        valorNuevo: value,
-      }).catch(() => {});
+        prevData: currentExtra,
+      });
 
       setExtras((prev) =>
         prev
@@ -396,16 +391,9 @@ const Extras = () => {
     };
 
     try {
-      const extrasRef = ref(database, "extras");
-      const newRef = push(extrasRef);
-      await set(newRef, newData);
-      registrarCambio({
+      await auditCreate("extras", newData, {
         modulo: "Extras",
-        accion: "crear",
-        nodoFirebase: "extras",
-        registroId: newRef.key,
-        valorNuevo: newData,
-      }).catch(() => {});
+      });
     } catch (error) {
       console.error("Error adding data:", error);
       Swal.fire("Error", "No se pudo agregar el registro", "error");
@@ -425,13 +413,11 @@ const Extras = () => {
 
     if (result.isConfirmed) {
       try {
-        await remove(ref(database, `extras/${id}`));
-        registrarCambio({
+        await auditRemove(`extras/${id}`, {
           modulo: "Extras",
-          accion: "eliminar",
-          nodoFirebase: "extras",
           registroId: id,
-        }).catch(() => {});
+          extra: `Item ID: ${id}`,
+        });
         Swal.fire("Eliminado", "El registro ha sido eliminado", "success");
       } catch (error) {
         console.error("Error deleting record:", error);

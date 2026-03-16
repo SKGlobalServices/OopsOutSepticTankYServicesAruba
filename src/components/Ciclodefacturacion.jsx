@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, onValue, update } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
@@ -345,8 +346,11 @@ const Ciclodefacturacion = () => {
   const handleFieldChange = async (item, field, value) => {
     const safeValue = value ?? (typeof value === "boolean" ? false : "");
     try {
-      const itemRef = ref(database, `ciclodefacturacion/${item.id}`);
-      await update(itemRef, { [field]: safeValue });
+      await auditUpdate(`ciclodefacturacion/${item.id}`, { [field]: safeValue }, {
+        modulo: "Ciclo de Facturaci\u00f3n",
+        registroId: item.id,
+        prevData: item,
+      });
 
       setData((prev) =>
         sortByFechaDesc(
@@ -379,8 +383,11 @@ const Ciclodefacturacion = () => {
     if (nuevaFecha === item.fecha) return;
 
     try {
-      const itemRef = ref(database, `ciclodefacturacion/${item.id}`);
-      await update(itemRef, { fecha: nuevaFecha });
+      await auditUpdate(`ciclodefacturacion/${item.id}`, { fecha: nuevaFecha }, {
+        modulo: "Ciclo de Facturaci\u00f3n",
+        registroId: item.id,
+        prevData: { fecha: item.fecha },
+      });
 
       setData((prev) =>
         sortByFechaDesc(
@@ -404,9 +411,7 @@ const Ciclodefacturacion = () => {
     const yyyy = hoy.getFullYear();
     const fecha = `${dd}-${mm}-${yyyy}`;
 
-    const dbRef = ref(database, "ciclodefacturacion");
-    const newRef = push(dbRef);
-    await set(newRef, {
+    await auditCreate("ciclodefacturacion", {
       fecha,
       cliente: "",
       direccion: "",
@@ -424,6 +429,8 @@ const Ciclodefacturacion = () => {
       octubre: false,
       noviembre: false,
       diciembre: false,
+    }, {
+      modulo: "Ciclo de Facturaci\u00f3n",
     });
   };
 
@@ -594,7 +601,11 @@ const Ciclodefacturacion = () => {
 
     try {
       setDeletingId(itemId);
-      await set(ref(database, `ciclodefacturacion/${itemId}`), null);
+      await auditRemove(`ciclodefacturacion/${itemId}`, {
+        modulo: "Ciclo de Facturaci\u00f3n",
+        registroId: itemId,
+        extra: `Item ID ${itemId} ` 
+      });
 
       // Eliminación optimista en estado (por si el onValue tarda)
       setData((prev) => prev.filter((r) => r.id !== itemId));

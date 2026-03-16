@@ -4,12 +4,11 @@ import {
   ref,
   set,
   push,
-  update,
   onValue,
   runTransaction,
   get,
 } from "firebase/database";
-import { registrarCambio } from "../utils/auditLogger";
+import { auditUpdate, auditSet, auditCreate } from "../utils/auditLogger";
 import { sanitizeForLog } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -461,10 +460,9 @@ const Cotizacion = () => {
   };
 
   const addClient = (direccion, cubicos) => {
-    const dbRefClientes = ref(database, "clientes");
-    const newClientRef = push(dbRefClientes);
-    set(newClientRef, { direccion, cubicos }).then(() => {
-      registrarCambio({ modulo: "Cotización", nodoFirebase: "clientes", accion: "crear", registroId: newClientRef.key, extra: `Cliente: ${direccion}` }).catch(() => {});
+    auditCreate("clientes", { direccion, cubicos }, {
+      modulo: "Cotización",
+      extra: `Cliente: ${direccion}`,
     }).catch((error) => {
       console.error("Error adding client: ", error);
     });
@@ -473,11 +471,13 @@ const Cotizacion = () => {
   // Función para actualizar campos en cotizaciones
   function handleFieldChange(fecha, registroId, field, value, origin) {
     const safeValue = value ?? "";
-    const cotizacionRef = ref(database, `cotizaciones/${registroId}`);
     const updates = { [field]: safeValue };
     const prevData = cotizacionesData[registroId] || {};
-    update(cotizacionRef, updates).catch(console.error);
-    registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "editar", registroId, campo: field, valorAnterior: prevData[field], valorNuevo: safeValue }).catch(() => {});
+    auditUpdate(`cotizaciones/${registroId}`, updates, {
+      modulo: "Cotización",
+      registroId,
+      prevData,
+    }).catch(console.error);
   }
 
   // Mostrar/ocultar slidebars
@@ -534,17 +534,19 @@ const Cotizacion = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${id}`);
-
       if (checked) {
         const fechaPagoFinal = new Date().toISOString().split("T")[0];
-        await update(cotizacionRef, {
+        await auditUpdate(`cotizaciones/${id}`, {
           payment: cotizacion.totalAmount,
           deuda: 0,
           pago: "Pago",
           fechapago: fechaPagoFinal,
+        }, {
+          modulo: "Cotización",
+          registroId: id,
+          prevData: cotizacion,
+          extra: `Cotización #${cotizacion.numerodecotizacion} pagada`,
         });
-        registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "editar", registroId: id, campo: "pago", valorAnterior: cotizacion.pago, valorNuevo: "Pago", extra: `Cotización #${cotizacion.numerodecotizacion} pagada` }).catch(() => {});
 
         Swal.fire({
           icon: "success",
@@ -553,13 +555,17 @@ const Cotizacion = () => {
           timer: 2000,
         });
       } else {
-        await update(cotizacionRef, {
+        await auditUpdate(`cotizaciones/${id}`, {
           payment: 0,
           deuda: cotizacion.totalAmount,
           pago: "Debe",
           fechapago: null,
+        }, {
+          modulo: "Cotización",
+          registroId: id,
+          prevData: cotizacion,
+          extra: `Cotización #${cotizacion.numerodecotizacion} desmarcada`,
         });
-        registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "editar", registroId: id, campo: "pago", valorAnterior: cotizacion.pago, valorNuevo: "Debe", extra: `Cotización #${cotizacion.numerodecotizacion} desmarcada` }).catch(() => {});
 
         Swal.fire({
           icon: "success",
@@ -822,8 +828,12 @@ const Cotizacion = () => {
         cotizacionUpdates.fechapago = fechaPagoFinal;
       }
 
-      await update(cotizacionRef, cotizacionUpdates);
-      registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "editar", registroId: numeroCotizacion, campo: "payment", valorAnterior: cotizacionData.payment, valorNuevo: cotizacionUpdates.payment, extra: `Payment rápido AWG ${payment} en Cotización #${numeroCotizacion}` }).catch(() => {});
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, cotizacionUpdates, {
+        modulo: "Cotización",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData,
+        extra: `Payment rápido AWG ${payment} en Cotización #${numeroCotizacion}`,
+      });
 
       // Solo actualiza la cotizacion, sin propagarse a otros servicios
 
@@ -976,9 +986,12 @@ const Cotizacion = () => {
         // Actualizamos el estado local
         setInvoiceConfig(res.value);
 
-        // Guardamos en Firebase sin validar nada más
-        const configRef = ref(database, "configuraciondecotizacion");
-        set(configRef, res.value).catch(console.error);
+        auditSet("configuraciondecotizacion", res.value, {
+          modulo: "Cotización",
+          accion: "editar",
+          registroId: "configuraciondecotizacion",
+          extra: "Configuración de cotización actualizada",
+        }).catch(console.error);
 
         Swal.fire({
           title: "¡Configuración guardada!",
@@ -1727,11 +1740,12 @@ const Cotizacion = () => {
         // Usar número disponible
         invoiceIdFinal = invoiceIdEstimado;
         numeroCotizacion = parseInt(invoiceIdFinal.slice(-5));
-        // Eliminar de números disponibles
-        await set(
-          ref(database, `contadorCotizacion/${usedAvailableKey}`),
-          null
-        );
+        await auditSet(`contadorCotizacion/${usedAvailableKey}`, null, {
+          modulo: "Cotización",
+          accion: "eliminar",
+          registroId: usedAvailableKey,
+          extra: `Número disponible consumido para cotización #${invoiceIdFinal}`,
+        });
       } else {
         // Generar nuevo número
         const contadorRef = ref(database, "contadorCotizacion");
@@ -1792,8 +1806,12 @@ const Cotizacion = () => {
         fechapago: null,
       };
 
-      await set(ref(database, `cotizaciones/${invoiceIdFinal}`), cotizacionData);
-      registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "crear", registroId: invoiceIdFinal, extra: `Cotización manual #${invoiceIdFinal} creada` }).catch(() => {});
+      await auditSet(`cotizaciones/${invoiceIdFinal}`, cotizacionData, {
+        modulo: "Cotización",
+        accion: "crear",
+        registroId: invoiceIdFinal,
+        extra: `Cotización manual #${invoiceIdFinal} creada`,
+      });
 
       // La cotización ahora vive solo en /cotizaciones/
 
@@ -1839,15 +1857,20 @@ const Cotizacion = () => {
       if (!isConfirmed) return;
 
       // Eliminar la cotización
-      await set(ref(database, `cotizaciones/${numeroCotizacion}`), null);
-      registrarCambio({ modulo: "Cotización", nodoFirebase: "cotizaciones", accion: "eliminar", registroId: numeroCotizacion, extra: `Cotización #${numeroCotizacion} eliminada` }).catch(() => {});
+      await auditSet(`cotizaciones/${numeroCotizacion}`, null, {
+        modulo: "Cotización",
+        accion: "eliminar",
+        registroId: numeroCotizacion,
+        extra: `Cotización #${numeroCotizacion} eliminada`,
+      });
 
       // Agregar el número a la lista de disponibles
-      const numerosDisponiblesRef = ref(database, "cotizacionesDisponibles");
-      const newAvailableRef = push(numerosDisponiblesRef);
-      await set(newAvailableRef, {
+      await auditCreate("cotizacionesDisponibles", {
         numeroCotizacion: numeroCotizacion,
         fechaCancelacion: Date.now(),
+      }, {
+        modulo: "Cotización",
+        extra: `Cotización #${numeroCotizacion} agregada a disponibles`,
       });
 
       // Mostrar confirmación
