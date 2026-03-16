@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, onValue, update } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditCreate, auditRemove, auditUpdate } from "../utils/auditLogger";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
@@ -193,8 +194,12 @@ const Fastmark = () => {
   const handleFieldChange = async (item, field, value) => {
     const safeValue =
       field === "monto" ? (value === "" ? "" : Number(value)) : value ?? "";
-    const itemRef = ref(database, `fastmark/${item.id}`);
-    await update(itemRef, { [field]: safeValue }).catch(console.error);
+    await auditUpdate(`fastmark/${item.id}`, { [field]: safeValue }, {
+      modulo: "Fast Mark",
+      registroId: item.id,
+      prevData: item,
+      extra: item.direccion || item.fecha || undefined,
+    }).catch(console.error);
 
     setData((prev) =>
       sortByFechaDesc(
@@ -216,8 +221,12 @@ const Fastmark = () => {
     if (nuevaFecha === item.fecha) return;
 
     try {
-      const itemRef = ref(database, `fastmark/${item.id}`);
-      await update(itemRef, { fecha: nuevaFecha });
+      await auditUpdate(`fastmark/${item.id}`, { fecha: nuevaFecha }, {
+        modulo: "Fast Mark",
+        registroId: item.id,
+        prevData: item,
+        extra: item.direccion || undefined,
+      });
 
       setData((prev) =>
         sortByFechaDesc(
@@ -239,12 +248,13 @@ const Fastmark = () => {
       alert("Selecciona una fecha válida (dd-mm-aaaa).");
       return;
     }
-    const dbRef = ref(database, "fastmark");
-    const newRef = push(dbRef);
-    await set(newRef, {
+    await auditCreate("fastmark", {
       fecha,
       direccion: direccion ?? "",
       monto: monto === "" ? "" : Number(monto ?? 0),
+    }, {
+      modulo: "Fast Mark",
+      extra: direccion ? `${direccion} | ${fecha}` : fecha,
     }).catch(console.error);
   };
 
@@ -706,7 +716,13 @@ const Fastmark = () => {
                               cancelButtonText: "Cancelar",
                             }).then((result) => {
                               if (result.isConfirmed) {
-                                set(ref(database, `fastmark/${item.id}`), null)
+                                auditRemove(`fastmark/${item.id}`, {
+                                  modulo: "Fast Mark",
+                                  registroId: item.id,
+                                  extra: item.direccion
+                                    ? `${item.direccion} | ${item.fecha}`
+                                    : item.fecha,
+                                })
                                   .then(() => {
                                     Swal.fire({
                                       title: "¡Registro eliminado!",

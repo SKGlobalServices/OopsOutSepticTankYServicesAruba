@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
-import { registrarCambio } from "../utils/auditLogger";
+import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
@@ -354,22 +354,24 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzaconfirmacion"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzaconfirmacion/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Pendientes → Confirmación",
         }),
-        set(ref(database, `cobranzapendientes/${rowId}`), null),
+        auditSet(`cobranzapendientes/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Pendientes → Confirmación",
+        }),
       ]);
-      registrarCambio({
-        modulo: "Informe de Cobranza",
-        accion: "mover",
-        nodoFirebase: "cobranzaconfirmacion",
-        registroId: rowId,
-        extra: "Pendientes \u2192 Confirmaci\u00f3n",
-        valorNuevo: row.direccion,
-      }).catch(() => {});
     },
     [pendientesRows]
   );
@@ -381,23 +383,25 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzaefectivo"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzaefectivo/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           fecha: fmtHoy(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Confirmación → Efectivo",
         }),
-        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+        auditSet(`cobranzaconfirmacion/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Confirmación → Efectivo",
+        }),
       ]);
-      registrarCambio({
-        modulo: "Informe de Cobranza",
-        accion: "mover",
-        nodoFirebase: "cobranzaefectivo",
-        registroId: rowId,
-        extra: "Confirmaci\u00f3n \u2192 Efectivo",
-        valorNuevo: row.direccion,
-      }).catch(() => {});
     },
     [confirmacionRows]
   );
@@ -409,22 +413,24 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzapendientes"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzapendientes/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Confirmación → Pendientes",
         }),
-        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+        auditSet(`cobranzaconfirmacion/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Confirmación → Pendientes",
+        }),
       ]);
-      registrarCambio({
-        modulo: "Informe de Cobranza",
-        accion: "mover",
-        nodoFirebase: "cobranzapendientes",
-        registroId: rowId,
-        extra: "Confirmaci\u00f3n \u2192 Pendientes",
-        valorNuevo: row.direccion,
-      }).catch(() => {});
     },
     [confirmacionRows]
   );
@@ -436,22 +442,24 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzaconfirmacion"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzaconfirmacion/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Efectivo → Confirmación",
         }),
-        set(ref(database, `cobranzaefectivo/${rowId}`), null),
+        auditSet(`cobranzaefectivo/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Efectivo → Confirmación",
+        }),
       ]);
-      registrarCambio({
-        modulo: "Informe de Cobranza",
-        accion: "mover",
-        nodoFirebase: "cobranzaconfirmacion",
-        registroId: rowId,
-        extra: "Efectivo \u2192 Confirmaci\u00f3n",
-        valorNuevo: row.direccion,
-      }).catch(() => {});
     },
     [efectivoRows]
   );
@@ -468,18 +476,11 @@ const Informedecobranza = () => {
           ? "cobranzaconfirmacion"
           : "cobranzaefectivo";
 
-      await update(ref(database, `${tableName}/${rowId}`), {
-        [field]: value ?? "",
-      });
-      registrarCambio({
+      await auditUpdate(`${tableName}/${rowId}`, { [field]: value ?? "" }, {
         modulo: "Informe de Cobranza",
-        accion: "editar",
-        nodoFirebase: tableName,
         registroId: rowId,
-        campo: field,
-        valorAnterior: valorAnterior ?? "",
-        valorNuevo: value ?? "",
-      }).catch(() => {});
+        prevData: { [field]: valorAnterior ?? "" },
+      });
     },
     []
   );
@@ -518,20 +519,15 @@ const Informedecobranza = () => {
 
   // Crear registro nuevo
   const addData = useCallback(async () => {
-    const newRef = push(ref(database, "cobranzaefectivo"));
-    await set(newRef, {
+    await auditCreate("cobranzaefectivo", {
       direccion: "",
       valor: "",
       notas: "",
       fecha: fmtHoy(),
       timestamp: new Date().toISOString(),
-    });
-    registrarCambio({
+    }, {
       modulo: "Informe de Cobranza",
-      accion: "crear",
-      nodoFirebase: "cobranzaefectivo",
-      registroId: newRef.key,
-    }).catch(() => {});
+    });
     setCurrentPageEfectivo(1);
   }, []);
 
@@ -551,13 +547,10 @@ const Informedecobranza = () => {
             : table === "confirmacion"
             ? "cobranzaconfirmacion"
             : "cobranzaefectivo";
-        set(ref(database, `${tableName}/${rowId}`), null);
-        registrarCambio({
+        auditRemove(`${tableName}/${rowId}`, {
           modulo: "Informe de Cobranza",
-          accion: "eliminar",
-          nodoFirebase: tableName,
           registroId: rowId,
-        }).catch(() => {});
+        });
       }
     });
   }, []);
@@ -751,13 +744,12 @@ const Informedecobranza = () => {
       setUsdAwgValue(0);
 
       try {
-        await set(ref(database, "cobranzaefectivototal"), { ...zeros, [USD_AWG_KEY]: 0 });
-        registrarCambio({
+        await auditSet("cobranzaefectivototal", { ...zeros, [USD_AWG_KEY]: 0 }, {
           modulo: "Informe de Cobranza",
           accion: "editar",
-          nodoFirebase: "cobranzaefectivototal",
+          registroId: "cobranzaefectivototal",
           extra: "Conteo de efectivo reiniciado",
-        }).catch(() => {});
+        });
         Swal.fire("Listo", "El contador fue reiniciado.", "success");
       } catch (err) {
         console.error("Error reseteando conteo:", err);
@@ -1598,9 +1590,13 @@ const Informedecobranza = () => {
                             onBlur={(e) => {
                               const newValue = Math.max(0, Number(e.target.value) || 0);
                               if (newValue !== cantidad) {
-                                update(ref(database, "cobranzaefectivototal"), {
+                                auditUpdate("cobranzaefectivototal", {
                                   [tipoKey]: newValue
-                                });
+                                }, {
+                                  modulo: "Informe de Cobranza",
+                                  registroId: "cobranzaefectivototal",
+                                  extra: `Actualización de denominación ${tipoKey}`,
+                                }).catch(console.error);
                               }
                             }}
                             placeholder="0"
@@ -1631,9 +1627,13 @@ const Informedecobranza = () => {
                         onBlur={(e) => {
                           const newValue = Math.max(0, Number(e.target.value) || 0);
                           if (newValue !== usdAwgValue) {
-                            update(ref(database, "cobranzaefectivototal"), {
+                            auditUpdate("cobranzaefectivototal", {
                               [USD_AWG_KEY]: newValue
-                            });
+                            }, {
+                              modulo: "Informe de Cobranza",
+                              registroId: "cobranzaefectivototal",
+                              extra: "Actualización de tasa USD/AWG",
+                            }).catch(console.error);
                           }
                         }}
                         placeholder="0"
