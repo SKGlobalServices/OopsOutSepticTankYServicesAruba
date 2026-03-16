@@ -50,7 +50,13 @@ const CAMPO_LABELS = {
   servicioextra: "Servicio Extra",
   numerodefactura: "N° Factura",
   referenciaFactura: "Referencia Factura",
+  servicioAdicional: "Servicio Adicional",
+  metodoPago: "Metodo de Pago",
+  montoafavor: "Monto a Favor",
+  fechaEmision: "Fecha de Emisión"
 };
+
+const AUDIT_ACTIONS = new Set(["crear", "editar", "eliminar", "mover"]);
 
 /**
  * Devuelve el nombre legible de un campo, o el campo original con formato si no está mapeado.
@@ -79,8 +85,8 @@ const getUsers = async () => {
       usersCacheTimestamp = now;
       return usersCache;
     }
-  } catch {
-    // Si falla, retornar cache anterior o vacío
+  } catch (error) {
+    console.warn("[auditLogger] No se pudieron cargar usuarios para resolver labels:", error);
   }
   return usersCache || {};
 };
@@ -93,8 +99,8 @@ const getUsers = async () => {
 const resolverValor = async (campo, valor) => {
   if (valor === undefined || valor === null || valor === "") return valor;
   
-  // Para "realizadopor", resolver ID de usuario a nombre
-  if (campo === "realizadopor") {
+  // Para campos de usuario, resolver ID a nombre
+  if (campo === "realizadopor" || campo === "realizado" || campo === "nombre") {
     const users = await getUsers();
     if (users && users[valor] && users[valor].name) {
       return users[valor].name;
@@ -118,8 +124,20 @@ const getAdminUser = () => {
       return null;
     }
     return userData;
-  } catch {
+  } catch (error) {
+    console.warn("[auditLogger] No se pudo leer usuario admin desde localStorage:", error);
     return null;
+  }
+};
+
+const serializeAuditValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
   }
 };
 
@@ -197,6 +215,8 @@ const registrarCambio = async ({
     const adminUser = getAdminUser();
     if (!adminUser) return; // No es admin, no registrar
 
+    const accionNormalizada = AUDIT_ACTIONS.has(accion) ? accion : "editar";
+
     const { fecha, hora, timestamp } = getFormattedDateTime();
 
     // Resolver nombres legibles
@@ -212,12 +232,12 @@ const registrarCambio = async ({
       usuarioId: adminUser.id,
       modulo,
       nodoFirebase,
-      accion,
+      accion: accionNormalizada,
       registroId: registroId || "N/A",
       campo: campoLabel || null,
-      valorAnterior: valorAnteriorLegible !== undefined ? String(valorAnteriorLegible) : null,
-      valorNuevo: valorNuevoLegible !== undefined ? String(valorNuevoLegible) : null,
-      detalle: generarDetalle(accion, modulo, campoLabel, valorAnteriorLegible, valorNuevoLegible, extra),
+      valorAnterior: serializeAuditValue(valorAnteriorLegible),
+      valorNuevo: serializeAuditValue(valorNuevoLegible),
+      detalle: generarDetalle(accionNormalizada, modulo, campoLabel, valorAnteriorLegible, valorNuevoLegible, extra),
     };
 
     const historialRef = ref(database, "historialcambios");
@@ -227,6 +247,21 @@ const registrarCambio = async ({
     // No bloquear la operación principal si falla el log
     console.error("Error al registrar cambio en historial:", error);
   }
+};
+
+const normalizeAuditInfo = (auditInfo) =>
+  auditInfo && typeof auditInfo === "object" ? auditInfo : {};
+
+const getPathParts = (path) =>
+  typeof path === "string" ? path.split("/").filter(Boolean) : [];
+
+const getNodoFirebaseFromPath = (path) => getPathParts(path)[0] || "N/A";
+
+const getRegistroIdFromPath = (path, auditInfo = {}) =>
+  auditInfo.registroId || getPathParts(path).pop() || "N/A";
+
+const handleAuditLogError = (context, error) => {
+  console.error(`[auditLogger] Falló ${context}:`, error);
 };
 
 /**
@@ -241,14 +276,27 @@ const registrarCambio = async ({
  * @param {string} [auditInfo.extra]     - Info adicional
  */
 export const auditUpdate = async (path, updates, auditInfo) => {
+  if (!path || typeof path !== "string") {
+    throw new Error("auditUpdate requiere un path válido.");
+  }
+  if (!updates || typeof updates !== "object" || Array.isArray(updates)) {
+    throw new Error("auditUpdate requiere un objeto updates válido.");
+  }
+
+  const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
 
   // Ejecutar la operación principal primero
   await update(dbRef, updates);
 
+  const keys = Object.keys(updates);
+  if (keys.length === 0) {
+    return;
+  }
+
   // Registrar cada campo cambiado (fire-and-forget, no bloquea)
   for (const [campo, valorNuevo] of Object.entries(updates)) {
-    const valorAnterior = auditInfo.prevData ? auditInfo.prevData[campo] : undefined;
+    const valorAnterior = info.prevData ? info.prevData[campo] : undefined;
 
     // Solo registrar si el valor realmente cambió
     if (valorAnterior !== undefined && String(valorAnterior) === String(valorNuevo)) {
@@ -256,15 +304,15 @@ export const auditUpdate = async (path, updates, auditInfo) => {
     }
 
     registrarCambio({
-      modulo: auditInfo.modulo,
-      nodoFirebase: path.split("/")[0],
+      modulo: info.modulo || "Sistema",
+      nodoFirebase: getNodoFirebaseFromPath(path),
       accion: "editar",
-      registroId: auditInfo.registroId,
+      registroId: getRegistroIdFromPath(path, info),
       campo,
       valorAnterior,
       valorNuevo,
-      extra: auditInfo.extra,
-    }).catch(() => {});
+      extra: info.extra,
+    }).catch((error) => handleAuditLogError("registro de actualización", error));
   }
 };
 
@@ -279,6 +327,10 @@ export const auditUpdate = async (path, updates, auditInfo) => {
  * @returns {Object} La referencia del nuevo registro (para obtener el key)
  */
 export const auditCreate = async (path, data, auditInfo) => {
+  if (!path || typeof path !== "string") {
+    throw new Error("auditCreate requiere un path válido.");
+  }
+  const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
   const newRef = push(dbRef);
 
@@ -286,12 +338,12 @@ export const auditCreate = async (path, data, auditInfo) => {
 
   // Fire-and-forget: no bloquea la operación principal
   registrarCambio({
-    modulo: auditInfo.modulo,
-    nodoFirebase: path.split("/")[0],
+    modulo: info.modulo || "Sistema",
+    nodoFirebase: getNodoFirebaseFromPath(path),
     accion: "crear",
-    registroId: newRef.key,
-    extra: auditInfo.extra,
-  }).catch(() => {});
+    registroId: newRef.key || getRegistroIdFromPath(path, info),
+    extra: info.extra,
+  }).catch((error) => handleAuditLogError("registro de creación", error));
 
   return newRef;
 };
@@ -308,22 +360,26 @@ export const auditCreate = async (path, data, auditInfo) => {
  * @param {string} [auditInfo.extra]     - Info adicional
  */
 export const auditSet = async (path, data, auditInfo) => {
+  if (!path || typeof path !== "string") {
+    throw new Error("auditSet requiere un path válido.");
+  }
+  const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
   await set(dbRef, data);
 
   // Fire-and-forget: no bloquea la operación principal
+  const accion = info.accion || (data === null ? "eliminar" : "crear");
   registrarCambio({
-    modulo: auditInfo.modulo,
-    nodoFirebase: path.split("/")[0],
-    accion: auditInfo.accion || "crear",
-    registroId: auditInfo.registroId || path.split("/").pop(),
-    extra: auditInfo.extra,
-  }).catch(() => {});
+    modulo: info.modulo || "Sistema",
+    nodoFirebase: getNodoFirebaseFromPath(path),
+    accion,
+    registroId: getRegistroIdFromPath(path, info),
+    extra: info.extra,
+  }).catch((error) => handleAuditLogError("registro en set", error));
 };
 
 /**
  * Wrapper para remove() que registra la eliminación.
- * Lee los datos antes de eliminar para guardarlos en el historial.
  *
  * @param {string} path       - Ruta completa en Firebase (ej: "data/-NaBcD")
  * @param {Object} auditInfo  - Info para el historial
@@ -332,37 +388,24 @@ export const auditSet = async (path, data, auditInfo) => {
  * @param {string} [auditInfo.extra]     - Info adicional (ej: nombre del cliente eliminado)
  */
 export const auditRemove = async (path, auditInfo) => {
-  const dbRef = ref(database, path);
-
-  // Solo leer datos antes de eliminar si no se proporcionó 'extra'
-  let datosEliminados = null;
-  if (!auditInfo.extra) {
-    try {
-      const snapshot = await get(dbRef);
-      if (snapshot.exists()) {
-        datosEliminados = snapshot.val();
-      }
-    } catch {
-      // Si no puede leer, continuar igual
-    }
+  if (!path || typeof path !== "string") {
+    throw new Error("auditRemove requiere un path válido.");
   }
+  const info = normalizeAuditInfo(auditInfo);
+  const dbRef = ref(database, path);
 
   await remove(dbRef);
 
   // Fire-and-forget: no bloquea la operación principal
   registrarCambio({
-    modulo: auditInfo.modulo,
-    nodoFirebase: path.split("/")[0],
+    modulo: info.modulo || "Sistema",
+    nodoFirebase: getNodoFirebaseFromPath(path),
     accion: "eliminar",
-    registroId: auditInfo.registroId || path.split("/").pop(),
-    extra: auditInfo.extra || (datosEliminados
-      ? `Datos eliminados: ${JSON.stringify(datosEliminados).substring(0, 300)}`
-      : undefined),
-  }).catch(() => {});
+    registroId: getRegistroIdFromPath(path, info),
+    extra: info.extra,
+  }).catch((error) => handleAuditLogError("registro de eliminación", error));
 };
 
-// Exportar la función directa por si se necesita registrar algo custom
-export { registrarCambio };
 
 
 
