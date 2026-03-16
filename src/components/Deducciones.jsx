@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, push, onValue, set, update, remove } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
@@ -34,6 +35,9 @@ const Deducciones = () => {
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  // Estados locales para campos editables (onBlur)
+  const [localValues, setLocalValues] = useState({});
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -89,12 +93,16 @@ const Deducciones = () => {
   }, [loadedDeducciones, loadedUsers]);
 
   // Actualizar campos
-  const handleFieldChange = async (id, field, value) => {
+  const handleFieldChange = async (id, field, value, valorAnterior) => {
     try {
       const updateData = { [field]: value };
 
-      // Actualizar en Firebase
-      await update(ref(database, `deducciones/${id}`), updateData);
+      // Actualizar en Firebase + auditoría
+      await auditUpdate(`deducciones/${id}`, updateData, {
+        modulo: "Deducciones",
+        registroId: id,
+        prevData: { [field]: valorAnterior },
+      });
 
       // Actualizar estado local
       setDeducciones((prev) =>
@@ -123,9 +131,9 @@ const Deducciones = () => {
     };
 
     try {
-      const deduccionesRef = ref(database, "deducciones");
-      const newRef = push(deduccionesRef);
-      await set(newRef, newData);
+      await auditCreate("deducciones", newData, {
+        modulo: "Deducciones",
+      });
     } catch (error) {
       console.error("Error adding data:", error);
       Swal.fire("Error", "No se pudo agregar el registro", "error");
@@ -145,7 +153,11 @@ const Deducciones = () => {
 
     if (result.isConfirmed) {
       try {
-        await remove(ref(database, `deducciones/${id}`));
+        await auditRemove(`deducciones/${id}`, {
+          modulo: "Deducciones",
+          registroId: id,
+          extra: `Registro con ID ${id}`,
+        });
         Swal.fire("Eliminado", "El registro ha sido eliminado", "success");
       } catch (error) {
         console.error("Error deleting record:", error);
@@ -438,7 +450,8 @@ const Deducciones = () => {
                           handleFieldChange(
                             deduccion.id,
                             "fecha",
-                            formattedDate
+                            formattedDate,
+                            deduccion.fecha || ""
                           );
                         }}
                       />
@@ -446,14 +459,34 @@ const Deducciones = () => {
                     <td>
                       <input
                         type="text"
-                        value={deduccion.descripcion || ""}
-                        onChange={(e) =>
-                          handleFieldChange(
-                            deduccion.id,
-                            "descripcion",
-                            e.target.value
-                          )
+                        value={
+                          localValues[`${deduccion.id}_descripcion`] ??
+                          deduccion.descripcion ??
+                          ""
                         }
+                        onChange={(e) =>
+                          setLocalValues((prev) => ({
+                            ...prev,
+                            [`${deduccion.id}_descripcion`]: e.target.value,
+                          }))
+                        }
+                        onBlur={(e) => {
+                          const newVal = e.target.value;
+                          const oldVal = deduccion.descripcion || "";
+                          setLocalValues((prev) => {
+                            const copy = { ...prev };
+                            delete copy[`${deduccion.id}_descripcion`];
+                            return copy;
+                          });
+                          if (newVal !== oldVal) {
+                            handleFieldChange(
+                              deduccion.id,
+                              "descripcion",
+                              newVal,
+                              oldVal
+                            );
+                          }
+                        }}
                       />
                     </td>
                     <td>
@@ -463,7 +496,8 @@ const Deducciones = () => {
                           handleFieldChange(
                             deduccion.id,
                             "realizado",
-                            e.target.value
+                            e.target.value,
+                            deduccion.realizado || ""
                           )
                         }
                       >
@@ -479,14 +513,34 @@ const Deducciones = () => {
                       <div style={{ display: "flex", alignItems: "center" }}>
                         <input
                           type="number"
-                          value={deduccion.valor || ""}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              deduccion.id,
-                              "valor",
-                              parseFloat(e.target.value) || 0
-                            )
+                          value={
+                            localValues[`${deduccion.id}_valor`] ??
+                            deduccion.valor ??
+                            ""
                           }
+                          onChange={(e) =>
+                            setLocalValues((prev) => ({
+                              ...prev,
+                              [`${deduccion.id}_valor`]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => {
+                            const newVal = parseFloat(e.target.value) || 0;
+                            const oldVal = deduccion.valor || 0;
+                            setLocalValues((prev) => {
+                              const copy = { ...prev };
+                              delete copy[`${deduccion.id}_valor`];
+                              return copy;
+                            });
+                            if (newVal !== oldVal) {
+                              handleFieldChange(
+                                deduccion.id,
+                                "valor",
+                                newVal,
+                                oldVal
+                              );
+                            }
+                          }}
                           min="0"
                           step="0.01"
                           style={{ width: "80px" }}
