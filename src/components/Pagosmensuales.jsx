@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, onValue, update } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
@@ -229,8 +230,11 @@ const Pagosmensuales = () => {
   const handleFieldChange = async (item, field, value) => {
     const safeValue = value ?? "";
     try {
-      const itemRef = ref(database, `pagosmensuales/${item.id}`);
-      await update(itemRef, { [field]: safeValue });
+      await auditUpdate(`pagosmensuales/${item.id}`, { [field]: safeValue }, {
+        modulo: "Pagos Mensuales",
+        registroId: item.id,
+        prevData: item,
+      });
 
       setData((prev) =>
         sortByFechaDesc(
@@ -260,9 +264,7 @@ const Pagosmensuales = () => {
     const yyyy = hoy.getFullYear();
     const fecha = `${dd}-${mm}-${yyyy}`;
 
-    const dbRef = ref(database, "pagosmensuales");
-    const newRef = push(dbRef);
-    await set(newRef, {
+    await auditCreate("pagosmensuales", {
       fecha, // dd-mm-aaaa (para filtros/orden)
       mes: "", // texto visible en tabla
       fechaPago: "", // texto visible en tabla
@@ -270,6 +272,8 @@ const Pagosmensuales = () => {
       concepto: "",
       monto: "",
       estado: "",
+    }, {
+      modulo: "Pagos Mensuales",
     });
   };
 
@@ -394,7 +398,8 @@ const Pagosmensuales = () => {
   }, [totalPages, currentPage]);
 
   // Eliminar registro
-  const handleDelete = (itemId) => {
+  const handleDelete = (itemId, itemData) => {
+    console.log(itemData);
     Swal.fire({
       title: "¿Eliminar registro?",
       text: "Esta acción no se puede deshacer.",
@@ -404,7 +409,11 @@ const Pagosmensuales = () => {
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        set(ref(database, `pagosmensuales/${itemId}`), null)
+        auditRemove(`pagosmensuales/${itemId}`, {
+          modulo: "Pagos Mensuales",
+          registroId: itemId,
+          extra: `Compañia: ${itemData.compania}`,
+        })
           .then(() => {
             Swal.fire({
               title: "¡Eliminado!",
@@ -807,7 +816,7 @@ const Pagosmensuales = () => {
                         <button
                           className="delete-button"
                           style={{ marginLeft: "10px", marginRight: "6px" }}
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item.id, item)}
                           title="Eliminar registro"
                         >
                           Eliminar
