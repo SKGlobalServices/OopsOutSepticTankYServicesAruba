@@ -265,6 +265,40 @@ const handleAuditLogError = (context, error) => {
 };
 
 /**
+ * Wrapper para bulk multi-path update() que registra UN ÚNICO registro de auditoría de resumen.
+ * Usar cuando una sola acción del usuario actualiza N rutas/claves en Firebase (ej: guardar
+ * el calendario mensual completo), evitando generar N entradas de log.
+ *
+ * @param {Object} updates    - Objeto de multi-path updates { "ruta/clave": valor, ... }
+ * @param {Object} auditInfo  - Info para el historial
+ * @param {string} auditInfo.modulo      - Nombre del módulo
+ * @param {string} auditInfo.registroId  - ID del registro
+ * @param {string} [auditInfo.extra]     - Info adicional
+ */
+export const auditBulkUpdate = async (updates, auditInfo) => {
+  if (!updates || typeof updates !== "object" || Array.isArray(updates)) {
+    throw new Error("auditBulkUpdate requiere un objeto updates válido.");
+  }
+
+  const info = normalizeAuditInfo(auditInfo);
+
+  // Ejecutar la operación principal primero
+  await update(ref(database), updates);
+
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return;
+
+  // Registrar UN único resumen (fire-and-forget)
+  registrarCambio({
+    modulo: info.modulo || "Sistema",
+    nodoFirebase: getNodoFirebaseFromPath(keys[0]),
+    accion: "editar",
+    registroId: info.registroId || "N/A",
+    extra: info.extra,
+  }).catch((error) => handleAuditLogError("registro de actualización masiva", error));
+};
+
+/**
  * Wrapper para update() que registra el cambio automáticamente.
  *
  * @param {string} path       - Ruta en Firebase (ej: "data/-NaBcD")
