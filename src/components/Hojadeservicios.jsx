@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, remove, update, onValue } from "firebase/database";
+import { ref, update, onValue } from "firebase/database";
 import { useNavigate } from "react-router-dom";
 import { decryptData } from "../utils/security";
 import { validateSessionForAction } from "../utils/sessionValidator";
@@ -340,14 +340,16 @@ const Homepage = () => {
         if (direccion) {
           const existing = clients.find((c) => c.direccion === direccion);
           if (!existing) {
-            // insertar nuevo cliente
-            const newClientRef = push(ref(database, "clientes"));
-            set(newClientRef, {
+            // insertar nuevo cliente con auditoria
+            auditCreate("clientes", {
               direccion,
               cubicos:
                 item.cubicos != null && item.cubicos !== ""
                   ? item.cubicos
                   : null,
+            }, {
+              modulo: "Hoja de Servicios",
+              extra: `Auto-creado desde servicios por direccion: ${direccion}`,
             }).catch(console.error);
           }
           // luego, cargar cubicos desde clientes (si existe)

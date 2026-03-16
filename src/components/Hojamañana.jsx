@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, update, onValue } from "firebase/database";
+import { ref, update, onValue } from "firebase/database";
+import { useNavigate } from "react-router-dom";
+import { decryptData } from "../utils/security";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
@@ -13,6 +15,17 @@ import Select from "react-select";
 import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 
 const Hojamañana = () => {
+  const navigate = useNavigate();
+
+  // Verificacion de autorizacion
+  useEffect(() => {
+    const userData = decryptData(localStorage.getItem("user"));
+    if (!userData || userData.role !== "admin") {
+      navigate("/");
+      return;
+    }
+  }, [navigate]);
+
   const [loading, setLoading] = useState(true);
   const [loadedData, setLoadedData] = useState(false);
   const [loadedUsers, setLoadedUsers] = useState(false);
@@ -303,14 +316,16 @@ const Hojamañana = () => {
         if (direccion) {
           const existing = clients.find((c) => c.direccion === direccion);
           if (!existing) {
-            // insertar nuevo cliente
-            const newClientRef = push(ref(database, "clientes"));
-            set(newClientRef, {
+            // insertar nuevo cliente con auditoria
+            auditCreate("clientes", {
               direccion,
               cubicos:
                 item.cubicos != null && item.cubicos !== ""
                   ? item.cubicos
                   : null,
+            }, {
+              modulo: "Servicios De Mañana",
+              extra: `Auto-creado desde servicios por direccion: ${direccion}`,
             }).catch(console.error);
           }
           // luego, cargar cubicos desde clientes (si existe)
