@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
-import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Importar autenticación y proveedor de Google
-import { getFirestore } from "firebase/firestore"; // Importar Firestore
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -24,5 +25,6 @@ provider.setCustomParameters({
   prompt: 'select_account'
 });
 const firestore = getFirestore(app);
+const functions = getFunctions(app, "us-central1");
 
-export { database, auth, provider, firestore };
+export { database, auth, provider, firestore, functions };

@@ -9,6 +9,9 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import ExcelJS from "exceljs";
 import excel_icon from "../assets/img/excel_icon.jpg";
+import { normalizePhone } from "../utils/phoneUtils";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../Database/firebaseConfig";
 
 
 const Clientes = () => {
@@ -52,13 +55,20 @@ const Clientes = () => {
         Object.entries(snapshot.val()).forEach(([id, cliente]) => {
           const direccion = cliente.direccion || "";
           const anombrede = cliente.anombrede || "";
+          // Support legacy single "telefono" as telefono1 if telefono1 is empty
+          const telefono1 = cliente.telefono1 || cliente.telefono || "";
           fetchedData.push({
             id,
             direccion,
             anombrede,
+            telefono1,
+            telefono2: cliente.telefono2 || "",
+            telefono3: cliente.telefono3 || "",
             cubicos: cliente.cubicos || 0,
             email: cliente.email || "",
             notas: cliente.notas || "",
+            kommo_contact_id: cliente.kommo_contact_id || "",
+            kommo_lead_id: cliente.kommo_lead_id ?? null,
           });
           if (direccion) uniqueDirections.add(direccion);
           if (anombrede) uniqueNames.add(anombrede);
@@ -158,6 +168,9 @@ const Clientes = () => {
         return;
       }
     }
+    if (field === "telefono1" || field === "telefono2" || field === "telefono3") {
+      value = normalizePhone(value) || null;
+    }
     const dbRefItem = ref(database, `clientes/${id}`);
     update(dbRefItem, { [field]: value }).catch((err) =>
       console.error("Error updating data: ", err)
@@ -176,6 +189,9 @@ const Clientes = () => {
       html:
         `<input id="swal-direccion" class="swal2-input" placeholder="Dirección">` +
         `<input id="swal-anombrede" class="swal2-input" placeholder="A nombre de (opcional)">` +
+        `<input id="swal-telefono1" class="swal2-input" placeholder="Teléfono 1 (opcional, ej. +297 415 1717)">` +
+        `<input id="swal-telefono2" class="swal2-input" placeholder="Teléfono 2 (opcional)">` +
+        `<input id="swal-telefono3" class="swal2-input" placeholder="Teléfono 3 (opcional)">` +
         `<input id="swal-cubicos" type="number" min="0" class="swal2-input" placeholder="Cúbicos (opcional)">` +
         `<input id="swal-valor" type="number" min="0" class="swal2-input" placeholder="Valor (opcional)">` +
         `<input id="swal-email" type="email" class="swal2-input" placeholder="Email (opcional)">` +
@@ -192,6 +208,12 @@ const Clientes = () => {
         const anombrede = document
           .getElementById("swal-anombrede")
           .value.trim();
+        const telefono1Raw = document.getElementById("swal-telefono1").value.trim();
+        const telefono2Raw = document.getElementById("swal-telefono2").value.trim();
+        const telefono3Raw = document.getElementById("swal-telefono3").value.trim();
+        const telefono1 = telefono1Raw ? normalizePhone(telefono1Raw) : null;
+        const telefono2 = telefono2Raw ? normalizePhone(telefono2Raw) : null;
+        const telefono3 = telefono3Raw ? normalizePhone(telefono3Raw) : null;
         const cubicosVal = document.getElementById("swal-cubicos").value;
         const valorVal = document.getElementById("swal-valor").value;
         const email = document.getElementById("swal-email").value.trim();
@@ -206,6 +228,9 @@ const Clientes = () => {
         const nuevoCliente = {
           direccion,
           anombrede: anombrede || null,
+          telefono1,
+          telefono2,
+          telefono3,
           cubicos: cubicosVal ? Number(cubicosVal) : 0,
           valor: valorVal ? Number(valorVal) : 0,
           email: email || null,
@@ -244,6 +269,9 @@ const Clientes = () => {
       const exportData = filteredData.map((cliente) => ({
         "A Nombre De": cliente.anombrede || "",
         "Dirección": cliente.direccion || "",
+        "Teléfono 1": cliente.telefono1 || "",
+        "Teléfono 2": cliente.telefono2 || "",
+        "Teléfono 3": cliente.telefono3 || "",
         "Cúbicos": cliente.cubicos || 0,
         "Valor": formatCurrency(cliente.valor || 0),
         "Email": cliente.email || "",
@@ -255,7 +283,10 @@ const Clientes = () => {
 
       const headers = [
         "A Nombre De",
-        "Dirección", 
+        "Dirección",
+        "Teléfono 1",
+        "Teléfono 2",
+        "Teléfono 3",
         "Cúbicos",
         "Valor",
         "Email",
@@ -290,6 +321,9 @@ const Clientes = () => {
       worksheet.columns = [
         { width: 25 }, // A Nombre De
         { width: 35 }, // Dirección
+        { width: 16 }, // Teléfono 1
+        { width: 16 }, // Teléfono 2
+        { width: 16 }, // Teléfono 3
         { width: 15 }, // Cúbicos
         { width: 15 }, // Valor
         { width: 30 }, // Email
@@ -373,6 +407,31 @@ const Clientes = () => {
         const notes = result.value;
         handleFieldChange(id, "notas", notes);
         Swal.fire("Guardado", "Notas guardadas correctamente", "success");
+      }
+    });
+  };
+
+  const handleKommoSendMessage = (cliente) => {
+    if (!cliente.kommo_lead_id) return;
+    Swal.fire({
+      title: "Enviar mensaje (Kommo)",
+      input: "textarea",
+      inputPlaceholder: "Escribe el mensaje a enviar al lead...",
+      showCancelButton: true,
+      confirmButtonText: "Enviar",
+      cancelButtonText: "Cancelar",
+    }).then(async (result) => {
+      if (!result.isConfirmed || !result.value?.trim()) return;
+      const sendMessage = httpsCallable(functions, "kommoSendMessage");
+      try {
+        await sendMessage({
+          leadId: cliente.kommo_lead_id,
+          message: result.value.trim(),
+        });
+        Swal.fire("Enviado", "Mensaje enviado correctamente al lead en Kommo.", "success");
+      } catch (err) {
+        console.error("Kommo send message error:", err);
+        Swal.fire("Error", err.message || "No se pudo enviar el mensaje.", "error");
       }
     });
   };
@@ -570,9 +629,13 @@ const Clientes = () => {
                 <th>Seleccionar</th>
                 <th>A Nombre De</th>
                 <th className="direccion-fixed-th">Dirección</th>
+                <th>Teléfono 1</th>
+                <th>Teléfono 2</th>
+                <th>Teléfono 3</th>
                 <th>Cúbicos</th>
                 <th>Valor</th>
                 <th>Email</th>
+                <th>Kommo</th>
                 <th>
                   Notas
                 </th>
@@ -641,6 +704,69 @@ const Clientes = () => {
                     </td>
                     <td>
                       <input
+                        type="text"
+                        style={{ textAlign: "center", width: "12ch" }}
+                        placeholder="+297..."
+                        value={localValues[`${cliente.id}_telefono1`] ?? cliente.telefono1 ?? ""}
+                        onChange={(e) =>
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_telefono1`]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const normalized = raw ? normalizePhone(raw) : "";
+                          if (normalized !== (cliente.telefono1 || "")) {
+                            handleFieldChange(cliente.id, "telefono1", raw);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        style={{ textAlign: "center", width: "12ch" }}
+                        placeholder="+297..."
+                        value={localValues[`${cliente.id}_telefono2`] ?? cliente.telefono2 ?? ""}
+                        onChange={(e) =>
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_telefono2`]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const normalized = raw ? normalizePhone(raw) : "";
+                          if (normalized !== (cliente.telefono2 || "")) {
+                            handleFieldChange(cliente.id, "telefono2", raw);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        style={{ textAlign: "center", width: "12ch" }}
+                        placeholder="+297..."
+                        value={localValues[`${cliente.id}_telefono3`] ?? cliente.telefono3 ?? ""}
+                        onChange={(e) =>
+                          setLocalValues(prev => ({
+                            ...prev,
+                            [`${cliente.id}_telefono3`]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const normalized = raw ? normalizePhone(raw) : "";
+                          if (normalized !== (cliente.telefono3 || "")) {
+                            handleFieldChange(cliente.id, "telefono3", raw);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
                         type="number"
                         style={{ textAlign: "center", width: "13ch" }}
                         value={localValues[`${cliente.id}_cubicos`] ?? cliente.cubicos ?? ""}
@@ -698,6 +824,21 @@ const Clientes = () => {
                       />
                     </td>
                     <td>
+                      {cliente.kommo_lead_id ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          style={{ fontSize: "0.85rem", whiteSpace: "nowrap" }}
+                          onClick={() => handleKommoSendMessage(cliente)}
+                          title="Enviar mensaje al lead en Kommo"
+                        >
+                          Enviar mensaje
+                        </button>
+                      ) : (
+                        <span style={{ color: "#999" }}>—</span>
+                      )}
+                    </td>
+                    <td>
                       <button
                         style={{
                           border: "none",
@@ -730,7 +871,7 @@ const Clientes = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7">No se encontraron clientes</td>
+                  <td colSpan="11">No se encontraron clientes</td>
                 </tr>
               )}
             </tbody>
