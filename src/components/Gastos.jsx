@@ -221,7 +221,7 @@ const Gastos = () => {
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
   const [valoresLocales, setValoresLocales] = useState({});
   const [paginaActual, setPaginaActual] = useState(1);
-  const [itemsPorPagina, setItemsPorPagina] = useState(50);
+  const [itemsPorPagina, setItemsPorPagina] = useState(25);
   const [gastos, setGastos] = useState([]);
   const [categorias, setCategorias] = useState([]);
 
@@ -1826,6 +1826,7 @@ const Gastos = () => {
                 value={itemsPorPagina}
                 onChange={(e) => cambiarItemsPorPagina(Number(e.target.value))}
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

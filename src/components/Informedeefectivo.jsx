@@ -50,7 +50,7 @@ const Informedeefectivo = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -1200,6 +1200,7 @@ const Informedeefectivo = () => {
               value={itemsPerPage} 
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
             >
+              <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>

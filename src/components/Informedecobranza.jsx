@@ -147,7 +147,7 @@ const Informedecobranza = () => {
 
   // === PAGINACIÓN SOLO PARA EFECTIVO ===
   const [currentPageEfectivo, setCurrentPageEfectivo] = useState(1);
-  const [itemsPerPageEfectivo, setItemsPerPageEfectivo] = useState(50);
+  const [itemsPerPageEfectivo, setItemsPerPageEfectivo] = useState(25);
 
   const handleDateRangeChange = useCallback((dates) => {
     const [start, end] = dates;

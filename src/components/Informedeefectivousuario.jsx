@@ -48,7 +48,7 @@ const Informedeefectivousuario = () => {
   const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [showFilterSlidebar, setShowFilterSlidebar] = useState(false);
   const filterSlidebarRef = useRef(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1094,6 +1094,7 @@ const Informedeefectivousuario = () => {
               value={itemsPerPage} 
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
             >
+              <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>

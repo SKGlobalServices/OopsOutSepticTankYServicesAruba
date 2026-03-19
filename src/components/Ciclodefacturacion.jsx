@@ -202,7 +202,7 @@ const Ciclodefacturacion = () => {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Mostrar/ocultar datepicker
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1138,6 +1138,7 @@ const Ciclodefacturacion = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

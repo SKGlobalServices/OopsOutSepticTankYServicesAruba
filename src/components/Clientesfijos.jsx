@@ -27,7 +27,7 @@ const Clientesfijos = () => {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -752,6 +752,7 @@ const Clientesfijos = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>
