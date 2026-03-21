@@ -1517,171 +1517,47 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 8) Campo especial: "anombrede" → propagar a otros registros con la misma dirección y upsert en 'clientes'
+    // 8) Campo especial: "anombrede" con confirmación de alcance (solo registro o todos por dirección)
     if (field === "anombrede") {
       const newNombre = (safeValue || "").toString();
-      const direccion = registro?.direccion || "";
+      const direccion = (registro?.direccion || "").toString();
 
-      // Si el nuevo nombre está vacío o sólo espacios, no propagar ni crear/actualizar clientes
-      if (!newNombre.trim()) {
-        // Actualizar sólo el registro individual y limpiar localValues para ese id
-        auditUpdate(path, { anombrede: newNombre }, {
-          modulo: "Agenda Dinámica",
-          registroId,
-          prevData: registro,
-          extra: "Cambio manual de A Nombre De",
-        }).catch(console.error);
-        const updaterSolo = (r) =>
-          r.id === registroId ? { ...r, anombrede: newNombre } : r;
-        if (fromData) {
-          setDataBranch((prev) => prev.map(updaterSolo));
-        } else {
-          setDataRegistroFechas((prev) =>
-            prev.map((g) =>
-              g.fecha === fecha
-                ? { ...g, registros: g.registros.map(updaterSolo) }
-                : g
-            )
-          );
-        }
-        setLocalValues((prev) => {
-          const next = { ...prev };
-          delete next[`${registroId}_anombrede`];
-          return next;
+      let applyToAll = false;
+      if (direccion.trim() && newNombre.trim()) {
+        const decision = await Swal.fire({
+          icon: "question",
+          title: "Actualizar A Nombre De",
+          text: "¿Deseas cambiar todos los campos A Nombre De asociados a esta dirección o solo el registro seleccionado?",
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: "Todos los asociados",
+          denyButtonText: "Solo este registro",
+          cancelButtonText: "Cancelar",
+          reverseButtons: true,
         });
-        return;
-      }
 
-      // 1) Actualizar/Insertar en 'clientes' según la dirección
-      if (direccion) {
-        try {
-          const clientesSnap = await get(ref(database, "clientes"));
-
-          let clienteId = null;
-          if (clientesSnap.exists()) {
-            const clientesVal = clientesSnap.val();
-            Object.entries(clientesVal).forEach(([cid, c]) => {
-              if ((c.direccion || "") === direccion) clienteId = cid;
-            });
-          }
-
-          if (clienteId) {
-            // Actualizar campo anombrede
-            await auditUpdate(`clientes/${clienteId}`, {
-              anombrede: newNombre,
-            }, {
-              modulo: "Agenda Dinámica",
-              registroId: clienteId,
-              extra: `Cliente sincronizado por dirección: ${direccion}`,
-            }).catch(console.error);
-          } else {
-            // Crear nuevo cliente con datos mínimos (direccion + anombrede + posibles cubicos/valor)
-            const newClientRef = push(ref(database, "clientes"));
-            await auditSet(`clientes/${newClientRef.key}`, {
-              direccion,
-              anombrede: newNombre,
-              cubicos: registro?.cubicos || "",
-              valor: registro?.valor || "",
-            }, {
-              modulo: "Agenda Dinámica",
-              accion: "crear",
-              registroId: newClientRef.key,
-              extra: `Cliente creado por actualización de dirección: ${direccion}`,
-            }).catch(console.error);
-          }
-        } catch (err) {
-          console.error("Error actualizando/creando cliente:", err);
-        }
-
-        // 2) Buscar y propagar el nuevo 'anombrede' a todos los servicios que tengan la misma direccion
-        // Declarar variables en scope superior para poder reutilizarlas más abajo
-        let dataSnap;
-        let registroFechasSnap;
-        try {
-          [dataSnap, registroFechasSnap] = await Promise.all([
-            get(ref(database, "data")),
-            get(ref(database, "registrofechas")),
-          ]);
-
-          const updatesPromises = [];
-
-          if (dataSnap.exists()) {
-            const dataVal = dataSnap.val();
-            Object.entries(dataVal).forEach(([id, r]) => {
-              if ((r.direccion || "") === direccion && id !== registroId) {
-                updatesPromises.push(
-                  auditUpdate(`data/${id}`, { anombrede: newNombre }, {
-                    modulo: "Agenda Dinámica",
-                    registroId: id,
-                    extra: `Propagación de nombre por dirección: ${direccion}`,
-                  })
-                );
-              }
-            });
-          }
-
-          if (registroFechasSnap.exists()) {
-            const registroVal = registroFechasSnap.val();
-            Object.entries(registroVal).forEach(([fechaReg, regs]) => {
-              Object.entries(regs).forEach(([id, r]) => {
-                // evitar volver a escribir exactamente el mismo registro si ya es el que editamos
-                if ((r.direccion || "") === direccion) {
-                  if (!(fechaReg === fecha && id === registroId)) {
-                    updatesPromises.push(
-                      auditUpdate(`registrofechas/${fechaReg}/${id}`, { anombrede: newNombre }, {
-                        modulo: "Agenda Dinámica",
-                        registroId: id,
-                        extra: `Propagación de nombre por dirección: ${direccion}`,
-                      })
-                    );
-                  }
-                }
-              });
-            });
-          }
-
-          await Promise.all(updatesPromises);
-        } catch (err) {
-          console.error("Error propagando anombrede a servicios:", err);
-        }
-
-        // Limpiar localValues para forzar que los inputs muestren el valor actualizado
-        try {
-          // Recolectar ids afectados: del data y de registrofechas
-          const affectedIds = new Set();
-          if (dataSnap && dataSnap.exists()) {
-            Object.entries(dataSnap.val()).forEach(([id, r]) => {
-              if ((r.direccion || "") === direccion) affectedIds.add(id);
-            });
-          }
-          if (registroFechasSnap && registroFechasSnap.exists()) {
-            Object.entries(registroFechasSnap.val()).forEach(
-              ([fechaReg, regs]) => {
-                Object.entries(regs).forEach(([id, r]) => {
-                  if ((r.direccion || "") === direccion) affectedIds.add(id);
-                });
-              }
-            );
-          }
-
-          // Convertir a array y borrar claves del estado local
-          const idsArray = Array.from(affectedIds);
+        if (decision.isDismissed) {
           setLocalValues((prev) => {
             const next = { ...prev };
-            idsArray.forEach((id) => {
-              delete next[`${id}_anombrede`];
-            });
-            // también borrar el propio registro editado
             delete next[`${registroId}_anombrede`];
             return next;
           });
-        } catch (err) {
-          // No fatal si falla limpiar localValues
-          console.error("Error limpiando localValues tras propagacion:", err);
+          return;
         }
+
+        applyToAll = !!decision.isConfirmed;
       }
 
-      // 3) Actualizar estado local para reflejar el cambio inmediato en UI
+      // Actualizar siempre el registro actual.
+      await auditUpdate(path, { anombrede: newNombre }, {
+        modulo: "Agenda Dinámica",
+        registroId,
+        prevData: registro,
+        extra: applyToAll
+          ? "Cambio de A Nombre De (con propagación)"
+          : "Cambio manual de A Nombre De (solo registro)",
+      }).catch(console.error);
+
       const updaterSelf = (r) =>
         r.id === registroId ? { ...r, anombrede: newNombre } : r;
       if (fromData) {
@@ -1696,26 +1572,152 @@ const Hojadefechas = () => {
         );
       }
 
-      // También actualizar en memoria todos los registros que coincidan por dirección
-      if (direccion) {
-        setDataBranch((prev) =>
-          prev.map((r) =>
+      setLocalValues((prev) => {
+        const next = { ...prev };
+        delete next[`${registroId}_anombrede`];
+        return next;
+      });
+
+      // Si eligió "solo este registro" o no hay dirección/nombre, termina aquí.
+      if (!applyToAll || !direccion.trim() || !newNombre.trim()) {
+        return;
+      }
+
+      // 1) Actualizar/Insertar en 'clientes' según la dirección
+      try {
+        const clientesSnap = await get(ref(database, "clientes"));
+
+        let clienteId = null;
+        if (clientesSnap.exists()) {
+          const clientesVal = clientesSnap.val();
+          Object.entries(clientesVal).forEach(([cid, c]) => {
+            if ((c.direccion || "") === direccion) clienteId = cid;
+          });
+        }
+
+        if (clienteId) {
+          await auditUpdate(`clientes/${clienteId}`, {
+            anombrede: newNombre,
+          }, {
+            modulo: "Agenda Dinámica",
+            registroId: clienteId,
+            extra: "Cliente sincronizado por cambio de A Nombre De",
+          }).catch(console.error);
+        } else {
+          const newClientRef = push(ref(database, "clientes"));
+          await auditSet(`clientes/${newClientRef.key}`, {
+            direccion,
+            anombrede: newNombre,
+            cubicos: registro?.cubicos || "",
+            valor: registro?.valor || "",
+          }, {
+            modulo: "Agenda Dinámica",
+            accion: "crear",
+            registroId: newClientRef.key,
+            extra: "Cliente creado por cambio de A Nombre De",
+          }).catch(console.error);
+        }
+      } catch (err) {
+        console.error("Error actualizando/creando cliente:", err);
+      }
+
+      // 2) Propagar el nuevo 'anombrede' a todos los servicios con la misma dirección (excepto el ya actualizado)
+      let dataSnap;
+      let registroFechasSnap;
+      try {
+        [dataSnap, registroFechasSnap] = await Promise.all([
+          get(ref(database, "data")),
+          get(ref(database, "registrofechas")),
+        ]);
+
+        const updatesPromises = [];
+
+        if (dataSnap.exists()) {
+          const dataVal = dataSnap.val();
+          Object.entries(dataVal).forEach(([id, r]) => {
+            if ((r.direccion || "") === direccion && id !== registroId) {
+              updatesPromises.push(
+                auditUpdate(`data/${id}`, { anombrede: newNombre }, {
+                  modulo: "Agenda Dinámica",
+                  registroId: id,
+                  extra: "Propagación de A Nombre De (todos los asociados)",
+                })
+              );
+            }
+          });
+        }
+
+        if (registroFechasSnap.exists()) {
+          const registroVal = registroFechasSnap.val();
+          Object.entries(registroVal).forEach(([fechaReg, regs]) => {
+            Object.entries(regs).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion) {
+                if (!(fechaReg === fecha && id === registroId)) {
+                  updatesPromises.push(
+                    auditUpdate(`registrofechas/${fechaReg}/${id}`, { anombrede: newNombre }, {
+                      modulo: "Agenda Dinámica",
+                      registroId: id,
+                      extra: "Propagación de A Nombre De (todos los asociados)",
+                    })
+                  );
+                }
+              }
+            });
+          });
+        }
+
+        await Promise.all(updatesPromises);
+      } catch (err) {
+        console.error("Error propagando anombrede a servicios:", err);
+      }
+
+      // 3) Limpiar localValues de registros afectados para reflejar estado actualizado
+      try {
+        const affectedIds = new Set();
+        if (dataSnap && dataSnap.exists()) {
+          Object.entries(dataSnap.val()).forEach(([id, r]) => {
+            if ((r.direccion || "") === direccion) affectedIds.add(id);
+          });
+        }
+        if (registroFechasSnap && registroFechasSnap.exists()) {
+          Object.entries(registroFechasSnap.val()).forEach(([, regs]) => {
+            Object.entries(regs).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion) affectedIds.add(id);
+            });
+          });
+        }
+
+        const idsArray = Array.from(affectedIds);
+        setLocalValues((prev) => {
+          const next = { ...prev };
+          idsArray.forEach((id) => {
+            delete next[`${id}_anombrede`];
+          });
+          delete next[`${registroId}_anombrede`];
+          return next;
+        });
+      } catch (err) {
+        console.error("Error limpiando localValues tras propagacion:", err);
+      }
+
+      // 4) Reflejar en memoria todos los registros relacionados
+      setDataBranch((prev) =>
+        prev.map((r) =>
+          (r.direccion || "") === direccion
+            ? { ...r, anombrede: newNombre }
+            : r
+        )
+      );
+      setDataRegistroFechas((prev) =>
+        prev.map((g) => ({
+          ...g,
+          registros: g.registros.map((r) =>
             (r.direccion || "") === direccion
               ? { ...r, anombrede: newNombre }
               : r
-          )
-        );
-        setDataRegistroFechas((prev) =>
-          prev.map((g) => ({
-            ...g,
-            registros: g.registros.map((r) =>
-              (r.direccion || "") === direccion
-                ? { ...r, anombrede: newNombre }
-                : r
-            ),
-          }))
-        );
-      }
+          ),
+        }))
+      );
 
       return;
     }
