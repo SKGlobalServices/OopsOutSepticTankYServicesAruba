@@ -160,6 +160,13 @@ const getFormattedDateTime = () => {
   return { fecha, hora, timestamp: now.getTime() };
 };
 
+const formatDateEs = (date) => {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(date.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 /**
  * Genera un detalle legible del cambio.
  */
@@ -210,6 +217,9 @@ const registrarCambio = async ({
   valorAnterior,
   valorNuevo,
   extra,
+  fechaRegistro,
+  direccionRegistro,
+  anombredeRegistro,
 }) => {
   try {
     const adminUser = getAdminUser();
@@ -224,6 +234,13 @@ const registrarCambio = async ({
     const valorAnteriorLegible = campo ? await resolverValor(campo, valorAnterior) : valorAnterior;
     const valorNuevoLegible = campo ? await resolverValor(campo, valorNuevo) : valorNuevo;
 
+    const metadata = {
+      fechaRegistro: cleanAuditText(fechaRegistro),
+      direccionRegistro: cleanAuditText(direccionRegistro),
+      anombredeRegistro: cleanAuditText(anombredeRegistro),
+    };
+    const extraSanitizado = sanitizeExtraWithMetadata(extra, metadata);
+
     const registro = {
       timestamp,
       fecha,
@@ -237,7 +254,10 @@ const registrarCambio = async ({
       campo: campoLabel || null,
       valorAnterior: serializeAuditValue(valorAnteriorLegible),
       valorNuevo: serializeAuditValue(valorNuevoLegible),
-      detalle: generarDetalle(accionNormalizada, modulo, campoLabel, valorAnteriorLegible, valorNuevoLegible, extra),
+      fechaRegistro: metadata.fechaRegistro,
+      direccionRegistro: metadata.direccionRegistro,
+      anombredeRegistro: metadata.anombredeRegistro,
+      detalle: generarDetalle(accionNormalizada, modulo, campoLabel, valorAnteriorLegible, valorNuevoLegible, extraSanitizado),
     };
 
     const historialRef = ref(database, "historialcambios");
@@ -264,6 +284,133 @@ const handleAuditLogError = (context, error) => {
   console.error(`[auditLogger] Falló ${context}:`, error);
 };
 
+const getSnapshotDataSafe = async (dbRef) => {
+  try {
+    const snap = await get(dbRef);
+    return snap.exists() ? snap.val() : null;
+  } catch (error) {
+    handleAuditLogError("lectura de snapshot previo", error);
+    return null;
+  }
+};
+
+const cleanAuditText = (value) => {
+  if (value === undefined || value === null) return null;
+  const asText = String(value).trim();
+  return asText ? asText : null;
+};
+
+const getRelativeFechaRegistroFromPath = (path) => {
+  const root = getPathParts(path)[0];
+  if (!root) return null;
+
+  const now = new Date();
+  const todayRoots = new Set(["data", "homepage", "hojadeservicios"]);
+  const tomorrowRoots = new Set(["hojamanana", "hojamañana"]);
+  const dayAfterRoots = new Set(["hojapasadomanana", "hojapasadomañana"]);
+
+  if (todayRoots.has(root)) return formatDateEs(now);
+  if (tomorrowRoots.has(root)) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    return formatDateEs(d);
+  }
+  if (dayAfterRoots.has(root)) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 2);
+    return formatDateEs(d);
+  }
+  return null;
+};
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const sanitizeExtraWithMetadata = (extra, metadata) => {
+  if (extra === undefined || extra === null) return extra;
+
+  const { direccionRegistro, anombredeRegistro, fechaRegistro } = metadata || {};
+  let text = String(extra);
+
+  if (direccionRegistro) {
+    const dirEscaped = escapeRegExp(direccionRegistro);
+    text = text.replace(new RegExp(`\\s*[-|,:]?\\s*Direcci[oó]n\\s*:\\s*${dirEscaped}\\s*`, "ig"), " ");
+    text = text.replace(new RegExp(`\\s*[-|,:]?\\s*${dirEscaped}\\s*`, "ig"), " ");
+  }
+
+  if (anombredeRegistro) {
+    const nombreEscaped = escapeRegExp(anombredeRegistro);
+    text = text.replace(new RegExp(`\\s*[-|,:]?\\s*A\\s*Nombre\\s*De\\s*:\\s*${nombreEscaped}\\s*`, "ig"), " ");
+    text = text.replace(new RegExp(`\\s*[-|,:]?\\s*${nombreEscaped}\\s*`, "ig"), " ");
+  }
+
+  if (fechaRegistro) {
+    const fechaEscaped = escapeRegExp(fechaRegistro);
+    text = text.replace(new RegExp(`\\s*[-|,:]?\\s*Fecha(?:\\s+del\\s+registro)?\\s*:\\s*${fechaEscaped}\\s*`, "ig"), " ");
+  }
+
+  // Quitar ruido redundante de servicio en el detalle cuando viene dentro de extra
+  // Ejemplos: "Servicio: Tuberia", "Servicio: Poso + Tuberia"
+  text = text.replace(/\s*[-|,:]?\s*Servicio\s*:\s*[^|,;]+/ig, " ");
+  text = text.replace(/\s*[-|,:]?\s*Tipo\s+de\s+Servicio\s*:\s*[^|,;]+/ig, " ");
+
+  text = text
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s*\|\s*\|\s*/g, " | ")
+    .replace(/^[\s|,;:-]+|[\s|,;:-]+$/g, "")
+    .trim();
+
+  return text || null;
+};
+
+const getPathFechaRegistro = (path) => {
+  const parts = getPathParts(path);
+  if (parts[0] === "registrofechas" && parts[1]) {
+    return cleanAuditText(parts[1]);
+  }
+  return null;
+};
+
+const getMetaFromData = (data) => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return {
+      fechaRegistro: null,
+      direccionRegistro: null,
+      anombredeRegistro: null,
+    };
+  }
+
+  return {
+    fechaRegistro: cleanAuditText(
+      data.fechaRegistro || data.fecha || data.fechaServicioItem || data.fechaEmision || null
+    ),
+    direccionRegistro: cleanAuditText(data.direccion || null),
+    anombredeRegistro: cleanAuditText(data.anombrede || data.billTo || null),
+  };
+};
+
+const resolveRegistroMetadata = (path, auditInfo = {}, data = null) => {
+  const info = normalizeAuditInfo(auditInfo);
+  const dataMeta = getMetaFromData(data);
+  const prevMeta = getMetaFromData(info.prevData);
+
+  return {
+    fechaRegistro:
+      cleanAuditText(info.fechaRegistro || info.fechaDelRegistro || info.fecha_registro) ||
+      dataMeta.fechaRegistro ||
+      prevMeta.fechaRegistro ||
+      getPathFechaRegistro(path) ||
+      getRelativeFechaRegistroFromPath(path),
+    direccionRegistro:
+      cleanAuditText(info.direccionRegistro || info.direccion_registro || info.direccion) ||
+      dataMeta.direccionRegistro ||
+      prevMeta.direccionRegistro,
+    anombredeRegistro:
+      cleanAuditText(info.anombredeRegistro || info.anombrede_registro || info.anombrede) ||
+      dataMeta.anombredeRegistro ||
+      prevMeta.anombredeRegistro,
+  };
+};
+
 /**
  * Wrapper para bulk multi-path update() que registra UN ÚNICO registro de auditoría de resumen.
  * Usar cuando una sola acción del usuario actualiza N rutas/claves en Firebase (ej: guardar
@@ -287,6 +434,7 @@ export const auditBulkUpdate = async (updates, auditInfo) => {
 
   const keys = Object.keys(updates);
   if (keys.length === 0) return;
+  const registroMeta = resolveRegistroMetadata(keys[0], info, updates[keys[0]]);
 
   // Registrar UN único resumen (fire-and-forget)
   registrarCambio({
@@ -295,6 +443,7 @@ export const auditBulkUpdate = async (updates, auditInfo) => {
     accion: "editar",
     registroId: info.registroId || "N/A",
     extra: info.extra,
+    ...registroMeta,
   }).catch((error) => handleAuditLogError("registro de actualización masiva", error));
 };
 
@@ -320,6 +469,17 @@ export const auditUpdate = async (path, updates, auditInfo) => {
   const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
 
+  let prevDataForAudit = info.prevData;
+  if (!prevDataForAudit) {
+    prevDataForAudit = await getSnapshotDataSafe(dbRef);
+  }
+
+  const infoWithPrev = {
+    ...info,
+    prevData: prevDataForAudit || info.prevData,
+  };
+  const registroMeta = resolveRegistroMetadata(path, infoWithPrev, updates);
+
   // Ejecutar la operación principal primero
   await update(dbRef, updates);
 
@@ -330,7 +490,7 @@ export const auditUpdate = async (path, updates, auditInfo) => {
 
   // Registrar cada campo cambiado (fire-and-forget, no bloquea)
   for (const [campo, valorNuevo] of Object.entries(updates)) {
-    const valorAnterior = info.prevData ? info.prevData[campo] : undefined;
+    const valorAnterior = infoWithPrev.prevData ? infoWithPrev.prevData[campo] : undefined;
 
     // Solo registrar si el valor realmente cambió
     if (valorAnterior !== undefined && String(valorAnterior) === String(valorNuevo)) {
@@ -341,11 +501,12 @@ export const auditUpdate = async (path, updates, auditInfo) => {
       modulo: info.modulo || "Sistema",
       nodoFirebase: getNodoFirebaseFromPath(path),
       accion: "editar",
-      registroId: getRegistroIdFromPath(path, info),
+      registroId: getRegistroIdFromPath(path, infoWithPrev),
       campo,
       valorAnterior,
       valorNuevo,
-      extra: info.extra,
+      extra: infoWithPrev.extra,
+      ...registroMeta,
     }).catch((error) => handleAuditLogError("registro de actualización", error));
   }
 };
@@ -365,6 +526,7 @@ export const auditCreate = async (path, data, auditInfo) => {
     throw new Error("auditCreate requiere un path válido.");
   }
   const info = normalizeAuditInfo(auditInfo);
+  const registroMeta = resolveRegistroMetadata(path, info, data);
   const dbRef = ref(database, path);
   const newRef = push(dbRef);
 
@@ -377,6 +539,7 @@ export const auditCreate = async (path, data, auditInfo) => {
     accion: "crear",
     registroId: newRef.key || getRegistroIdFromPath(path, info),
     extra: info.extra,
+    ...registroMeta,
   }).catch((error) => handleAuditLogError("registro de creación", error));
 
   return newRef;
@@ -399,16 +562,33 @@ export const auditSet = async (path, data, auditInfo) => {
   }
   const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
+
+  let prevDataForAudit = info.prevData;
+  if (data === null && !prevDataForAudit) {
+    prevDataForAudit = await getSnapshotDataSafe(dbRef);
+  }
+
+  const infoWithPrev = {
+    ...info,
+    prevData: prevDataForAudit || info.prevData,
+  };
+  const registroMeta = resolveRegistroMetadata(
+    path,
+    infoWithPrev,
+    data === null ? prevDataForAudit : data
+  );
+
   await set(dbRef, data);
 
   // Fire-and-forget: no bloquea la operación principal
-  const accion = info.accion || (data === null ? "eliminar" : "crear");
+  const accion = infoWithPrev.accion || (data === null ? "eliminar" : "crear");
   registrarCambio({
-    modulo: info.modulo || "Sistema",
+    modulo: infoWithPrev.modulo || "Sistema",
     nodoFirebase: getNodoFirebaseFromPath(path),
     accion,
-    registroId: getRegistroIdFromPath(path, info),
-    extra: info.extra,
+    registroId: getRegistroIdFromPath(path, infoWithPrev),
+    extra: infoWithPrev.extra,
+    ...registroMeta,
   }).catch((error) => handleAuditLogError("registro en set", error));
 };
 
@@ -428,15 +608,27 @@ export const auditRemove = async (path, auditInfo) => {
   const info = normalizeAuditInfo(auditInfo);
   const dbRef = ref(database, path);
 
+  let prevDataForAudit = info.prevData;
+  if (!prevDataForAudit) {
+    prevDataForAudit = await getSnapshotDataSafe(dbRef);
+  }
+
+  const infoWithPrev = {
+    ...info,
+    prevData: prevDataForAudit || info.prevData,
+  };
+  const registroMeta = resolveRegistroMetadata(path, infoWithPrev, prevDataForAudit);
+
   await remove(dbRef);
 
   // Fire-and-forget: no bloquea la operación principal
   registrarCambio({
-    modulo: info.modulo || "Sistema",
+    modulo: infoWithPrev.modulo || "Sistema",
     nodoFirebase: getNodoFirebaseFromPath(path),
     accion: "eliminar",
-    registroId: getRegistroIdFromPath(path, info),
-    extra: info.extra,
+    registroId: getRegistroIdFromPath(path, infoWithPrev),
+    extra: infoWithPrev.extra,
+    ...registroMeta,
   }).catch((error) => handleAuditLogError("registro de eliminación", error));
 };
 
