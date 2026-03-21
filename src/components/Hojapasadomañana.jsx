@@ -362,7 +362,10 @@ const Hojapasadomañana = () => {
 
   // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
   const loadClientFields = (direccion, dataId) => {
-    const cli = clients.find((c) => c.direccion === direccion);
+    const normalizedDireccion = (direccion || "").trim().toLowerCase();
+    const cli = clients.find(
+      (c) => (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+    );
     const currentItem = data.find(([iid]) => iid === dataId);
     const prevData = currentItem ? currentItem[1] : {};
     if (cli) {
@@ -401,28 +404,8 @@ const Hojapasadomañana = () => {
         )
       );
     } else {
-      // si no existe, limpia los tres campos
-      auditUpdate(`hojapasadomañana/${dataId}`, { cubicos: "", valor: "", anombrede: "" }, {
-        modulo: "Servicios Pasado Mañana",
-        registroId: dataId,
-        prevData,
-        extra: `Limpieza de campos - dirección no encontrada: ${direccion}`,
-      }).catch(console.error);
-      // Limpiar localValues para que la UI refleje los nuevos valores
-      setLocalValues((prev) => {
-        const next = { ...prev };
-        delete next[`${dataId}_cubicos`];
-        delete next[`${dataId}_valor`];
-        delete next[`${dataId}_anombrede`];
-        return next;
-      });
-      setData((d) =>
-        d.map(([iid, it]) =>
-          iid === dataId
-            ? [iid, { ...it, cubicos: "", valor: "", anombrede: "" }]
-            : [iid, it]
-        )
-      );
+      // Si no existe cliente para la dirección, conservar datos ya ingresados.
+      return;
     }
   };
 

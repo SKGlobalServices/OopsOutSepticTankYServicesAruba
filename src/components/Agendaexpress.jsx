@@ -278,14 +278,16 @@ const AgendaExpress = () => {
 
     // Cuando cambie la dirección, carga automáticamente 'cubicos'
     useEffect(() => {
-  const cli = clients.find((c) => c.direccion === data.direccion);
-  if (cli && cli.cubicos != null) {
-    setData((d) => ({ ...d, cubicos: cli.cubicos }));
-  } else if (data.direccion.trim() !== "") {
-    // Si no encuentra el cliente pero hay una dirección, poner cubicos en 0
-    setData((d) => ({ ...d, cubicos: 0 }));
-  }
-}, [data.direccion, clients]);
+      const normalizedDireccion = (data.direccion || "").trim().toLowerCase();
+      const cli = clients.find(
+        (c) =>
+          (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+      );
+
+      if (cli && cli.cubicos != null) {
+        setData((d) => ({ ...d, cubicos: cli.cubicos }));
+      }
+    }, [data.direccion, clients]);
 
     const campo = campos[step];
     const props = { accent, onEnter: next, onEsc: prev };
