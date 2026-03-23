@@ -333,7 +333,9 @@ const HistorialCambios = () => {
         </div>
 
         <div className="homepage-card">
-          <div
+
+            {/* boton opcional para eliminar el historial */}
+          {/* <div
             style={{
               display: "flex",
               justifyContent: "flex-end",
@@ -356,7 +358,7 @@ const HistorialCambios = () => {
             >
               {isDeleting ? "Eliminando..." : "Eliminar Todo el Historial"}
             </button>
-          </div>
+          </div> */}
 
           <div className="table-container">
             <table className="service-table">
