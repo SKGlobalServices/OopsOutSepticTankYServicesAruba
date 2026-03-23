@@ -34,7 +34,7 @@ const Deducciones = () => {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Estados locales para campos editables (onBlur)
   const [localValues, setLocalValues] = useState({});
@@ -574,15 +574,16 @@ const Deducciones = () => {
               Mostrando {startIndex + 1} a {Math.min(endIndex, totalItems)} de{" "}
               {totalItems} registros
             </span>
+            <div className="items-per-page">
             <select
               value={itemsPerPage}
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="items-per-page-select"
             >
-              <option value={25}>25 por página</option>
-              <option value={50}>50 por página</option>
-              <option value={100}>100 por página</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
             </select>
+            </div>
           </div>
 
           <div className="pagination-controls">

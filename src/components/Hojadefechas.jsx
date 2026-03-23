@@ -71,7 +71,7 @@ const Hojadefechas = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   // Estados para filtros de dirección
   const [addrChecklistOpen, setAddrChecklistOpen] = useState(false);
   const [addrSearch, setAddrSearch] = useState("");
@@ -4737,6 +4737,7 @@ const Hojadefechas = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>
