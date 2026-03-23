@@ -399,7 +399,6 @@ const Pagosmensuales = () => {
 
   // Eliminar registro
   const handleDelete = (itemId, itemData) => {
-    console.log(itemData);
     Swal.fire({
       title: "¿Eliminar registro?",
       text: "Esta acción no se puede deshacer.",
