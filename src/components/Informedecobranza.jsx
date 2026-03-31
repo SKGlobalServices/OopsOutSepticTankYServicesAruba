@@ -8,6 +8,7 @@ import React, {
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
 import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
+import { decryptData } from "../utils/security";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
@@ -122,6 +123,7 @@ const Informedecobranza = () => {
   const [loadedConfirmacion, setLoadedConfirmacion] = useState(false);
   const [loadedEfectivo, setLoadedEfectivo] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedConteoEfectivo, setLoadedConteoEfectivo] = useState(false);
 
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -133,6 +135,7 @@ const Informedecobranza = () => {
   const [confirmacionRows, setConfirmacionRows] = useState([]);
   const [efectivoRows, setEfectivoRows] = useState([]);
   const [clients, setClients] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // Estado para conteo de efectivo
   const [conteoEfectivo, setConteoEfectivo] = useState({});
@@ -284,6 +287,19 @@ const Informedecobranza = () => {
     };
   }, []);
 
+  // ===== Cargar usuarios
+  useEffect(() => {
+    const dbRef = ref(database, "users");
+    const unsub = onValue(dbRef, (snap) => {
+      if (!snap.exists()) { setUsers([]); setLoadedUsers(true); return; }
+      const arr = Object.entries(snap.val())
+        .map(([id, u]) => ({ id, name: u.name || "" }));
+      setUsers(arr);
+      setLoadedUsers(true);
+    });
+    return unsub;
+  }, []);
+
   // ===== Cargar clientes (para datalist de direcciones)
   useEffect(() => {
     const dbRef = ref(database, "clientes");
@@ -310,6 +326,7 @@ const Informedecobranza = () => {
       loadedConfirmacion &&
       loadedEfectivo &&
       loadedClients &&
+      loadedUsers &&
       loadedConteoEfectivo
     ) {
       setLoading(false);
@@ -319,6 +336,7 @@ const Informedecobranza = () => {
     loadedConfirmacion,
     loadedEfectivo,
     loadedClients,
+    loadedUsers,
     loadedConteoEfectivo,
   ]);
 
@@ -376,10 +394,18 @@ const Informedecobranza = () => {
     [pendientesRows]
   );
 
+  const getUserName = useCallback(
+    (userId) => users.find((u) => u.id === userId)?.name || "",
+    [users]
+  );
+
   const move2to3 = useCallback(
     async (rowId) => {
       const row = confirmacionRows.find((r) => r.id === rowId);
       if (!row) return;
+
+      const userData = decryptData(localStorage.getItem("user"));
+      const recibidopor = userData?.id || "";
 
       const newRef = push(ref(database, "cobranzaefectivo"));
       await Promise.all([
@@ -389,6 +415,7 @@ const Informedecobranza = () => {
           notas: (row.notas || "").trim(),
           fecha: fmtHoy(),
           timestamp: new Date().toISOString(),
+          recibidopor,
         }, {
           modulo: "Informe de Cobranza",
           accion: "crear",
@@ -433,35 +460,6 @@ const Informedecobranza = () => {
       ]);
     },
     [confirmacionRows]
-  );
-
-  const move3to2 = useCallback(
-    async (rowId) => {
-      const row = efectivoRows.find((r) => r.id === rowId);
-      if (!row) return;
-
-      const newRef = push(ref(database, "cobranzaconfirmacion"));
-      await Promise.all([
-        auditSet(`cobranzaconfirmacion/${newRef.key}`, {
-          direccion: (row.direccion || "").trim(),
-          valor: (row.valor || "").toString().trim(),
-          notas: (row.notas || "").trim(),
-          timestamp: new Date().toISOString(),
-        }, {
-          modulo: "Informe de Cobranza",
-          accion: "crear",
-          registroId: newRef.key,
-          extra: "Efectivo → Confirmación",
-        }),
-        auditSet(`cobranzaefectivo/${rowId}`, null, {
-          modulo: "Informe de Cobranza",
-          accion: "eliminar",
-          registroId: rowId,
-          extra: "Efectivo → Confirmación",
-        }),
-      ]);
-    },
-    [efectivoRows]
   );
 
   // ======================
@@ -1395,12 +1393,12 @@ const Informedecobranza = () => {
               <table className="service-table">
                 <thead>
                   <tr className="thead-success">
-                    <th colSpan={7}>
+                    <th colSpan={8}>
                       EFECTIVO RECIBIDO - Total: {formatMoney(totalEfectivo)}
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ width: "5%" }}>Volver</th>
+                    <th style={{ width: "10%" }}>Recibido por</th>
                     <th style={{ width: "12%" }}>Fecha</th>
                     <th style={{ width: "30%" }}>Dirección/Nota</th>
                     <th style={{ width: "12%" }}>Monto</th>
@@ -1413,7 +1411,7 @@ const Informedecobranza = () => {
                   {paginatedEfectivo.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center"
                         style={{ color: "#888" }}
                       >
@@ -1423,14 +1421,8 @@ const Informedecobranza = () => {
                   ) : (
                     paginatedEfectivo.map((r) => (
                       <tr key={r.id}>
-                        <td className="text-center">
-                          <button
-                            className="filter-button btn-xs"
-                            onClick={() => move3to2(r.id)}
-                            title="Devolver a Confirmación"
-                          >
-                            ←
-                          </button>
+                        <td className="text-center" style={{ minWidth: "8ch", fontSize: "11px" }}>
+                          {getUserName(r.recibidopor)}
                         </td>
                         <td>
                           <input

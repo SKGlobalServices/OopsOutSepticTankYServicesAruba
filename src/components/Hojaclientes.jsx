@@ -16,6 +16,7 @@ const Clientes = () => {
   const [data, setData] = useState([]);
   const [directions, setDirections] = useState([]);
   const [names, setNames] = useState([]);
+  const [phones, setPhones] = useState([]);
   const [selectedClientes, setSelectedClientes] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -37,6 +38,7 @@ const Clientes = () => {
     cubicosMax: "",
     valorMin: "",
     valorMax: "",
+    telefono: [],
   });
 
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,7 @@ const Clientes = () => {
         const fetchedData = [];
         const uniqueDirections = new Set();
         const uniqueNames = new Set();
+        const uniquePhones = new Set();
 
         Object.entries(snapshot.val()).forEach(([id, cliente]) => {
           const direccion = cliente.direccion || "";
@@ -61,9 +64,15 @@ const Clientes = () => {
             valor: cliente.valor || 0,
             email: cliente.email || "",
             notas: cliente.notas || "",
+            telefono1: cliente.telefono1 || "",
+            telefono2: cliente.telefono2 || "",
+            telefono3: cliente.telefono3 || "",
+            telefono4: cliente.telefono4 || "",
+            telefono5: cliente.telefono5 || "",
           });
           if (direccion) uniqueDirections.add(direccion);
           if (anombrede) uniqueNames.add(anombrede);
+          [1,2,3,4,5].forEach((n) => { if (cliente[`telefono${n}`]) uniquePhones.add(cliente[`telefono${n}`]); });
         });
 
         // Ordenamiento por “Nuevo Cliente” y luego alfabético
@@ -80,10 +89,12 @@ const Clientes = () => {
         setData(fetchedData);
         setDirections(Array.from(uniqueDirections));
         setNames(Array.from(uniqueNames));
+        setPhones(Array.from(uniquePhones));
       } else {
         setData([]);
         setDirections([]);
         setNames([]);
+        setPhones([]);
       }
       setLoading(false);
     });
@@ -113,6 +124,7 @@ const Clientes = () => {
       cubicosMax: "",
       valorMin: "",
       valorMax: "",
+      telefono: [],
     });
     setCurrentPage(1); // Resetear a página 1 cuando se limpian filtros
   };
@@ -419,6 +431,12 @@ const Clientes = () => {
       const valorMax = filter.valorMax ? Number(filter.valorMax) : null;
       return (!valorMin || valor >= valorMin) && (!valorMax || valor <= valorMax);
     })
+    .filter((c) => {
+      if (!filter.telefono.length) return true;
+      return filter.telefono.some((t) =>
+        [1,2,3,4,5].some((n) => c[`telefono${n}`] === t)
+      );
+    })
     .sort((a, b) => {
       const aIsNew = a.direccion.startsWith("Nuevo Cliente");
       const bIsNew = b.direccion.startsWith("Nuevo Cliente");
@@ -554,6 +572,15 @@ const Clientes = () => {
             style={{ width: "10ch" }}
           />
         </div>
+        <label>Teléfono</label>
+        <Select
+          isClearable
+          isMulti
+          options={phones.map((p) => ({ value: p, label: p }))}
+          placeholder="Selecciona teléfono(s)..."
+          onChange={(sel) => setFilter((prev) => ({ ...prev, telefono: sel ? sel.map((o) => o.value) : [] }))}
+          value={filter.telefono.map((p) => ({ value: p, label: p }))}
+        />
         <button className="discard-filter-button" onClick={resetFilters}>
           Descartar Filtros
         </button>
@@ -585,6 +612,21 @@ const Clientes = () => {
                 <th>Email</th>
                 <th>
                   Notas
+                </th>
+                <th>
+                  Telefono 1
+                </th>
+                <th>
+                  Telefono 2
+                </th>
+                <th>
+                  Telefono 3
+                </th>
+                <th>
+                  Telefono 4
+                </th>
+                <th>
+                  Telefono 5
                 </th>
               </tr>
             </thead>
@@ -736,6 +778,26 @@ const Clientes = () => {
                         )}
                       </button>
                     </td>
+                    {[1,2,3,4,5].map((n) => (
+                      <td key={n}>
+                        <input
+                          type="tel"
+                          style={{ textAlign: "center", width: "14ch" }}
+                          value={localValues[`${cliente.id}_telefono${n}`] ?? cliente[`telefono${n}`] ?? ""}
+                          onChange={(e) =>
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${cliente.id}_telefono${n}`]: e.target.value
+                            }))
+                          }
+                          onBlur={(e) => {
+                            if (e.target.value !== (cliente[`telefono${n}`] || "")) {
+                              handleFieldChange(cliente.id, `telefono${n}`, e.target.value);
+                            }
+                          }}
+                        />
+                      </td>
+                    ))}
                   </tr>
                 ))
               ) : (

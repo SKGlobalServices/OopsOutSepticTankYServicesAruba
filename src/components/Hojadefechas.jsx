@@ -4242,6 +4242,7 @@ const Hojadefechas = () => {
                           <option value="Grease Trap">Grease Trap</option>
                           <option value="Water">Water</option>
                           <option value="Pool">Pool</option>
+                          <option value="Servicio">Servicio</option>
                         </select>
                       </td>
 
