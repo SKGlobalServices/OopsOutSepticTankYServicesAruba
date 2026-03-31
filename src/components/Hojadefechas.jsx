@@ -5,6 +5,7 @@ import {
   set,
   push,
   update,
+  get,
   remove,
   onValue,
   runTransaction,
@@ -23,6 +24,7 @@ import guardarfactura from "../assets/img/guardarfactura_icon.jpg";
 import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 import FacturaViewEdit from "./FacturaViewEdit";
+import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -245,6 +247,9 @@ const Hojadefechas = () => {
       } else {
         setDataRegistroFechas([]);
       }
+    }, (error) => {
+      console.error("Error en registrofechas listener:", error);
+      setLoadedRegistro(true);
     });
     // Aquí devolvemos la función unsubscribe para limpiar el listener
     return unsubscribe;
@@ -271,6 +276,9 @@ const Hojadefechas = () => {
       } else {
         setDataBranch([]);
       }
+    }, (error) => {
+      console.error("Error en data listener:", error);
+      setLoadedData(true);
     });
 
     // Aquí devolvemos directamente la función unsubscribe
@@ -306,6 +314,9 @@ const Hojadefechas = () => {
         setAllUsers([]);
         setUsers([]);
       }
+    }, (error) => {
+      console.error("Error en users listener:", error);
+      setLoadedUsers(true);
     });
     // limpia el listener al desmontar
     return unsubscribe;
@@ -330,6 +341,9 @@ const Hojadefechas = () => {
       } else {
         setClients([]);
       }
+    }, (error) => {
+      console.error("Error en clientes listener:", error);
+      setLoadedClients(true);
     });
 
     // limpia el listener al desmontar
@@ -347,6 +361,9 @@ const Hojadefechas = () => {
         setFacturas({});
         setLoadedFacturas(true);
       }
+    }, (error) => {
+      console.error("Error en facturas listener:", error);
+      setLoadedFacturas(true);
     });
 
     return unsubscribe;
@@ -846,8 +863,13 @@ const Hojadefechas = () => {
           horaTraslado: horaTraslado,
         };
 
-        const itemRef = ref(database, `clientesnuevos/${reg.id}`);
-        return set(itemRef, copy);
+        // const itemRef = ref(database, `clientesnuevos/${reg.id}`);
+        return auditSet(`clientesnuevos/${reg.id}`, copy, {
+          modulo: "Agenda Dinámica",
+          registroId: reg.id,
+          accion: "crear",
+          extra: `Enviado a Clientes Nuevos: ${reg.direccion || " - "}`,
+        });
       });
 
       await Promise.all(writes);
@@ -938,8 +960,12 @@ const Hojadefechas = () => {
         };
 
         // path por ID (sin fecha)
-        const itemRef = ref(database, `cobranzapendientes/${reg.id}`);
-        return set(itemRef, copy); // sobrescribe/crea
+        return auditSet(`cobranzapendientes/${reg.id}`, copy, {
+          modulo: "Agenda Dinámica",
+          registroId: reg.id,
+          accion: "crear",
+          extra: `Enviado a Cobranza: ${reg.direccion || " - "}`,
+        });
       });
 
       await Promise.all(writes);
@@ -972,16 +998,13 @@ const Hojadefechas = () => {
     const path = fromData
       ? `data/${registroId}`
       : `registrofechas/${fecha}/${registroId}`;
-    const dbRefItem = ref(database, path);
 
     // Eliminar la edición de fecha: si el campo es 'fecha', no hacer nada
     if (field === "fecha") {
       return;
     }
 
-    update(dbRefItem, { [field]: safeValue }).catch(console.error);
-
-    // 2) Obtener el registro local (para recálculos)
+    // 2) Obtener el registro local ANTES del update (para audit/recálculos)
     const registro = fromData
       ? dataBranch.find((r) => r.id === registroId) || {}
       : dataRegistroFechas
@@ -994,9 +1017,14 @@ const Hojadefechas = () => {
       const rate = parseFloat(registro.rate) || 0;
       const newAmount = newQty * rate;
 
-      update(dbRefItem, {
+      auditUpdate(path, {
         qty: newQty,
         amount: parseFloat(newAmount.toFixed(2)),
+      }, {
+        modulo: "Agenda Dinámica",
+        registroId,
+        prevData: registro,
+        extra: "Recalculado por cambio de cantidad",
       }).catch(console.error);
 
       const updater = (r) =>
@@ -1022,9 +1050,14 @@ const Hojadefechas = () => {
       const qty = parseFloat(registro.qty) || 0;
       const newAmount = newRate * qty;
 
-      update(dbRefItem, {
+      auditUpdate(path, {
         rate: parseFloat(newRate.toFixed(2)),
         amount: parseFloat(newAmount.toFixed(2)),
+      }, {
+        modulo: "Agenda Dinámica",
+        registroId,
+        prevData: registro,
+        extra: "Recalculado por cambio de tarifa",
       }).catch(console.error);
 
       const updater = (r) =>
@@ -1064,34 +1097,29 @@ const Hojadefechas = () => {
 
             if (safeValue === "Pago") {
               // Marcar como pagada: payment = totalAmount, deuda = 0
-              const facturaSnapshot = await new Promise((resolve) => {
-                onValue(facturaRef, resolve, { onlyOnce: true });
-              });
+              const facturaSnapshot = await get(facturaRef);
 
               if (facturaSnapshot.exists()) {
                 const facturaData = facturaSnapshot.val();
                 const fechaPagoFinal = new Date().toISOString().split("T")[0];
 
-                await update(facturaRef, {
+                await auditUpdate(`facturas/${registro.numerodefactura}`, {
                   payment: facturaData.totalAmount,
                   deuda: 0,
                   pago: "Pago",
                   fechapago: fechaPagoFinal,
+                }, {
+                  modulo: "Agenda Dinámica",
+                  registroId: registro.numerodefactura,
+                  prevData: facturaData,
+                  extra: "Factura marcada como pagada",
                 });
 
                 // Actualizar todos los servicios asociados a esta factura
                 const [dataSnapshot, registroFechasSnapshot] =
                   await Promise.all([
-                    new Promise((resolve) =>
-                      onValue(ref(database, "data"), resolve, {
-                        onlyOnce: true,
-                      })
-                    ),
-                    new Promise((resolve) =>
-                      onValue(ref(database, "registrofechas"), resolve, {
-                        onlyOnce: true,
-                      })
-                    ),
+                    get(ref(database, "data")),
+                    get(ref(database, "registrofechas")),
                   ]);
 
                 const serviciosAsociados = [];
@@ -1140,9 +1168,13 @@ const Hojadefechas = () => {
                       ? `data/${servicio.id}`
                       : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-                  return update(ref(database, path), {
+                  return auditUpdate(path, {
                     pago: "Pago",
                     fechapago: fechaPagoFinal,
+                  }, {
+                    modulo: "Agenda Dinámica",
+                    registroId: servicio.id,
+                    extra: `Factura #${registro.numerodefactura} marcada como pagada`,
                   });
                 });
 
@@ -1153,33 +1185,28 @@ const Hojadefechas = () => {
               }
             } else {
               // Desmarcar como pagada: payment = 0, deuda = totalAmount
-              const facturaSnapshot = await new Promise((resolve) => {
-                onValue(facturaRef, resolve, { onlyOnce: true });
-              });
+              const facturaSnapshot = await get(facturaRef);
 
               if (facturaSnapshot.exists()) {
                 const facturaData = facturaSnapshot.val();
 
-                await update(facturaRef, {
+                await auditUpdate(`facturas/${registro.numerodefactura}`, {
                   payment: 0,
                   deuda: facturaData.totalAmount,
                   pago: "Debe",
                   fechapago: null,
+                }, {
+                  modulo: "Agenda Dinámica",
+                  registroId: registro.numerodefactura,
+                  prevData: facturaData,
+                  extra: "Factura marcada como debe",
                 });
 
                 // Actualizar todos los servicios asociados
                 const [dataSnapshot, registroFechasSnapshot] =
                   await Promise.all([
-                    new Promise((resolve) =>
-                      onValue(ref(database, "data"), resolve, {
-                        onlyOnce: true,
-                      })
-                    ),
-                    new Promise((resolve) =>
-                      onValue(ref(database, "registrofechas"), resolve, {
-                        onlyOnce: true,
-                      })
-                    ),
+                    get(ref(database, "data")),
+                    get(ref(database, "registrofechas")),
                   ]);
 
                 const serviciosAsociados = [];
@@ -1228,9 +1255,13 @@ const Hojadefechas = () => {
                       ? `data/${servicio.id}`
                       : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-                  return update(ref(database, path), {
+                  return auditUpdate(path, {
                     pago: safeValue,
                     fechapago: null,
+                  }, {
+                    modulo: "Agenda Dinámica",
+                    registroId: servicio.id,
+                    extra: `Factura #${registro.numerodefactura} marcada como debe`,
                   });
                 });
 
@@ -1264,7 +1295,11 @@ const Hojadefechas = () => {
       }
 
       // Actualizar en Firebase
-      update(dbRefItem, updates).catch(console.error);
+      auditUpdate(path, updates, {
+        modulo: "Agenda Dinámica",
+        registroId,
+        prevData: registro,
+      }).catch(console.error);
 
       // Actualizar estado local
       const updater = (r) => (r.id === registroId ? { ...r, ...updates } : r);
@@ -1293,25 +1328,19 @@ const Hojadefechas = () => {
 
       if (registro.numerodefactura) {
         // Actualizar la fecha de pago en la factura
-        const facturaRef = ref(
-          database,
-          `facturas/${registro.numerodefactura}`
-        );
-        update(facturaRef, { fechapago: safeValue }).catch(console.error);
+        auditUpdate(`facturas/${registro.numerodefactura}`, { fechapago: safeValue }, {
+          modulo: "Agenda Dinámica",
+          registroId: registro.numerodefactura || registroId,
+          prevData: { fechapago: facturas[registro.numerodefactura]?.fechapago },
+        }).catch(console.error);
 
         // Actualizar todos los servicios asociados a esta factura
         const actualizarServiciosAsociados = async () => {
           try {
             // Buscar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) =>
-                onValue(ref(database, "data"), resolve, { onlyOnce: true })
-              ),
-              new Promise((resolve) =>
-                onValue(ref(database, "registrofechas"), resolve, {
-                  onlyOnce: true,
-                })
-              ),
+              get(ref(database, "data")),
+              get(ref(database, "registrofechas")),
             ]);
 
             const serviciosAsociados = [];
@@ -1355,7 +1384,11 @@ const Hojadefechas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return update(ref(database, path), { fechapago: safeValue });
+              return auditUpdate(path, { fechapago: safeValue }, {
+                modulo: "Agenda Dinámica",
+                registroId: servicio.id,
+                extra: `Sincronizado fechapago de factura #${registro.numerodefactura}`,
+              });
             });
 
             await Promise.all(updatePromises);
@@ -1386,22 +1419,17 @@ const Hojadefechas = () => {
         const handleFacturaBanco = async () => {
           try {
             // Actualizar el banco en la factura
-            const facturaRef = ref(
-              database,
-              `facturas/${registro.numerodefactura}`
-            );
-            await update(facturaRef, { banco: safeValue });
+            await auditUpdate(`facturas/${registro.numerodefactura}`, { banco: safeValue }, {
+              modulo: "Agenda Dinámica",
+              registroId: registro.numerodefactura,
+              prevData: facturas[registro.numerodefactura],
+              extra: "Banco actualizado desde servicio",
+            });
 
             // Actualizar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) =>
-                onValue(ref(database, "data"), resolve, { onlyOnce: true })
-              ),
-              new Promise((resolve) =>
-                onValue(ref(database, "registrofechas"), resolve, {
-                  onlyOnce: true,
-                })
-              ),
+              get(ref(database, "data")),
+              get(ref(database, "registrofechas")),
             ]);
 
             const serviciosAsociados = [];
@@ -1445,7 +1473,11 @@ const Hojadefechas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return update(ref(database, path), { banco: safeValue });
+              return auditUpdate(path, { banco: safeValue }, {
+                modulo: "Agenda Dinámica",
+                registroId: servicio.id,
+                extra: `Banco sincronizado con factura #${registro.numerodefactura}`,
+              });
             });
 
             await Promise.all(updatePromises);
@@ -1460,7 +1492,11 @@ const Hojadefechas = () => {
         handleFacturaBanco();
       } else {
         // Si no tiene factura, actualizar solo el servicio individual
-        update(dbRefItem, { [field]: safeValue }).catch(console.error);
+        auditUpdate(path, { [field]: safeValue }, {
+          modulo: "Agenda Dinámica",
+          registroId,
+          prevData: registro,
+        }).catch(console.error);
       }
 
       // Actualizar estado local
@@ -1481,160 +1517,47 @@ const Hojadefechas = () => {
       return;
     }
 
-    // 8) Campo especial: "anombrede" → propagar a otros registros con la misma dirección y upsert en 'clientes'
+    // 8) Campo especial: "anombrede" con confirmación de alcance (solo registro o todos por dirección)
     if (field === "anombrede") {
       const newNombre = (safeValue || "").toString();
-      const direccion = registro?.direccion || "";
+      const direccion = (registro?.direccion || "").toString();
 
-      // Si el nuevo nombre está vacío o sólo espacios, no propagar ni crear/actualizar clientes
-      if (!newNombre.trim()) {
-        // Actualizar sólo el registro individual y limpiar localValues para ese id
-        update(dbRefItem, { anombrede: newNombre }).catch(console.error);
-        const updaterSolo = (r) =>
-          r.id === registroId ? { ...r, anombrede: newNombre } : r;
-        if (fromData) {
-          setDataBranch((prev) => prev.map(updaterSolo));
-        } else {
-          setDataRegistroFechas((prev) =>
-            prev.map((g) =>
-              g.fecha === fecha
-                ? { ...g, registros: g.registros.map(updaterSolo) }
-                : g
-            )
-          );
-        }
-        setLocalValues((prev) => {
-          const next = { ...prev };
-          delete next[`${registroId}_anombrede`];
-          return next;
+      let applyToAll = false;
+      if (direccion.trim() && newNombre.trim()) {
+        const decision = await Swal.fire({
+          icon: "question",
+          title: "Actualizar A Nombre De",
+          text: "¿Deseas cambiar todos los campos A Nombre De asociados a esta dirección o solo el registro seleccionado?",
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: "Todos los asociados",
+          denyButtonText: "Solo este registro",
+          cancelButtonText: "Cancelar",
+          reverseButtons: true,
         });
-        return;
-      }
 
-      // 1) Actualizar/Insertar en 'clientes' según la dirección
-      if (direccion) {
-        try {
-          const clientesSnap = await new Promise((resolve) =>
-            onValue(ref(database, "clientes"), resolve, { onlyOnce: true })
-          );
-
-          let clienteId = null;
-          if (clientesSnap.exists()) {
-            const clientesVal = clientesSnap.val();
-            Object.entries(clientesVal).forEach(([cid, c]) => {
-              if ((c.direccion || "") === direccion) clienteId = cid;
-            });
-          }
-
-          if (clienteId) {
-            // Actualizar campo anombrede
-            await update(ref(database, `clientes/${clienteId}`), {
-              anombrede: newNombre,
-            }).catch(console.error);
-          } else {
-            // Crear nuevo cliente con datos mínimos (direccion + anombrede + posibles cubicos/valor)
-            const newClientRef = push(ref(database, "clientes"));
-            await set(newClientRef, {
-              direccion,
-              anombrede: newNombre,
-              cubicos: registro?.cubicos || "",
-              valor: registro?.valor || "",
-            }).catch(console.error);
-          }
-        } catch (err) {
-          console.error("Error actualizando/creando cliente:", err);
-        }
-
-        // 2) Buscar y propagar el nuevo 'anombrede' a todos los servicios que tengan la misma direccion
-        // Declarar variables en scope superior para poder reutilizarlas más abajo
-        let dataSnap;
-        let registroFechasSnap;
-        try {
-          [dataSnap, registroFechasSnap] = await Promise.all([
-            new Promise((resolve) =>
-              onValue(ref(database, "data"), resolve, { onlyOnce: true })
-            ),
-            new Promise((resolve) =>
-              onValue(ref(database, "registrofechas"), resolve, {
-                onlyOnce: true,
-              })
-            ),
-          ]);
-
-          const updatesPromises = [];
-
-          if (dataSnap.exists()) {
-            const dataVal = dataSnap.val();
-            Object.entries(dataVal).forEach(([id, r]) => {
-              if ((r.direccion || "") === direccion && id !== registroId) {
-                updatesPromises.push(
-                  update(ref(database, `data/${id}`), { anombrede: newNombre })
-                );
-              }
-            });
-          }
-
-          if (registroFechasSnap.exists()) {
-            const registroVal = registroFechasSnap.val();
-            Object.entries(registroVal).forEach(([fechaReg, regs]) => {
-              Object.entries(regs).forEach(([id, r]) => {
-                // evitar volver a escribir exactamente el mismo registro si ya es el que editamos
-                if ((r.direccion || "") === direccion) {
-                  if (!(fechaReg === fecha && id === registroId)) {
-                    updatesPromises.push(
-                      update(
-                        ref(database, `registrofechas/${fechaReg}/${id}`),
-                        { anombrede: newNombre }
-                      )
-                    );
-                  }
-                }
-              });
-            });
-          }
-
-          await Promise.all(updatesPromises);
-        } catch (err) {
-          console.error("Error propagando anombrede a servicios:", err);
-        }
-
-        // Limpiar localValues para forzar que los inputs muestren el valor actualizado
-        try {
-          // Recolectar ids afectados: del data y de registrofechas
-          const affectedIds = new Set();
-          if (dataSnap && dataSnap.exists()) {
-            Object.entries(dataSnap.val()).forEach(([id, r]) => {
-              if ((r.direccion || "") === direccion) affectedIds.add(id);
-            });
-          }
-          if (registroFechasSnap && registroFechasSnap.exists()) {
-            Object.entries(registroFechasSnap.val()).forEach(
-              ([fechaReg, regs]) => {
-                Object.entries(regs).forEach(([id, r]) => {
-                  if ((r.direccion || "") === direccion) affectedIds.add(id);
-                });
-              }
-            );
-          }
-
-          // Convertir a array y borrar claves del estado local
-          const idsArray = Array.from(affectedIds);
+        if (decision.isDismissed) {
           setLocalValues((prev) => {
             const next = { ...prev };
-            idsArray.forEach((id) => {
-              delete next[`${id}_anombrede`];
-            });
-            // también borrar el propio registro editado
             delete next[`${registroId}_anombrede`];
             return next;
           });
-        } catch (err) {
-          // No fatal si falla limpiar localValues
-          console.error("Error limpiando localValues tras propagacion:", err);
+          return;
         }
+
+        applyToAll = !!decision.isConfirmed;
       }
 
-      // 3) Actualizar estado local para reflejar el cambio inmediato en UI
+      // Actualizar siempre el registro actual.
+      await auditUpdate(path, { anombrede: newNombre }, {
+        modulo: "Agenda Dinámica",
+        registroId,
+        prevData: registro,
+        extra: applyToAll
+          ? "Cambio de A Nombre De (con propagación)"
+          : "Cambio manual de A Nombre De (solo registro)",
+      }).catch(console.error);
+
       const updaterSelf = (r) =>
         r.id === registroId ? { ...r, anombrede: newNombre } : r;
       if (fromData) {
@@ -1649,32 +1572,163 @@ const Hojadefechas = () => {
         );
       }
 
-      // También actualizar en memoria todos los registros que coincidan por dirección
-      if (direccion) {
-        setDataBranch((prev) =>
-          prev.map((r) =>
+      setLocalValues((prev) => {
+        const next = { ...prev };
+        delete next[`${registroId}_anombrede`];
+        return next;
+      });
+
+      // Si eligió "solo este registro" o no hay dirección/nombre, termina aquí.
+      if (!applyToAll || !direccion.trim() || !newNombre.trim()) {
+        return;
+      }
+
+      // 1) Actualizar/Insertar en 'clientes' según la dirección
+      try {
+        const clientesSnap = await get(ref(database, "clientes"));
+
+        let clienteId = null;
+        if (clientesSnap.exists()) {
+          const clientesVal = clientesSnap.val();
+          Object.entries(clientesVal).forEach(([cid, c]) => {
+            if ((c.direccion || "") === direccion) clienteId = cid;
+          });
+        }
+
+        if (clienteId) {
+          await auditUpdate(`clientes/${clienteId}`, {
+            anombrede: newNombre,
+          }, {
+            modulo: "Agenda Dinámica",
+            registroId: clienteId,
+            extra: "Cliente sincronizado por cambio de A Nombre De",
+          }).catch(console.error);
+        } else {
+          const newClientRef = push(ref(database, "clientes"));
+          await auditSet(`clientes/${newClientRef.key}`, {
+            direccion,
+            anombrede: newNombre,
+            cubicos: registro?.cubicos || "",
+            valor: registro?.valor || "",
+          }, {
+            modulo: "Agenda Dinámica",
+            accion: "crear",
+            registroId: newClientRef.key,
+            extra: "Cliente creado por cambio de A Nombre De",
+          }).catch(console.error);
+        }
+      } catch (err) {
+        console.error("Error actualizando/creando cliente:", err);
+      }
+
+      // 2) Propagar el nuevo 'anombrede' a todos los servicios con la misma dirección (excepto el ya actualizado)
+      let dataSnap;
+      let registroFechasSnap;
+      try {
+        [dataSnap, registroFechasSnap] = await Promise.all([
+          get(ref(database, "data")),
+          get(ref(database, "registrofechas")),
+        ]);
+
+        const updatesPromises = [];
+
+        if (dataSnap.exists()) {
+          const dataVal = dataSnap.val();
+          Object.entries(dataVal).forEach(([id, r]) => {
+            if ((r.direccion || "") === direccion && id !== registroId) {
+              updatesPromises.push(
+                auditUpdate(`data/${id}`, { anombrede: newNombre }, {
+                  modulo: "Agenda Dinámica",
+                  registroId: id,
+                  extra: "Propagación de A Nombre De (todos los asociados)",
+                })
+              );
+            }
+          });
+        }
+
+        if (registroFechasSnap.exists()) {
+          const registroVal = registroFechasSnap.val();
+          Object.entries(registroVal).forEach(([fechaReg, regs]) => {
+            Object.entries(regs).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion) {
+                if (!(fechaReg === fecha && id === registroId)) {
+                  updatesPromises.push(
+                    auditUpdate(`registrofechas/${fechaReg}/${id}`, { anombrede: newNombre }, {
+                      modulo: "Agenda Dinámica",
+                      registroId: id,
+                      extra: "Propagación de A Nombre De (todos los asociados)",
+                    })
+                  );
+                }
+              }
+            });
+          });
+        }
+
+        await Promise.all(updatesPromises);
+      } catch (err) {
+        console.error("Error propagando anombrede a servicios:", err);
+      }
+
+      // 3) Limpiar localValues de registros afectados para reflejar estado actualizado
+      try {
+        const affectedIds = new Set();
+        if (dataSnap && dataSnap.exists()) {
+          Object.entries(dataSnap.val()).forEach(([id, r]) => {
+            if ((r.direccion || "") === direccion) affectedIds.add(id);
+          });
+        }
+        if (registroFechasSnap && registroFechasSnap.exists()) {
+          Object.entries(registroFechasSnap.val()).forEach(([, regs]) => {
+            Object.entries(regs).forEach(([id, r]) => {
+              if ((r.direccion || "") === direccion) affectedIds.add(id);
+            });
+          });
+        }
+
+        const idsArray = Array.from(affectedIds);
+        setLocalValues((prev) => {
+          const next = { ...prev };
+          idsArray.forEach((id) => {
+            delete next[`${id}_anombrede`];
+          });
+          delete next[`${registroId}_anombrede`];
+          return next;
+        });
+      } catch (err) {
+        console.error("Error limpiando localValues tras propagacion:", err);
+      }
+
+      // 4) Reflejar en memoria todos los registros relacionados
+      setDataBranch((prev) =>
+        prev.map((r) =>
+          (r.direccion || "") === direccion
+            ? { ...r, anombrede: newNombre }
+            : r
+        )
+      );
+      setDataRegistroFechas((prev) =>
+        prev.map((g) => ({
+          ...g,
+          registros: g.registros.map((r) =>
             (r.direccion || "") === direccion
               ? { ...r, anombrede: newNombre }
               : r
-          )
-        );
-        setDataRegistroFechas((prev) =>
-          prev.map((g) => ({
-            ...g,
-            registros: g.registros.map((r) =>
-              (r.direccion || "") === direccion
-                ? { ...r, anombrede: newNombre }
-                : r
-            ),
-          }))
-        );
-      }
+          ),
+        }))
+      );
 
       return;
     }
 
-    // 9) Cualquier otro campo → sólo actualizamos ese campo
-    update(dbRefItem, { [field]: safeValue }).catch(console.error);
+    // 9) Cualquier otro campo
+    auditUpdate(path, { [field]: safeValue }, {
+      modulo: "Agenda Dinámica",
+      registroId,
+      prevData: registro,
+    }).catch(console.error);
+
     const updater = (r) =>
       r.id === registroId ? { ...r, [field]: safeValue } : r;
 
@@ -1801,9 +1855,7 @@ const Hojadefechas = () => {
 
     // Obtener datos de la factura
     const facturaRef = ref(database, `facturas/${numeroFactura}`);
-    const facturaSnapshot = await new Promise((resolve) => {
-      onValue(facturaRef, resolve, { onlyOnce: true });
-    });
+    const facturaSnapshot = await get(facturaRef);
 
     if (!facturaSnapshot.exists()) {
       Swal.fire({
@@ -1913,20 +1965,19 @@ const Hojadefechas = () => {
         facturaUpdates.fechapago = fechaPagoFinal;
       }
 
-      await update(facturaRef, facturaUpdates);
+      await auditUpdate(`facturas/${numeroFactura}`, facturaUpdates, {
+        modulo: "Agenda Dinámica",
+        registroId: numeroFactura,
+        prevData: facturaData,
+        extra: `Payment rápido de AWG ${formatCurrency(payment)}. Deuda: AWG ${formatCurrency(nuevaDeuda)}`,
+      });
 
       // Si está completamente pagada, actualizar todos los servicios asociados
       if (facturaCompletamentePagada) {
         // Buscar servicios asociados y actualizarlos
         const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-          new Promise((resolve) =>
-            onValue(ref(database, "data"), resolve, { onlyOnce: true })
-          ),
-          new Promise((resolve) =>
-            onValue(ref(database, "registrofechas"), resolve, {
-              onlyOnce: true,
-            })
-          ),
+          get(ref(database, "data")),
+          get(ref(database, "registrofechas")),
         ]);
 
         const serviciosAsociados = [];
@@ -1970,9 +2021,13 @@ const Hojadefechas = () => {
               ? `data/${servicio.id}`
               : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-          return update(ref(database, path), {
+          return auditUpdate(path, {
             pago: "Pago",
             fechapago: fechaPagoFinal,
+          }, {
+            modulo: "Agenda Dinámica",
+            registroId: servicio.id,
+            extra: `Factura #${numeroFactura} marcada como pagada`,
           });
         });
 
@@ -2238,7 +2293,6 @@ const Hojadefechas = () => {
     const path = fromData
       ? `data/${registroId}`
       : `registrofechas/${fecha}/${registroId}`;
-    const dbRef = ref(database, path);
 
     // Registro local
     const registro = fromData
@@ -2252,10 +2306,14 @@ const Hojadefechas = () => {
     const newAmount = newRate * newQty;
 
     // Grabar en Firebase
-    update(dbRef, {
+    auditUpdate(path, {
       item: itemValue,
       rate: parseFloat(newRate.toFixed(2)),
       amount: parseFloat(newAmount.toFixed(2)),
+    }, {
+      modulo: "Agenda Dinámica",
+      registroId,
+      prevData: registro,
     }).catch(console.error);
 
     // Reflejar en estado local
@@ -2280,7 +2338,6 @@ const Hojadefechas = () => {
     const path = fromData
       ? `data/${registroId}`
       : `registrofechas/${fecha}/${registroId}`;
-    const dbRef = ref(database, path);
 
     // Registro actual en local
     const registro = fromData
@@ -2294,9 +2351,13 @@ const Hojadefechas = () => {
     const newAmount = newRate * newQty;
 
     // Grabar sólo rate y amount en Firebase
-    update(dbRef, {
+    auditUpdate(path, {
       rate: parseFloat(newRate.toFixed(2)),
       amount: parseFloat(newAmount.toFixed(2)),
+    }, {
+      modulo: "Agenda Dinámica",
+      registroId,
+      prevData: registro,
     }).catch(console.error);
 
     // Reflejar en estado local
@@ -2588,9 +2649,7 @@ const Hojadefechas = () => {
     let invoiceIdEstimado;
 
     const availableNumsRef = ref(database, "facturasDisponibles");
-    const availableSnapshot = await new Promise((resolve) => {
-      onValue(availableNumsRef, resolve, { onlyOnce: true });
-    });
+    const availableSnapshot = await get(availableNumsRef);
 
     if (availableSnapshot.exists()) {
       // Hay números disponibles, usar el menor para mostrar
@@ -2603,16 +2662,9 @@ const Hojadefechas = () => {
       invoiceIdEstimado = numeroData.numeroFactura;
     } else {
       // No hay números disponibles, calcular el siguiente número secuencial
-      const numeroEstimado = await new Promise((resolve) => {
-        const contadorRef = ref(database, "contadorFactura");
-        onValue(
-          contadorRef,
-          (snapshot) => {
-            resolve((snapshot.val() || 0) + 1);
-          },
-          { onlyOnce: true }
-        );
-      });
+      const contadorRef = ref(database, "contadorFactura");
+      const contadorSnapshot = await get(contadorRef);
+      const numeroEstimado = (contadorSnapshot.val() || 0) + 1;
 
       // Formatear número de factura estimado
       const today = new Date();
@@ -2998,9 +3050,7 @@ const Hojadefechas = () => {
 
       // Verificar si hay números disponibles para reutilizar
       const numerosDisponiblesRef = ref(database, "facturasDisponibles");
-      const numerosSnapshot = await new Promise((resolve) => {
-        onValue(numerosDisponiblesRef, resolve, { onlyOnce: true });
-      });
+      const numerosSnapshot = await get(numerosDisponiblesRef);
 
       if (numerosSnapshot.exists()) {
         // Hay números disponibles, usar el menor
@@ -3013,8 +3063,12 @@ const Hojadefechas = () => {
         invoiceIdFinal = numeroData.numeroFactura;
         numeroFactura = parseInt(invoiceIdFinal.slice(-5)); // Extraer número de secuencia
 
-        // Eliminar de números disponibles
-        await set(ref(database, `facturasDisponibles/${keyToDelete}`), null);
+        await auditSet(`facturasDisponibles/${keyToDelete}`, null, {
+          modulo: "Agenda Dinámica",
+          accion: "eliminar",
+          registroId: keyToDelete,
+          extra: `Número disponible consumido para factura #${invoiceIdFinal}`,
+        });
       } else {
         // No hay números disponibles, generar nuevo
         const contadorRef = ref(database, "contadorFactura");
@@ -3066,7 +3120,12 @@ const Hojadefechas = () => {
       };
 
       // Guardar la factura en el nuevo nodo
-      await set(ref(database, `facturas/${invoiceIdFinal}`), facturaData);
+      await auditSet(`facturas/${invoiceIdFinal}`, facturaData, {
+        modulo: "Agenda Dinámica",
+        accion: "crear",
+        registroId: invoiceIdFinal,
+        extra: `Factura #${invoiceIdFinal} creada. Total: AWG ${formatCurrency(totalAmount)}. Bill To: ${billToValue}`,
+      });
 
       // ACTUALIZAR REGISTROS CON REFERENCIA A LA FACTURA
       await Promise.all(
@@ -3088,7 +3147,12 @@ const Hojadefechas = () => {
             timestamp: Date.now(),
           };
 
-          return update(ref(database, path), updateData);
+          return auditUpdate(path, updateData, {
+            modulo: "Agenda Dinámica",
+            registroId: r.id,
+            prevData: r,
+            extra: `Servicio asociado a factura #${invoiceIdFinal}`,
+          });
         })
       );
       await emitirFacturasSeleccionadas();
@@ -3185,7 +3249,11 @@ const Hojadefechas = () => {
 
       // 3) ELIMINAR EL NODO FACTURA COMPLETO
       if (numeroFactura) {
-        await set(ref(database, `facturas/${numeroFactura}`), null);
+        await auditRemove(`facturas/${numeroFactura}`, {
+          modulo: "Agenda Dinámica",
+          registroId: numeroFactura,
+          extra: `Factura #${numeroFactura} cancelada. ${serviciosRelacionados.length} servicios desvinculados`,
+        });
       }
 
       // 4) LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
@@ -3197,18 +3265,23 @@ const Hojadefechas = () => {
           timestamp: Date.now(),
         };
 
-        return update(ref(database, servicio.path), updateData);
+        return auditUpdate(servicio.path, updateData, {
+          modulo: "Agenda Dinámica",
+          registroId: servicio.id || servicio.path.split("/").pop(),
+          extra: `Factura #${numeroFactura} cancelada`,
+        });
       });
 
       await Promise.all(updatePromises);
 
       // 5) AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
       if (numeroFactura) {
-        const numerosDisponiblesRef = ref(database, "facturasDisponibles");
-        const newAvailableRef = push(numerosDisponiblesRef);
-        await set(newAvailableRef, {
+        await auditCreate("facturasDisponibles", {
           numeroFactura: numeroFactura,
           fechaCancelacion: Date.now(),
+        }, {
+          modulo: "Agenda Dinámica",
+          extra: `Número de factura liberado para reutilización: #${numeroFactura}`,
         });
       }
 
@@ -3381,7 +3454,11 @@ const Hojadefechas = () => {
         : `registrofechas/${reg.fecha}/${reg.id}`;
 
     try {
-      await remove(ref(database, path));
+      await auditRemove(path, {
+        modulo: "Agenda Dinámica",
+        registroId: reg.id,
+        extra: `Dirección: ${reg.direccion || " - "}`,
+      });
       Swal.fire("Eliminado", "Registro borrado correctamente.", "success");
     } catch (e) {
       console.error("Error al eliminar:", e);

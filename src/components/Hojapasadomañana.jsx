@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, remove, update, onValue } from "firebase/database";
+import { ref, update, onValue } from "firebase/database";
 import { useNavigate } from "react-router-dom";
 import { decryptData } from "../utils/security";
 import { validateSessionForAction } from "../utils/sessionValidator";
@@ -13,6 +13,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
 import Select from "react-select";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 
 const Hojapasadomañana = () => {
   const navigate = useNavigate();
@@ -142,7 +143,7 @@ const Hojapasadomañana = () => {
             u.name.toLowerCase() === item.realizadopor.toString().toLowerCase()
         );
         if (matchedUser) {
-          handleFieldChange(id, "realizadopor", matchedUser.id);
+          handleFieldChange(id, "realizadopor", matchedUser.id, true);
         }
       }
     });
@@ -259,8 +260,6 @@ const Hojapasadomañana = () => {
     const isAuthorized = await validateSessionForAction("agregar servicio");
     if (!isAuthorized) return;
 
-    const dbRef = ref(database, "hojapasadomañana");
-    const newDataRef = push(dbRef);
     const newData = {
       realizadopor,
       anombrede,
@@ -275,13 +274,16 @@ const Hojapasadomañana = () => {
       efectivo,
       factura,
     };
-    // Guarda en Firebase
-    await set(newDataRef, newData).catch(console.error);
 
-    // Reordenar datos después de agregar
+    // auditCreate ya hace push + set internamente y retorna la referencia
+    const newRef = await auditCreate("hojapasadomañana", newData, {
+      modulo: "Servicios Pasado Mañana",
+    });
+
+    // Usar la clave REAL que se escribió en Firebase
     const sin = data.filter(([, it]) => !it.realizadopor);
     const con = data.filter(([, it]) => !!it.realizadopor);
-    setData(reorderData([...sin, [newDataRef.key, newData]], con));
+    setData(reorderData([...sin, [newRef.key, newData]], con));
   };
 
   // Función para actualizar campos en Firebase
@@ -289,11 +291,20 @@ const Hojapasadomañana = () => {
   // Dentro de tu componente...
 
   // 1) handleFieldChange: ajustado para el flujo deseado
-  const handleFieldChange = (id, field, value) => {
+  const handleFieldChange = (id, field, value, skipAudit = false) => {
     // actualizamos el campo en hojapasadomañana
     const safeValue = value == null ? "" : value;
-    const dbRefItem = ref(database, `hojapasadomañana/${id}`);
-    update(dbRefItem, { [field]: safeValue }).catch(console.error);
+
+    if (!skipAudit) {
+      const currentItem = data.find(([iid]) => iid === id);
+      auditUpdate(`hojapasadomañana/${id}`, { [field]: safeValue }, {
+        modulo: "Servicios Pasado Mañana",
+        registroId: id,
+        prevData: currentItem ? currentItem[1] : {},
+      }).catch(console.error);
+    } else {
+      update(ref(database, `hojapasadomañana/${id}`), { [field]: safeValue }).catch(console.error);
+    }
 
     // actualizamos estado local y reordenamos
     setData((d) => {
@@ -321,14 +332,16 @@ const Hojapasadomañana = () => {
         if (direccion) {
           const existing = clients.find((c) => c.direccion === direccion);
           if (!existing) {
-            // insertar nuevo cliente
-            const newClientRef = push(ref(database, "clientes"));
-            set(newClientRef, {
+            // insertar nuevo cliente con auditoria
+            auditCreate("clientes", {
               direccion,
               cubicos:
                 item.cubicos != null && item.cubicos !== ""
                   ? item.cubicos
                   : null,
+            }, {
+              modulo: "Servicios Pasado Mañana",
+              extra: `Auto-creado desde servicios por direccion: ${direccion}`,
             }).catch(console.error);
           }
           // luego, cargar cubicos desde clientes (si existe)
@@ -349,15 +362,32 @@ const Hojapasadomañana = () => {
 
   // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
   const loadClientFields = (direccion, dataId) => {
-    const cli = clients.find((c) => c.direccion === direccion);
-    const dbRefItem = ref(database, `hojapasadomañana/${dataId}`);
+    const normalizedDireccion = (direccion || "").trim().toLowerCase();
+    const cli = clients.find(
+      (c) => (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+    );
+    const currentItem = data.find(([iid]) => iid === dataId);
+    const prevData = currentItem ? currentItem[1] : {};
     if (cli) {
       // si existe el cliente, actualiza cubicos, valor y anombrede
-      update(dbRefItem, {
+      auditUpdate(`hojapasadomañana/${dataId}`, {
         cubicos: cli.cubicos ?? 0,
         valor: cli.valor ?? 0,
         anombrede: cli.anombrede ?? "",
+      }, {
+        modulo: "Servicios Pasado Mañana",
+        registroId: dataId,
+        prevData,
+        extra: `Auto-cargado desde cliente: ${direccion}`,
       }).catch(console.error);
+      // Limpiar localValues para que la UI refleje los nuevos valores
+      setLocalValues((prev) => {
+        const next = { ...prev };
+        delete next[`${dataId}_cubicos`];
+        delete next[`${dataId}_valor`];
+        delete next[`${dataId}_anombrede`];
+        return next;
+      });
       setData((d) =>
         d.map(([iid, it]) =>
           iid === dataId
@@ -374,24 +404,20 @@ const Hojapasadomañana = () => {
         )
       );
     } else {
-      // si no existe, limpia los tres campos
-      update(dbRefItem, { cubicos: "", valor: "", anombrede: "" }).catch(
-        console.error
-      );
-      setData((d) =>
-        d.map(([iid, it]) =>
-          iid === dataId
-            ? [iid, { ...it, cubicos: "", valor: "", anombrede: "" }]
-            : [iid, it]
-        )
-      );
+      // Si no existe cliente para la dirección, conservar datos ya ingresados.
+      return;
     }
   };
 
   // Función para eliminar un servicio
   const deleteData = (id) => {
-    const dbRefItem = ref(database, `hojapasadomañana/${id}`);
-    remove(dbRefItem).catch(console.error);
+    const itemToDelete = data.find(([itemId]) => itemId === id);
+    const itemData = itemToDelete ? itemToDelete[1] : {};
+    auditRemove(`hojapasadomañana/${id}`, {
+      modulo: "Servicios Pasado Mañana",
+      registroId: id,
+      extra: `Dirección: ${itemData.direccion || " - "}, Servicio: ${itemData.servicio || " - "}`,
+    }).catch(console.error);
 
     // 1) Filtra el estado actual para eliminar el id
     const remaining = data.filter(([itemId]) => itemId !== id);
@@ -713,8 +739,16 @@ const Hojapasadomañana = () => {
           factura: record.factura || false
         };
         
-        await set(push(ref(database, targetTable)), serviceRecord);
-        await remove(ref(database, `hojapasadomañana/${id}`));
+        const targetName = targetTable === 'data' ? 'Servicios De Hoy' : 'Servicios De Mañana';
+        await auditCreate(targetTable, serviceRecord, {
+          modulo: "Servicios Pasado Mañana",
+          extra: `Trasladado a ${targetName} - Dirección: ${record.direccion || " - "}`,
+        });
+        await auditRemove(`hojapasadomañana/${id}`, { 
+          modulo: "Servicios Pasado Mañana",
+          registroId: id,
+          extra: `Trasladado desde Servicios Pasado Mañana a ${targetName}`,
+        });
       }
       
       const targetName = targetTable === 'data' ? 'Servicios De Hoy' : 'Servicios De Mañana';

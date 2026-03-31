@@ -154,30 +154,18 @@ const Agendamañanausuario = () => {
   // --- Leer cubicos desde "clientes" y sincronizar en hojamañana ---
   const loadCubicosFromClient = (direccion, dataId) => {
     if (!direccion) {
-      const dbRefItem = ref(database, `hojamañana/${dataId}`);
-      update(dbRefItem, { cubicos: "" }).catch(console.error);
-      setData((d) =>
-        d.map(([iid, it]) =>
-          iid === dataId ? [iid, { ...it, cubicos: "" }] : [iid, it]
-        )
-      );
       return;
     }
-    const cli = clients.find((c) => c.direccion === direccion);
+    const normalizedDireccion = (direccion || "").trim().toLowerCase();
+    const cli = clients.find(
+      (c) => (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+    );
     if (cli && cli.cubicos != null) {
       const dbRefItem = ref(database, `hojamañana/${dataId}`);
       update(dbRefItem, { cubicos: cli.cubicos }).catch(console.error);
       setData((d) =>
         d.map(([iid, it]) =>
           iid === dataId ? [iid, { ...it, cubicos: cli.cubicos }] : [iid, it]
-        )
-      );
-    } else {
-      const dbRefItem = ref(database, `hojamañana/${dataId}`);
-      update(dbRefItem, { cubicos: "" }).catch(console.error);
-      setData((d) =>
-        d.map(([iid, it]) =>
-          iid === dataId ? [iid, { ...it, cubicos: "" }] : [iid, it]
         )
       );
     }

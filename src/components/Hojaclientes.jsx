@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue, update, push, remove } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 import Select from "react-select";
@@ -9,6 +9,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import ExcelJS from "exceljs";
 import excel_icon from "../assets/img/excel_icon.jpg";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 
 
 const Clientes = () => {
@@ -159,10 +160,12 @@ const Clientes = () => {
         return;
       }
     }
-    const dbRefItem = ref(database, `clientes/${id}`);
-    update(dbRefItem, { [field]: value }).catch((err) =>
-      console.error("Error updating data: ", err)
-    );
+    const currentItem = data.find((c) => c.id === id);
+    auditUpdate(`clientes/${id}`, { [field]: value }, {
+      modulo: "Clientes",
+      registroId: id,
+      prevData: currentItem || {},
+    }).catch((err) => console.error("Error updating data: ", err));
     setData((prev) =>
       prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
     );
@@ -170,8 +173,6 @@ const Clientes = () => {
 
   // Agregar cliente con A Nombre De
   const handleAddCliente = () => {
-    const dbRefClientes = ref(database, "clientes");
-
     Swal.fire({
       title: "Agregar Cliente",
       html:
@@ -214,7 +215,10 @@ const Clientes = () => {
         };
 
         // Push dentro de preConfirm para integrar la operación en el flujo
-        return push(dbRefClientes, nuevoCliente)
+        return auditCreate("clientes", nuevoCliente, {
+          modulo: "Clientes",
+          extra: `Nuevo cliente - Dirección: ${direccion}`,
+        })
           .then(() => nuevoCliente)
           .catch((err) => {
             Swal.showValidationMessage(`Error al guardar: ${err.message}`);
@@ -343,7 +347,12 @@ const Clientes = () => {
   // Función para eliminar clientes seleccionados con paginación
   const handleDeleteClientes = () => {
     selectedClientes.forEach((id) => {
-      remove(ref(database, `clientes/${id}`)).catch((err) =>
+      const clienteData = data.find((c) => c.id === id);
+      auditRemove(`clientes/${id}`, {
+        modulo: "Clientes",
+        registroId: id,
+        extra: `Eliminado - Dirección: ${clienteData?.direccion || " - "}`,
+      }).catch((err) =>
         console.error("Error deleting client: ", err)
       );
     });

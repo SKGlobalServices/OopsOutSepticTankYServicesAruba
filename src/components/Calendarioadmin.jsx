@@ -5,11 +5,12 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { ref, onValue, off, update, get, child } from "firebase/database";
+import { ref, onValue, off, get, child } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
 import Clock from "./Clock";
 import Slidebar from "./Slidebar";
 import Swal from "sweetalert2";
+import { auditBulkUpdate } from "../utils/auditLogger";
 
 /* ========= Helpers ========= */
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -171,7 +172,11 @@ const ScheduleModal = ({ open, onClose, user }) => {
             note: r.note || "",
           };
       });
-      await update(ref(database), updates);
+      await auditBulkUpdate(updates, {
+        modulo: "Calendario Admin",
+        registroId: `${user.id}-${ym}`,
+        extra: `Usuario: ${user?.name}, Mes: ${ym}`,
+      });
       onClose(true); // cierra tras guardar
     } catch (e) {
       console.error(e);
