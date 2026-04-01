@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue, update, push, remove } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from "sweetalert2";
 import Select from "react-select";
@@ -9,6 +9,7 @@ import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
 import ExcelJS from "exceljs";
 import excel_icon from "../assets/img/excel_icon.jpg";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import { normalizePhone } from "../utils/phoneUtils";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../Database/firebaseConfig";
@@ -18,6 +19,7 @@ const Clientes = () => {
   const [data, setData] = useState([]);
   const [directions, setDirections] = useState([]);
   const [names, setNames] = useState([]);
+  const [phones, setPhones] = useState([]);
   const [selectedClientes, setSelectedClientes] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
@@ -29,7 +31,7 @@ const Clientes = () => {
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   
   // Ahora filter incluye anombrede
   const [filter, setFilter] = useState({
@@ -39,6 +41,7 @@ const Clientes = () => {
     cubicosMax: "",
     valorMin: "",
     valorMax: "",
+    telefono: [],
   });
 
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,7 @@ const Clientes = () => {
         const fetchedData = [];
         const uniqueDirections = new Set();
         const uniqueNames = new Set();
+        const uniquePhones = new Set();
 
         Object.entries(snapshot.val()).forEach(([id, cliente]) => {
           const direccion = cliente.direccion || "";
@@ -65,13 +69,18 @@ const Clientes = () => {
             telefono2: cliente.telefono2 || "",
             telefono3: cliente.telefono3 || "",
             cubicos: cliente.cubicos || 0,
+            valor: cliente.valor || 0,
             email: cliente.email || "",
             notas: cliente.notas || "",
-            kommo_contact_id: cliente.kommo_contact_id || "",
-            kommo_lead_id: cliente.kommo_lead_id ?? null,
+            telefono1: cliente.telefono1 || "",
+            telefono2: cliente.telefono2 || "",
+            telefono3: cliente.telefono3 || "",
+            telefono4: cliente.telefono4 || "",
+            telefono5: cliente.telefono5 || "",
           });
           if (direccion) uniqueDirections.add(direccion);
           if (anombrede) uniqueNames.add(anombrede);
+          [1,2,3,4,5].forEach((n) => { if (cliente[`telefono${n}`]) uniquePhones.add(cliente[`telefono${n}`]); });
         });
 
         // Ordenamiento por “Nuevo Cliente” y luego alfabético
@@ -88,10 +97,12 @@ const Clientes = () => {
         setData(fetchedData);
         setDirections(Array.from(uniqueDirections));
         setNames(Array.from(uniqueNames));
+        setPhones(Array.from(uniquePhones));
       } else {
         setData([]);
         setDirections([]);
         setNames([]);
+        setPhones([]);
       }
       setLoading(false);
     });
@@ -121,6 +132,7 @@ const Clientes = () => {
       cubicosMax: "",
       valorMin: "",
       valorMax: "",
+      telefono: [],
     });
     setCurrentPage(1); // Resetear a página 1 cuando se limpian filtros
   };
@@ -168,13 +180,12 @@ const Clientes = () => {
         return;
       }
     }
-    if (field === "telefono1" || field === "telefono2" || field === "telefono3") {
-      value = normalizePhone(value) || null;
-    }
-    const dbRefItem = ref(database, `clientes/${id}`);
-    update(dbRefItem, { [field]: value }).catch((err) =>
-      console.error("Error updating data: ", err)
-    );
+    const currentItem = data.find((c) => c.id === id);
+    auditUpdate(`clientes/${id}`, { [field]: value }, {
+      modulo: "Clientes",
+      registroId: id,
+      prevData: currentItem || {},
+    }).catch((err) => console.error("Error updating data: ", err));
     setData((prev) =>
       prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
     );
@@ -182,8 +193,6 @@ const Clientes = () => {
 
   // Agregar cliente con A Nombre De
   const handleAddCliente = () => {
-    const dbRefClientes = ref(database, "clientes");
-
     Swal.fire({
       title: "Agregar Cliente",
       html:
@@ -238,7 +247,10 @@ const Clientes = () => {
         };
 
         // Push dentro de preConfirm para integrar la operación en el flujo
-        return push(dbRefClientes, nuevoCliente)
+        return auditCreate("clientes", nuevoCliente, {
+          modulo: "Clientes",
+          extra: `Nuevo cliente - Dirección: ${direccion}`,
+        })
           .then(() => nuevoCliente)
           .catch((err) => {
             Swal.showValidationMessage(`Error al guardar: ${err.message}`);
@@ -376,7 +388,12 @@ const Clientes = () => {
   // Función para eliminar clientes seleccionados con paginación
   const handleDeleteClientes = () => {
     selectedClientes.forEach((id) => {
-      remove(ref(database, `clientes/${id}`)).catch((err) =>
+      const clienteData = data.find((c) => c.id === id);
+      auditRemove(`clientes/${id}`, {
+        modulo: "Clientes",
+        registroId: id,
+        extra: `Eliminado - Dirección: ${clienteData?.direccion || " - "}`,
+      }).catch((err) =>
         console.error("Error deleting client: ", err)
       );
     });
@@ -467,6 +484,12 @@ const Clientes = () => {
       const valorMin = filter.valorMin ? Number(filter.valorMin) : null;
       const valorMax = filter.valorMax ? Number(filter.valorMax) : null;
       return (!valorMin || valor >= valorMin) && (!valorMax || valor <= valorMax);
+    })
+    .filter((c) => {
+      if (!filter.telefono.length) return true;
+      return filter.telefono.some((t) =>
+        [1,2,3,4,5].some((n) => c[`telefono${n}`] === t)
+      );
     })
     .sort((a, b) => {
       const aIsNew = a.direccion.startsWith("Nuevo Cliente");
@@ -603,6 +626,15 @@ const Clientes = () => {
             style={{ width: "10ch" }}
           />
         </div>
+        <label>Teléfono</label>
+        <Select
+          isClearable
+          isMulti
+          options={phones.map((p) => ({ value: p, label: p }))}
+          placeholder="Selecciona teléfono(s)..."
+          onChange={(sel) => setFilter((prev) => ({ ...prev, telefono: sel ? sel.map((o) => o.value) : [] }))}
+          value={filter.telefono.map((p) => ({ value: p, label: p }))}
+        />
         <button className="discard-filter-button" onClick={resetFilters}>
           Descartar Filtros
         </button>
@@ -638,6 +670,21 @@ const Clientes = () => {
                 <th>Kommo</th>
                 <th>
                   Notas
+                </th>
+                <th>
+                  Telefono 1
+                </th>
+                <th>
+                  Telefono 2
+                </th>
+                <th>
+                  Telefono 3
+                </th>
+                <th>
+                  Telefono 4
+                </th>
+                <th>
+                  Telefono 5
                 </th>
               </tr>
             </thead>
@@ -867,6 +914,26 @@ const Clientes = () => {
                         )}
                       </button>
                     </td>
+                    {[1,2,3,4,5].map((n) => (
+                      <td key={n}>
+                        <input
+                          type="tel"
+                          style={{ textAlign: "center", width: "14ch" }}
+                          value={localValues[`${cliente.id}_telefono${n}`] ?? cliente[`telefono${n}`] ?? ""}
+                          onChange={(e) =>
+                            setLocalValues(prev => ({
+                              ...prev,
+                              [`${cliente.id}_telefono${n}`]: e.target.value
+                            }))
+                          }
+                          onBlur={(e) => {
+                            if (e.target.value !== (cliente[`telefono${n}`] || "")) {
+                              handleFieldChange(cliente.id, `telefono${n}`, e.target.value);
+                            }
+                          }}
+                        />
+                      </td>
+                    ))}
                   </tr>
                 ))
               ) : (
@@ -889,6 +956,7 @@ const Clientes = () => {
               value={itemsPerPage} 
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
             >
+              <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>

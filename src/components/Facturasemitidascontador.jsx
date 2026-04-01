@@ -77,7 +77,7 @@ const Facturasemitidascontador = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -368,8 +368,8 @@ const Facturasemitidascontador = () => {
     if (filters.diasdemora.length > 0) {
       const dias = calculateDaysDelay(r.timestamp, r.pago);
       const matchDias = filters.diasdemora.some((valorFiltro) => {
-        if (valorFiltro === "10+") {
-          return dias >= 10;
+        if (valorFiltro === "4+") {
+          return dias >= 4;
         }
         return dias === parseInt(valorFiltro, 10);
       });
@@ -1773,13 +1773,16 @@ const Facturasemitidascontador = () => {
       const filas = [];
       if (facturaData.invoiceItems) {
         Object.entries(facturaData.invoiceItems).forEach(([key, item]) => {
+          const qty = parseFloat(item.qty) || 0;
+          const rate = parseFloat(item.rate) || 0;
+          const amount = qty * rate;
           filas.push([
             item.fechaServicioItem || base.fecha,
             item.item || "",
             item.descripcion || "",
-            item.qty != null ? item.qty.toString() : "",
-            item.rate != null ? (parseFloat(item.rate) || 0).toFixed(2) : "",
-            item.amount != null ? formatCurrency(item.amount) : "",
+            qty.toString(),
+            rate.toFixed(2),
+            formatCurrency(amount),
           ]);
         });
       } else {
@@ -2784,13 +2787,7 @@ const Facturasemitidascontador = () => {
             { value: "1", label: "1" },
             { value: "2", label: "2" },
             { value: "3", label: "3" },
-            { value: "4", label: "4" },
-            { value: "5", label: "5" },
-            { value: "6", label: "6" },
-            { value: "7", label: "7" },
-            { value: "8", label: "8" },
-            { value: "9", label: "9" },
-            { value: "10+", label: "10+" },
+            { value: "4+", label: "4+" },
           ]}
           placeholder="Selecciona mora(s)..."
           onChange={(opts) =>
@@ -3058,6 +3055,7 @@ const Facturasemitidascontador = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { ref, push, set, update, remove, onValue } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import { database } from "../Database/firebaseConfig.js";
+import { auditCreate, auditUpdate, auditRemove, auditSet } from "../utils/auditLogger";
 import Swal from "sweetalert2";
 import "./Reprogramacion.css";
 import Slidebar from "./Slidebar.jsx";
@@ -338,7 +339,6 @@ const seriesPath = `/reprogramacion`;
 
 async function rtdbCreateSeries(data) {
   const now = Date.now();
-  const newRef = push(ref(database, seriesPath));
   const payload = {
     title: data.title,
     dtstart: data.dtstart,
@@ -354,12 +354,22 @@ async function rtdbCreateSeries(data) {
     createdAt: now,
     updatedAt: now,
   };
-  await set(newRef, payload);
+  await auditCreate("reprogramacion", payload, {
+    modulo: "Reprogramación",
+    extra: `${data.title}${data.anombrede ? ` - ${data.anombrede}` : ""}`,
+  });
 }
 
-async function rtdbUpdateSeries(id, partial) {
-  partial.updatedAt = Date.now();
-  await update(ref(database, `${seriesPath}/${id}`), partial);
+async function rtdbUpdateSeries(id, partial, auditInfo = {}) {
+  const updateData = {
+    ...partial,
+    updatedAt: Date.now(),
+  };
+  await auditUpdate(`reprogramacion/${id}`, updateData, {
+    modulo: "Reprogramación",
+    registroId: id,
+    ...auditInfo,
+  });
 }
 
 // ===================== UI principal =====================
@@ -1475,28 +1485,38 @@ const Reprogramacion = () => {
 
   // Funciones auxiliares para eliminar eventos
   async function deleteSingleEvent(o) {
-    const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
     const s = seriesMap[o.seriesId];
 
     if (s?.rrule) {
       // Es evento recurrente, agregar a exdates para excluir esta fecha
-      const exdatesRef = ref(
-        database,
-        `/reprogramacion/${o.seriesId}/exdates/${o.date}`
+      await auditSet(
+        `/reprogramacion/${o.seriesId}/exdates/${o.date}`,
+        true,
+        {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          extra: `Fecha excluida: ${o.date} - ${o.title}`,
+        }
       );
-      await set(exdatesRef, true);
       
       // Si existe una instancia específica para esta fecha, también eliminarla
       if (s.instances && s.instances[o.date]) {
-        const instanceRef = ref(
-          database,
-          `/reprogramacion/${o.seriesId}/instances/${o.date}`
+        await auditRemove(
+          `/reprogramacion/${o.seriesId}/instances/${o.date}`,
+          {
+            modulo: "Reprogramación",
+            registroId: o.seriesId,
+            extra: `Instancia eliminada: ${o.title} - ${o.date}`,
+          }
         );
-        await remove(instanceRef);
       }
     } else {
       // Es evento único, eliminar toda la serie
-      await remove(seriesRef);
+      await auditRemove(`/reprogramacion/${o.seriesId}`, {
+        modulo: "Reprogramación",
+        registroId: o.seriesId,
+        extra: `Evento único eliminado: ${o.title}`,
+      });
     }
   }
 
@@ -1507,23 +1527,35 @@ const Reprogramacion = () => {
     if (s.rrule) {
       // Es evento recurrente, terminar la serie en la fecha anterior
       const previousDate = addDays(o.date, -1);
-      const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-      await update(seriesRef, {
-        rrule: { ...s.rrule, until: previousDate },
-      });
+      await auditUpdate(
+        `/reprogramacion/${o.seriesId}`,
+        { rrule: { ...s.rrule, until: previousDate } },
+        {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          prevData: s,
+          extra: `Serie truncada desde ${o.date}: ${o.title}`,
+        }
+      );
       
       // Si existe una instancia específica para esta fecha, también eliminarla
       if (s.instances && s.instances[o.date]) {
-        const instanceRef = ref(
-          database,
-          `/reprogramacion/${o.seriesId}/instances/${o.date}`
+        await auditRemove(
+          `/reprogramacion/${o.seriesId}/instances/${o.date}`,
+          {
+            modulo: "Reprogramación",
+            registroId: o.seriesId,
+            extra: `Instancia eliminada: ${o.title} - ${o.date}`,
+          }
         );
-        await remove(instanceRef);
       }
     } else {
       // Es evento único, eliminar toda la serie
-      const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-      await remove(seriesRef);
+      await auditRemove(`/reprogramacion/${o.seriesId}`, {
+        modulo: "Reprogramación",
+        registroId: o.seriesId,
+        extra: `Evento único eliminado: ${o.title}`,
+      });
     }
   }
 
@@ -1561,10 +1593,13 @@ const Reprogramacion = () => {
     });
 
     // Eliminar todas las series relacionadas del mismo tipo
-    const deletePromises = seriesToDelete.map((id) => {
-      const seriesRef = ref(database, `/reprogramacion/${id}`);
-      return remove(seriesRef);
-    });
+    const deletePromises = seriesToDelete.map((id) =>
+      auditRemove(`/reprogramacion/${id}`, {
+        modulo: "Reprogramación",
+        registroId: id,
+        extra: `Serie completa eliminada: ${targetSeries.title}`,
+      })
+    );
 
     await Promise.all(deletePromises);
   }
@@ -2270,10 +2305,16 @@ const Reprogramacion = () => {
       if (editType === "fromThis") {
         // Para "Este y siguientes": terminar la serie actual y crear nueva desde esta fecha
         const previousDate = addDays(o.date, -1);
-        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-        await update(seriesRef, {
-          rrule: s.rrule ? { ...s.rrule, until: previousDate } : null,
-        });
+        await auditUpdate(
+          `/reprogramacion/${o.seriesId}`,
+          { rrule: s.rrule ? { ...s.rrule, until: previousDate } : null },
+          {
+            modulo: "Reprogramación",
+            registroId: o.seriesId,
+            prevData: s,
+            extra: `Serie truncada para reconstruir desde ${o.date}: ${o.title}`,
+          }
+        );
         
         // Crear nueva serie desde esta fecha
         await rtdbCreateSeries({
@@ -2289,8 +2330,11 @@ const Reprogramacion = () => {
         });
       } else {
         // Para "Toda la serie" o eventos únicos: eliminar y recrear
-        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-        await remove(seriesRef);
+        await auditRemove(`/reprogramacion/${o.seriesId}`, {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          extra: `Serie eliminada para reconstruir: ${o.title}`,
+        });
 
         // Crear el nuevo evento con la configuración seleccionada
         await rtdbCreateSeries({
@@ -2509,10 +2553,14 @@ const Reprogramacion = () => {
               delete updatedRrule.until;
             }
 
-            await rtdbUpdateSeries(o.seriesId, {
-              ...s,
-              rrule: updatedRrule,
-            });
+            await rtdbUpdateSeries(
+              o.seriesId,
+              { rrule: updatedRrule },
+              {
+                prevData: s,
+                extra: o.title,
+              }
+            );
           }
         }
         break;
@@ -3220,20 +3268,27 @@ const Reprogramacion = () => {
 
         if (!clienteExistente) {
           // Si no existe el cliente, lo creamos
-          const newClientRef = push(ref(database, "clientes"));
-          await set(newClientRef, {
+          await auditCreate("clientes", {
             direccion: formValues.direccion,
             anombrede: formValues.anombrede || "",
             cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
             valor: formValues.valor ? parseFloat(formValues.valor) : "",
+          }, {
+            modulo: "Clientes",
+            extra: `${formValues.direccion}${formValues.anombrede ? ` - ${formValues.anombrede}` : ""}`,
           });
         } else {
           // Si existe, actualizamos sus datos
-          const [clienteId, _] = clienteExistente;
-          await update(ref(database, `clientes/${clienteId}`), {
+          const [clienteId, clienteData] = clienteExistente;
+          await auditUpdate(`clientes/${clienteId}`, {
             anombrede: formValues.anombrede || "",
             cubicos: formValues.cubicos ? parseFloat(formValues.cubicos) : "",
             valor: formValues.valor ? parseFloat(formValues.valor) : "",
+          }, {
+            modulo: "Clientes",
+            registroId: clienteId,
+            prevData: clienteData,
+            extra: formValues.direccion,
           });
         }
       }
@@ -3252,11 +3307,15 @@ const Reprogramacion = () => {
         // Editar solo este evento
         if (s.rrule) {
           // Es un evento recurrente, crear una instancia específica
-          const exdatesRef = ref(
-            database,
-            `/reprogramacion/${o.seriesId}/exdates/${o.date}`
+          await auditSet(
+            `/reprogramacion/${o.seriesId}/exdates/${o.date}`,
+            true,
+            {
+              modulo: "Reprogramación",
+              registroId: o.seriesId,
+              extra: `Fecha original excluida: ${o.date}`,
+            }
           );
-          await set(exdatesRef, true);
 
           // Obtener el valor actual de las notas (ya sea de la instancia o del evento principal)
           const currentNotes =
@@ -3264,28 +3323,42 @@ const Reprogramacion = () => {
               ? s.instances[o.date].notas
               : s.notas;
 
-          const instancesRef = ref(
-            database,
-            `/reprogramacion/${o.seriesId}/instances/${formValues.date}`
+          await auditSet(
+            `/reprogramacion/${o.seriesId}/instances/${formValues.date}`,
+            {
+              ...updatedData,
+              recurid: o.date,
+              notas: formValues.notas || currentNotes || "",
+            },
+            {
+              modulo: "Reprogramación",
+              registroId: o.seriesId,
+              extra: `Instancia editada: ${o.title} en ${formValues.date}`,
+            }
           );
-          await set(instancesRef, {
-            ...updatedData,
-            recurid: o.date,
-            notas: formValues.notas || currentNotes || "",
-          });
         } else {
           // Es un evento único, actualizar directamente
-          const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-          await update(seriesRef, updatedData);
+          await auditUpdate(`/reprogramacion/${o.seriesId}`, updatedData, {
+            modulo: "Reprogramación",
+            registroId: o.seriesId,
+            prevData: s,
+            extra: o.title,
+          });
         }
       } else if (editType === "fromThis") {
         // Editar desde este evento en adelante
         // Terminar la serie actual en la fecha anterior
         const previousDate = addDays(o.date, -1);
-        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-        await update(seriesRef, {
-          rrule: s.rrule ? { ...s.rrule, until: previousDate } : null,
-        });
+        await auditUpdate(
+          `/reprogramacion/${o.seriesId}`,
+          { rrule: s.rrule ? { ...s.rrule, until: previousDate } : null },
+          {
+            modulo: "Reprogramación",
+            registroId: o.seriesId,
+            prevData: s,
+            extra: `Serie truncada desde ${o.date}: ${o.title}`,
+          }
+        );
 
         // Crear nueva serie desde esta fecha (usar la fecha del evento actual)
         let newRrule = s.rrule;
@@ -3340,13 +3413,15 @@ const Reprogramacion = () => {
           }
         }
 
-        const newSeriesRef = push(ref(database, "reprogramacion"));
-        await set(newSeriesRef, {
+        await auditCreate("reprogramacion", {
           ...updatedData,
           dtstart: newStartDate,
           rrule: newRrule,
           createdAt: Date.now(),
           updatedAt: Date.now(),
+        }, {
+          modulo: "Reprogramación",
+          extra: `${updatedData.title}${updatedData.anombrede ? ` - ${updatedData.anombrede}` : ""}`,
         });
       } else if (editType === "entire") {
         // Editar toda la serie
@@ -3383,8 +3458,12 @@ const Reprogramacion = () => {
           };
         }
 
-        const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-        await update(seriesRef, updateData);
+        await auditUpdate(`/reprogramacion/${o.seriesId}`, updateData, {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          prevData: s,
+          extra: o.title,
+        });
       }
 
       Swal.fire({
@@ -3410,25 +3489,37 @@ const Reprogramacion = () => {
 
     if (s?.rrule) {
       // Marcar fecha original como excluida
-      const exdatesRef = ref(
-        database,
-        `/reprogramacion/${o.seriesId}/exdates/${o.date}`
+      await auditSet(
+        `/reprogramacion/${o.seriesId}/exdates/${o.date}`,
+        true,
+        {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          extra: `Fecha excluida al posponer: ${o.date} - ${o.title}`,
+        }
       );
-      await set(exdatesRef, true);
 
       // Crear instancia movida
-      const instancesRef = ref(
-        database,
-        `/reprogramacion/${o.seriesId}/instances/${newDate}`
+      await auditSet(
+        `/reprogramacion/${o.seriesId}/instances/${newDate}`,
+        {
+          dtstart: newDate,
+          recurid: o.date,
+        },
+        {
+          modulo: "Reprogramación",
+          registroId: o.seriesId,
+          extra: `Evento pospuesto: ${o.title} de ${o.date} a ${newDate}`,
+        }
       );
-      await set(instancesRef, {
-        dtstart: newDate,
-        recurid: o.date,
-      });
     } else {
       // Actualizar fecha del evento único
-      const seriesRef = ref(database, `/reprogramacion/${o.seriesId}`);
-      await update(seriesRef, { dtstart: newDate });
+      await auditUpdate(`/reprogramacion/${o.seriesId}`, { dtstart: newDate }, {
+        modulo: "Reprogramación",
+        registroId: o.seriesId,
+        prevData: s,
+        extra: `Evento pospuesto: ${o.title} de ${o.date} a ${newDate}`,
+      });
     }
 
     Swal.fire({

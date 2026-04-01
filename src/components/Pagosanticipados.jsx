@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, onValue, update } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
@@ -195,7 +196,7 @@ const Pagosanticipados = () => {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Mostrar/ocultar datepicker
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -362,9 +363,13 @@ const Pagosanticipados = () => {
           next.servicios
         );
 
-        await update(itemRef, {
+        await auditUpdate(`pagosanticipados/${item.id}`, {
           [field]: safeValue,
           montoafavor: nuevoMontoAFavor,
+        }, {
+          modulo: "Pagos Anticipados",
+          registroId: item.id,
+          prevData: item,
         });
 
         setData((prev) =>
@@ -377,7 +382,11 @@ const Pagosanticipados = () => {
           )
         );
       } else {
-        await update(itemRef, { [field]: safeValue });
+        await auditUpdate(`pagosanticipados/${item.id}`, { [field]: safeValue }, {
+          modulo: "Pagos Anticipados",
+          registroId: item.id,
+          prevData: item,
+        });
 
         setData((prev) =>
           sortByFechaDesc(
@@ -411,8 +420,11 @@ const Pagosanticipados = () => {
     if (nuevaFecha === item.fecha) return;
 
     try {
-      const itemRef = ref(database, `pagosanticipados/${item.id}`);
-      await update(itemRef, { fecha: nuevaFecha });
+      await auditUpdate(`pagosanticipados/${item.id}`, { fecha: nuevaFecha }, {
+        modulo: "Pagos Anticipados",
+        registroId: item.id,
+        prevData: { fecha: item.fecha },
+      });
 
       setData((prev) =>
         sortByFechaDesc(
@@ -436,14 +448,14 @@ const Pagosanticipados = () => {
     const yyyy = hoy.getFullYear();
     const fecha = `${dd}-${mm}-${yyyy}`;
 
-    const dbRef = ref(database, "pagosanticipados");
-    const newRef = push(dbRef);
-    await set(newRef, {
+    await auditCreate("pagosanticipados", {
       fecha, // dd-mm-aaaa
       compania: "",
       monto: "", // num o ""
       servicios: "", // num o ""
       montoafavor: "", // se recalculará al ingresar valores
+    }, {
+      modulo: "Pagos Anticipados",
     });
   };
 
@@ -625,7 +637,11 @@ const Pagosanticipados = () => {
 
     try {
       setDeletingId(itemId);
-      await set(ref(database, `pagosanticipados/${itemId}`), null);
+      await auditRemove(`pagosanticipados/${itemId}`, {
+        modulo: "Pagos Anticipados",
+        registroId: itemId,
+        extra: `Registro con ID ${itemId}`,
+      });
 
       // quita del estado sin esperar a que onValue vuelva a disparar
       setData((prev) => prev.filter((r) => r.id !== itemId));
@@ -1087,6 +1103,7 @@ const Pagosanticipados = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

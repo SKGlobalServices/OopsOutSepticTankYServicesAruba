@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue, update, set } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import Swal from "sweetalert2";
+import { auditUpdate, auditSet, auditRemove } from "../utils/auditLogger";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -156,8 +157,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     if (!numeroFactura) return;
     
     try {
-      const facturaRef = ref(database, `facturas/${numeroFactura}`);
-      await update(facturaRef, { [field]: value });
+      await auditUpdate(`facturas/${numeroFactura}`, { [field]: value }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
+      });
       
       setFacturaData(prev => ({ ...prev, [field]: value }));
       setHasUnsavedChanges(false);
@@ -177,8 +181,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     if (!numeroFactura) return;
     
     try {
-      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
-      await update(facturaRef, { [field]: value });
+      await auditUpdate(`facturas/${numeroFactura}/invoiceItems/${itemKey}`, { [field]: value }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData?.invoiceItems?.[itemKey] || {},
+      });
       
       setFacturaData(prev => ({
         ...prev,
@@ -204,9 +211,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       const newDeuda = Math.max(0, newTotal - (facturaData.payment || 0));
       
       // Actualizar total y deuda en Firebase
-      await update(ref(database, `facturas/${numeroFactura}`), {
+      await auditUpdate(`facturas/${numeroFactura}`, {
         totalAmount: newTotal,
         deuda: newDeuda
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
       });
       
       setFacturaData(prev => ({
@@ -234,11 +245,14 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     const newAmount = currentQty * newRate;
     
     try {
-      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
-      await update(facturaRef, { 
+      await auditUpdate(`facturas/${numeroFactura}/invoiceItems/${itemKey}`, { 
         item: newItem,
         rate: newRate,
         amount: newAmount
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData?.invoiceItems?.[itemKey] || {},
       });
       
       // Actualizar estado local
@@ -269,9 +283,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       const newTotal = Object.values(updatedItems).reduce((sum, item) => sum + (item.amount || 0), 0);
       const newDeuda = Math.max(0, newTotal - (facturaData.payment || 0));
       
-      await update(ref(database, `facturas/${numeroFactura}`), {
+      await auditUpdate(`facturas/${numeroFactura}`, {
         totalAmount: newTotal,
         deuda: newDeuda
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
       });
       
       setFacturaData(prev => ({
@@ -333,15 +351,22 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     const newAmount = qty * currentRate;
     
     try {
-      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
-      await update(facturaRef, { 
+      await auditUpdate(`facturas/${numeroFactura}/invoiceItems/${itemKey}`, { 
         qty: qty,
         amount: newAmount
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData?.invoiceItems?.[itemKey] || {},
       });
       
-      await update(ref(database, `facturas/${numeroFactura}`), {
+      await auditUpdate(`facturas/${numeroFactura}`, {
         totalAmount: facturaData.totalAmount,
         deuda: facturaData.deuda
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
       });
       
       setHasUnsavedChanges(false);
@@ -361,9 +386,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
           ? `data/${servicio.id}` 
           : `registrofechas/${servicio.fecha}/${servicio.id}`;
         
-        return update(ref(database, path), { 
+        return auditUpdate(path, { 
           pago: estadoPago,
           fechapago: fechaPagoFinal
+        }, {
+          modulo: "Facturas Emitidas",
+          registroId: numeroFactura,
+          extra: `Servicio asociado ${servicio.id}`,
         });
       });
 
@@ -479,7 +508,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
         updates.fechapago = null;
       }
 
-      await update(facturaRef, updates);
+      await auditUpdate(`facturas/${numeroFactura}`, updates, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
+      });
       console.log("✅ Factura actualizada en Firebase");
 
       // Actualizar estado local
@@ -533,9 +566,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
               ? `data/${servicio.id}` 
               : `registrofechas/${servicio.fecha}/${servicio.id}`;
             
-            return update(ref(database, path), { 
+            return auditUpdate(path, { 
               pago: estadoPago,
               fechapago: fechaPago
+            }, {
+              modulo: "Facturas Emitidas",
+              registroId: numeroFactura,
+              extra: `Servicio asociado ${servicio.id}`,
             });
           });
 
@@ -623,8 +660,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       };
       
       // Agregar el item a Firebase
-      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${newItemKey}`);
-      await set(facturaRef, nuevoItem);
+      await auditSet(`facturas/${numeroFactura}/invoiceItems/${newItemKey}`, nuevoItem, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        extra: `Nuevo item ${newItemKey}`,
+      });
       
       // Actualizar estado local
       setFacturaData(prev => {
@@ -646,9 +686,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       });
       
       // Actualizar totales en Firebase
-      await update(ref(database, `facturas/${numeroFactura}`), {
+      await auditUpdate(`facturas/${numeroFactura}`, {
         totalAmount: facturaData.totalAmount,
         deuda: facturaData.deuda
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
       });
       
       setHasUnsavedChanges(true);
@@ -683,8 +727,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       if (!result.isConfirmed) return;
       
       // Eliminar de Firebase
-      const facturaRef = ref(database, `facturas/${numeroFactura}/invoiceItems/${itemKey}`);
-      await set(facturaRef, null);
+      await auditRemove(`facturas/${numeroFactura}/invoiceItems/${itemKey}`, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        extra: `Eliminar item ${itemKey}`,
+      });
       
       // Actualizar estado local
       setFacturaData(prev => {
@@ -704,9 +751,13 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       });
       
       // Actualizar totales en Firebase
-      await update(ref(database, `facturas/${numeroFactura}`), {
+      await auditUpdate(`facturas/${numeroFactura}`, {
         totalAmount: facturaData.totalAmount,
         deuda: facturaData.deuda
+      }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
       });
       
       setHasUnsavedChanges(true);
@@ -745,8 +796,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
       });
 
       // Actualizar factura completa en Firebase
-      const facturaRef = ref(database, `facturas/${numeroFactura}`);
-      await update(facturaRef, facturaData);
+      await auditUpdate(`facturas/${numeroFactura}`, facturaData, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
+      });
       
       setHasUnsavedChanges(false);
       setEditMode(false);
@@ -810,7 +864,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
           ? `data/${servicio.id}` 
           : `registrofechas/${servicio.fecha}/${servicio.id}`;
         
-        return update(ref(database, path), { banco: nuevoBanco });
+        return auditUpdate(path, { banco: nuevoBanco }, {
+          modulo: "Facturas Emitidas",
+          registroId: numeroFactura,
+          extra: `Banco sincronizado a ${servicio.id}`,
+        });
       });
 
       await Promise.all(updatePromises);
@@ -832,8 +890,11 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     if (!numeroFactura) return;
     
     try {
-      const facturaRef = ref(database, `facturas/${numeroFactura}`);
-      await update(facturaRef, { [field]: value });
+      await auditUpdate(`facturas/${numeroFactura}`, { [field]: value }, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData || {},
+      });
       
       setFacturaData(prev => ({ ...prev, [field]: value }));
       setHasUnsavedChanges(false);
@@ -1416,14 +1477,26 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
                                   ? `data/${servicio.id}` 
                                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
                                 
-                                await update(ref(database, path), { fecha: fechaFormateada });
+                                await auditUpdate(path, { fecha: fechaFormateada }, {
+                                  modulo: "Facturas Emitidas",
+                                  registroId: numeroFactura,
+                                  extra: `Actualizar fecha servicio ${servicio.id}`,
+                                });
                                 
                                 // Si el origen es registrofechas, también mover el registro a la nueva fecha
                                 if (servicio.origin === "registrofechas" && fechaFormateada !== servicio.fecha) {
                                   // Crear en nueva fecha
-                                  await set(ref(database, `registrofechas/${fechaFormateada}/${servicio.id}`), servicio);
+                                  await auditSet(`registrofechas/${fechaFormateada}/${servicio.id}`, servicio, {
+                                    modulo: "Facturas Emitidas",
+                                    registroId: numeroFactura,
+                                    extra: `Mover servicio ${servicio.id} a ${fechaFormateada}`,
+                                  });
                                   // Eliminar de fecha anterior
-                                  await set(ref(database, `registrofechas/${servicio.fecha}/${servicio.id}`), null);
+                                  await auditRemove(`registrofechas/${servicio.fecha}/${servicio.id}`, {
+                                    modulo: "Facturas Emitidas",
+                                    registroId: numeroFactura,
+                                    extra: `Mover servicio ${servicio.id} desde ${servicio.fecha}`,
+                                  });
                                 }
                               } catch (error) {
                                 console.error("Error actualizando fecha de servicio:", error);

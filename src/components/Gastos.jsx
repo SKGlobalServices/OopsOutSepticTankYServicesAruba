@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue, push, remove, set } from "firebase/database";
+import { ref, onValue, set } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
@@ -221,7 +222,7 @@ const Gastos = () => {
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
   const [valoresLocales, setValoresLocales] = useState({});
   const [paginaActual, setPaginaActual] = useState(1);
-  const [itemsPorPagina, setItemsPorPagina] = useState(50);
+  const [itemsPorPagina, setItemsPorPagina] = useState(25);
   const [gastos, setGastos] = useState([]);
   const [categorias, setCategorias] = useState([]);
 
@@ -248,7 +249,12 @@ const Gastos = () => {
             g.fecha = calculada;
 
             // ✅ Persiste en Firebase para uniformidad
-            set(ref(database, `gastos/${g.id}/fecha`), calculada);
+            auditUpdate(`gastos/${g.id}`, { fecha: calculada }, {
+              modulo: "Gastos",
+              registroId: g.id,
+              prevData: g,
+              extra: "Normalización automática de fecha",
+            }).catch(console.error);
           }
         });
 
@@ -277,7 +283,12 @@ const Gastos = () => {
         ).sort((a, b) => a.localeCompare(b));
 
         // Persiste el catálogo detectado (puede ser [] si aún no hay categorías)
-        await set(catRef, detectadas);
+        await auditSet("catalogos/gastosCategorias", detectadas, {
+          modulo: "Gastos",
+          accion: "editar",
+          registroId: "gastosCategorias",
+          extra: "Inicialización automática de categorías",
+        });
         setCategorias(detectadas);
       }
     });
@@ -289,7 +300,12 @@ const Gastos = () => {
     const limpias = Array.from(
       new Set((lista || []).map((s) => s.trim()).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b));
-    await set(ref(database, "catalogos/gastosCategorias"), limpias);
+    await auditSet("catalogos/gastosCategorias", limpias, {
+      modulo: "Gastos",
+      accion: "editar",
+      registroId: "gastosCategorias",
+      extra: "Actualización de catálogo de categorías",
+    });
     setCategorias(limpias);
     return limpias;
   };
@@ -384,7 +400,12 @@ const Gastos = () => {
             if (afectados.length) {
               await Promise.all(
                 afectados.map((g) =>
-                  set(ref(database, `gastos/${g.id}/categoria`), "")
+                  auditUpdate(`gastos/${g.id}`, { categoria: "" }, {
+                    modulo: "Gastos",
+                    registroId: g.id,
+                    prevData: g,
+                    extra: `Categoría eliminada del catálogo: ${name}`,
+                  })
                 )
               );
               setGastos((prev) =>
@@ -504,7 +525,12 @@ const Gastos = () => {
               if (afectados.length) {
                 await Promise.all(
                   afectados.map((g) =>
-                    set(ref(database, `gastos/${g.id}/categoria`), newName)
+                    auditUpdate(`gastos/${g.id}`, { categoria: newName }, {
+                      modulo: "Gastos",
+                      registroId: g.id,
+                      prevData: g,
+                      extra: `Categoría renombrada de "${oldName}" a "${newName}"`,
+                    })
                   )
                 );
                 setGastos((prev) =>
@@ -742,8 +768,7 @@ const Gastos = () => {
         const [y, m, d] = formValues.fecha.split("-");
         fechaFormateada = `${d}-${m}-${y}`;
       }
-      const nuevoRef = push(ref(database, "gastos"));
-      await set(nuevoRef, {
+      await auditCreate("gastos", {
         fecha: fechaFormateada || "",
         categoria: formValues.categoria || "",
         descripcion: formValues.descripcion || "",
@@ -756,6 +781,9 @@ const Gastos = () => {
         numFactura: formValues.numFactura || "",
         responsable: formValues.responsable || "",
         timestamp: Date.now(),
+      }, {
+        modulo: "Gastos",
+        extra: `Categor\u00eda: ${formValues.categoria || "Sin categor\u00eda"}, Monto: ${formValues.monto || 0}`,
       });
       if (formValues.categoria) {
         const nueva = formValues.categoria.trim();
@@ -1160,7 +1188,13 @@ const Gastos = () => {
 
   /* ---------- Update campo en Firebase ---------- */
   const actualizarCampo = (id, campo, valor) => {
-    set(ref(database, `gastos/${id}/${campo}`), valor);
+    const registroActual = gastos.find((g) => g.id === id);
+    auditUpdate(`gastos/${id}`, { [campo]: valor }, {
+      modulo: "Gastos",
+      registroId: id,
+      prevData: registroActual || {},
+    }).catch(console.error);
+
     setGastos((prev) =>
       prev.map((g) => (g.id === id ? { ...g, [campo]: valor } : g))
     );
@@ -1577,11 +1611,14 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.descripcion || "")) {
+                            const nueva = e.target.value;
+                            const anterior = r.descripcion || "";
+                            if (nueva !== anterior) {
                               actualizarCampo(
                                 r.id,
                                 "descripcion",
-                                e.target.value
+                                nueva,
+                                anterior
                               );
                             }
                           }}
@@ -1605,11 +1642,14 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.proveedor || "")) {
+                            const nueva = e.target.value;
+                            const anterior = r.proveedor || "";
+                            if (nueva !== anterior) {
                               actualizarCampo(
                                 r.id,
                                 "proveedor",
-                                e.target.value
+                                nueva,
+                                anterior
                               );
                             }
                           }}
@@ -1671,8 +1711,10 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.idBanco || "")) {
-                              actualizarCampo(r.id, "idBanco", e.target.value);
+                            const nueva = e.target.value;
+                            const anterior = r.idBanco || "";
+                            if (nueva !== anterior) {
+                              actualizarCampo(r.id, "idBanco", nueva, anterior);
                             }
                           }}
                           style={{
@@ -1698,8 +1740,10 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.monto || "")) {
-                              actualizarCampo(r.id, "monto", e.target.value);
+                            const nueva = e.target.value;
+                            const anterior = r.monto || "";
+                            if (nueva !== anterior) {
+                              actualizarCampo(r.id, "monto", nueva, anterior);
                             }
                           }}
                           style={{
@@ -1726,11 +1770,14 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.numFactura || "")) {
+                            const nueva = e.target.value;
+                            const anterior = r.numFactura || "";
+                            if (nueva !== anterior) {
                               actualizarCampo(
                                 r.id,
                                 "numFactura",
-                                e.target.value
+                                nueva,
+                                anterior
                               );
                             }
                           }}
@@ -1754,11 +1801,14 @@ const Gastos = () => {
                             }))
                           }
                           onBlur={(e) => {
-                            if (e.target.value !== (r.responsable || "")) {
+                            const nueva = e.target.value;
+                            const anterior = r.responsable || "";
+                            if (nueva !== anterior) {
                               actualizarCampo(
                                 r.id,
                                 "responsable",
-                                e.target.value
+                                nueva,
+                                anterior
                               );
                             }
                           }}
@@ -1781,13 +1831,11 @@ const Gastos = () => {
                               cancelButtonText: "Cancelar",
                             }).then((result) => {
                               if (result.isConfirmed) {
-                                remove(ref(database, `gastos/${r.id}`)).catch(
-                                  (err) =>
-                                    console.error(
-                                      "Error al eliminar:",
-                                      err.message
-                                    )
-                                );
+                                auditRemove(`gastos/${r.id}`, {
+                                  modulo: "Gastos",
+                                  registroId: r.id,
+                                  extra: `Item ID: ${r.id}`,
+                                });
                                 Swal.fire({
                                   title: "¡Registro eliminado!",
                                   text: "El Registro ha sido eliminado exitosamente.",
@@ -1826,6 +1874,7 @@ const Gastos = () => {
                 value={itemsPorPagina}
                 onChange={(e) => cambiarItemsPorPagina(Number(e.target.value))}
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

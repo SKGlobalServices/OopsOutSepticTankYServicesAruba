@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, remove, update, onValue } from "firebase/database";
+import { ref, onValue } from "firebase/database";
+import { auditCreate, auditUpdate, auditRemove } from "../utils/auditLogger";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
 import Clock from "./Clock";
@@ -42,7 +43,6 @@ const Usuarios = () => {
   }, [loadedUsers]);
 
   const addUser = () => {
-    const dbRef = ref(database, "users");
     const existingNames = data.map(([_, user]) => user.name);
 
     let nextNumber = 1;
@@ -61,22 +61,23 @@ const Usuarios = () => {
     };
 
     // Guardar en Firebase
-    const newUserRef = push(dbRef);
-    set(newUserRef, newUser).catch((error) => {
+    auditCreate("users", newUser, { modulo: "Configuración de Usuarios", extra: `Nuevo usuario: ${newName}` }).catch((error) => {
       console.error("Error al agregar usuario: ", error);
     });
   };
 
   const deleteUser = (id) => {
-    const dbRef = ref(database, `users/${id}`);
-    remove(dbRef).catch((error) => {
+    const userData = data.find(([key]) => key === id);
+    const userName = userData ? userData[1].name : id;
+    auditRemove(`users/${id}`, { modulo: "Configuración de Usuarios", registroId: id, extra: `Usuario: ${userName}` }).catch((error) => {
       console.error("Error al eliminar usuario: ", error);
     });
   };
 
   const handleFieldChange = (id, field, value) => {
-    const dbRef = ref(database, `users/${id}`);
-    update(dbRef, { [field]: value }).catch((error) => {
+    const userData = data.find(([key]) => key === id);
+    const prevData = userData ? userData[1] : {};
+    auditUpdate(`users/${id}`, { [field]: value }, { modulo: "Configuración de Usuarios", registroId: id, prevData }).catch((error) => {
       console.error("Error al actualizar usuario: ", error);
     });
   };

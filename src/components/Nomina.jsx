@@ -6,7 +6,8 @@ import React, {
   useMemo,
 } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, push, onValue, set, update, remove } from "firebase/database";
+import { ref, onValue, get } from "firebase/database";
+import { auditSet, auditCreate, auditRemove, auditUpdate } from "../utils/auditLogger";
 import { jsPDF } from "jspdf";
 import Swal from "sweetalert2";
 import "react-datepicker/dist/react-datepicker.css";
@@ -47,9 +48,25 @@ const Nomina = () => {
     nomina: "",
     nombre: [],
   });
+  const [localValues, setLocalValues] = useState({});
 
   const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
   const toggleFilterSlidebar = () => setShowFilterSlidebar(!showFilterSlidebar);
+
+  const setLocalFieldValue = (recordId, field, value) => {
+    setLocalValues((prev) => ({
+      ...prev,
+      [`${recordId}_${field}`]: value,
+    }));
+  };
+
+  const clearLocalFieldValue = (recordId, field) => {
+    setLocalValues((prev) => {
+      const next = { ...prev };
+      delete next[`${recordId}_${field}`];
+      return next;
+    });
+  };
 
   // Cargar datos iniciales (sin loader)
   useEffect(() => {
@@ -482,7 +499,12 @@ const Nomina = () => {
         registros: {},
       };
 
-      await set(ref(database, `nominas/${nominaId}`), newNomina);
+      await auditSet(`nominas/${nominaId}`, newNomina, {
+        modulo: "N\u00f3mina",
+        registroId: nominaId,
+        accion: "crear",
+        extra: `Per\u00edodo: ${convertirFecha(fechaDesde)} - ${convertirFecha(fechaHasta)}`,
+      });
       setCurrentNomina(newNomina);
       setNominaData([]);
       setShowInitialDialog(false);
@@ -508,9 +530,8 @@ const Nomina = () => {
   // Cargar última nómina
   const loadLastNomina = () => {
     const nominasRef = ref(database, "nominas");
-    onValue(
-      nominasRef,
-      (snapshot) => {
+    get(nominasRef)
+      .then((snapshot) => {
         if (snapshot.exists()) {
           const nominasData = snapshot.val();
           const nominasList = Object.entries(nominasData).map(
@@ -579,9 +600,22 @@ const Nomina = () => {
             showDateRangeDialog();
           });
         }
-      },
-      { onlyOnce: true }
-    );
+      })
+      .catch((error) => {
+        console.error("Error loading nominas:", error);
+        Swal.fire({
+          title: "Info",
+          text: "No hay nóminas anteriores",
+          icon: "info",
+          confirmButtonText: "Crear Nueva Nómina",
+          allowOutsideClick: false,
+          customClass: {
+            popup: "swal-wide",
+          },
+        }).then(() => {
+          showDateRangeDialog();
+        });
+      });
   };
 
   // Agregar registro a nómina
@@ -614,10 +648,9 @@ const Nomina = () => {
         timestamp: Date.now(),
       };
 
-      const recordRef = push(
-        ref(database, `nominas/${currentNomina.id}/registros`)
-      );
-      await set(recordRef, newRecord);
+      await auditCreate(`nominas/${currentNomina.id}/registros`, newRecord, {
+        modulo: "N\u00f3mina",
+      });
     } catch (error) {
       console.error("Error adding record:", error);
       Swal.fire({
@@ -644,6 +677,12 @@ const Nomina = () => {
     try {
       let updateData = { [field]: value };
       const currentRecord = nominaData.find((r) => r.id === recordId);
+      if (!currentRecord) return;
+
+      const normalizeValue = (v) => String(v ?? "");
+      if (normalizeValue(currentRecord[field]) === normalizeValue(value)) {
+        return;
+      }
 
       if (field === "nombre") {
         // Calcula extras y deducciones por RANGO
@@ -711,10 +750,15 @@ const Nomina = () => {
       // Saldo inicial = Total nómina - Efectivo por entregar
       updateData.total = updateData.totalNomina - efectivo;
 
-      await update(
-        ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
-        updateData
-      );
+      const updatedRecord = { ...currentRecord, ...updateData };
+      const employeeName = getUserNameWithFallback(updatedRecord);
+
+      await auditUpdate(`nominas/${currentNomina.id}/registros/${recordId}`, updateData, {
+        modulo: "Nómina",
+        registroId: recordId,
+        prevData: currentRecord,
+        extra: `Empleado: ${employeeName}`,
+      }).catch(() => {});
 
       // Actualizar estado local
       setNominaData((prev) =>
@@ -753,11 +797,17 @@ const Nomina = () => {
       const totalNomina = parseFloat(currentRecord.totalNomina) || 0;
       const saldoInicial = totalNomina - (parseFloat(totalEfectivo) || 0);
 
-      await update(
-        ref(database, `nominas/${currentNomina.id}/registros/${recordId}`),
+      await auditUpdate(
+        `nominas/${currentNomina.id}/registros/${recordId}`,
         {
           efectivo: totalEfectivo,
           total: saldoInicial,
+        },
+        {
+          modulo: "Nómina",
+          registroId: recordId,
+          prevData: currentRecord,
+          extra: `Empleado: ${getUserNameWithFallback(currentRecord)} — Efectivo total (sin rango) aplicado`,
         }
       );
 
@@ -810,9 +860,13 @@ const Nomina = () => {
 
     if (result.isConfirmed) {
       try {
-        await remove(
-          ref(database, `nominas/${currentNomina.id}/registros/${recordId}`)
-        );
+        const deletedRecord = nominaData.find((r) => r.id === recordId);
+        const employeeName = deletedRecord ? getUserNameWithFallback(deletedRecord) : "Sin asignar";
+        await auditRemove(`nominas/${currentNomina.id}/registros/${recordId}`, {
+          modulo: "Nómina",
+          registroId: recordId,
+          extra: `Empleado: ${employeeName}`,
+        });
         setNominaData((prev) =>
           prev.filter((record) => record.id !== recordId)
         );
@@ -2385,10 +2439,18 @@ const Nomina = () => {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="number"
-                          value={record.dias || ""}
+                          value={localValues[`${record.id}_dias`] ?? record.dias ?? ""}
                           onChange={(e) =>
-                            updateNominaField(record.id, "dias", e.target.value)
+                            setLocalFieldValue(record.id, "dias", e.target.value)
                           }
+                          onBlur={async (e) => {
+                            const nuevoValor = e.target.value;
+                            const valorActual = record.dias ?? "";
+                            if (String(nuevoValor ?? "") !== String(valorActual ?? "")) {
+                              await updateNominaField(record.id, "dias", nuevoValor);
+                            }
+                            clearLocalFieldValue(record.id, "dias");
+                          }}
                           min="0"
                           step="1"
                           style={{ textAlign: "center", width: "80px" }}
@@ -2405,14 +2467,18 @@ const Nomina = () => {
                         >
                           <input
                             type="number"
-                            value={record.valor || ""}
+                            value={localValues[`${record.id}_valor`] ?? record.valor ?? ""}
                             onChange={(e) =>
-                              updateNominaField(
-                                record.id,
-                                "valor",
-                                e.target.value
-                              )
+                              setLocalFieldValue(record.id, "valor", e.target.value)
                             }
+                            onBlur={async (e) => {
+                              const nuevoValor = e.target.value;
+                              const valorActual = record.valor ?? "";
+                              if (String(nuevoValor ?? "") !== String(valorActual ?? "")) {
+                                await updateNominaField(record.id, "valor", nuevoValor);
+                              }
+                              clearLocalFieldValue(record.id, "valor");
+                            }}
                             min="0"
                             step="0.01"
                             style={{ textAlign: "center", width: "80px" }}
@@ -2464,14 +2530,18 @@ const Nomina = () => {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="number"
-                          value={record.efectivo ?? 0}
+                          value={localValues[`${record.id}_efectivo`] ?? record.efectivo ?? 0}
                           onChange={(e) =>
-                            updateNominaField(
-                              record.id,
-                              "efectivo",
-                              e.target.value
-                            )
+                            setLocalFieldValue(record.id, "efectivo", e.target.value)
                           }
+                          onBlur={async (e) => {
+                            const nuevoValor = e.target.value;
+                            const valorActual = record.efectivo ?? "";
+                            if (String(nuevoValor ?? "") !== String(valorActual ?? "")) {
+                              await updateNominaField(record.id, "efectivo", nuevoValor);
+                            }
+                            clearLocalFieldValue(record.id, "efectivo");
+                          }}
                           min="0"
                           step="0.01"
                           style={{ textAlign: "center", width: "100px" }}
@@ -2499,14 +2569,18 @@ const Nomina = () => {
                         >
                           <input
                             type="number"
-                            value={record.entregado || ""}
+                            value={localValues[`${record.id}_entregado`] ?? record.entregado ?? ""}
                             onChange={(e) =>
-                              updateNominaField(
-                                record.id,
-                                "entregado",
-                                e.target.value
-                              )
+                              setLocalFieldValue(record.id, "entregado", e.target.value)
                             }
+                            onBlur={async (e) => {
+                              const nuevoValor = e.target.value;
+                              const valorActual = record.entregado ?? "";
+                              if (String(nuevoValor ?? "") !== String(valorActual ?? "")) {
+                                await updateNominaField(record.id, "entregado", nuevoValor);
+                              }
+                              clearLocalFieldValue(record.id, "entregado");
+                            }}
                             min="0"
                             step="0.01"
                             style={{ textAlign: "center", minWidth: "80px" }}
@@ -2615,7 +2689,11 @@ const Nomina = () => {
 
                 if (result.isConfirmed) {
                   try {
-                    await remove(ref(database, `nominas/${currentNomina.id}`));
+                    await auditRemove(`nominas/${currentNomina.id}`, {
+                      modulo: "Nómina",
+                      registroId: currentNomina.id,
+                      extra: `Período: ${currentNomina.fechaDesde} - ${currentNomina.fechaHasta}`,
+                    });
 
                     setNominas((prev) =>
                       prev.filter((nomina) => nomina.id !== currentNomina.id)

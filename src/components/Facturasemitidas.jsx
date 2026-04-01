@@ -7,7 +7,9 @@ import {
   update,
   onValue,
   runTransaction,
+  get,
 } from "firebase/database";
+import { auditUpdate, auditSet, auditCreate } from "../utils/auditLogger";
 import { sanitizeForLog } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -41,6 +43,8 @@ const ITEM_RATES = {
   "Dow Temporal": 25.0,
   "Water Truck": 160.0,
   Pool: 0.0,
+  "Septic Tank & Pipes Cleaning": 0.0,
+  "Temporary Fuel": 0.0,
 };
 
 const Facturasemitidas = () => {
@@ -77,7 +81,7 @@ const Facturasemitidas = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -363,8 +367,8 @@ const Facturasemitidas = () => {
     if (filters.diasdemora.length > 0) {
       const dias = calculateDaysDelay(r.timestamp, r.pago);
       const matchDias = filters.diasdemora.some((valorFiltro) => {
-        if (valorFiltro === "10+") {
-          return dias >= 10;
+        if (valorFiltro === "4+") {
+          return dias >= 4;
         }
         return dias === parseInt(valorFiltro, 10);
       });
@@ -537,9 +541,10 @@ const Facturasemitidas = () => {
   };
 
   const addClient = (direccion, cubicos) => {
-    const dbRefClientes = ref(database, "clientes");
-    const newClientRef = push(dbRefClientes);
-    set(newClientRef, { direccion, cubicos }).catch((error) => {
+    auditCreate("clientes", { direccion, cubicos }, {
+      modulo: "Facturas Emitidas",
+      extra: `Cliente: ${direccion}`,
+    }).catch((error) => {
       console.error("Error adding client: ", error);
     });
   };
@@ -571,27 +576,47 @@ const Facturasemitidas = () => {
           if (fromData) {
             // Si está en data, solo actualizar la fecha
             console.log("Actualizando registro en data");
-            await update(dbRefItem, { fecha: safeValue });
+            await auditUpdate(`data/${registroId}`, { fecha: safeValue }, {
+              modulo: "Facturas Emitidas",
+              registroId,
+              prevData: registro,
+            });
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
               console.log("Moviendo registro entre fechas");
               // Crear en nueva fecha
-              await set(
-                ref(database, `registrofechas/${safeValue}/${registroId}`),
+              await auditSet(
+                `registrofechas/${safeValue}/${registroId}`,
                 {
                   ...registro,
                   fecha: safeValue,
+                },
+                {
+                  modulo: "Facturas Emitidas",
+                  accion: "crear",
+                  registroId,
+                  extra: `Movido de ${fecha} a ${safeValue}`,
                 }
               );
               // Eliminar de fecha anterior
-              await set(
-                ref(database, `registrofechas/${fecha}/${registroId}`),
-                null
+              await auditSet(
+                `registrofechas/${fecha}/${registroId}`,
+                null,
+                {
+                  modulo: "Facturas Emitidas",
+                  accion: "eliminar",
+                  registroId,
+                  extra: `Movido de ${fecha} a ${safeValue}`,
+                }
               );
             } else {
               console.log("Actualizando fecha en registrofechas");
-              await update(dbRefItem, { fecha: safeValue });
+              await auditUpdate(path, { fecha: safeValue }, {
+                modulo: "Facturas Emitidas",
+                registroId,
+                prevData: registro,
+              });
             }
           }
           console.log("Fecha de servicio actualizada exitosamente");
@@ -623,21 +648,19 @@ const Facturasemitidas = () => {
           database,
           `facturas/${registro.numerodefactura}`
         );
-        update(facturaRef, { fechapago: safeValue }).catch(console.error);
+        auditUpdate(`facturas/${registro.numerodefactura}`, { fechapago: safeValue }, {
+          modulo: "Facturas Emitidas",
+          registroId: registro.numerodefactura,
+          prevData: { fechapago: registro.fechapago },
+        }).catch(console.error);
 
         // Actualizar todos los servicios asociados a esta factura
         const actualizarServiciosAsociados = async () => {
           try {
             // Buscar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) =>
-                onValue(ref(database, "data"), resolve, { onlyOnce: true })
-              ),
-              new Promise((resolve) =>
-                onValue(ref(database, "registrofechas"), resolve, {
-                  onlyOnce: true,
-                })
-              ),
+              get(ref(database, "data")),
+              get(ref(database, "registrofechas")),
             ]);
 
             const serviciosAsociados = [];
@@ -681,7 +704,11 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return update(ref(database, path), { fechapago: safeValue });
+              return auditUpdate(path, { fechapago: safeValue }, {
+                modulo: "Facturas Emitidas",
+                registroId: servicio.id,
+                extra: `Sincronizado fechapago de factura #${registro.numerodefactura}`,
+              });
             });
 
             await Promise.all(updatePromises);
@@ -700,7 +727,16 @@ const Facturasemitidas = () => {
     const updates = { [field]: safeValue };
 
     // Grabar en Firebase
-    update(dbRefItem, updates).catch(console.error);
+    const prevData = fromData
+      ? dataBranch.find((r) => r.id === registroId) || {}
+      : dataRegistroFechas
+          .find((g) => g.fecha === fecha)
+          ?.registros.find((r) => r.id === registroId) || {};
+    auditUpdate(path, updates, {
+      modulo: "Facturas Emitidas",
+      registroId,
+      prevData,
+    }).catch(console.error);
 
     // Actualizar estado local
     const updater = (r) => (r.id === registroId ? { ...r, ...updates } : r);
@@ -820,31 +856,28 @@ const Facturasemitidas = () => {
 
         if (checked) {
           // Marcar como pagada: payment = totalAmount, deuda = 0
-          const facturaSnapshot = await new Promise((resolve) => {
-            onValue(facturaRef, resolve, { onlyOnce: true });
-          });
+          const facturaSnapshot = await get(facturaRef);
 
           if (facturaSnapshot.exists()) {
             const facturaData = facturaSnapshot.val();
             const fechaPagoFinal = new Date().toISOString().split("T")[0];
 
-            await update(facturaRef, {
+            await auditUpdate(`facturas/${registro.numerodefactura}`, {
               payment: facturaData.totalAmount,
               deuda: 0,
               pago: "Pago",
               fechapago: fechaPagoFinal,
+            }, {
+              modulo: "Facturas Emitidas",
+              registroId: registro.numerodefactura,
+              prevData: facturaData,
+              extra: `Factura #${registro.numerodefactura} pagada completamente`,
             });
 
             // Actualizar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) =>
-                onValue(ref(database, "data"), resolve, { onlyOnce: true })
-              ),
-              new Promise((resolve) =>
-                onValue(ref(database, "registrofechas"), resolve, {
-                  onlyOnce: true,
-                })
-              ),
+              get(ref(database, "data")),
+              get(ref(database, "registrofechas")),
             ]);
 
             const serviciosAsociados = [];
@@ -888,9 +921,13 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return update(ref(database, path), {
+              return auditUpdate(path, {
                 pago: "Pago",
                 fechapago: fechaPagoFinal,
+              }, {
+                modulo: "Facturas Emitidas",
+                registroId: servicio.id,
+                extra: `Factura #${registro.numerodefactura} marcada como pagada`,
               });
             });
 
@@ -905,30 +942,27 @@ const Facturasemitidas = () => {
           }
         } else {
           // Desmarcar como pagada: payment = 0, deuda = totalAmount
-          const facturaSnapshot = await new Promise((resolve) => {
-            onValue(facturaRef, resolve, { onlyOnce: true });
-          });
+          const facturaSnapshot = await get(facturaRef);
 
           if (facturaSnapshot.exists()) {
             const facturaData = facturaSnapshot.val();
 
-            await update(facturaRef, {
+            await auditUpdate(`facturas/${registro.numerodefactura}`, {
               payment: 0,
               deuda: facturaData.totalAmount,
               pago: "Debe",
               fechapago: null,
+            }, {
+              modulo: "Facturas Emitidas",
+              registroId: registro.numerodefactura,
+              prevData: facturaData,
+              extra: `Factura #${registro.numerodefactura} desmarcada`,
             });
 
             // Actualizar todos los servicios asociados
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-              new Promise((resolve) =>
-                onValue(ref(database, "data"), resolve, { onlyOnce: true })
-              ),
-              new Promise((resolve) =>
-                onValue(ref(database, "registrofechas"), resolve, {
-                  onlyOnce: true,
-                })
-              ),
+              get(ref(database, "data")),
+              get(ref(database, "registrofechas")),
             ]);
 
             const serviciosAsociados = [];
@@ -972,9 +1006,13 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return update(ref(database, path), {
+              return auditUpdate(path, {
                 pago: "Debe",
                 fechapago: null,
+              }, {
+                modulo: "Facturas Emitidas",
+                registroId: servicio.id,
+                extra: `Factura #${registro.numerodefactura} marcada como debe`,
               });
             });
 
@@ -1002,7 +1040,11 @@ const Facturasemitidas = () => {
           updates.fechapago = null;
         }
 
-        await update(itemRef, updates);
+        await auditUpdate(path, updates, {
+          modulo: "Facturas Emitidas",
+          registroId: id,
+          prevData: registro,
+        });
 
         // Actualizar estado local
         if (origin === "data") {
@@ -1170,9 +1212,7 @@ const Facturasemitidas = () => {
 
     // Obtener datos de la factura
     const facturaRef = ref(database, `facturas/${numeroFactura}`);
-    const facturaSnapshot = await new Promise((resolve) => {
-      onValue(facturaRef, resolve, { onlyOnce: true });
-    });
+    const facturaSnapshot = await get(facturaRef);
 
     if (!facturaSnapshot.exists()) {
       Swal.fire({
@@ -1282,20 +1322,19 @@ const Facturasemitidas = () => {
         facturaUpdates.fechapago = fechaPagoFinal;
       }
 
-      await update(facturaRef, facturaUpdates);
+      await auditUpdate(`facturas/${numeroFactura}`, facturaUpdates, {
+        modulo: "Facturas Emitidas",
+        registroId: numeroFactura,
+        prevData: facturaData,
+        extra: `Payment rápido AWG ${payment} en Factura #${numeroFactura}`,
+      });
 
       // Si está completamente pagada, actualizar todos los servicios asociados
       if (facturaCompletamentePagada) {
         // Buscar servicios asociados y actualizarlos
         const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
-          new Promise((resolve) =>
-            onValue(ref(database, "data"), resolve, { onlyOnce: true })
-          ),
-          new Promise((resolve) =>
-            onValue(ref(database, "registrofechas"), resolve, {
-              onlyOnce: true,
-            })
-          ),
+          get(ref(database, "data")),
+          get(ref(database, "registrofechas")),
         ]);
 
         const serviciosAsociados = [];
@@ -1339,9 +1378,13 @@ const Facturasemitidas = () => {
               ? `data/${servicio.id}`
               : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-          return update(ref(database, path), {
+          return auditUpdate(path, {
             pago: "Pago",
             fechapago: fechaPagoFinal,
+          }, {
+            modulo: "Facturas Emitidas",
+            registroId: servicio.id,
+            extra: `Factura #${numeroFactura} marcada como pagada`,
           });
         });
 
@@ -1497,9 +1540,12 @@ const Facturasemitidas = () => {
         // Actualizamos el estado local
         setInvoiceConfig(res.value);
 
-        // Guardamos en Firebase sin validar nada más
-        const configRef = ref(database, "configuraciondefactura");
-        set(configRef, res.value).catch(console.error);
+        auditSet("configuraciondefactura", res.value, {
+          modulo: "Facturas Emitidas",
+          accion: "editar",
+          registroId: "configuraciondefactura",
+          extra: "Configuración de factura actualizada",
+        }).catch(console.error);
 
         Swal.fire({
           title: "¡Configuración guardada!",
@@ -1768,13 +1814,16 @@ const Facturasemitidas = () => {
       const filas = [];
       if (facturaData.invoiceItems) {
         Object.entries(facturaData.invoiceItems).forEach(([key, item]) => {
+          const qty = parseFloat(item.qty) || 0;
+          const rate = parseFloat(item.rate) || 0;
+          const amount = qty * rate;
           filas.push([
             item.fechaServicioItem || base.fecha,
             item.item || "",
             item.descripcion || "",
-            item.qty != null ? item.qty.toString() : "",
-            item.rate != null ? (parseFloat(item.rate) || 0).toFixed(2) : "",
-            item.amount != null ? formatCurrency(item.amount) : "",
+            qty.toString(),
+            rate.toFixed(2),
+            formatCurrency(amount),
           ]);
         });
       } else {
@@ -1997,9 +2046,7 @@ const Facturasemitidas = () => {
     let invoiceIdEstimado = null;
     let usedAvailableKey = null;
 
-    const availableSnapshot = await new Promise((resolve) => {
-      onValue(availableNumsRef, resolve, { onlyOnce: true });
-    });
+    const availableSnapshot = await get(availableNumsRef);
 
     if (availableSnapshot.exists()) {
       // Hay números disponibles, usar el menor para mostrar
@@ -2012,16 +2059,9 @@ const Facturasemitidas = () => {
       usedAvailableKey = key;
     } else {
       // No hay números disponibles, calcular el siguiente número secuencial
-      const numeroEstimado = await new Promise((resolve) => {
-        const contadorRef = ref(database, "contadorFactura");
-        onValue(
-          contadorRef,
-          (snapshot) => {
-            resolve((snapshot.val() || 0) + 1);
-          },
-          { onlyOnce: true }
-        );
-      });
+      const contadorRef = ref(database, "contadorFactura");
+      const contadorSnapshot = await get(contadorRef);
+      const numeroEstimado = (contadorSnapshot.val() || 0) + 1;
 
       // Formatear número de factura estimado
       const today = new Date();
@@ -2364,11 +2404,7 @@ const Facturasemitidas = () => {
         // Usar número disponible
         invoiceIdFinal = invoiceIdEstimado;
         numeroFactura = parseInt(invoiceIdFinal.slice(-5));
-        // Eliminar de números disponibles
-        await set(
-          ref(database, `facturasDisponibles/${usedAvailableKey}`),
-          null
-        );
+        await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
       } else {
         // Generar nuevo número
         const contadorRef = ref(database, "contadorFactura");
@@ -2426,7 +2462,12 @@ const Facturasemitidas = () => {
         fechapago: null,
       };
 
-      await set(ref(database, `facturas/${invoiceIdFinal}`), facturaData);
+      await auditSet(`facturas/${invoiceIdFinal}`, facturaData, {
+        modulo: "Facturas Emitidas",
+        accion: "crear",
+        registroId: invoiceIdFinal,
+        extra: `Factura manual #${invoiceIdFinal} creada`,
+      });
 
       // 8. Crear registro en registrofechas
       const fechaKey = `${String(today.getDate()).padStart(2, "0")}-${String(
@@ -2435,7 +2476,7 @@ const Facturasemitidas = () => {
       const groupRef = ref(database, `registrofechas/${fechaKey}`);
       const newRef = push(groupRef);
 
-      await set(newRef, {
+      await set(ref(database, `registrofechas/${fechaKey}/${newRef.key}`), {
         timestamp: Date.now(),
         fecha: fechaKey,
         numerodefactura: invoiceIdFinal,
@@ -2476,7 +2517,10 @@ const Facturasemitidas = () => {
 
       // Buscar en dataBranch
       dataBranch.forEach((servicio) => {
-        if (servicio.numerodefactura === numeroFactura) {
+        if (
+          servicio.numerodefactura === numeroFactura ||
+          servicio.referenciaFactura === numeroFactura
+        ) {
           serviciosRelacionados.push({
             ...servicio,
             origin: "data",
@@ -2488,7 +2532,10 @@ const Facturasemitidas = () => {
       // Buscar en dataRegistroFechas
       dataRegistroFechas.forEach((grupo) => {
         grupo.registros.forEach((servicio) => {
-          if (servicio.numerodefactura === numeroFactura) {
+          if (
+            servicio.numerodefactura === numeroFactura ||
+            servicio.referenciaFactura === numeroFactura
+          ) {
             serviciosRelacionados.push({
               ...servicio,
               origin: "registrofechas",
@@ -2539,10 +2586,15 @@ const Facturasemitidas = () => {
 
       // 3) ✅ ELIMINAR EL NODO FACTURA COMPLETO
       if (numeroFactura) {
-        await set(ref(database, `facturas/${numeroFactura}`), null);
+        await auditSet(`facturas/${numeroFactura}`, null, {
+          modulo: "Facturas Emitidas",
+          accion: "eliminar",
+          registroId: numeroFactura,
+          extra: `Factura #${numeroFactura} cancelada. ${serviciosRelacionados.length} servicios desvinculados`,
+        });
       }
 
-      // 4) ✅ LIMPIAR TODOS LOS SERVICIOS RELACIONADOS
+      // 4) ✅ LIMPIAR TODOS LOS SERVICIOS RELACIONADOS (sin auditoría por campo)
       const updatePromises = serviciosRelacionados.map(async (servicio) => {
         const updateData = {
           // Limpiar campos de facturación
@@ -2555,6 +2607,7 @@ const Facturasemitidas = () => {
           personalizado: null,
           factura: false,
           numerodefactura: null,
+          referenciaFactura: null,
           fechaEmision: null,
           timestamp: Date.now(),
         };
@@ -2564,11 +2617,10 @@ const Facturasemitidas = () => {
 
       await Promise.all(updatePromises);
 
-      // 5) ✅ AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES
+      // 5) ✅ AGREGAR EL NÚMERO DE FACTURA A LA LISTA DE DISPONIBLES (sin auditoría)
       if (numeroFactura) {
-        const numerosDisponiblesRef = ref(database, "facturasDisponibles");
-        const newAvailableRef = push(numerosDisponiblesRef);
-        await set(newAvailableRef, {
+        const disponibleRef = push(ref(database, "facturasDisponibles"));
+        await set(disponibleRef, {
           numeroFactura: numeroFactura,
           fechaCancelacion: Date.now(),
         });
@@ -2576,7 +2628,10 @@ const Facturasemitidas = () => {
 
       // 6) ✅ ACTUALIZAR ESTADO LOCAL PARA TODOS LOS SERVICIOS
       const updater = (r) => {
-        if (r.numerodefactura === numeroFactura) {
+        if (
+          r.numerodefactura === numeroFactura ||
+          r.referenciaFactura === numeroFactura
+        ) {
           return {
             ...r,
             item: null,
@@ -2588,6 +2643,7 @@ const Facturasemitidas = () => {
             personalizado: null,
             factura: false,
             numerodefactura: null,
+            referenciaFactura: null,
             fechaEmision: null,
           };
         }
@@ -2779,13 +2835,7 @@ const Facturasemitidas = () => {
             { value: "1", label: "1" },
             { value: "2", label: "2" },
             { value: "3", label: "3" },
-            { value: "4", label: "4" },
-            { value: "5", label: "5" },
-            { value: "6", label: "6" },
-            { value: "7", label: "7" },
-            { value: "8", label: "8" },
-            { value: "9", label: "9" },
-            { value: "10+", label: "10+" },
+            { value: "4+", label: "4+" },
           ]}
           placeholder="Selecciona mora(s)..."
           onChange={(opts) =>
@@ -2964,9 +3014,15 @@ const Facturasemitidas = () => {
                                 database,
                                 `facturas/${r.numerodefactura}`
                               );
-                              update(facturaRef, {
-                                fechaEmision: fechaFormateada,
-                              }).catch(console.error);
+                              auditUpdate(
+                                `facturas/${r.numerodefactura}`,
+                                { fechaEmision: fechaFormateada },
+                                {
+                                  modulo: "Facturas Emitidas",
+                                  registroId: r.numerodefactura,
+                                  prevData: facturasData[r.numerodefactura],
+                                }
+                              ).catch(console.error);
                             } else {
                               // Si no tiene factura, guardar en el servicio
                               handleFieldChange(
@@ -3242,6 +3298,7 @@ const Facturasemitidas = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

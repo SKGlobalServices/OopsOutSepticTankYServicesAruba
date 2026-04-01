@@ -4,10 +4,11 @@ import {
   ref,
   set,
   push,
-  update,
   onValue,
   runTransaction,
+  get,
 } from "firebase/database";
+import { auditUpdate, auditSet, auditCreate } from "../utils/auditLogger";
 import { sanitizeForLog } from "../utils/security";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -69,7 +70,7 @@ const Cotizacion = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const getBase64ImageFromUrl = async (url) => {
     const res = await fetch(url);
@@ -459,9 +460,10 @@ const Cotizacion = () => {
   };
 
   const addClient = (direccion, cubicos) => {
-    const dbRefClientes = ref(database, "clientes");
-    const newClientRef = push(dbRefClientes);
-    set(newClientRef, { direccion, cubicos }).catch((error) => {
+    auditCreate("clientes", { direccion, cubicos }, {
+      modulo: "Cotización",
+      extra: `Cliente: ${direccion}`,
+    }).catch((error) => {
       console.error("Error adding client: ", error);
     });
   };
@@ -469,9 +471,13 @@ const Cotizacion = () => {
   // Función para actualizar campos en cotizaciones
   function handleFieldChange(fecha, registroId, field, value, origin) {
     const safeValue = value ?? "";
-    const cotizacionRef = ref(database, `cotizaciones/${registroId}`);
     const updates = { [field]: safeValue };
-    update(cotizacionRef, updates).catch(console.error);
+    const prevData = cotizacionesData[registroId] || {};
+    auditUpdate(`cotizaciones/${registroId}`, updates, {
+      modulo: "Cotización",
+      registroId,
+      prevData,
+    }).catch(console.error);
   }
 
   // Mostrar/ocultar slidebars
@@ -528,15 +534,18 @@ const Cotizacion = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${id}`);
-
       if (checked) {
         const fechaPagoFinal = new Date().toISOString().split("T")[0];
-        await update(cotizacionRef, {
+        await auditUpdate(`cotizaciones/${id}`, {
           payment: cotizacion.totalAmount,
           deuda: 0,
           pago: "Pago",
           fechapago: fechaPagoFinal,
+        }, {
+          modulo: "Cotización",
+          registroId: id,
+          prevData: cotizacion,
+          extra: `Cotización #${cotizacion.numerodecotizacion} pagada`,
         });
 
         Swal.fire({
@@ -546,11 +555,16 @@ const Cotizacion = () => {
           timer: 2000,
         });
       } else {
-        await update(cotizacionRef, {
+        await auditUpdate(`cotizaciones/${id}`, {
           payment: 0,
           deuda: cotizacion.totalAmount,
           pago: "Debe",
           fechapago: null,
+        }, {
+          modulo: "Cotización",
+          registroId: id,
+          prevData: cotizacion,
+          extra: `Cotización #${cotizacion.numerodecotizacion} desmarcada`,
         });
 
         Swal.fire({
@@ -704,9 +718,7 @@ const Cotizacion = () => {
 
     // Obtener datos de la cotizacion
     const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}`);
-    const cotizacionSnapshot = await new Promise((resolve) => {
-      onValue(cotizacionRef, resolve, { onlyOnce: true });
-    });
+    const cotizacionSnapshot = await get(cotizacionRef);
 
     if (!cotizacionSnapshot.exists()) {
       Swal.fire({
@@ -816,7 +828,12 @@ const Cotizacion = () => {
         cotizacionUpdates.fechapago = fechaPagoFinal;
       }
 
-      await update(cotizacionRef, cotizacionUpdates);
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, cotizacionUpdates, {
+        modulo: "Cotización",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData,
+        extra: `Payment rápido AWG ${payment} en Cotización #${numeroCotizacion}`,
+      });
 
       // Solo actualiza la cotizacion, sin propagarse a otros servicios
 
@@ -969,9 +986,12 @@ const Cotizacion = () => {
         // Actualizamos el estado local
         setInvoiceConfig(res.value);
 
-        // Guardamos en Firebase sin validar nada más
-        const configRef = ref(database, "configuraciondecotizacion");
-        set(configRef, res.value).catch(console.error);
+        auditSet("configuraciondecotizacion", res.value, {
+          modulo: "Cotización",
+          accion: "editar",
+          registroId: "configuraciondecotizacion",
+          extra: "Configuración de cotización actualizada",
+        }).catch(console.error);
 
         Swal.fire({
           title: "¡Configuración guardada!",
@@ -1111,9 +1131,7 @@ const Cotizacion = () => {
     try {
       // 6) Obtener datos de la cotizacion desde el nodo /cotizaciones/
       const cotizacionRef = ref(database, `cotizaciones/${base.numerodecotizacion}`);
-      const cotizacionSnapshot = await new Promise((resolve) => {
-        onValue(cotizacionRef, resolve, { onlyOnce: true });
-      });
+      const cotizacionSnapshot = await get(cotizacionRef);
 
       if (!cotizacionSnapshot.exists()) {
         return Swal.fire({
@@ -1362,9 +1380,7 @@ const Cotizacion = () => {
     let invoiceIdEstimado = null;
     let usedAvailableKey = null;
 
-    const availableSnapshot = await new Promise((resolve) => {
-      onValue(availableNumsRef, resolve, { onlyOnce: true });
-    });
+    const availableSnapshot = await get(availableNumsRef);
 
     if (availableSnapshot.exists()) {
       // Hay números disponibles, usar el menor para mostrar
@@ -1381,16 +1397,9 @@ const Cotizacion = () => {
     
     if (!invoiceIdEstimado) {
       // No hay números disponibles, calcular el siguiente número secuencial
-      const numeroEstimado = await new Promise((resolve) => {
-        const contadorRef = ref(database, "contadorCotizacion");
-        onValue(
-          contadorRef,
-          (snapshot) => {
-            resolve((snapshot.val() || 0) + 1);
-          },
-          { onlyOnce: true }
-        );
-      });
+      const contadorRef = ref(database, "contadorCotizacion");
+      const contadorSnapshot = await get(contadorRef);
+      const numeroEstimado = (contadorSnapshot.val() || 0) + 1;
 
       // Formatear número de cotizacion estimado
       const today = new Date();
@@ -1731,11 +1740,12 @@ const Cotizacion = () => {
         // Usar número disponible
         invoiceIdFinal = invoiceIdEstimado;
         numeroCotizacion = parseInt(invoiceIdFinal.slice(-5));
-        // Eliminar de números disponibles
-        await set(
-          ref(database, `contadorCotizacion/${usedAvailableKey}`),
-          null
-        );
+        await auditSet(`contadorCotizacion/${usedAvailableKey}`, null, {
+          modulo: "Cotización",
+          accion: "eliminar",
+          registroId: usedAvailableKey,
+          extra: `Número disponible consumido para cotización #${invoiceIdFinal}`,
+        });
       } else {
         // Generar nuevo número
         const contadorRef = ref(database, "contadorCotizacion");
@@ -1796,7 +1806,12 @@ const Cotizacion = () => {
         fechapago: null,
       };
 
-      await set(ref(database, `cotizaciones/${invoiceIdFinal}`), cotizacionData);
+      await auditSet(`cotizaciones/${invoiceIdFinal}`, cotizacionData, {
+        modulo: "Cotización",
+        accion: "crear",
+        registroId: invoiceIdFinal,
+        extra: `Cotización manual #${invoiceIdFinal} creada`,
+      });
 
       // La cotización ahora vive solo en /cotizaciones/
 
@@ -1842,14 +1857,20 @@ const Cotizacion = () => {
       if (!isConfirmed) return;
 
       // Eliminar la cotización
-      await set(ref(database, `cotizaciones/${numeroCotizacion}`), null);
+      await auditSet(`cotizaciones/${numeroCotizacion}`, null, {
+        modulo: "Cotización",
+        accion: "eliminar",
+        registroId: numeroCotizacion,
+        extra: `Cotización #${numeroCotizacion} eliminada`,
+      });
 
       // Agregar el número a la lista de disponibles
-      const numerosDisponiblesRef = ref(database, "cotizacionesDisponibles");
-      const newAvailableRef = push(numerosDisponiblesRef);
-      await set(newAvailableRef, {
+      await auditCreate("cotizacionesDisponibles", {
         numeroCotizacion: numeroCotizacion,
         fechaCancelacion: Date.now(),
+      }, {
+        modulo: "Cotización",
+        extra: `Cotización #${numeroCotizacion} agregada a disponibles`,
       });
 
       // Mostrar confirmación
@@ -2195,6 +2216,7 @@ const Cotizacion = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

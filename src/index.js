@@ -37,6 +37,8 @@ import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx"
 import Clientesnuevos from "./components/Clientesnuevos.jsx";
 import KommoOAuthCallback from "./components/KommoOAuthCallback.jsx";
 import KommoAdminDebug from "./components/KommoAdminDebug.jsx";
+import HistorialCambios from "./components/HistorialCambios.jsx";
+
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -78,6 +80,7 @@ root.render(
       <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
       <Route path="/reprogramacion" element={<PageWrapper><Reprogramacion /></PageWrapper>} />
       <Route path="/kommo-admin" element={<PageWrapper><KommoAdminDebug /></PageWrapper>} />
+      <Route path="/historialcambios" element={<PageWrapper><HistorialCambios /></PageWrapper>} />ac6feb2afcde8780fc5ff05c57aba9d03f2161b
     </Routes>
   </HashRouter>
 );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, set, push, remove, update, onValue } from "firebase/database";
+import { ref, update, onValue } from "firebase/database";
 import { useNavigate } from "react-router-dom";
 import { decryptData } from "../utils/security";
 import { validateSessionForAction } from "../utils/sessionValidator";
@@ -14,6 +14,7 @@ import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
+import { auditCreate, auditRemove, auditUpdate } from "../utils/auditLogger";
 
 const Homepage = () => {
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ const Homepage = () => {
 
         setData([
           ...con.sort(([, a], [, b]) =>
-            a.realizadopor.localeCompare(b.realizadopor)
+            a.realizadopor.localeCompare(b.realizadopor),
           ),
           ...sin,
         ]);
@@ -126,7 +127,7 @@ const Homepage = () => {
             cubicos: client.cubicos,
             valor: client.valor,
             anombrede: client.anombrede,
-          })
+          }),
         );
         setClients(fetchedClients);
       } else {
@@ -144,10 +145,10 @@ const Homepage = () => {
       if (item.realizadopor && !users.some((u) => u.id === item.realizadopor)) {
         const matchedUser = users.find(
           (u) =>
-            u.name.toLowerCase() === item.realizadopor.toString().toLowerCase()
+            u.name.toLowerCase() === item.realizadopor.toString().toLowerCase(),
         );
         if (matchedUser) {
-          handleFieldChange(id, "realizadopor", matchedUser.id);
+          handleFieldChange(id, "realizadopor", matchedUser.id, true); // true = skip audit
         }
       }
     });
@@ -167,7 +168,7 @@ const Homepage = () => {
   const anombredeOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.anombrede).filter(Boolean))
+      new Set(data.map(([_, item]) => item.anombrede).filter(Boolean)),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -176,7 +177,7 @@ const Homepage = () => {
   const direccionOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.direccion).filter(Boolean))
+      new Set(data.map(([_, item]) => item.direccion).filter(Boolean)),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -185,7 +186,7 @@ const Homepage = () => {
   const servicioOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.servicio).filter(Boolean))
+      new Set(data.map(([_, item]) => item.servicio).filter(Boolean)),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -194,7 +195,7 @@ const Homepage = () => {
   const cubicosOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.cubicos).filter(Boolean))
+      new Set(data.map(([_, item]) => item.cubicos).filter(Boolean)),
     )
       .sort((a, b) => a - b)
       .map((v) => ({ value: v.toString(), label: v.toString() })),
@@ -217,7 +218,7 @@ const Homepage = () => {
   const formadePagoOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.formadepago).filter(Boolean))
+      new Set(data.map(([_, item]) => item.formadepago).filter(Boolean)),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -233,7 +234,7 @@ const Homepage = () => {
   const metodoPagoOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.metododepago).filter(Boolean))
+      new Set(data.map(([_, item]) => item.metododepago).filter(Boolean)),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -242,7 +243,7 @@ const Homepage = () => {
   const efectivoOptions = [
     { value: "__EMPTY__", label: "🚫 Vacío" },
     ...Array.from(
-      new Set(data.map(([_, item]) => item.efectivo).filter(Boolean))
+      new Set(data.map(([_, item]) => item.efectivo).filter(Boolean)),
     )
       .sort((a, b) => a - b)
       .map((v) => ({ value: v.toString(), label: v.toString() })),
@@ -250,7 +251,7 @@ const Homepage = () => {
 
   const reorderData = (sinRealizadopor, conRealizadopor) => [
     ...conRealizadopor.sort(([, a], [, b]) =>
-      a.realizadopor.localeCompare(b.realizadopor)
+      a.realizadopor.localeCompare(b.realizadopor),
     ),
     ...sinRealizadopor,
   ];
@@ -269,10 +270,8 @@ const Homepage = () => {
     notas,
     metododepago,
     efectivo,
-    factura
+    factura,
   ) => {
-    const dbRef = ref(database, "data");
-    const newDataRef = push(dbRef);
     const newData = {
       realizadopor,
       anombrede,
@@ -288,8 +287,11 @@ const Homepage = () => {
       efectivo,
       factura,
     };
-    // Guarda en Firebase
-    await set(newDataRef, newData).catch(console.error);
+
+    await auditCreate("data", newData, {
+      modulo: "Hoja de Servicios",
+      // extra: `Nuevo servicio - Dirección: ${direccion || "vacía"}`,
+    }).catch(console.error);
   };
 
   // Función para actualizar campos en Firebase
@@ -297,17 +299,26 @@ const Homepage = () => {
   // Dentro de tu componente...
 
   // 1) handleFieldChange: ajustado para el flujo deseado
-  const handleFieldChange = (id, field, value) => {
-    // actualizamos el campo en data
-    const safeValue = value == null ? "" : value;
-    const dbRefItem = ref(database, `data/${id}`);
-    update(dbRefItem, { [field]: safeValue }).catch(console.error);
+  const handleFieldChange = (id, field, value, skipAudit = false) => {
+    const safeValue = value == null ? "" : value;   
+
+    if (!skipAudit) {
+      const currentItem = data.find(([iid]) => iid === id);
+      auditUpdate(`data/${id}`, { [field]: safeValue }, {
+        modulo: "Hoja de Servicios",
+        registroId: id,
+        prevData: currentItem ? currentItem[1] : {},
+      }).catch(console.error);
+    } else {
+      // Solo update sin auditoría
+      update(ref(database, `data/${id}`), { [field]: safeValue }).catch(console.error);
+    }
 
     // actualizamos estado local y reordenamos
     setData((d) => {
       // 1) Reemplazamos el elemento modificado
       const updated = d.map(([iid, it]) =>
-        iid === id ? [iid, { ...it, [field]: safeValue }] : [iid, it]
+        iid === id ? [iid, { ...it, [field]: safeValue }] : [iid, it],
       );
 
       // 2) Separamos:
@@ -329,14 +340,16 @@ const Homepage = () => {
         if (direccion) {
           const existing = clients.find((c) => c.direccion === direccion);
           if (!existing) {
-            // insertar nuevo cliente
-            const newClientRef = push(ref(database, "clientes"));
-            set(newClientRef, {
+            // insertar nuevo cliente con auditoria
+            auditCreate("clientes", {
               direccion,
               cubicos:
                 item.cubicos != null && item.cubicos !== ""
                   ? item.cubicos
                   : null,
+            }, {
+              modulo: "Hoja de Servicios",
+              extra: `Auto-creado desde servicios por direccion: ${direccion}`,
             }).catch(console.error);
           }
           // luego, cargar cubicos desde clientes (si existe)
@@ -356,15 +369,39 @@ const Homepage = () => {
 
   // 2) Función de solo lectura de cúbicos, valor y a nombre de desde clientes
   const loadClientFields = (direccion, dataId) => {
-    const cli = clients.find((c) => c.direccion === direccion);
-    const dbRefItem = ref(database, `data/${dataId}`);
+    const normalizedDireccion = (direccion || "").trim().toLowerCase();
+    const cli = clients.find(
+      (c) => (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+    );
+    const currentItem = data.find(([iid]) => iid === dataId);
+    const prevData = currentItem ? currentItem[1] : {};
+
     if (cli) {
       // si existe el cliente, actualiza cubicos, valor y anombrede
-      update(dbRefItem, {
-        cubicos: cli.cubicos ?? 0,
-        valor: cli.valor ?? 0,
-        anombrede: cli.anombrede ?? "",
-      }).catch(console.error);
+      auditUpdate(
+        `data/${dataId}`,
+        {
+          cubicos: cli.cubicos ?? 0,
+          valor: cli.valor ?? 0,
+          anombrede: cli.anombrede ?? "",
+        },
+        {
+          modulo: "Hoja de Servicios",
+          registroId: dataId,
+          prevData,
+          extra: `Auto-cargado desde cliente: ${direccion}`,
+        },
+      ).catch(console.error);
+
+      // Limpiar localValues para que la UI refleje los nuevos valores
+      setLocalValues((prev) => {
+        const next = { ...prev };
+        delete next[`${dataId}_cubicos`];
+        delete next[`${dataId}_valor`];
+        delete next[`${dataId}_anombrede`];
+        return next;
+      });
+
       setData((d) =>
         d.map(([iid, it]) =>
           iid === dataId
@@ -377,28 +414,25 @@ const Homepage = () => {
                   anombrede: cli.anombrede,
                 },
               ]
-            : [iid, it]
-        )
+            : [iid, it],
+        ),
       );
     } else {
-      // si no existe, limpia los tres campos
-      update(dbRefItem, { cubicos: "", valor: "", anombrede: "" }).catch(
-        console.error
-      );
-      setData((d) =>
-        d.map(([iid, it]) =>
-          iid === dataId
-            ? [iid, { ...it, cubicos: "", valor: "", anombrede: "" }]
-            : [iid, it]
-        )
-      );
+      // Si no existe cliente para la dirección, conservar datos ya ingresados.
+      return;
     }
   };
 
   // Función para eliminar un servicio
   const deleteData = (id) => {
-    const dbRefItem = ref(database, `data/${id}`);
-    remove(dbRefItem).catch(console.error);
+    const itemToDelete = data.find(([itemId]) => itemId === id);
+    const itemData = itemToDelete ? itemToDelete[1] : {};
+
+    auditRemove(`data/${id}`, {
+      modulo: "Hoja de Servicios",
+      registroId: id,
+      extra: `Dirección: ${itemData.direccion || " - "} - Servicio: ${itemData.servicio || " - "}`,
+    }).catch(console.error);
 
     // 1) Filtra el estado actual para eliminar el id
     const remaining = data.filter(([itemId]) => itemId !== id);
@@ -709,9 +743,9 @@ const Homepage = () => {
   };
 
   const handleRecordSelection = (recordId, isSelected) => {
-    setSelectedRecords(prev => ({
+    setSelectedRecords((prev) => ({
       ...prev,
-      [recordId]: isSelected
+      [recordId]: isSelected,
     }));
   };
 
@@ -726,15 +760,23 @@ const Homepage = () => {
   };
 
   const sendSelectedRecords = async () => {
-    const selectedIds = Object.keys(selectedRecords).filter(id => selectedRecords[id]);
-    
+    const selectedIds = Object.keys(selectedRecords).filter(
+      (id) => selectedRecords[id],
+    );
+
     if (selectedIds.length === 0) {
-      Swal.fire("Sin selección", "Debes seleccionar al menos un registro", "warning");
+      Swal.fire(
+        "Sin selección",
+        "Debes seleccionar al menos un registro",
+        "warning",
+      );
       return;
     }
 
-    const selectedData = filteredData.filter(([id]) => selectedIds.includes(id));
-    
+    const selectedData = filteredData.filter(([id]) =>
+      selectedIds.includes(id),
+    );
+
     const result = await Swal.fire({
       title: "Transferir Registros",
       html: `
@@ -750,22 +792,26 @@ const Homepage = () => {
       showConfirmButton: false,
       allowOutsideClick: false,
       didOpen: () => {
-        document.getElementById('manana-btn').onclick = () => {
+        document.getElementById("manana-btn").onclick = () => {
           Swal.close();
-          processRecordTransfer(selectedData, 'hojamañana').then(() => setSelectedRecords({}));
+          processRecordTransfer(selectedData, "hojamañana").then(() =>
+            setSelectedRecords({}),
+          );
         };
-        document.getElementById('pasado-btn').onclick = () => {
+        document.getElementById("pasado-btn").onclick = () => {
           Swal.close();
-          processRecordTransfer(selectedData, 'hojapasadomañana').then(() => setSelectedRecords({}));
+          processRecordTransfer(selectedData, "hojapasadomañana").then(() =>
+            setSelectedRecords({}),
+          );
         };
-      }
+      },
     });
-
-
   };
 
   const processRecordTransfer = async (records, targetTable) => {
     try {
+      const targetName = targetTable === 'hojamañana' ? 'Servicios De Mañana' : 'Servicios De Pasado Mañana';
+
       for (const [id, record] of records) {
         const serviceRecord = {
           realizadopor: record.realizadopor || "",
@@ -782,26 +828,33 @@ const Homepage = () => {
           efectivo: record.efectivo || "",
           factura: record.factura || false
         };
-        
-        await set(push(ref(database, targetTable)), serviceRecord);
-        await remove(ref(database, `data/${id}`));
+
+        await auditCreate(targetTable, serviceRecord, {
+          modulo: "Hoja de Servicios",
+          extra: `Trasladado a ${targetName} - Dirección: ${record.direccion || "N/A"}`,
+        });
+
+        await auditRemove(`data/${id}`, {
+          modulo: "Hoja de Servicios",
+          registroId: id,
+          extra: `Trasladado desde Servicios De Hoy a ${targetName}`,
+        });
       }
-      
-      const targetName = targetTable === 'hojamañana' ? 'Servicios De Mañana' : 'Servicios De Pasado Mañana';
+
       Swal.fire({
         title: "¡Transferencia Exitosa!",
         text: `Se enviaron ${records.length} registro(s) a ${targetName}`,
         icon: "success",
         timer: 2000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       Swal.fire({
         title: "Error en la transferencia",
         text: `No se pudieron transferir los registros: ${error.message}`,
         icon: "error",
-        confirmButtonText: "Entendido"
+        confirmButtonText: "Entendido",
       });
     }
   };
@@ -816,7 +869,7 @@ const Homepage = () => {
 
     // 2) Calculamos cuántos servicios no tienen 'realizadopor'
     const unassignedCount = filteredData.filter(
-      ([_, item]) => !item.realizadopor
+      ([_, item]) => !item.realizadopor,
     ).length;
 
     // 3) Armamos la tabla HTML
@@ -1086,7 +1139,9 @@ const Homepage = () => {
         <div className="homepage-card">
           <h1 className="title-page">Servicios De Hoy</h1>
           <div className="current-date">
-            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -1253,7 +1308,7 @@ const Homepage = () => {
                             handleFieldChange(
                               id,
                               "realizadopor",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         >
@@ -1271,7 +1326,7 @@ const Homepage = () => {
                           style={{
                             width: `${Math.max(
                               item.anombrede?.length || 1,
-                              20
+                              20,
                             )}ch`,
                           }}
                           value={
@@ -1290,7 +1345,7 @@ const Homepage = () => {
                               handleFieldChange(
                                 id,
                                 "anombrede",
-                                e.target.value
+                                e.target.value,
                               );
                             }
                           }}
@@ -1316,19 +1371,19 @@ const Homepage = () => {
                             onFocus={(e) =>
                               e.target.setAttribute(
                                 "list",
-                                `direccion-options-${id}`
+                                `direccion-options-${id}`,
                               )
                             }
                             onBlur={(e) => {
                               setTimeout(
                                 () => e.target.removeAttribute("list"),
-                                200
+                                200,
                               );
                               if (e.target.value !== (item.direccion || "")) {
                                 handleFieldChange(
                                   id,
                                   "direccion",
-                                  e.target.value
+                                  e.target.value,
                                 );
                               }
                             }}
@@ -1361,8 +1416,8 @@ const Homepage = () => {
                               new Set(
                                 clients
                                   .map((client) => client.direccion)
-                                  .filter(Boolean)
-                              )
+                                  .filter(Boolean),
+                              ),
                             )
                               .sort((a, b) => a.localeCompare(b))
                               .map((direccion, index) => (
@@ -1591,7 +1646,7 @@ const Homepage = () => {
                               handleFieldChange(
                                 id,
                                 "efectivo",
-                                item.valor || ""
+                                item.valor || "",
                               );
                             }
                           }}
@@ -1644,7 +1699,9 @@ const Homepage = () => {
                 })
               ) : (
                 <tr className="no-data">
-                  <td colSpan={showTransferMode ? "15" : "14"}>No hay datos disponibles.</td>
+                  <td colSpan={showTransferMode ? "15" : "14"}>
+                    No hay datos disponibles.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -1718,7 +1775,7 @@ const Homepage = () => {
             justifyContent: "flex-start",
             alignItems: "center",
             width: "100%",
-            gap: "10px"
+            gap: "10px",
           }}
         >
           <button
@@ -1728,9 +1785,11 @@ const Homepage = () => {
           >
             Servicios Por Trabajador
           </button>
-          
+
           <button
-            style={{ backgroundColor: showTransferMode ? "#dc3545" : "#28a745" }}
+            style={{
+              backgroundColor: showTransferMode ? "#dc3545" : "#28a745",
+            }}
             onClick={() => {
               setShowTransferMode(!showTransferMode);
               setSelectedRecords({});
@@ -1739,7 +1798,7 @@ const Homepage = () => {
           >
             {showTransferMode ? "Cancelar" : "Trasladar servicios"}
           </button>
-          
+
           {showTransferMode && (
             <button
               style={{ backgroundColor: "#17a2b8" }}

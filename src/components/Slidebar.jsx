@@ -542,9 +542,7 @@ const Slidebar = () => {
             ) : null}
             <button
               className="btn-configUsr2"
-              onClick={() => navigate("/historialdecambios")}
-              disabled
-              style={{cursor:"no-drop"}}
+              onClick={() => navigate("/historialcambios")}
             >
               <img
                 className="icon-configUsr2"

@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
+import { decryptData } from "../utils/security";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
 import Clock from "./Clock";
@@ -121,6 +123,7 @@ const Informedecobranza = () => {
   const [loadedConfirmacion, setLoadedConfirmacion] = useState(false);
   const [loadedEfectivo, setLoadedEfectivo] = useState(false);
   const [loadedClients, setLoadedClients] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState(false);
   const [loadedConteoEfectivo, setLoadedConteoEfectivo] = useState(false);
 
   const [showSlidebar, setShowSlidebar] = useState(false);
@@ -132,6 +135,7 @@ const Informedecobranza = () => {
   const [confirmacionRows, setConfirmacionRows] = useState([]);
   const [efectivoRows, setEfectivoRows] = useState([]);
   const [clients, setClients] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // Estado para conteo de efectivo
   const [conteoEfectivo, setConteoEfectivo] = useState({});
@@ -147,7 +151,7 @@ const Informedecobranza = () => {
 
   // === PAGINACIÓN SOLO PARA EFECTIVO ===
   const [currentPageEfectivo, setCurrentPageEfectivo] = useState(1);
-  const [itemsPerPageEfectivo, setItemsPerPageEfectivo] = useState(50);
+  const [itemsPerPageEfectivo, setItemsPerPageEfectivo] = useState(25);
 
   const handleDateRangeChange = useCallback((dates) => {
     const [start, end] = dates;
@@ -283,6 +287,19 @@ const Informedecobranza = () => {
     };
   }, []);
 
+  // ===== Cargar usuarios
+  useEffect(() => {
+    const dbRef = ref(database, "users");
+    const unsub = onValue(dbRef, (snap) => {
+      if (!snap.exists()) { setUsers([]); setLoadedUsers(true); return; }
+      const arr = Object.entries(snap.val())
+        .map(([id, u]) => ({ id, name: u.name || "" }));
+      setUsers(arr);
+      setLoadedUsers(true);
+    });
+    return unsub;
+  }, []);
+
   // ===== Cargar clientes (para datalist de direcciones)
   useEffect(() => {
     const dbRef = ref(database, "clientes");
@@ -309,6 +326,7 @@ const Informedecobranza = () => {
       loadedConfirmacion &&
       loadedEfectivo &&
       loadedClients &&
+      loadedUsers &&
       loadedConteoEfectivo
     ) {
       setLoading(false);
@@ -318,6 +336,7 @@ const Informedecobranza = () => {
     loadedConfirmacion,
     loadedEfectivo,
     loadedClients,
+    loadedUsers,
     loadedConteoEfectivo,
   ]);
 
@@ -353,16 +372,31 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzaconfirmacion"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzaconfirmacion/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Pendientes → Confirmación",
         }),
-        set(ref(database, `cobranzapendientes/${rowId}`), null),
+        auditSet(`cobranzapendientes/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Pendientes → Confirmación",
+        }),
       ]);
     },
     [pendientesRows]
+  );
+
+  const getUserName = useCallback(
+    (userId) => users.find((u) => u.id === userId)?.name || "",
+    [users]
   );
 
   const move2to3 = useCallback(
@@ -370,16 +404,30 @@ const Informedecobranza = () => {
       const row = confirmacionRows.find((r) => r.id === rowId);
       if (!row) return;
 
+      const userData = decryptData(localStorage.getItem("user"));
+      const recibidopor = userData?.id || "";
+
       const newRef = push(ref(database, "cobranzaefectivo"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzaefectivo/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           fecha: fmtHoy(),
           timestamp: new Date().toISOString(),
+          recibidopor,
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Confirmación → Efectivo",
         }),
-        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+        auditSet(`cobranzaconfirmacion/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Confirmación → Efectivo",
+        }),
       ]);
     },
     [confirmacionRows]
@@ -392,42 +440,33 @@ const Informedecobranza = () => {
 
       const newRef = push(ref(database, "cobranzapendientes"));
       await Promise.all([
-        set(newRef, {
+        auditSet(`cobranzapendientes/${newRef.key}`, {
           direccion: (row.direccion || "").trim(),
           valor: (row.valor || "").toString().trim(),
           notas: (row.notas || "").trim(),
           timestamp: new Date().toISOString(),
+        }, {
+          modulo: "Informe de Cobranza",
+          accion: "crear",
+          registroId: newRef.key,
+          extra: "Confirmación → Pendientes",
         }),
-        set(ref(database, `cobranzaconfirmacion/${rowId}`), null),
+        auditSet(`cobranzaconfirmacion/${rowId}`, null, {
+          modulo: "Informe de Cobranza",
+          accion: "eliminar",
+          registroId: rowId,
+          extra: "Confirmación → Pendientes",
+        }),
       ]);
     },
     [confirmacionRows]
-  );
-
-  const move3to2 = useCallback(
-    async (rowId) => {
-      const row = efectivoRows.find((r) => r.id === rowId);
-      if (!row) return;
-
-      const newRef = push(ref(database, "cobranzaconfirmacion"));
-      await Promise.all([
-        set(newRef, {
-          direccion: (row.direccion || "").trim(),
-          valor: (row.valor || "").toString().trim(),
-          notas: (row.notas || "").trim(),
-          timestamp: new Date().toISOString(),
-        }),
-        set(ref(database, `cobranzaefectivo/${rowId}`), null),
-      ]);
-    },
-    [efectivoRows]
   );
 
   // ======================
   // CRUD / Guardado optimizado
   // ======================
   const saveField = useCallback(
-    async (rowId, field, value, table = "pendientes") => {
+    async (rowId, field, value, table = "pendientes", valorAnterior) => {
       const tableName =
         table === "pendientes"
           ? "cobranzapendientes"
@@ -435,51 +474,57 @@ const Informedecobranza = () => {
           ? "cobranzaconfirmacion"
           : "cobranzaefectivo";
 
-      await update(ref(database, `${tableName}/${rowId}`), {
-        [field]: value ?? "",
+      await auditUpdate(`${tableName}/${rowId}`, { [field]: value ?? "" }, {
+        modulo: "Informe de Cobranza",
+        registroId: rowId,
+        prevData: { [field]: valorAnterior ?? "" },
       });
     },
     []
   );
 
-  // Handlers optimizados
+  // Handlers optimizados - solo guardan si el valor realmente cambió
   const handleTextBlur = useCallback(
-    (rowId, field, table = "pendientes") =>
+    (rowId, field, table = "pendientes", originalValue) =>
       (e) => {
         const v = (e.target.value || "").trim();
-        saveField(rowId, field, v, table);
+        const prev = (originalValue || "").trim();
+        if (v === prev) return;
+        saveField(rowId, field, v, table, prev);
       },
     [saveField]
   );
 
   const handleMoneyBlur = useCallback(
-    (rowId, field, table = "pendientes") =>
+    (rowId, field, table = "pendientes", originalValue) =>
       (e) => {
         const parsed = parseMoney(e.target.value);
-        saveField(rowId, field, parsed, table);
+        const prevParsed = parseMoney(originalValue);
+        if (String(parsed) === String(prevParsed)) return;
+        saveField(rowId, field, parsed, table, prevParsed);
       },
     [saveField]
   );
 
   const handleDateBlur = useCallback(
-    (rowId) => (e) => {
+    (rowId, originalFecha) => (e) => {
       const newDmy = inputToDmy(e.target.value);
-      if (newDmy) {
-        saveField(rowId, "fecha", newDmy, "efectivo");
-      }
+      if (!newDmy || newDmy === (originalFecha || "")) return;
+      saveField(rowId, "fecha", newDmy, "efectivo", originalFecha);
     },
     [saveField]
   );
 
   // Crear registro nuevo
   const addData = useCallback(async () => {
-    const newRef = push(ref(database, "cobranzaefectivo"));
-    await set(newRef, {
+    await auditCreate("cobranzaefectivo", {
       direccion: "",
       valor: "",
       notas: "",
       fecha: fmtHoy(),
       timestamp: new Date().toISOString(),
+    }, {
+      modulo: "Informe de Cobranza",
     });
     setCurrentPageEfectivo(1);
   }, []);
@@ -500,7 +545,10 @@ const Informedecobranza = () => {
             : table === "confirmacion"
             ? "cobranzaconfirmacion"
             : "cobranzaefectivo";
-        set(ref(database, `${tableName}/${rowId}`), null);
+        auditRemove(`${tableName}/${rowId}`, {
+          modulo: "Informe de Cobranza",
+          registroId: rowId,
+        });
       }
     });
   }, []);
@@ -694,7 +742,12 @@ const Informedecobranza = () => {
       setUsdAwgValue(0);
 
       try {
-        await set(ref(database, "cobranzaefectivototal"), { ...zeros, [USD_AWG_KEY]: 0 });
+        await auditSet("cobranzaefectivototal", { ...zeros, [USD_AWG_KEY]: 0 }, {
+          modulo: "Informe de Cobranza",
+          accion: "editar",
+          registroId: "cobranzaefectivototal",
+          extra: "Conteo de efectivo reiniciado",
+        });
         Swal.fire("Listo", "El contador fue reiniciado.", "success");
       } catch (err) {
         console.error("Error reseteando conteo:", err);
@@ -1164,7 +1217,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "pendientes"
+                              "pendientes",
+                              r.direccion
                             )}
                             list={`dir-opt-1-${r.id}`}
                           />
@@ -1183,7 +1237,8 @@ const Informedecobranza = () => {
                             onBlur={handleMoneyBlur(
                               r.id,
                               "valor",
-                              "pendientes"
+                              "pendientes",
+                              r.valor
                             )}
                           />
                         </td>
@@ -1192,7 +1247,7 @@ const Informedecobranza = () => {
                             type="text"
                             className="input input-sm input-notes"
                             defaultValue={r.notas || ""}
-                            onBlur={handleTextBlur(r.id, "notas", "pendientes")}
+                            onBlur={handleTextBlur(r.id, "notas", "pendientes", r.notas)}
                           />
                         </td>
                         <td className="text-center">
@@ -1269,7 +1324,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "confirmacion"
+                              "confirmacion",
+                              r.direccion
                             )}
                             list={`dir-opt-2-${r.id}`}
                           />
@@ -1288,7 +1344,8 @@ const Informedecobranza = () => {
                             onBlur={handleMoneyBlur(
                               r.id,
                               "valor",
-                              "confirmacion"
+                              "confirmacion",
+                              r.valor
                             )}
                           />
                         </td>
@@ -1300,7 +1357,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "notas",
-                              "confirmacion"
+                              "confirmacion",
+                              r.notas
                             )}
                           />
                         </td>
@@ -1335,12 +1393,12 @@ const Informedecobranza = () => {
               <table className="service-table">
                 <thead>
                   <tr className="thead-success">
-                    <th colSpan={7}>
+                    <th colSpan={8}>
                       EFECTIVO RECIBIDO - Total: {formatMoney(totalEfectivo)}
                     </th>
                   </tr>
                   <tr>
-                    <th style={{ width: "5%" }}>Volver</th>
+                    <th style={{ width: "10%" }}>Recibido por</th>
                     <th style={{ width: "12%" }}>Fecha</th>
                     <th style={{ width: "30%" }}>Dirección/Nota</th>
                     <th style={{ width: "12%" }}>Monto</th>
@@ -1353,7 +1411,7 @@ const Informedecobranza = () => {
                   {paginatedEfectivo.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center"
                         style={{ color: "#888" }}
                       >
@@ -1363,21 +1421,15 @@ const Informedecobranza = () => {
                   ) : (
                     paginatedEfectivo.map((r) => (
                       <tr key={r.id}>
-                        <td className="text-center">
-                          <button
-                            className="filter-button btn-xs"
-                            onClick={() => move3to2(r.id)}
-                            title="Devolver a Confirmación"
-                          >
-                            ←
-                          </button>
+                        <td className="text-center" style={{ minWidth: "8ch", fontSize: "11px" }}>
+                          {getUserName(r.recibidopor)}
                         </td>
                         <td>
                           <input
                             type="date"
                             className="input input-sm input-date"
                             defaultValue={dmyToInput(r.fecha)}
-                            onBlur={handleDateBlur(r.id)}
+                            onBlur={handleDateBlur(r.id, r.fecha)}
                           />
                         </td>
                         <td>
@@ -1388,7 +1440,8 @@ const Informedecobranza = () => {
                             onBlur={handleTextBlur(
                               r.id,
                               "direccion",
-                              "efectivo"
+                              "efectivo",
+                              r.direccion
                             )}
                             list={`dir-opt-3-${r.id}`}
                           />
@@ -1404,7 +1457,7 @@ const Informedecobranza = () => {
                             inputMode="decimal"
                             className="input input-sm input-center"
                             defaultValue={formatMoney(r.valor || 0)}
-                            onBlur={handleMoneyBlur(r.id, "valor", "efectivo")}
+                            onBlur={handleMoneyBlur(r.id, "valor", "efectivo", r.valor)}
                           />
                         </td>
                         <td className="text-center">
@@ -1418,7 +1471,7 @@ const Informedecobranza = () => {
                             type="text"
                             className="input input-sm input-notes"
                             defaultValue={r.notas || ""}
-                            onBlur={handleTextBlur(r.id, "notas", "efectivo")}
+                            onBlur={handleTextBlur(r.id, "notas", "efectivo", r.notas)}
                           />
                         </td>
                         <td className="text-center">
@@ -1529,9 +1582,13 @@ const Informedecobranza = () => {
                             onBlur={(e) => {
                               const newValue = Math.max(0, Number(e.target.value) || 0);
                               if (newValue !== cantidad) {
-                                update(ref(database, "cobranzaefectivototal"), {
+                                auditUpdate("cobranzaefectivototal", {
                                   [tipoKey]: newValue
-                                });
+                                }, {
+                                  modulo: "Informe de Cobranza",
+                                  registroId: "cobranzaefectivototal",
+                                  extra: `Actualización de denominación ${tipoKey}`,
+                                }).catch(console.error);
                               }
                             }}
                             placeholder="0"
@@ -1562,9 +1619,13 @@ const Informedecobranza = () => {
                         onBlur={(e) => {
                           const newValue = Math.max(0, Number(e.target.value) || 0);
                           if (newValue !== usdAwgValue) {
-                            update(ref(database, "cobranzaefectivototal"), {
+                            auditUpdate("cobranzaefectivototal", {
                               [USD_AWG_KEY]: newValue
-                            });
+                            }, {
+                              modulo: "Informe de Cobranza",
+                              registroId: "cobranzaefectivototal",
+                              extra: "Actualización de tasa USD/AWG",
+                            }).catch(console.error);
                           }
                         }}
                         placeholder="0"

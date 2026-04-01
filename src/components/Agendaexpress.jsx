@@ -1,12 +1,13 @@
 /* ─────────────────────  AgendaExpress.jsx  ───────────────────── */
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { database } from "../Database/firebaseConfig";
-import { push, ref, set, onValue } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
 import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import servicioPasadoMananaIcon2 from "../assets/img/servicioPasadoMananaIcon2.png";
+import { auditCreate } from "../utils/auditLogger";
 
 /*  rutas Firebase por día  */
 const RUTA = {
@@ -231,9 +232,13 @@ const AgendaExpress = () => {
   /* ---------- guardar ---------- */
   const save = async (payload) => {
     try {
-      await set(push(ref(database, RUTA[dia])), {
+      const moduloNombres = { hoy: "Servicios Hoy", manana: "Servicios Mañana", pasado: "Servicios Pasado Mañana" };
+      await auditCreate(RUTA[dia], {
         ...payload,
         creadoEn: Date.now(),
+      }, {
+        modulo: "Agenda Express",
+        extra: `Agendado en ${moduloNombres[dia]} - Dirección: ${payload.direccion || " - "}`,
       });
       Swal.fire({ icon: "success", title: "¡Agendado!" });
       setFase("seleccion");
@@ -273,14 +278,16 @@ const AgendaExpress = () => {
 
     // Cuando cambie la dirección, carga automáticamente 'cubicos'
     useEffect(() => {
-  const cli = clients.find((c) => c.direccion === data.direccion);
-  if (cli && cli.cubicos != null) {
-    setData((d) => ({ ...d, cubicos: cli.cubicos }));
-  } else if (data.direccion.trim() !== "") {
-    // Si no encuentra el cliente pero hay una dirección, poner cubicos en 0
-    setData((d) => ({ ...d, cubicos: 0 }));
-  }
-}, [data.direccion, clients]);
+      const normalizedDireccion = (data.direccion || "").trim().toLowerCase();
+      const cli = clients.find(
+        (c) =>
+          (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+      );
+
+      if (cli && cli.cubicos != null) {
+        setData((d) => ({ ...d, cubicos: cli.cubicos }));
+      }
+    }, [data.direccion, clients]);
 
     const campo = campos[step];
     const props = { accent, onEnter: next, onEsc: prev };

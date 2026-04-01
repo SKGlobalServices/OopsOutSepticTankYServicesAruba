@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
 import { ref, set, push, onValue, update } from "firebase/database";
+import { auditUpdate, auditCreate, auditRemove } from "../utils/auditLogger";
 import Select from "react-select";
 import Slidebar from "./Slidebar";
 import filtericon from "../assets/img/filters_icon.jpg";
@@ -27,7 +28,7 @@ const Clientesfijos = () => {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -140,9 +141,15 @@ const Clientesfijos = () => {
       : value ?? "";
 
     try {
-      const itemRef = ref(database, `clientesfijos/${item.id}`);
       // ✅ Persistir en Firebase
-      await update(itemRef, { [field]: safeValue });
+      await auditUpdate(
+        `clientesfijos/${item.id}`, 
+        { [field]: safeValue }, 
+          { 
+          modulo: "Clientes Fijos", 
+          registroId: item.id, 
+          prevData: item 
+        });
 
       // ✅ Reflejar el cambio en UI
       setData((prev) =>
@@ -166,14 +173,8 @@ const Clientesfijos = () => {
   };
 
   const addData = async () => {
-    const dbRef = ref(database, "clientesfijos");
-    const newRef = push(dbRef);
-    await set(newRef, {
-      direccion: "",
-      programacion: "",
-      cubicos: "",
-      valor: "",
-    }).catch(console.error);
+    const newData = { direccion: "", programacion: "", cubicos: "", valor: "" };
+    await auditCreate("clientesfijos", newData, { modulo: "Clientes Fijos" }).catch(console.error);
   };
 
   // ====== Opciones para filtros (react-select) ======
@@ -294,7 +295,7 @@ const Clientesfijos = () => {
     }
 
     if (Object.keys(updates).length > 0) {
-      await update(ref(database, `clientesfijos/${item.id}`), updates).catch(
+      await auditUpdate(`clientesfijos/${item.id}`, updates, { modulo: "Clientes Fijos", registroId: item.id, prevData: item, extra: "Autocompletado desde clientes" }).catch(
         console.error
       );
       setData((prev) =>
@@ -335,7 +336,14 @@ const Clientesfijos = () => {
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        set(ref(database, `clientesfijos/${itemId}`), null)
+        const itemToDelete = data.find((it) => it.id === itemId);
+        auditRemove(
+          `clientesfijos/${itemId}`, 
+            { 
+              modulo: "Clientes Fijos", 
+              registroId: itemId, 
+              extra: itemToDelete ? `Dirección: ${itemToDelete.direccion || "(vacío)"}` : "" 
+            })
           .then(() => {
             Swal.fire({
               title: "¡Registro eliminado!",
@@ -752,6 +760,7 @@ const Clientesfijos = () => {
                   handleItemsPerPageChange(Number(e.target.value))
                 }
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>

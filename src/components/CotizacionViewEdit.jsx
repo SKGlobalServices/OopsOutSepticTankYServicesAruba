@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue, update, set } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import Swal from "sweetalert2";
 import { sanitizeForLog } from "../utils/security";
+import { auditUpdate, auditSet, auditRemove } from "../utils/auditLogger";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -156,8 +157,11 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
     if (!numeroCotizacion) return;
     
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}`);
-      await update(cotizacionRef, { [field]: value });
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, { [field]: value }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
+      });
       
       setCotizacionData(prev => ({ ...prev, [field]: value }));
       setHasUnsavedChanges(false);
@@ -177,8 +181,11 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
     if (!numeroCotizacion) return;
     
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`);
-      await update(cotizacionRef, { [field]: value });
+      await auditUpdate(`cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`, { [field]: value }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData?.invoiceItems?.[itemKey] || {},
+      });
       
       setCotizacionData(prev => ({
         ...prev,
@@ -204,9 +211,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       const newDeuda = Math.max(0, newTotal - (cotizacionData.payment || 0));
       
       // Actualizar total y deuda en Firebase
-      await update(ref(database, `cotizaciones/${numeroCotizacion}`), {
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, {
         totalAmount: newTotal,
         deuda: newDeuda
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
       });
       
       setCotizacionData(prev => ({
@@ -234,11 +245,14 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
     const newAmount = currentQty * newRate;
     
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`);
-      await update(cotizacionRef, { 
+      await auditUpdate(`cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`, { 
         item: newItem,
         rate: newRate,
         amount: newAmount
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData?.invoiceItems?.[itemKey] || {},
       });
       
       // Actualizar estado local
@@ -269,9 +283,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       const newTotal = Object.values(updatedItems).reduce((sum, item) => sum + (item.amount || 0), 0);
       const newDeuda = Math.max(0, newTotal - (cotizacionData.payment || 0));
       
-      await update(ref(database, `cotizaciones/${numeroCotizacion}`), {
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, {
         totalAmount: newTotal,
         deuda: newDeuda
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
       });
       
       setCotizacionData(prev => ({
@@ -333,15 +351,22 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
     const newAmount = qty * currentRate;
     
     try {
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`);
-      await update(cotizacionRef, { 
+      await auditUpdate(`cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`, { 
         qty: qty,
         amount: newAmount
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData?.invoiceItems?.[itemKey] || {},
       });
       
-      await update(ref(database, `cotizaciones/${numeroCotizacion}`), {
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, {
         totalAmount: cotizacionData.totalAmount,
         deuda: cotizacionData.deuda
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
       });
       
       setHasUnsavedChanges(false);
@@ -361,9 +386,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
           ? `data/${servicio.id}` 
           : `registrofechas/${servicio.fecha}/${servicio.id}`;
         
-        return update(ref(database, path), { 
+        return auditUpdate(path, { 
           pago: estadoPago,
           fechapago: fechaPagoFinal
+        }, {
+          modulo: "Cotizaciones",
+          registroId: numeroCotizacion,
+          extra: `Servicio asociado ${servicio.id}`,
         });
       });
 
@@ -462,7 +491,6 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       const cotizacionCompletamentePagada = nuevaDeuda === 0;
       
       // Actualizar la cotizacion en Firebase
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}`);
       const updates = {
         payment: parseFloat(nuevosPayments.toFixed(2)),
         deuda: parseFloat(nuevaDeuda.toFixed(2))
@@ -479,7 +507,11 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
         updates.fechapago = null;
       }
 
-      await update(cotizacionRef, updates);
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, updates, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
+      });
       console.log("✅ Cotizacion actualizada en Firebase");
 
       // Actualizar estado local
@@ -533,9 +565,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
               ? `data/${servicio.id}` 
               : `registrofechas/${servicio.fecha}/${servicio.id}`;
             
-            return update(ref(database, path), { 
+            return auditUpdate(path, { 
               pago: estadoPago,
               fechapago: fechaPago
+            }, {
+              modulo: "Cotizaciones",
+              registroId: numeroCotizacion,
+              extra: `Servicio asociado ${servicio.id}`,
             });
           });
 
@@ -623,8 +659,11 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       };
       
       // Agregar el item a Firebase
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}/invoiceItems/${newItemKey}`);
-      await set(cotizacionRef, nuevoItem);
+      await auditSet(`cotizaciones/${numeroCotizacion}/invoiceItems/${newItemKey}`, nuevoItem, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        extra: `Nuevo item ${newItemKey}`,
+      });
       
       // Actualizar estado local
       setCotizacionData(prev => {
@@ -646,9 +685,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       });
       
       // Actualizar totales en Firebase
-      await update(ref(database, `cotizaciones/${numeroCotizacion}`), {
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, {
         totalAmount: cotizacionData.totalAmount,
         deuda: cotizacionData.deuda
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
       });
       
       setHasUnsavedChanges(true);
@@ -683,8 +726,11 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       if (!result.isConfirmed) return;
       
       // Eliminar de Firebase
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`);
-      await set(cotizacionRef, null);
+      await auditRemove(`cotizaciones/${numeroCotizacion}/invoiceItems/${itemKey}`, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        extra: `Eliminar item ${itemKey}`,
+      });
       
       // Actualizar estado local
       setCotizacionData(prev => {
@@ -704,9 +750,13 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
       });
       
       // Actualizar totales en Firebase
-      await update(ref(database, `cotizaciones/${numeroCotizacion}`), {
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, {
         totalAmount: cotizacionData.totalAmount,
         deuda: cotizacionData.deuda
+      }, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
       });
       
       setHasUnsavedChanges(true);
@@ -744,9 +794,15 @@ const CotizacionViewEdit = ({ numeroCotizacion, onClose }) => {
         }
       });
 
+      // Sanitizar: Firebase no acepta undefined, reemplazar por null
+      const sanitized = JSON.parse(JSON.stringify(cotizacionData, (_, v) => v === undefined ? null : v));
+
       // Actualizar cotizacion completa en Firebase
-      const cotizacionRef = ref(database, `cotizaciones/${numeroCotizacion}`);
-      await update(cotizacionRef, cotizacionData);
+      await auditUpdate(`cotizaciones/${numeroCotizacion}`, sanitized, {
+        modulo: "Cotizaciones",
+        registroId: numeroCotizacion,
+        prevData: cotizacionData || {},
+      });
       
       setHasUnsavedChanges(false);
       setEditMode(false);
