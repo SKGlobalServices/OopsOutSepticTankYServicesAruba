@@ -3,15 +3,45 @@
  * Kommo OAuth 2.0: exchange code for tokens, refresh token, read tokens from Firestore.
  * Tokens stored in collection kommo_tokens, document "default". Frontend must NEVER access them.
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.exchangeCodeForTokens = exchangeCodeForTokens;
 exports.refreshAccessToken = refreshAccessToken;
 exports.getValidAccessToken = getValidAccessToken;
 const firestore_1 = require("firebase-admin/firestore");
-const axios_1 = __importDefault(require("axios"));
+const axios_1 = __importStar(require("axios"));
 const KOMMO_TOKEN_COLLECTION = "kommo_tokens";
 const KOMMO_TOKEN_DOC_ID = "default";
 const KOMMO_OAUTH_URL = "https://www.kommo.com/oauth2/access_token";
@@ -27,9 +57,22 @@ async function exchangeCodeForTokens(code, clientId, clientSecret, redirectUri) 
         code,
         redirect_uri: redirectUri,
     });
-    const res = await axios_1.default.post(KOMMO_OAUTH_URL, body.toString(), {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    let res;
+    try {
+        res = await axios_1.default.post(KOMMO_OAUTH_URL, body.toString(), {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            validateStatus: () => true,
+        });
+    }
+    catch (e) {
+        const msg = (0, axios_1.isAxiosError)(e)
+            ? `Network error calling Kommo OAuth: ${e.message}`
+            : String(e);
+        throw new Error(msg);
+    }
+    if (res.status < 200 || res.status >= 300) {
+        throw new Error(`Kommo OAuth token exchange failed HTTP ${res.status}: ${JSON.stringify(res.data)}`);
+    }
     const data = res.data;
     const expires_at = Date.now() + ((_a = data.expires_in) !== null && _a !== void 0 ? _a : 86400) * 1000;
     const tokens = {
@@ -58,9 +101,22 @@ async function refreshAccessToken(clientId, clientSecret) {
         grant_type: "refresh_token",
         refresh_token: current.refresh_token,
     });
-    const res = await axios_1.default.post(KOMMO_OAUTH_URL, body.toString(), {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    let res;
+    try {
+        res = await axios_1.default.post(KOMMO_OAUTH_URL, body.toString(), {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            validateStatus: () => true,
+        });
+    }
+    catch (e) {
+        const msg = (0, axios_1.isAxiosError)(e)
+            ? `Network error refreshing Kommo token: ${e.message}`
+            : String(e);
+        throw new Error(msg);
+    }
+    if (res.status < 200 || res.status >= 300) {
+        throw new Error(`Kommo token refresh failed HTTP ${res.status}: ${JSON.stringify(res.data)}`);
+    }
     const data = res.data;
     const expires_at = Date.now() + ((_a = data.expires_in) !== null && _a !== void 0 ? _a : 86400) * 1000;
     const tokens = {

@@ -140,10 +140,14 @@ const App = () => {
   useEffect(() => {
     const checkRedirectResult = async () => {
       const urlParams = new URLSearchParams(window.location.search);
+      const isLikelyKommoOAuth =
+        urlParams.has("referer") ||
+        window.location.hash.includes("kommo-oauth-callback");
       const hasAuthParams =
-        urlParams.has("code") ||
-        urlParams.has("state") ||
-        window.location.hash.includes("access_token");
+        !isLikelyKommoOAuth &&
+        (urlParams.has("code") ||
+          urlParams.has("state") ||
+          window.location.hash.includes("access_token"));
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         window.navigator.standalone;

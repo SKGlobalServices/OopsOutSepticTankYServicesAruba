@@ -4,7 +4,7 @@
  */
 
 import { getFirestore } from "firebase-admin/firestore";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 
 const KOMMO_TOKEN_COLLECTION = "kommo_tokens";
 const KOMMO_TOKEN_DOC_ID = "default";
@@ -33,14 +33,29 @@ export async function exchangeCodeForTokens(
     redirect_uri: redirectUri,
   });
 
-  const res = await axios.post<{
-    token_type: string;
-    expires_in: number;
-    access_token: string;
-    refresh_token: string;
-  }>(KOMMO_OAUTH_URL, body.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+  let res;
+  try {
+    res = await axios.post<{
+      token_type: string;
+      expires_in: number;
+      access_token: string;
+      refresh_token: string;
+    }>(KOMMO_OAUTH_URL, body.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      validateStatus: () => true,
+    });
+  } catch (e: unknown) {
+    const msg = isAxiosError(e)
+      ? `Network error calling Kommo OAuth: ${e.message}`
+      : String(e);
+    throw new Error(msg);
+  }
+
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Kommo OAuth token exchange failed HTTP ${res.status}: ${JSON.stringify(res.data)}`
+    );
+  }
 
   const data = res.data;
   const expires_at = Date.now() + (data.expires_in ?? 86400) * 1000;
@@ -78,14 +93,29 @@ export async function refreshAccessToken(
     refresh_token: current.refresh_token,
   });
 
-  const res = await axios.post<{
-    token_type: string;
-    expires_in: number;
-    access_token: string;
-    refresh_token: string;
-  }>(KOMMO_OAUTH_URL, body.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+  let res;
+  try {
+    res = await axios.post<{
+      token_type: string;
+      expires_in: number;
+      access_token: string;
+      refresh_token: string;
+    }>(KOMMO_OAUTH_URL, body.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      validateStatus: () => true,
+    });
+  } catch (e: unknown) {
+    const msg = isAxiosError(e)
+      ? `Network error refreshing Kommo token: ${e.message}`
+      : String(e);
+    throw new Error(msg);
+  }
+
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Kommo token refresh failed HTTP ${res.status}: ${JSON.stringify(res.data)}`
+    );
+  }
 
   const data = res.data;
   const expires_at = Date.now() + (data.expires_in ?? 86400) * 1000;

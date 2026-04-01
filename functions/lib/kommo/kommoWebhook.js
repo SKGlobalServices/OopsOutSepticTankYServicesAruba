@@ -11,27 +11,30 @@ const kommoService_1 = require("./kommoService");
  * Payload may be in a single field (e.g. payload or the entity object).
  */
 function parseWebhookBody(req) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const body = req.body;
     if (body && typeof body === "object" && !Array.isArray(body)) {
-        if ((_b = (_a = body.leads) !== null && _a !== void 0 ? _a : body.contacts) !== null && _b !== void 0 ? _b : body.notes)
-            return body;
-        const payloadStr = (_c = body.payload) !== null && _c !== void 0 ? _c : body.data;
+        const rec = body;
+        if ((_c = (_b = (_a = rec.leads) !== null && _a !== void 0 ? _a : rec.contacts) !== null && _b !== void 0 ? _b : rec.notes) !== null && _c !== void 0 ? _c : rec.messages) {
+            return rec;
+        }
+        const payloadStr = (_e = (_d = rec.payload) !== null && _d !== void 0 ? _d : rec.data) !== null && _e !== void 0 ? _e : rec.body;
         if (typeof payloadStr === "string") {
             try {
-                return JSON.parse(payloadStr);
+                const parsed = JSON.parse(payloadStr);
+                return parsed;
             }
-            catch (_d) {
-                return body;
+            catch (_f) {
+                return rec;
             }
         }
-        return body;
+        return rec;
     }
     if (typeof body === "string") {
         try {
             return JSON.parse(body);
         }
-        catch (_e) {
+        catch (_g) {
             return { raw: body.slice(0, 500) };
         }
     }

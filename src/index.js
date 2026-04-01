@@ -35,6 +35,8 @@ import Informedeserviciosextras from "./components/Informedeserviciosextras.jsx"
 import Informedetransferenciascontador from "./components/Informedetransferenciascontador.jsx";
 import Facturasemitidascontador from "./components/Facturasemitidascontador.jsx";
 import Clientesnuevos from "./components/Clientesnuevos.jsx";
+import KommoOAuthCallback from "./components/KommoOAuthCallback.jsx";
+import KommoAdminDebug from "./components/KommoAdminDebug.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
@@ -42,6 +44,7 @@ root.render(
   <HashRouter>
     <Routes>
       <Route path="/" element={<App />} />
+      <Route path="/kommo-oauth-callback" element={<KommoOAuthCallback />} />
       <Route path="/homepage" element={<PageWrapper><Homepage /></PageWrapper>} />
       <Route path="/agendaexpress" element={<PageWrapper><Agendaexpress /></PageWrapper>} />
       <Route path="/hojamañana" element={<PageWrapper><Hojamañana /></PageWrapper>} />
@@ -74,6 +77,7 @@ root.render(
       <Route path="/informedetransferenciascontador" element={<PageWrapper><Informedetransferenciascontador /></PageWrapper>} />
       <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
       <Route path="/reprogramacion" element={<PageWrapper><Reprogramacion /></PageWrapper>} />
+      <Route path="/kommo-admin" element={<PageWrapper><KommoAdminDebug /></PageWrapper>} />
     </Routes>
   </HashRouter>
 );

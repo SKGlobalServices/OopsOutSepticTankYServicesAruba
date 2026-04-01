@@ -14,16 +14,20 @@ import { processWebhookAsync } from "./kommoService";
 function parseWebhookBody(req: Request): Record<string, unknown> {
   const body = req.body;
   if (body && typeof body === "object" && !Array.isArray(body)) {
-    if (body.leads ?? body.contacts ?? body.notes) return body as Record<string, unknown>;
-    const payloadStr = (body as Record<string, unknown>).payload ?? (body as Record<string, unknown>).data;
+    const rec = body as Record<string, unknown>;
+    if (rec.leads ?? rec.contacts ?? rec.notes ?? rec.messages) {
+      return rec;
+    }
+    const payloadStr = rec.payload ?? rec.data ?? rec.body;
     if (typeof payloadStr === "string") {
       try {
-        return JSON.parse(payloadStr) as Record<string, unknown>;
+        const parsed = JSON.parse(payloadStr) as Record<string, unknown>;
+        return parsed;
       } catch {
-        return body as Record<string, unknown>;
+        return rec;
       }
     }
-    return body as Record<string, unknown>;
+    return rec;
   }
   if (typeof body === "string") {
     try {
@@ -50,7 +54,7 @@ export function createKommoWebhookHandler() {
 
     res.status(200).send("ok");
 
-    processWebhookAsync(payload).catch((err) => {
+    processWebhookAsync(payload).catch((err: unknown) => {
       console.error("Kommo webhook processing error:", err);
     });
   };

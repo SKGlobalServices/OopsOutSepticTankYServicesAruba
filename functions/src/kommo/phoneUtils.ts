@@ -31,3 +31,50 @@ export function normalizePhoneE164(
   }
   return digits;
 }
+
+/**
+ * Variants used for matching RTDB telefono* against Kommo (different formats).
+ */
+export function phoneMatchCandidates(
+  input: string | null | undefined,
+  defaultCountryCode = "297"
+): string[] {
+  const raw = normalizePhone(input);
+  if (!raw) return [];
+
+  const out = new Set<string>();
+  out.add(raw);
+
+  const e164 = normalizePhoneE164(input, defaultCountryCode);
+  if (e164) out.add(e164);
+
+  if (defaultCountryCode && e164.startsWith(defaultCountryCode) && e164.length > defaultCountryCode.length) {
+    out.add(e164.slice(defaultCountryCode.length));
+  }
+
+  // If Kommo sends 297... and DB has local 7 digits, also compare last 7 (Aruba mobile block)
+  if (raw.length >= 7) {
+    out.add(raw.slice(-7));
+  }
+  if (e164.length >= 7) {
+    out.add(e164.slice(-7));
+  }
+
+  return Array.from(out).filter(Boolean);
+}
+
+/**
+ * True if any candidate from A matches any candidate from B (exact string match on digits variants).
+ */
+export function phoneVariantsOverlap(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  defaultCountryCode = "297"
+): boolean {
+  const setA = new Set(phoneMatchCandidates(a, defaultCountryCode));
+  const setB = new Set(phoneMatchCandidates(b, defaultCountryCode));
+  for (const x of setA) {
+    if (setB.has(x)) return true;
+  }
+  return false;
+}

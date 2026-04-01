@@ -3,6 +3,7 @@
  * Realtime Database helpers for clientes (Kommo integration).
  * App stores clientes in RTDB; these helpers find and update them by telefono / kommo IDs.
  */
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.findClienteByPhoneRTDB = findClienteByPhoneRTDB;
 exports.findClienteByKommoContactIdRTDB = findClienteByKommoContactIdRTDB;
@@ -11,31 +12,31 @@ exports.resolveClienteIdRTDB = resolveClienteIdRTDB;
 exports.updateClienteKommoIdsRTDB = updateClienteKommoIdsRTDB;
 const database_1 = require("firebase-admin/database");
 const phoneUtils_1 = require("./phoneUtils");
+const DEFAULT_CC = (_a = process.env.KOMMO_DEFAULT_COUNTRY_CODE) !== null && _a !== void 0 ? _a : "297";
 const CLIENTES_PATH = "clientes";
 const PHONE_FIELDS = ["telefono1", "telefono2", "telefono3"];
-function normalizeFromRecord(phone) {
-    if (phone == null)
-        return "";
-    return phone.toString().replace(/\D/g, "");
-}
 /**
  * Find a client in Realtime DB by normalized phone number.
  * Matches against telefono1, telefono2, or telefono3 (and legacy telefono if present).
  */
 async function findClienteByPhoneRTDB(phone) {
-    const normalized = (0, phoneUtils_1.normalizePhone)(phone);
-    if (!normalized)
+    const searchVariants = (0, phoneUtils_1.phoneMatchCandidates)(phone, DEFAULT_CC);
+    if (!searchVariants.length)
         return null;
     const db = (0, database_1.getDatabase)();
     const snapshot = await db.ref(CLIENTES_PATH).once("value");
     const val = snapshot.val();
     if (!val || typeof val !== "object")
         return null;
+    const searchSet = new Set(searchVariants);
     for (const [id, c] of Object.entries(val)) {
         const fieldsToCheck = [...PHONE_FIELDS, "telefono"];
         for (const key of fieldsToCheck) {
-            const tel = normalizeFromRecord(c === null || c === void 0 ? void 0 : c[key]);
-            if (tel && tel === normalized) {
+            const stored = c === null || c === void 0 ? void 0 : c[key];
+            if (stored == null || stored === "")
+                continue;
+            const storedVariants = (0, phoneUtils_1.phoneMatchCandidates)(String(stored), DEFAULT_CC);
+            if (storedVariants.some((v) => searchSet.has(v))) {
                 return Object.assign({ id }, c);
             }
         }

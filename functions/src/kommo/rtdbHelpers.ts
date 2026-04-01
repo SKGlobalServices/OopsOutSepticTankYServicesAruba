@@ -4,7 +4,9 @@
  */
 
 import { getDatabase } from "firebase-admin/database";
-import { normalizePhone } from "./phoneUtils";
+import { phoneMatchCandidates } from "./phoneUtils";
+
+const DEFAULT_CC = process.env.KOMMO_DEFAULT_COUNTRY_CODE ?? "297";
 
 const CLIENTES_PATH = "clientes";
 
@@ -22,11 +24,6 @@ export interface ClienteRecordRTDB {
   [key: string]: unknown;
 }
 
-function normalizeFromRecord(phone: unknown): string {
-  if (phone == null) return "";
-  return (phone as string).toString().replace(/\D/g, "");
-}
-
 /**
  * Find a client in Realtime DB by normalized phone number.
  * Matches against telefono1, telefono2, or telefono3 (and legacy telefono if present).
@@ -34,19 +31,23 @@ function normalizeFromRecord(phone: unknown): string {
 export async function findClienteByPhoneRTDB(
   phone: string
 ): Promise<ClienteRecordRTDB | null> {
-  const normalized = normalizePhone(phone);
-  if (!normalized) return null;
+  const searchVariants = phoneMatchCandidates(phone, DEFAULT_CC);
+  if (!searchVariants.length) return null;
 
   const db = getDatabase();
   const snapshot = await db.ref(CLIENTES_PATH).once("value");
   const val = snapshot.val();
   if (!val || typeof val !== "object") return null;
 
+  const searchSet = new Set(searchVariants);
+
   for (const [id, c] of Object.entries(val as Record<string, Record<string, unknown>>)) {
     const fieldsToCheck = [...PHONE_FIELDS, "telefono"];
     for (const key of fieldsToCheck) {
-      const tel = normalizeFromRecord(c?.[key]);
-      if (tel && tel === normalized) {
+      const stored = c?.[key];
+      if (stored == null || stored === "") continue;
+      const storedVariants = phoneMatchCandidates(String(stored), DEFAULT_CC);
+      if (storedVariants.some((v) => searchSet.has(v))) {
         return { id, ...c } as ClienteRecordRTDB;
       }
     }
