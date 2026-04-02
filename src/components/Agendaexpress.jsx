@@ -19,8 +19,8 @@ const vibrate = (ms = 35) => navigator.vibrate && navigator.vibrate(ms);
 const colores = ["#000000", "#000000", "#000000", "#000000", "#000000"];
 
 const labelStyle = (color) => ({
-  margin: "0 0 0.3rem 0",
-  fontSize: "0.68rem",
+  margin: "0 0 0 0",
+  fontSize: "0.85rem",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: "0.12em",
@@ -37,9 +37,6 @@ const fieldSt = {
 /* ─────────────────────  NumInput  ───────────────────── */
 const NumInput = ({ value, onChange, min, max, step = 1, accent, onEnter }) => {
   const inputRef = useRef(null);
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
   return (
     <input
       ref={inputRef}
@@ -65,9 +62,6 @@ const TextArea = ({ value, onChange, accent, onEnter }) => {
   useEffect(() => {
     setTemp(value);
   }, [value]);
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
 
   const save = () => onChange(temp);
 
