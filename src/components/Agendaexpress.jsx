@@ -37,7 +37,9 @@ const fieldSt = {
 /* ─────────────────────  NumInput  ───────────────────── */
 const NumInput = ({ value, onChange, min, max, step = 1, accent, onEnter }) => {
   const inputRef = useRef(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
   return (
     <input
       ref={inputRef}
@@ -48,7 +50,9 @@ const NumInput = ({ value, onChange, min, max, step = 1, accent, onEnter }) => {
       step={step}
       style={{ "--accent": accent, ...fieldSt }}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => { if (e.key === "Enter") onEnter(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onEnter();
+      }}
     />
   );
 };
@@ -58,8 +62,12 @@ const TextArea = ({ value, onChange, accent, onEnter }) => {
   const ref = useRef(null);
   const [temp, setTemp] = useState(value);
 
-  useEffect(() => { setTemp(value); }, [value]);
-  useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => {
+    setTemp(value);
+  }, [value]);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
 
   const save = () => onChange(temp);
 
@@ -69,14 +77,22 @@ const TextArea = ({ value, onChange, accent, onEnter }) => {
         ref={ref}
         rows={2}
         value={temp}
-        style={{ "--accent": accent, ...fieldSt, maxHeight: "65px", resize: "none", overflowY: "auto" }}
+        style={{
+          "--accent": accent,
+          ...fieldSt,
+          maxHeight: "65px",
+          resize: "none",
+          overflowY: "auto",
+        }}
         onChange={(e) => setTemp(e.target.value)}
         onBlur={save}
-        onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) { save(); onEnter(); } }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && e.ctrlKey) {
+            save();
+            onEnter();
+          }
+        }}
       />
-      <small style={{ fontSize: "0.62rem", color: "#6c757d", marginTop: "0.2rem", display: "block" }}>
-        Ctrl + Enter para confirmar
-      </small>
     </>
   );
 };
@@ -101,7 +117,7 @@ const AgendaExpress = () => {
             anombrede: c.anombrede || "",
             email: c.email || "",
             telefono1: c.telefono1 || "",
-          }))
+          })),
         );
       } else {
         setClients([]);
@@ -117,20 +133,20 @@ const AgendaExpress = () => {
         manana: "Servicios Mañana",
         pasado: "Servicios Pasado Mañana",
       };
-      const { anombrede: _a, email: _e, telefono1: _t, ...payloadServicio } = payload;
+      const { email: _e, telefono1: _t, ...payloadServicio } = payload;
       await auditCreate(
         RUTA[dia],
         { ...payloadServicio, creadoEn: Date.now() },
         {
           modulo: "Agenda Express",
           extra: `Agendado en ${moduloNombres[dia]} - Dirección: ${payload.direccion || " - "}`,
-        }
+        },
       );
 
       const clienteExistente = clients.find(
         (c) =>
           (c.direccion || "").trim().toLowerCase() ===
-          (payload.direccion || "").trim().toLowerCase()
+          (payload.direccion || "").trim().toLowerCase(),
       );
 
       const result = await Swal.fire({
@@ -165,13 +181,17 @@ const AgendaExpress = () => {
       });
 
       if (result.isConfirmed && clienteExistente?.id) {
-        await update(ref(database, `clientes/${clienteExistente.id}`), {
+        const updateData = {
           cubicos: payload.cubicos,
           valor: payload.valor,
-          anombrede: payload.anombrede,
           email: payload.email,
           telefono1: payload.telefono1,
-        });
+        };
+        if (payload.anombrede) updateData.anombrede = payload.anombrede;
+        await update(
+          ref(database, `clientes/${clienteExistente.id}`),
+          updateData,
+        );
       }
 
       Swal.fire({ icon: "success", title: "¡Agendado!" });
@@ -184,7 +204,9 @@ const AgendaExpress = () => {
   };
 
   const rootCls = `agendaEX ${fase === "formulario" ? "fase-form" : ""}`;
-  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[dia];
+  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[
+    dia
+  ];
 
   /* ─────────────────────  SingleForm  ───────────────────── */
   const SingleForm = ({ onCancel, onSubmit, clients }) => {
@@ -205,7 +227,7 @@ const AgendaExpress = () => {
     useEffect(() => {
       const norm = (data.direccion || "").trim().toLowerCase();
       const cli = clients.find(
-        (c) => (c.direccion || "").trim().toLowerCase() === norm
+        (c) => (c.direccion || "").trim().toLowerCase() === norm,
       );
       if (cli) {
         setData((d) => ({
@@ -225,19 +247,18 @@ const AgendaExpress = () => {
       <div
         className="turboCard"
         style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "min(94vw, 400px)",
-          maxHeight: "92vh",
-          overflowY: "auto",
-          overflowX: "hidden",
           boxSizing: "border-box",
-          gap: "0.7rem",
-          padding: "1.1rem 1.3rem 1rem",
         }}
       >
+        <div className="autoField">
+          <p style={labelStyle(colores[0])}>A Nombre De</p>
+          <input
+            value={data.anombrede}
+            style={{ "--accent": colores[0], ...fieldSt }}
+            onChange={(e) => upd("anombrede", e.target.value)}
+          />
+        </div>
+
         <div className="autoField">
           <p style={labelStyle(colores[0])}>Dirección</p>
           <input
@@ -253,7 +274,9 @@ const AgendaExpress = () => {
               .map((c) => c.direccion)
               .filter(Boolean)
               .sort()
-              .map((d, i) => <option key={i} value={d} />)}
+              .map((d, i) => (
+                <option key={i} value={d} />
+              ))}
           </datalist>
         </div>
 
@@ -261,7 +284,11 @@ const AgendaExpress = () => {
           <p style={labelStyle(colores[1])}>Servicio</p>
           <select
             value={data.servicio}
-            style={{ "--accent": colores[1], ...fieldSt, paddingRight: "2.2rem" }}
+            style={{
+              "--accent": colores[1],
+              ...fieldSt,
+              paddingRight: "2.2rem",
+            }}
             onChange={(e) => upd("servicio", e.target.value)}
           >
             <option value=""></option>
@@ -276,27 +303,28 @@ const AgendaExpress = () => {
           </select>
         </div>
 
-        <div className="autoField">
-          <p style={labelStyle(colores[2])}>Cúbicos</p>
-          <NumInput
-            value={data.cubicos}
-            min={0}
-            max={50}
-            onChange={(v) => upd("cubicos", v)}
-            accent={colores[2]}
-            onEnter={ok}
-          />
-        </div>
-
-        <div className="autoField">
-          <p style={labelStyle(colores[3])}>Valor (AWG)</p>
-          <NumInput
-            value={data.valor}
-            step={5}
-            onChange={(v) => upd("valor", v)}
-            accent={colores[3]}
-            onEnter={ok}
-          />
+        <div style={{ display: "flex", gap: "0.7rem", width: "100%" }}>
+          <div className="autoField" style={{ flex: 1 }}>
+            <p style={labelStyle(colores[2])}>Cúbicos</p>
+            <NumInput
+              value={data.cubicos}
+              min={0}
+              max={50}
+              onChange={(v) => upd("cubicos", v)}
+              accent={colores[2]}
+              onEnter={ok}
+            />
+          </div>
+          <div className="autoField" style={{ flex: 1 }}>
+            <p style={labelStyle(colores[3])}>Valor (AWG)</p>
+            <NumInput
+              value={data.valor}
+              step={5}
+              onChange={(v) => upd("valor", v)}
+              accent={colores[3]}
+              onEnter={ok}
+            />
+          </div>
         </div>
 
         <div className="autoField">
@@ -310,31 +338,23 @@ const AgendaExpress = () => {
         </div>
 
         <div className="autoField">
-          <p style={labelStyle("#ff9f43")}>A Nombre De</p>
-          <input
-            value={data.anombrede}
-            style={{ "--accent": "#ff9f43", ...fieldSt }}
-            onChange={(e) => upd("anombrede", e.target.value)}
-          />
-        </div>
-
-        <div className="autoField">
-          <p style={labelStyle("#ff9f43")}>Email</p>
-          <input
-            type="email"
-            value={data.email}
-            style={{ "--accent": "#ff9f43", ...fieldSt }}
-            onChange={(e) => upd("email", e.target.value)}
-          />
-        </div>
-
-        <div className="autoField">
-          <p style={labelStyle("#ff9f43")}>Teléfono</p>
+          <p style={labelStyle(colores[0])}>Teléfono</p>
           <input
             type="tel"
             value={data.telefono1}
-            style={{ "--accent": "#ff9f43", ...fieldSt }}
+            style={{ "--accent": colores[0], ...fieldSt }}
             onChange={(e) => upd("telefono1", e.target.value)}
+            placeholder="Ejemplo: +2975942808"
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle(colores[0])}>Email</p>
+          <input
+            type="email"
+            value={data.email}
+            style={{ "--accent": colores[0], ...fieldSt }}
+            onChange={(e) => upd("email", e.target.value)}
           />
         </div>
 
@@ -343,7 +363,11 @@ const AgendaExpress = () => {
             Agendar
           </button>
         </div>
-        <button className="cancel" style={{ marginTop: "0.5rem" }} onClick={onCancel}>
+        <button
+          className="cancel"
+          style={{ marginTop: "0.5rem" }}
+          onClick={onCancel}
+        >
           Cancelar
         </button>
       </div>
@@ -355,7 +379,7 @@ const AgendaExpress = () => {
       <Slidebar />
       <header className={`aexp-header ${dia ? "withDia" : ""}`}>
         <h1 className="aexp-title">AGENDA EXPRESS</h1>
-        {labelDia && <h2 className="aexp-subtitle">AGENDANDO: {labelDia}</h2>}
+        {labelDia && <h2 className="aexp-subtitle">AGENDANDAR: {labelDia}</h2>}
       </header>
 
       {fase === "seleccion" && (
@@ -376,15 +400,19 @@ const AgendaExpress = () => {
                     id === "hoy"
                       ? servicioHoyIcon2
                       : id === "manana"
-                      ? servicioMananaIcon2
-                      : servicioPasadoMananaIcon2
+                        ? servicioMananaIcon2
+                        : servicioPasadoMananaIcon2
                   }
                   alt={id}
                   className="icono-dia-img"
                 />
               </span>
               <span className="titulo-dia">
-                {id === "hoy" ? "HOY" : id === "manana" ? "MAÑANA" : "PASADO MAÑANA"}
+                {id === "hoy"
+                  ? "HOY"
+                  : id === "manana"
+                    ? "MAÑANA"
+                    : "PASADO MAÑANA"}
               </span>
               <div className="shine" />
             </button>
@@ -396,7 +424,10 @@ const AgendaExpress = () => {
         <SingleForm
           key={dia}
           clients={clients}
-          onCancel={() => { setFase("seleccion"); setDia(""); }}
+          onCancel={() => {
+            setFase("seleccion");
+            setDia("");
+          }}
           onSubmit={save}
         />
       )}
