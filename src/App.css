@@ -3193,12 +3193,13 @@ button.delete-button:hover {
   border-radius: var(--radius);
   backdrop-filter: blur(24px) saturate(1.35);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  text-align: center;
 }
 
 /* Solo para pantallas grandes: fija un top en vez de centrar verticalmente */
 @media screen and (min-width: 1001px) {
   .turboCard {
-    top: 250px; /* o el espacio que desees */
+    top: 150px; /* o el espacio que desees */
     transform: translateX(-50%);
   }
 }
@@ -3234,7 +3235,8 @@ button.delete-button:hover {
 
 /* Campos de texto */
 .autoField input,
-.autoField textarea {
+.autoField textarea,
+.autoField select {
   width: 88%;
   padding: 0.85rem 1.15rem;
   border-radius: 22px;
@@ -3245,10 +3247,23 @@ button.delete-button:hover {
   transition: border 0.25s, box-shadow 0.25s, transform 0.25s;
   direction: ltr;
   text-align: left;
+  box-sizing: border-box;
+}
+
+.autoField select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpolyline points='1,1 6,7 11,1' fill='none' stroke='%23007bff' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.1rem center;
+  background-size: 12px 8px;
+  padding-right: 2.5rem;
+  cursor: pointer;
 }
 
 .autoField input:focus,
-.autoField textarea:focus {
+.autoField textarea:focus,
+.autoField select:focus {
   outline: none;
   border-color: #007bff;
   box-shadow: 0 0 10px #007bff;
@@ -3867,6 +3882,23 @@ h1,
 }
 
 /*AGENDA*/
+/* Evita que los estilos globales de select sobreescriban el select del wizard */
+.agendaEX .autoField select {
+  width: 88% !important;
+  margin: 0 !important;
+  padding: 0.85rem 2.5rem 0.85rem 1.15rem !important;
+  border-radius: 22px !important;
+  border: 1px solid #007bff !important;
+  background-color: #ffffff !important;
+  font-size: clamp(0.9rem, 2.4vw, 1rem) !important;
+  box-sizing: border-box !important;
+  opacity: 1 !important;
+}
+
+.agendaEX .autoField select:focus {
+  box-shadow: 0 0 10px #007bff !important;
+  transform: scale(1.02);
+}
 .agendaEX .dropdown-list {
   position: absolute;
   top: calc(100% + 4px);

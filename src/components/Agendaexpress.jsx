@@ -1,7 +1,7 @@
 /* ─────────────────────  AgendaExpress.jsx  ───────────────────── */
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { database } from "../Database/firebaseConfig";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, update } from "firebase/database";
 import Swal from "sweetalert2";
 import Slidebar from "./Slidebar";
 import servicioHoyIcon2 from "../assets/img/servicioHoyIcon2.png";
@@ -9,7 +9,6 @@ import servicioMananaIcon2 from "../assets/img/servicioMananaIcon2.png";
 import servicioPasadoMananaIcon2 from "../assets/img/servicioPasadoMananaIcon2.png";
 import { auditCreate } from "../utils/auditLogger";
 
-/*  rutas Firebase por día  */
 const RUTA = {
   hoy: "data",
   manana: "hojamañana",
@@ -17,211 +16,93 @@ const RUTA = {
 };
 const vibrate = (ms = 35) => navigator.vibrate && navigator.vibrate(ms);
 
-/* ─────────────────────  Componentes del Formulario  ───────────────────── */
+const colores = ["#000000", "#000000", "#000000", "#000000", "#000000"];
 
-const AutoInput = ({
-  fieldKey,
-  label,
-  value,
-  onChange,
-  lista,
-  accent,
-  onEnter,
-  onEsc,
-}) => {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
+const labelStyle = (color) => ({
+  margin: "0 0 0.3rem 0",
+  fontSize: "0.68rem",
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color,
+  textAlign: "center",
+  width: "100%",
+});
+
+const fieldSt = {
+  padding: "0.55rem 1rem",
+  fontSize: "0.92rem",
+};
+
+/* ─────────────────────  NumInput  ───────────────────── */
+const NumInput = ({ value, onChange, min, max, step = 1, accent, onEnter }) => {
   const inputRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-   useEffect(() => {
-    inputRef.current?.focus();
-    setShowDropdown(true);
-  }, [fieldKey]);
-
-  const filtered = lista.filter((v) =>
-    v.toLowerCase().includes(value.toLowerCase())
-  );
-
+  useEffect(() => { inputRef.current?.focus(); }, []);
   return (
-    <div className="autoField" style={{ position: "relative" }} ref={dropdownRef}>
-      <input
-        ref={inputRef}
-        id={fieldKey}
-        placeholder={label}
-        value={value}
-        autoFocus
-        style={{ "--accent": accent }}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setShowDropdown(true);
-        }}
-        onFocus={() => setShowDropdown(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onEnter();
-          if (e.key === "Escape") onEsc();
-        }}
-      />
-      {showDropdown && filtered.length > 0 && (
-        <ul
-          className="dropdown-list"
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            maxHeight: "150px",
-            overflowY: "auto",
-            background: "#222",
-            color: "white",
-            border: "1px solid var(--accent)",
-            zIndex: 9999,
-          }}
-        >
-          {filtered.map((item, i) => (
-            <li
-              key={i}
-              style={{
-                padding: "10px",
-                cursor: "pointer",
-                borderBottom: "1px solid #444",
-              }}
-              onMouseDown={() => {
-                onChange(item);
-                onEnter();
-              }}
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <input
+      ref={inputRef}
+      type="number"
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      style={{ "--accent": accent, ...fieldSt }}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => { if (e.key === "Enter") onEnter(); }}
+    />
   );
 };
 
-const NumInput = ({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step = 1,
-  accent,
-  onEnter,
-  onEsc,
-}) => {
-  const inputRef = React.useRef(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  return (
-    <div className="autoField">
-      <input
-        ref={inputRef}
-        type="number"
-        placeholder={label}
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        style={{ "--accent": accent }}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onEnter();
-          if (e.key === "Escape") onEsc();
-        }}
-      />
-    </div>
-  );
-};
-
-const TextArea = ({ label, value, onChange, accent, onEnter, onEsc }) => {
-  const textAreaRef = React.useRef(null);
-  const [hasFocused, setHasFocused] = useState(false);
+/* ─────────────────────  TextArea  ───────────────────── */
+const TextArea = ({ value, onChange, accent, onEnter }) => {
+  const ref = useRef(null);
   const [temp, setTemp] = useState(value);
 
-  useEffect(() => {
-    if (!hasFocused) {
-      textAreaRef.current?.focus();
-      setHasFocused(true);
-      // Colocar el cursor al final al iniciar
-      textAreaRef.current.selectionStart = textAreaRef.current.value.length;
-      textAreaRef.current.selectionEnd = textAreaRef.current.value.length;
-    }
-  }, [hasFocused]);
+  useEffect(() => { setTemp(value); }, [value]);
+  useEffect(() => { ref.current?.focus(); }, []);
 
-  // Cada vez que se actualice `value`, actualizar `temp` también
-  useEffect(() => {
-    setTemp(value);
-  }, [value]);
-
-  const guardarYColocarCursor = () => {
-    onChange(temp);
-
-    // Timeout para esperar al render y colocar el cursor al final
-    setTimeout(() => {
-      if (textAreaRef.current) {
-        const length = textAreaRef.current.value.length;
-        textAreaRef.current.selectionStart = length;
-        textAreaRef.current.selectionEnd = length;
-        textAreaRef.current.focus();
-      }
-    }, 0);
-  };
+  const save = () => onChange(temp);
 
   return (
-    <div className="autoField">
+    <>
       <textarea
-        ref={textAreaRef}
-        rows={3}
-        placeholder={label}
+        ref={ref}
+        rows={2}
         value={temp}
-        style={{ "--accent": accent }}
+        style={{ "--accent": accent, ...fieldSt, maxHeight: "65px", resize: "none", overflowY: "auto" }}
         onChange={(e) => setTemp(e.target.value)}
-        onBlur={guardarYColocarCursor}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && e.ctrlKey) {
-            guardarYColocarCursor();
-            onEnter();
-          }
-          if (e.key === "Escape") onEsc();
-        }}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) { save(); onEnter(); } }}
       />
-      <small>Ctrl + Enter para confirmar</small>
-    </div>
+      <small style={{ fontSize: "0.62rem", color: "#6c757d", marginTop: "0.2rem", display: "block" }}>
+        Ctrl + Enter para confirmar
+      </small>
+    </>
   );
 };
 
+/* ─────────────────────  AgendaExpress  ───────────────────── */
 const AgendaExpress = () => {
-  /* ---------- estados ---------- */
   const [fase, setFase] = useState("seleccion");
   const [dia, setDia] = useState("");
   const [clients, setClients] = useState([]);
 
-  /* ---------- cargar clientes ---------- */
   useEffect(() => {
     const dbRef = ref(database, "clientes");
     const unsub = onValue(dbRef, (snap) => {
       if (snap.exists()) {
-        const arr = Object.values(snap.val()).map((c) => ({
-          direccion: c.direccion,
-          cubicos: c.cubicos,
-        }));
-        setClients(arr);
+        setClients(
+          Object.entries(snap.val()).map(([id, c]) => ({
+            id,
+            nombre: c.nombre,
+            direccion: c.direccion,
+            cubicos: c.cubicos,
+            valor: c.valor,
+            anombrede: c.anombrede || "",
+            email: c.email || "",
+            telefono1: c.telefono1 || "",
+          }))
+        );
       } else {
         setClients([]);
       }
@@ -229,17 +110,70 @@ const AgendaExpress = () => {
     return () => unsub();
   }, []);
 
-  /* ---------- guardar ---------- */
   const save = async (payload) => {
     try {
-      const moduloNombres = { hoy: "Servicios Hoy", manana: "Servicios Mañana", pasado: "Servicios Pasado Mañana" };
-      await auditCreate(RUTA[dia], {
-        ...payload,
-        creadoEn: Date.now(),
-      }, {
-        modulo: "Agenda Express",
-        extra: `Agendado en ${moduloNombres[dia]} - Dirección: ${payload.direccion || " - "}`,
+      const moduloNombres = {
+        hoy: "Servicios Hoy",
+        manana: "Servicios Mañana",
+        pasado: "Servicios Pasado Mañana",
+      };
+      const { anombrede: _a, email: _e, telefono1: _t, ...payloadServicio } = payload;
+      await auditCreate(
+        RUTA[dia],
+        { ...payloadServicio, creadoEn: Date.now() },
+        {
+          modulo: "Agenda Express",
+          extra: `Agendado en ${moduloNombres[dia]} - Dirección: ${payload.direccion || " - "}`,
+        }
+      );
+
+      const clienteExistente = clients.find(
+        (c) =>
+          (c.direccion || "").trim().toLowerCase() ===
+          (payload.direccion || "").trim().toLowerCase()
+      );
+
+      const result = await Swal.fire({
+        title: "¿Actualizar datos del cliente?",
+        html: `
+          <div style="display:flex;gap:12px;text-align:left;font-size:0.9rem">
+            <div style="flex:1;background:#e8f0fe;border-radius:10px;padding:10px 12px">
+              <div style="font-weight:900;color:#1a56db;margin-bottom:8px;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em">Anterior</div>
+              <p style="margin:4px 0"><b>Cúbicos:</b> ${clienteExistente?.cubicos ?? "N/A"}</p>
+              <p style="margin:4px 0"><b>Valor:</b> ${clienteExistente?.valor ?? "N/A"}</p>
+              <p style="margin:4px 0"><b>A nombre de:</b> ${clienteExistente?.anombrede || "N/A"}</p>
+              <p style="margin:4px 0"><b>Email:</b> ${clienteExistente?.email || "N/A"}</p>
+              <p style="margin:4px 0"><b>Teléfono:</b> ${clienteExistente?.telefono1 || "N/A"}</p>
+            </div>
+            <div style="flex:1;background:#e6f9f0;border-radius:10px;padding:10px 12px">
+              <div style="font-weight:900;color:#057a55;margin-bottom:8px;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em">Nuevo</div>
+              <p style="margin:4px 0"><b>Cúbicos:</b> ${payload.cubicos || "N/A"}</p>
+              <p style="margin:4px 0"><b>Valor:</b> ${payload.valor || "N/A"}</p>
+              <p style="margin:4px 0"><b>A nombre de:</b> ${payload.anombrede || "N/A"}</p>
+              <p style="margin:4px 0"><b>Email:</b> ${payload.email || "N/A"}</p>
+              <p style="margin:4px 0"><b>Teléfono:</b> ${payload.telefono1 || "N/A"}</p>
+            </div>
+          </div>
+          <p style="margin-top:10px;font-size:0.82rem;color:#555"><b>Dirección:</b> ${payload.direccion || "N/A"}</p>
+        `,
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonText: "Sí, actualizar",
+        cancelButtonText: "No, mantener actual",
+        confirmButtonColor: "#057a55",
+        cancelButtonColor: "#1a56db",
       });
+
+      if (result.isConfirmed && clienteExistente?.id) {
+        await update(ref(database, `clientes/${clienteExistente.id}`), {
+          cubicos: payload.cubicos,
+          valor: payload.valor,
+          anombrede: payload.anombrede,
+          email: payload.email,
+          telefono1: payload.telefono1,
+        });
+      }
+
       Swal.fire({ icon: "success", title: "¡Agendado!" });
       setFase("seleccion");
       setDia("");
@@ -250,150 +184,171 @@ const AgendaExpress = () => {
   };
 
   const rootCls = `agendaEX ${fase === "formulario" ? "fase-form" : ""}`;
-  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[
-    dia
-  ];
+  const labelDia = { hoy: "HOY", manana: "MAÑANA", pasado: "PASADO MAÑANA" }[dia];
 
-  /* ============================================================= */
-  /*                       Wizard Form v2                           */
-  /* ============================================================= */
-  const campos = ["direccion", "servicio", "cubicos", "valor", "notas"];
-  const colores = ["#00eaff", "#a3ff00", "#ffd600", "#ff007c", "#9b5cff"];
-
-  const WizardForm = ({ onCancel, onSubmit, clients }) => {
-    const [step, setStep] = useState(0);
+  /* ─────────────────────  SingleForm  ───────────────────── */
+  const SingleForm = ({ onCancel, onSubmit, clients }) => {
     const [data, setData] = useState({
       direccion: "",
       servicio: "",
       cubicos: "",
       valor: "",
       notas: "",
+      anombrede: "",
+      email: "",
+      telefono1: "",
     });
-    const accent = colores[step];
 
-    const next = () => setStep((s) => Math.min(s + 1, campos.length - 1));
-    const prev = () => setStep((s) => Math.max(s - 1, 0));
-    const update = (k, v) => setData((d) => ({ ...d, [k]: v }));
+    const upd = (k, v) => setData((d) => ({ ...d, [k]: v }));
     const ok = () => onSubmit(data);
 
-    // Cuando cambie la dirección, carga automáticamente 'cubicos'
     useEffect(() => {
-      const normalizedDireccion = (data.direccion || "").trim().toLowerCase();
+      const norm = (data.direccion || "").trim().toLowerCase();
       const cli = clients.find(
-        (c) =>
-          (c.direccion || "").trim().toLowerCase() === normalizedDireccion
+        (c) => (c.direccion || "").trim().toLowerCase() === norm
       );
-
-      if (cli && cli.cubicos != null) {
-        setData((d) => ({ ...d, cubicos: cli.cubicos }));
+      if (cli) {
+        setData((d) => ({
+          ...d,
+          ...(cli.cubicos != null ? { cubicos: cli.cubicos } : {}),
+          ...(cli.valor != null ? { valor: cli.valor } : {}),
+          anombrede: cli.anombrede ?? d.anombrede,
+          email: cli.email ?? d.email,
+          telefono1: cli.telefono1 ?? d.telefono1,
+        }));
       }
     }, [data.direccion, clients]);
-
-    const campo = campos[step];
-    const props = { accent, onEnter: next, onEsc: prev };
-
-    /* ---------- Ahora asignamos el UI correspondiente a cada paso ---------- */
-    const fieldUI = useMemo(() => {
-      return {
-        direccion: (
-          <AutoInput
-            fieldKey="direccion"
-            label="Dirección *"
-            value={data.direccion}
-            lista={clients.map((c) => c.direccion).sort()}
-            onChange={(v) => update("direccion", v)}
-            {...props}
-          />
-        ),
-        servicio: (
-          <AutoInput
-            fieldKey="servicio"
-            label="Servicio"
-            value={data.servicio}
-            lista={[
-              "Poso",
-              "Tuberia",
-              "Poso + Tuberia",
-              "Poso + Grease Trap",
-              "Tuberia + Grease Trap",
-              "Grease Trap",
-              "Water",
-              "Pool",
-            ]}
-            onChange={(v) => update("servicio", v)}
-            {...props}
-          />
-        ),
-        cubicos: (
-          <NumInput
-            label="Cúbicos"
-            value={data.cubicos}
-            min={0}
-            max={50}
-            onChange={(v) => update("cubicos", v)}
-            accent={accent}
-            onEnter={next}
-            onEsc={prev}
-          />
-        ),
-        valor: (
-          <NumInput
-            label="Valor (Afl)"
-            value={data.valor}
-            step={5}
-            onChange={(v) => update("valor", v)}
-            accent={accent}
-            onEnter={next}
-            onEsc={prev}
-          />
-        ),
-        notas: (
-          <TextArea
-            label="Notas"
-            value={data.notas}
-            onChange={(v) => update("notas", v)}
-            accent={accent}
-            onEnter={ok}
-            onEsc={prev}
-          />
-        ),
-      }[campo];
-    }, [campo, data, clients, accent]); // <- asegúrate de incluir estas dependencias
 
     const listo = data.direccion.trim() !== "";
 
     return (
-      <div className="turboCard" >
-        <Progress paso={step} total={campos.length} />
-        {fieldUI}
-        <div className="turboBtns">
-          <button onClick={prev} disabled={step === 0}>
-            ←
-          </button>
-          {step === campos.length - 1 ? (
-            <button className="ok" onClick={ok} disabled={!listo}>
-              Agendar
-            </button>
-          ) : (
-            <button onClick={next} disabled={!listo}>
-              →
-            </button>
-          )}
+      <div
+        className="turboCard"
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(94vw, 400px)",
+          maxHeight: "92vh",
+          overflowY: "auto",
+          overflowX: "hidden",
+          boxSizing: "border-box",
+          gap: "0.7rem",
+          padding: "1.1rem 1.3rem 1rem",
+        }}
+      >
+        <div className="autoField">
+          <p style={labelStyle(colores[0])}>Dirección</p>
+          <input
+            autoFocus
+            value={data.direccion}
+            list="direccion-list-aexp"
+            style={{ "--accent": colores[0], ...fieldSt }}
+            onChange={(e) => upd("direccion", e.target.value)}
+            placeholder="Rellena para autocompletar campos"
+          />
+          <datalist id="direccion-list-aexp">
+            {clients
+              .map((c) => c.direccion)
+              .filter(Boolean)
+              .sort()
+              .map((d, i) => <option key={i} value={d} />)}
+          </datalist>
         </div>
-        <button className="cancel" onClick={onCancel}>
+
+        <div className="autoField">
+          <p style={labelStyle(colores[1])}>Servicio</p>
+          <select
+            value={data.servicio}
+            style={{ "--accent": colores[1], ...fieldSt, paddingRight: "2.2rem" }}
+            onChange={(e) => upd("servicio", e.target.value)}
+          >
+            <option value=""></option>
+            <option value="Poso">Poso</option>
+            <option value="Tuberia">Tuberia</option>
+            <option value="Poso + Tuberia">Poso + Tuberia</option>
+            <option value="Poso + Grease Trap">Poso + Grease Trap</option>
+            <option value="Tuberia + Grease Trap">Tuberia + Grease Trap</option>
+            <option value="Grease Trap">Grease Trap</option>
+            <option value="Water">Water</option>
+            <option value="Pool">Pool</option>
+          </select>
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle(colores[2])}>Cúbicos</p>
+          <NumInput
+            value={data.cubicos}
+            min={0}
+            max={50}
+            onChange={(v) => upd("cubicos", v)}
+            accent={colores[2]}
+            onEnter={ok}
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle(colores[3])}>Valor (AWG)</p>
+          <NumInput
+            value={data.valor}
+            step={5}
+            onChange={(v) => upd("valor", v)}
+            accent={colores[3]}
+            onEnter={ok}
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle(colores[4])}>Notas</p>
+          <TextArea
+            value={data.notas}
+            onChange={(v) => upd("notas", v)}
+            accent={colores[4]}
+            onEnter={ok}
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle("#ff9f43")}>A Nombre De</p>
+          <input
+            value={data.anombrede}
+            style={{ "--accent": "#ff9f43", ...fieldSt }}
+            onChange={(e) => upd("anombrede", e.target.value)}
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle("#ff9f43")}>Email</p>
+          <input
+            type="email"
+            value={data.email}
+            style={{ "--accent": "#ff9f43", ...fieldSt }}
+            onChange={(e) => upd("email", e.target.value)}
+          />
+        </div>
+
+        <div className="autoField">
+          <p style={labelStyle("#ff9f43")}>Teléfono</p>
+          <input
+            type="tel"
+            value={data.telefono1}
+            style={{ "--accent": "#ff9f43", ...fieldSt }}
+            onChange={(e) => upd("telefono1", e.target.value)}
+          />
+        </div>
+
+        <div className="turboBtns" style={{ marginTop: "0.4rem" }}>
+          <button className="ok" onClick={ok} disabled={!listo}>
+            Agendar
+          </button>
+        </div>
+        <button className="cancel" style={{ marginTop: "0.5rem" }} onClick={onCancel}>
           Cancelar
         </button>
       </div>
     );
   };
-
-  const Progress = ({ paso, total }) => (
-    <div className="chips">
-      {Array.from({ length: total }).map((_, i) => (
-        <span key={i} className={i === paso ? "on" : i < paso ? "done" : ""} />
-      ))}
-    </div>
-  );
 
   return (
     <div className={rootCls}>
@@ -429,11 +384,7 @@ const AgendaExpress = () => {
                 />
               </span>
               <span className="titulo-dia">
-                {id === "hoy"
-                  ? "HOY"
-                  : id === "manana"
-                  ? "MAÑANA"
-                  : "PASADO MAÑANA"}
+                {id === "hoy" ? "HOY" : id === "manana" ? "MAÑANA" : "PASADO MAÑANA"}
               </span>
               <div className="shine" />
             </button>
@@ -442,13 +393,10 @@ const AgendaExpress = () => {
       )}
 
       {fase === "formulario" && (
-        <WizardForm
+        <SingleForm
           key={dia}
           clients={clients}
-          onCancel={() => {
-            setFase("seleccion");
-            setDia("");
-          }}
+          onCancel={() => { setFase("seleccion"); setDia(""); }}
           onSubmit={save}
         />
       )}

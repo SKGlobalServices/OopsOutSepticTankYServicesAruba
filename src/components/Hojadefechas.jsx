@@ -3983,6 +3983,16 @@ const Hojadefechas = () => {
 
       <div className="homepage-card">
         <div className="table-container">
+          <datalist id="direccion-options-shared">
+            {clients.map((client, idx) => (
+              <option key={idx} value={client.direccion} />
+            ))}
+          </datalist>
+          <datalist id="serviciosextras-options-shared">
+            {EXTRA_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
           <table className="service-table">
             <thead>
               <tr>
@@ -4139,7 +4149,6 @@ const Hojadefechas = () => {
                         <td>
                           {(() => {
                             const extraKey = `${item.fecha}_${registro.id}`;
-                            const dlId = `serviciosextras-options-${registro.id}`;
                             const valor =
                               extrasDraft[extraKey] ??
                               registro.servicioextra ??
@@ -4147,7 +4156,7 @@ const Hojadefechas = () => {
                             return (
                               <>
                                 <input
-                                  list={dlId}
+                                  list="serviciosextras-options-shared"
                                   type="text"
                                   value={valor}
                                   onChange={(e) =>
@@ -4159,17 +4168,6 @@ const Hojadefechas = () => {
                                   }
                                   style={{ minWidth: "12ch" }}
                                 />
-                                <datalist id={dlId}>
-                                  {(
-                                    EXTRA_OPTIONS ?? [
-                                      "Semanal",
-                                      "Dominical",
-                                      "Emergencia",
-                                    ]
-                                  ).map((opt) => (
-                                    <option key={opt} value={opt} />
-                                  ))}
-                                </datalist>
                               </>
                             );
                           })()}
@@ -4209,7 +4207,7 @@ const Hojadefechas = () => {
                                 );
                               }
                             }}
-                            list={`direccion-options-${registro.id}`}
+                            list="direccion-options-shared"
                           />
                         </div>
                       </td>

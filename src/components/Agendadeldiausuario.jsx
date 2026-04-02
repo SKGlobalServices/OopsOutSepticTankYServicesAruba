@@ -319,6 +319,9 @@ const Agendadeldiausuario = () => {
                             margin: "5px",
                             borderRadius: "5px",
                             cursor: "default",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {item.direccion}
@@ -366,7 +369,14 @@ const Agendadeldiausuario = () => {
                             )}
                           </button>
                         ) : (
-                          <p style={{ width: "20ch", textAlign: "left" }}>
+                          <p style={{ 
+                            width: "20ch", 
+                            textAlign: "left",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            margin: 0,
+                          }}>
                             {item.notas}
                           </p>
                         )}
@@ -402,7 +412,7 @@ const Agendadeldiausuario = () => {
                               )
                             }
                           >
-                            <option value=""></option>
+                            {!item.realizadopor && <option value=""></option>}
                             {/* Solo mostrar el usuario logueado */}
                             <option key={myUserId} value={myUserId}>
                               {users.find((u) => u.id === myUserId)?.name}
@@ -410,7 +420,13 @@ const Agendadeldiausuario = () => {
                           </select>
                         ) : (
                           // Cuando ya hay asignación (o no hay permiso global), mostramos el nombre fijo
-                          <p>
+                          <p style={{
+                            margin: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            width: "24ch",
+                          }}>
                             {item.realizadopor
                               ? users.find((u) => u.id === item.realizadopor)
                                   ?.name

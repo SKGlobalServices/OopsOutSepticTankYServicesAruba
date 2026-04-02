@@ -5,11 +5,12 @@ import {
   set,
   onValue,
   onChildRemoved,
+  onChildChanged,
+  push,
   update,
   remove,
 } from "firebase/database";
 import { sanitizeForLog } from "../utils/security";
-import { auditCreate, auditRemove, auditSet, auditUpdate } from "../utils/auditLogger";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Slidebar from "./Slidebar";
@@ -40,7 +41,6 @@ const Informedeefectivo = () => {
   const [directions, setDirections] = useState([]);
   const [showSlidebar, setShowSlidebar] = useState(false);
   const slidebarRef = useRef(null);
-  const initialSyncDone = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadedRegistroFechas, setLoadedRegistroFechas] = useState(false);
   const [loadedData, setLoadedData] = useState(false);
@@ -50,7 +50,7 @@ const Informedeefectivo = () => {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   // Estados para filtros
   const [filters, setFilters] = useState({
     realizadopor: [],
@@ -204,89 +204,71 @@ const Informedeefectivo = () => {
     setDirections([...newDirections].sort());
   }, [registroFechasData, dataData, dataInformedeefectivoData]);
 
-  // --- SINCRONIZAR A "informedeefectivo" (solo al cargar por primera vez) ---
+  // --- SINCRONIZAR A "informedeefectivo" (bidireccional) ---
+  // Desde registrofechas (creación y cambios)
   useEffect(() => {
-    if (
-      initialSyncDone.current ||
-      !loadedRegistroFechas ||
-      !loadedData ||
-      !loadedInformeEfectivo
-    ) {
-      return;
-    }
-    initialSyncDone.current = true;
-
-    // Evita reescritura y ruido en historial: solo sincroniza IDs faltantes.
-    const syncedIds = new Set(
-      dataInformedeefectivoData.map((record) => record.id)
-    );
-
-    const syncIfMissing = (record, originLabel, extraLabel) => {
-      if (!record?.id || syncedIds.has(record.id)) {
-        return;
-      }
-      syncedIds.add(record.id);
-
-      auditSet(`informedeefectivo/${record.id}`, {
+    registroFechasData.forEach((record) => {
+      set(ref(database, `informedeefectivo/${record.id}`), {
         ...record,
         timestamp: record.timestamp ?? Date.now(),
-        origin: originLabel,
-      }, {
-        modulo: "Informe de Efectivo",
-        accion: "crear",
-        registroId: record.id,
-        extra: extraLabel,
+        origin: "registrofechas",
       }).catch((error) => {
-        console.error("Error sincronizando → informedeefectivo:", sanitizeForLog(error.message));
+        console.error(
+          "Error sincronizando registrofechas → informedeefectivo:",
+          sanitizeForLog(error.message)
+        );
       });
-    };
-
-    registroFechasData.forEach((record) => {
-      syncIfMissing(
-        record,
-        "registrofechas",
-        "Sincronización inicial desde registrofechas"
-      );
     });
+  }, [registroFechasData]);
 
+  // Desde data (creación y cambios)
+  useEffect(() => {
     dataData.forEach((record) => {
-      syncIfMissing(record, "data", "Sincronización inicial desde data");
+      set(ref(database, `informedeefectivo/${record.id}`), {
+        ...record,
+        timestamp: record.timestamp ?? Date.now(),
+        origin: "data",
+      }).catch((error) => {
+        console.error("Error sincronizando data → informedeefectivo:", sanitizeForLog(error.message));
+      });
     });
-  }, [
-    registroFechasData,
-    dataData,
-    dataInformedeefectivoData,
-    loadedRegistroFechas,
-    loadedData,
-    loadedInformeEfectivo,
-  ]);
+  }, [dataData]);
 
-  // --- PROPAGAR ELIMINACIONES DESDE informedeefectivo ---
+  // --- PROPAGAR CAMBIOS Y ELIMINACIONES DESDE informedeefectivo ---
+  // Actualizaciones
   useEffect(() => {
     const infRef = ref(database, "informedeefectivo");
+    const unsubscribeChange = onChildChanged(infRef, (snapshot) => {
+      const record = snapshot.val();
+      const id = snapshot.key;
+      if (record.origin === "registrofechas" && record.fecha) {
+        update(
+          ref(database, `registrofechas/${record.fecha}/${id}`),
+          record
+        ).catch((err) => console.error("Error update → registrofechas:", sanitizeForLog(err.message)));
+      }
+      if (record.origin === "data") {
+        update(ref(database, `data/${id}`), record).catch((err) =>
+          console.error("Error update → data:", sanitizeForLog(err.message))
+        );
+      }
+    });
     const unsubscribeRemove = onChildRemoved(infRef, (snapshot) => {
       const record = snapshot.val();
       const id = snapshot.key;
       if (record.origin === "registrofechas" && record.fecha) {
-        auditRemove(`registrofechas/${record.fecha}/${id}`, {
-          modulo: "Informe de Efectivo",
-          registroId: id,
-          extra: "Eliminación propagada desde informedeefectivo",
-        }).catch(
+        remove(ref(database, `registrofechas/${record.fecha}/${id}`)).catch(
           (err) => console.error("Error remove → registrofechas:", sanitizeForLog(err.message))
         );
       }
       if (record.origin === "data") {
-        auditRemove(`data/${id}`, {
-          modulo: "Informe de Efectivo",
-          registroId: id,
-          extra: "Eliminación propagada desde informedeefectivo",
-        }).catch((err) =>
+        remove(ref(database, `data/${id}`)).catch((err) =>
           console.error("Error remove → data:", sanitizeForLog(err.message))
         );
       }
     });
     return () => {
+      unsubscribeChange();
       unsubscribeRemove();
     };
   }, []);
@@ -296,11 +278,7 @@ const Informedeefectivo = () => {
     const registroRef = ref(database, "registrofechas");
     const unsubscribe = onChildRemoved(registroRef, (snapshot) => {
       const removedId = snapshot.key;
-      auditRemove(`informedeefectivo/${removedId}`, {
-        modulo: "Informe de Efectivo",
-        registroId: removedId,
-        extra: "Eliminación propagada desde registrofechas",
-      }).catch((error) =>
+      remove(ref(database, `informedeefectivo/${removedId}`)).catch((error) =>
         console.error("Error remove → informedeefectivo:", sanitizeForLog(error.message))
       );
     });
@@ -420,12 +398,6 @@ const Informedeefectivo = () => {
 
   // --- ACTUALIZAR CAMPOS CON OPTIMISTIC UPDATE ---
   const handleFieldChange = (fecha, id, field, value, origin) => {
-    const registroActual =
-      dataInformedeefectivoData.find((record) => record.id === id) ||
-      registroFechasData.find((record) => record.id === id) ||
-      dataData.find((record) => record.id === id) ||
-      {};
-
     // Preparamos el objeto de campos a actualizar
     let updateFields = { [field]: value };
     if (field === "realizadopor") {
@@ -433,18 +405,13 @@ const Informedeefectivo = () => {
     }
 
     // Función auxiliar que actualiza el estado local y Firebase
-    const actualizar = (dataSetter, dbPath, extra = "") => {
+    const actualizar = (dataSetter, dbPath) => {
       dataSetter((prev) =>
         prev.map((record) =>
           record.id === id ? { ...record, ...updateFields } : record
         )
       );
-      auditUpdate(`${dbPath}/${id}`, updateFields, {
-        modulo: "Informe de Efectivo",
-        registroId: id,
-        prevData: registroActual,
-        extra,
-      }).catch((error) => {
+      update(ref(database, `${dbPath}/${id}`), updateFields).catch((error) => {
         console.error(`Error updating ${dbPath}: `, error);
       });
     };
@@ -459,38 +426,27 @@ const Informedeefectivo = () => {
       );
       // Firebase en registrofechas/{fecha}/{id}
       if (fecha && fecha !== "Sin Fecha") {
-        auditUpdate(`registrofechas/${fecha}/${id}`, updateFields, {
-          modulo: "Informe de Efectivo",
-          registroId: id,
-          prevData: registroActual,
-          extra: "Sincronización en registrofechas",
-        }).catch((error) => {
+        update(
+          ref(database, `registrofechas/${fecha}/${id}`),
+          updateFields
+        ).catch((error) => {
           console.error("Error updating registrofechas: ", error);
         });
       }
       // Estado local e intermedia
-      actualizar(setInformedeefectivoData, "informedeefectivo", "Sincronización desde registrofechas");
+      actualizar(setInformedeefectivoData, "informedeefectivo");
     }
     // 2) Registros que vienen de "informedeefectivo"
     else if (origin === "informedeefectivo") {
-      actualizar(setInformedeefectivoData, "informedeefectivo", "Edición directa en informe");
+      actualizar(setInformedeefectivoData, "informedeefectivo");
     }
     // 3) Registros que vienen de "data"
     else if (origin === "data") {
       // Actualizamos la rama "data"
-      actualizar(setDataData, "data", "Sincronización desde data");
+      actualizar(setDataData, "data");
       // Y también la intermedia "informedeefectivo"
-      actualizar(setInformedeefectivoData, "informedeefectivo", "Sincronización desde data");
+      actualizar(setInformedeefectivoData, "informedeefectivo");
     }
-
-    const auditPath =
-      origin === "registrofechas" && fecha && fecha !== "Sin Fecha"
-        ? `registrofechas/${fecha}/${id}`
-        : origin === "data"
-          ? `data/${id}`
-          : `informedeefectivo/${id}`;
-
-    // Evitar doble log: la escritura ya se audita en cada ruta actualizada.
 
     // Lógica especial para cuando cambiamos la dirección: sincronizar cúbicos
     if (field === "direccion") {
@@ -510,12 +466,10 @@ const Informedeefectivo = () => {
           );
           // Firebase registrofechas/{fecha}/{id}
           if (fecha && fecha !== "Sin Fecha") {
-            auditUpdate(`registrofechas/${fecha}/${id}`, updateCubicos, {
-              modulo: "Informe de Efectivo",
-              registroId: id,
-              prevData: registroActual,
-              extra: "Sincronización de cúbicos por cambio de dirección",
-            }).catch((error) => {
+            update(
+              ref(database, `registrofechas/${fecha}/${id}`),
+              updateCubicos
+            ).catch((error) => {
               console.error(
                 "Error updating cubicos in registrofechas: ",
                 error
@@ -528,12 +482,7 @@ const Informedeefectivo = () => {
               record.id === id ? { ...record, ...updateCubicos } : record
             )
           );
-          auditUpdate(`informedeefectivo/${id}`, updateCubicos, {
-            modulo: "Informe de Efectivo",
-            registroId: id,
-            prevData: registroActual,
-            extra: "Sincronización de cúbicos en informe",
-          }).catch(
+          update(ref(database, `informedeefectivo/${id}`), updateCubicos).catch(
             (error) => {
               console.error(
                 "Error updating cubicos in informedeefectivo: ",
@@ -549,12 +498,7 @@ const Informedeefectivo = () => {
               record.id === id ? { ...record, ...updateCubicos } : record
             )
           );
-          auditUpdate(`informedeefectivo/${id}`, updateCubicos, {
-            modulo: "Informe de Efectivo",
-            registroId: id,
-            prevData: registroActual,
-            extra: "Sincronización de cúbicos en informe",
-          }).catch(
+          update(ref(database, `informedeefectivo/${id}`), updateCubicos).catch(
             (error) => {
               console.error(
                 "Error updating cubicos in informedeefectivo: ",
@@ -571,12 +515,7 @@ const Informedeefectivo = () => {
               record.id === id ? { ...record, ...updateCubicos } : record
             )
           );
-          auditUpdate(`data/${id}`, updateCubicos, {
-            modulo: "Informe de Efectivo",
-            registroId: id,
-            prevData: registroActual,
-            extra: "Sincronización de cúbicos en data",
-          }).catch((error) => {
+          update(ref(database, `data/${id}`), updateCubicos).catch((error) => {
             console.error("Error updating cubicos in data: ", error);
           });
           // Y en informedeefectivo
@@ -585,12 +524,7 @@ const Informedeefectivo = () => {
               record.id === id ? { ...record, ...updateCubicos } : record
             )
           );
-          auditUpdate(`informedeefectivo/${id}`, updateCubicos, {
-            modulo: "Informe de Efectivo",
-            registroId: id,
-            prevData: registroActual,
-            extra: "Sincronización de cúbicos en informe",
-          }).catch(
+          update(ref(database, `informedeefectivo/${id}`), updateCubicos).catch(
             (error) => {
               console.error(
                 "Error updating cubicos in informedeefectivo: ",
@@ -842,6 +776,9 @@ const Informedeefectivo = () => {
   // FUNCION DE AGREGAR DATOS:
   // Se agrega directamente a la rama "informedeefectivo" (con el origen "informedeefectivo")
   const addData = async (realizadopor, direccion, metododepago, efectivo) => {
+    // Se escribe a la rama "data" en vez de "informedeefectivo"
+    const dbRef = ref(database, "informedeefectivo");
+    const newDataRef = push(dbRef);
     const currentFecha = formatDateWithHyphen(new Date());
     const newData = {
       realizadopor: realizadopor, // aquí guardas la ID
@@ -851,11 +788,10 @@ const Informedeefectivo = () => {
       timestamp: Date.now(),
       origin: "informedeefectivo",
     };
-    const newRef = await auditCreate("informedeefectivo", newData, {
-      modulo: "Informe de Efectivo",
-      extra: `Item ID: ${realizadopor}`
+    await set(newDataRef, newData).catch((error) => {
+      console.error("Error adding data: ", sanitizeForLog(error.message));
     });
-    setLastAddedId(newRef.key);
+    setLastAddedId(newDataRef.key);
   };
 
   const getMetodoPagoColor = (metododepago) => {
@@ -1013,6 +949,11 @@ const Informedeefectivo = () => {
 
       <div className="homepage-card">
         <div className="table-container">
+          <datalist id="direccion-options-shared">
+            {clients.map((client, idx) => (
+              <option key={idx} value={client.direccion} />
+            ))}
+          </datalist>
           <table className="service-table">
             <thead>
               <tr>
@@ -1123,16 +1064,9 @@ const Informedeefectivo = () => {
                                 );
                               }
                             }}
-                            list={`direccion-options-${registro.id}`}
+                            list="direccion-options-shared"
                             disabled={!isEditable}
                           />
-                          <datalist id={`direccion-options-${registro.id}`}>
-                            {clients.map((client, idx) => (
-                              <option key={idx} value={client.direccion}>
-                                {client.direccion}
-                              </option>
-                            ))}
-                          </datalist>
                         </div>
                       </td>
                       <td
@@ -1223,11 +1157,14 @@ const Informedeefectivo = () => {
                                   cancelButtonText: "Cancelar",
                                 }).then((result) => {
                                   if (result.isConfirmed) {
-                                    auditRemove(`informedeefectivo/${registro.id}`, {
-                                      modulo: "Informe de Efectivo",
-                                      registroId: registro.id,
-                                      extra: `Item: ID ${registro.id}`,
-                                    }).catch(() => {});
+                                    remove(
+                                      ref(
+                                        database,
+                                        `informedeefectivo/${registro.id}`
+                                      )
+                                    ).catch((err) =>
+                                      console.error("Error al eliminar:", sanitizeForLog(err.message))
+                                    );
                                   }
                                 });
                               }}
@@ -1261,7 +1198,6 @@ const Informedeefectivo = () => {
               value={itemsPerPage} 
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
             >
-              <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={200}>200</option>
