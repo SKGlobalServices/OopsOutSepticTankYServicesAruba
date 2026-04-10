@@ -1,0 +1,256 @@
+/* ========================================
+   Kommo Inbox — aligned with Dashboard UI
+   ======================================== */
+
+.kommo-inbox-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 20px;
+  font-family: "CentraNo2", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+}
+
+/* ---- Header ---- */
+.kommo-inbox-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.kommo-inbox-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.kommo-inbox-stats {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.kommo-inbox-refresh {
+  padding: 0.5rem 1.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #334155;
+  transition: all 0.15s;
+  margin-top: 4px;
+}
+
+.kommo-inbox-refresh:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.kommo-inbox-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Feedback states ---- */
+.kommo-inbox-error {
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+
+.kommo-inbox-loading {
+  text-align: center;
+  padding: 3rem 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+/* ---- Two-panel container ---- */
+.kommo-inbox-container {
+  display: flex;
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: calc(100vh - 200px);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ---- Left panel: conversation list ---- */
+.kommo-inbox-list {
+  width: 360px;
+  min-width: 280px;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  background: #fafbfc;
+}
+
+.kommo-inbox-list-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.kommo-inbox-item {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.kommo-inbox-item:hover {
+  background: #f1f5f9;
+}
+
+.kommo-inbox-item.selected {
+  background: #e0edff;
+  border-left: 3px solid #3b82f6;
+}
+
+.kommo-inbox-item-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kommo-inbox-item-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.kommo-inbox-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kommo-inbox-item-badge {
+  font-size: 0.72rem;
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.kommo-inbox-item-date {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* ---- Right panel: detail / placeholder ---- */
+.kommo-inbox-detail {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.kommo-inbox-detail-selected {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+}
+
+.kommo-inbox-detail-selected h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.kommo-inbox-detail-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.kommo-inbox-detail-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.kommo-inbox-detail-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.kommo-inbox-detail-value {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.kommo-inbox-detail-link {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  margin-bottom: 1.5rem;
+}
+
+.kommo-inbox-detail-link:hover {
+  background: #2563eb;
+}
+
+.kommo-inbox-detail-placeholder {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ---- Responsive ---- */
+@media screen and (max-width: 768px) {
+  .kommo-inbox-container {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .kommo-inbox-list {
+    width: 100%;
+    min-width: auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .kommo-inbox-detail-cards {
+    grid-template-columns: 1fr;
+  }
+}

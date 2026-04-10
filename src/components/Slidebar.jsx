@@ -530,14 +530,14 @@ const Slidebar = () => {
             {String(user.role || "").toLowerCase() === "admin" ? (
               <button
                 className="btn-configUsr2"
-                onClick={() => navigate("/kommo-admin")}
+                onClick={() => navigate("/kommo-inbox")}
               >
                 <img
                   className="icon-configUsr2"
                   src={configuracionUsuariosIcon2}
-                  alt="Kommo"
+                  alt="Kommo Inbox"
                 />
-                <span>Kommo (prueba)</span>
+                <span>Kommo Inbox</span>
               </button>
             ) : null}
             <button
