@@ -120,6 +120,7 @@ const Facturasemitidas = () => {
     fechaServicio: [null, null],
     factura: "true",
     pago: [],
+    formadepago: [],
     personalizado: "",
     fechaPago: [null, null],
     sinFechaPago: false,
@@ -145,7 +146,7 @@ const Facturasemitidas = () => {
               id,
               ...registro,
             })),
-          })
+          }),
         );
         formattedData.sort((a, b) => {
           const [dayA, monthA, yearA] = a.fecha.split("-");
@@ -198,7 +199,7 @@ const Facturasemitidas = () => {
       if (snapshot.exists()) {
         const fetchedUsers = Object.entries(snapshot.val())
           .filter(
-            ([_, user]) => user.role !== "admin" && user.role !== "contador"
+            ([_, user]) => user.role !== "admin" && user.role !== "contador",
           )
           .map(([id, user]) => ({ id, name: user.name }));
         fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
@@ -275,9 +276,9 @@ const Facturasemitidas = () => {
     ...Array.from(
       new Set(
         allRegistros.flatMap((item) =>
-          item.registros.map((r) => r.anombrede).filter(Boolean)
-        )
-      )
+          item.registros.map((r) => r.anombrede).filter(Boolean),
+        ),
+      ),
     )
       .sort()
       .map((v) => ({ value: v, label: v })),
@@ -288,9 +289,9 @@ const Facturasemitidas = () => {
     ...Array.from(
       new Set(
         allRegistros.flatMap((item) =>
-          item.registros.map((r) => r.direccion).filter(Boolean)
-        )
-      )
+          item.registros.map((r) => r.direccion).filter(Boolean),
+        ),
+      ),
     )
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v })),
@@ -309,7 +310,7 @@ const Facturasemitidas = () => {
         ...r,
         fecha: g.fecha,
         origin: "registrofechas",
-      }))
+      })),
     );
     setTodos([...vivos, ...historicos]);
   }, [dataBranch, dataRegistroFechas]);
@@ -339,7 +340,6 @@ const Facturasemitidas = () => {
       !r.numerodefactura?.toString().includes(filters.numerodefactura)
     )
       return false;
-
 
     // 4) Multi-select: A Nombre De
     if (filters.anombrede.length > 0) {
@@ -408,6 +408,11 @@ const Facturasemitidas = () => {
       if (fechaPago < pagoStart || fechaPago > pagoEnd) return false;
     }
 
+    // 11) Multi-select: Forma de Pago
+    if (filters.formadepago.length > 0) {
+      if (!filters.formadepago.includes(r.formadepago)) return false;
+    }
+
     return true;
   });
 
@@ -419,10 +424,10 @@ const Facturasemitidas = () => {
         // Prioriza numerodefactura si existe, sino referenciaFactura, sino vacío
         return registro.numerodefactura || registro.referenciaFactura || "";
       };
-      
+
       const numA = getFacturaNumber(a);
       const numB = getFacturaNumber(b);
-      
+
       // Use localeCompare with numeric: true for proper number sorting
       // If numA or numB are empty, they will be treated as less than any number
       if (sortConfig.direction === "asc") {
@@ -431,7 +436,7 @@ const Facturasemitidas = () => {
         return numB.localeCompare(numA, undefined, { numeric: true });
       }
     }
-    
+
     // Default sort (by date)
     // Assuming 'fecha' is 'DD-MM-YYYY'
     const parseDate = (dateString) => {
@@ -541,10 +546,14 @@ const Facturasemitidas = () => {
   };
 
   const addClient = (direccion, cubicos) => {
-    auditCreate("clientes", { direccion, cubicos }, {
-      modulo: "Facturas Emitidas",
-      extra: `Cliente: ${direccion}`,
-    }).catch((error) => {
+    auditCreate(
+      "clientes",
+      { direccion, cubicos },
+      {
+        modulo: "Facturas Emitidas",
+        extra: `Cliente: ${direccion}`,
+      },
+    ).catch((error) => {
       console.error("Error adding client: ", error);
     });
   };
@@ -576,11 +585,15 @@ const Facturasemitidas = () => {
           if (fromData) {
             // Si está en data, solo actualizar la fecha
             console.log("Actualizando registro en data");
-            await auditUpdate(`data/${registroId}`, { fecha: safeValue }, {
-              modulo: "Facturas Emitidas",
-              registroId,
-              prevData: registro,
-            });
+            await auditUpdate(
+              `data/${registroId}`,
+              { fecha: safeValue },
+              {
+                modulo: "Facturas Emitidas",
+                registroId,
+                prevData: registro,
+              },
+            );
           } else {
             // Si está en registrofechas, mover a nueva fecha
             if (safeValue !== fecha) {
@@ -597,31 +610,34 @@ const Facturasemitidas = () => {
                   accion: "crear",
                   registroId,
                   extra: `Movido de ${fecha} a ${safeValue}`,
-                }
+                },
               );
               // Eliminar de fecha anterior
-              await auditSet(
-                `registrofechas/${fecha}/${registroId}`,
-                null,
-                {
-                  modulo: "Facturas Emitidas",
-                  accion: "eliminar",
-                  registroId,
-                  extra: `Movido de ${fecha} a ${safeValue}`,
-                }
-              );
+              await auditSet(`registrofechas/${fecha}/${registroId}`, null, {
+                modulo: "Facturas Emitidas",
+                accion: "eliminar",
+                registroId,
+                extra: `Movido de ${fecha} a ${safeValue}`,
+              });
             } else {
               console.log("Actualizando fecha en registrofechas");
-              await auditUpdate(path, { fecha: safeValue }, {
-                modulo: "Facturas Emitidas",
-                registroId,
-                prevData: registro,
-              });
+              await auditUpdate(
+                path,
+                { fecha: safeValue },
+                {
+                  modulo: "Facturas Emitidas",
+                  registroId,
+                  prevData: registro,
+                },
+              );
             }
           }
           console.log("Fecha de servicio actualizada exitosamente");
         } catch (error) {
-          console.error("Error actualizando fecha de servicio:", sanitizeForLog(error.message));
+          console.error(
+            "Error actualizando fecha de servicio:",
+            sanitizeForLog(error.message),
+          );
           Swal.fire({
             icon: "error",
             title: "Error",
@@ -646,13 +662,17 @@ const Facturasemitidas = () => {
         // Actualizar la fecha de pago en la factura
         const facturaRef = ref(
           database,
-          `facturas/${registro.numerodefactura}`
+          `facturas/${registro.numerodefactura}`,
         );
-        auditUpdate(`facturas/${registro.numerodefactura}`, { fechapago: safeValue }, {
-          modulo: "Facturas Emitidas",
-          registroId: registro.numerodefactura,
-          prevData: { fechapago: registro.fechapago },
-        }).catch(console.error);
+        auditUpdate(
+          `facturas/${registro.numerodefactura}`,
+          { fechapago: safeValue },
+          {
+            modulo: "Facturas Emitidas",
+            registroId: registro.numerodefactura,
+            prevData: { fechapago: registro.fechapago },
+          },
+        ).catch(console.error);
 
         // Actualizar todos los servicios asociados a esta factura
         const actualizarServiciosAsociados = async () => {
@@ -704,17 +724,26 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return auditUpdate(path, { fechapago: safeValue }, {
-                modulo: "Facturas Emitidas",
-                registroId: servicio.id,
-                extra: `Sincronizado fechapago de factura #${registro.numerodefactura}`,
-              });
+              return auditUpdate(
+                path,
+                { fechapago: safeValue },
+                {
+                  modulo: "Facturas Emitidas",
+                  registroId: servicio.id,
+                  extra: `Sincronizado fechapago de factura #${registro.numerodefactura}`,
+                },
+              );
             });
 
             await Promise.all(updatePromises);
-            console.log("Fecha de pago actualizada en factura y servicios asociados");
+            console.log(
+              "Fecha de pago actualizada en factura y servicios asociados",
+            );
           } catch (error) {
-            console.error("Error actualizando servicios asociados:", sanitizeForLog(error.message));
+            console.error(
+              "Error actualizando servicios asociados:",
+              sanitizeForLog(error.message),
+            );
           }
         };
 
@@ -746,8 +775,8 @@ const Facturasemitidas = () => {
     } else {
       setDataRegistroFechas((prev) =>
         prev.map((g) =>
-          g.fecha === fecha ? { ...g, registros: g.registros.map(updater) } : g
-        )
+          g.fecha === fecha ? { ...g, registros: g.registros.map(updater) } : g,
+        ),
       );
     }
 
@@ -803,7 +832,7 @@ const Facturasemitidas = () => {
   const formatDate = (ts) => {
     const d = new Date(ts);
     return `${String(d.getDate()).padStart(2, "0")}/${String(
-      d.getMonth() + 1
+      d.getMonth() + 1,
     ).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
@@ -833,8 +862,8 @@ const Facturasemitidas = () => {
         ? `¿Deseas marcar la factura #${registro.numerodefactura} como pagada?`
         : "¿Deseas marcar este servicio como pagado?"
       : registro.numerodefactura
-      ? `¿Deseas desmarcar el pago de la factura #${registro.numerodefactura}?`
-      : "¿Deseas desmarcar el pago?";
+        ? `¿Deseas desmarcar el pago de la factura #${registro.numerodefactura}?`
+        : "¿Deseas desmarcar el pago?";
 
     const result = await Swal.fire({
       title: confirmTitle,
@@ -851,7 +880,7 @@ const Facturasemitidas = () => {
         // Si tiene factura asociada, actualizar la factura
         const facturaRef = ref(
           database,
-          `facturas/${registro.numerodefactura}`
+          `facturas/${registro.numerodefactura}`,
         );
 
         if (checked) {
@@ -862,17 +891,21 @@ const Facturasemitidas = () => {
             const facturaData = facturaSnapshot.val();
             const fechaPagoFinal = new Date().toISOString().split("T")[0];
 
-            await auditUpdate(`facturas/${registro.numerodefactura}`, {
-              payment: facturaData.totalAmount,
-              deuda: 0,
-              pago: "Pago",
-              fechapago: fechaPagoFinal,
-            }, {
-              modulo: "Facturas Emitidas",
-              registroId: registro.numerodefactura,
-              prevData: facturaData,
-              extra: `Factura #${registro.numerodefactura} pagada completamente`,
-            });
+            await auditUpdate(
+              `facturas/${registro.numerodefactura}`,
+              {
+                payment: facturaData.totalAmount,
+                deuda: 0,
+                pago: "Pago",
+                fechapago: fechaPagoFinal,
+              },
+              {
+                modulo: "Facturas Emitidas",
+                registroId: registro.numerodefactura,
+                prevData: facturaData,
+                extra: `Factura #${registro.numerodefactura} pagada completamente`,
+              },
+            );
 
             // Actualizar todos los servicios asociados a esta factura
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
@@ -921,14 +954,18 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return auditUpdate(path, {
-                pago: "Pago",
-                fechapago: fechaPagoFinal,
-              }, {
-                modulo: "Facturas Emitidas",
-                registroId: servicio.id,
-                extra: `Factura #${registro.numerodefactura} marcada como pagada`,
-              });
+              return auditUpdate(
+                path,
+                {
+                  pago: "Pago",
+                  fechapago: fechaPagoFinal,
+                },
+                {
+                  modulo: "Facturas Emitidas",
+                  registroId: servicio.id,
+                  extra: `Factura #${registro.numerodefactura} marcada como pagada`,
+                },
+              );
             });
 
             await Promise.all(updatePromises);
@@ -947,17 +984,21 @@ const Facturasemitidas = () => {
           if (facturaSnapshot.exists()) {
             const facturaData = facturaSnapshot.val();
 
-            await auditUpdate(`facturas/${registro.numerodefactura}`, {
-              payment: 0,
-              deuda: facturaData.totalAmount,
-              pago: "Debe",
-              fechapago: null,
-            }, {
-              modulo: "Facturas Emitidas",
-              registroId: registro.numerodefactura,
-              prevData: facturaData,
-              extra: `Factura #${registro.numerodefactura} desmarcada`,
-            });
+            await auditUpdate(
+              `facturas/${registro.numerodefactura}`,
+              {
+                payment: 0,
+                deuda: facturaData.totalAmount,
+                pago: "Debe",
+                fechapago: null,
+              },
+              {
+                modulo: "Facturas Emitidas",
+                registroId: registro.numerodefactura,
+                prevData: facturaData,
+                extra: `Factura #${registro.numerodefactura} desmarcada`,
+              },
+            );
 
             // Actualizar todos los servicios asociados
             const [dataSnapshot, registroFechasSnapshot] = await Promise.all([
@@ -1006,14 +1047,18 @@ const Facturasemitidas = () => {
                   ? `data/${servicio.id}`
                   : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-              return auditUpdate(path, {
-                pago: "Debe",
-                fechapago: null,
-              }, {
-                modulo: "Facturas Emitidas",
-                registroId: servicio.id,
-                extra: `Factura #${registro.numerodefactura} marcada como debe`,
-              });
+              return auditUpdate(
+                path,
+                {
+                  pago: "Debe",
+                  fechapago: null,
+                },
+                {
+                  modulo: "Facturas Emitidas",
+                  registroId: servicio.id,
+                  extra: `Factura #${registro.numerodefactura} marcada como debe`,
+                },
+              );
             });
 
             await Promise.all(updatePromises);
@@ -1049,7 +1094,7 @@ const Facturasemitidas = () => {
         // Actualizar estado local
         if (origin === "data") {
           setDataBranch((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+            prev.map((r) => (r.id === id ? { ...r, ...updates } : r)),
           );
         } else {
           setDataRegistroFechas((prev) =>
@@ -1059,10 +1104,10 @@ const Facturasemitidas = () => {
                 : {
                     ...group,
                     registros: group.registros.map((r) =>
-                      r.id === id ? { ...r, ...updates } : r
+                      r.id === id ? { ...r, ...updates } : r,
                     ),
-                  }
-            )
+                  },
+            ),
           );
         }
 
@@ -1095,7 +1140,7 @@ const Facturasemitidas = () => {
               start.getDate(),
               0,
               0,
-              0
+              0,
             )
           : null,
         end
@@ -1105,7 +1150,7 @@ const Facturasemitidas = () => {
               end.getDate(),
               23,
               59,
-              59
+              59,
             )
           : null,
       ],
@@ -1124,7 +1169,7 @@ const Facturasemitidas = () => {
               start.getDate(),
               0,
               0,
-              0
+              0,
             )
           : null,
         end
@@ -1134,7 +1179,7 @@ const Facturasemitidas = () => {
               end.getDate(),
               23,
               59,
-              59
+              59,
             )
           : null,
       ],
@@ -1249,13 +1294,13 @@ const Facturasemitidas = () => {
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span><strong>Payments:</strong></span>
             <span style="color: #28a745;">AWG ${formatCurrency(
-              facturaData.payment || 0
+              facturaData.payment || 0,
             )}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 15px; padding-top: 8px; border-top: 1px solid #dee2e6;">
             <span><strong>Deuda:</strong></span>
             <span style="color: #dc3545; font-weight: bold;">AWG ${formatCurrency(
-              facturaData.deuda
+              facturaData.deuda,
             )}</span>
           </div>
         </div>
@@ -1293,7 +1338,7 @@ const Facturasemitidas = () => {
         }
         if (parseFloat(value) > facturaData.deuda) {
           Swal.showValidationMessage(
-            "El payment no puede ser mayor que la deuda actual"
+            "El payment no puede ser mayor que la deuda actual",
           );
           return false;
         }
@@ -1378,14 +1423,18 @@ const Facturasemitidas = () => {
               ? `data/${servicio.id}`
               : `registrofechas/${servicio.fecha}/${servicio.id}`;
 
-          return auditUpdate(path, {
-            pago: "Pago",
-            fechapago: fechaPagoFinal,
-          }, {
-            modulo: "Facturas Emitidas",
-            registroId: servicio.id,
-            extra: `Factura #${numeroFactura} marcada como pagada`,
-          });
+          return auditUpdate(
+            path,
+            {
+              pago: "Pago",
+              fechapago: fechaPagoFinal,
+            },
+            {
+              modulo: "Facturas Emitidas",
+              registroId: servicio.id,
+              extra: `Factura #${numeroFactura} marcada como pagada`,
+            },
+          );
         });
 
         await Promise.all(updatePromises);
@@ -1399,7 +1448,7 @@ const Facturasemitidas = () => {
           html: `
             <div style="text-align: center;">
               <p>Se registró un payment de <strong>AWG ${formatCurrency(
-                payment
+                payment,
               )}</strong></p>
               <p style="color: #28a745; font-weight: bold;">✅ Factura #${numeroFactura} marcada como PAGADA</p>
               <p style="font-size: 14px; color: #6c757d;">Todos los servicios asociados fueron actualizados</p>
@@ -1412,7 +1461,7 @@ const Facturasemitidas = () => {
           icon: "success",
           title: "Payment Registrado",
           text: `Payment de AWG ${formatCurrency(
-            payment
+            payment,
           )} registrado. Deuda restante: AWG ${formatCurrency(nuevaDeuda)}`,
           timer: 2000,
         });
@@ -1571,30 +1620,30 @@ const Facturasemitidas = () => {
   // EXPORTAR XLSX
   const generateXLSX = async () => {
     const exportData = sortedRecords.map((registro) => ({
-        "Fecha Emisión": formatDate(registro.timestamp),
+      "Fecha Emisión": formatDate(registro.timestamp),
 
-        "N° Factura": registro.numerodefactura || registro.referenciaFactura || "",
-        "A Nombre De": registro.anombrede || "",
-        Personalizado: registro.personalizado || "",
-        Dirección: registro.direccion || "",
-        "Días de Mora": calculateDaysDelay(registro.timestamp, registro.pago),
-        "Fecha de Pago": registro.numerodefactura
-          ? facturasData[registro.numerodefactura]?.fechapago || ""
-          : registro.fechapago || "",
-        "Estado Pago": registro.pago || "",
-        "Valor Total": registro.valor || "",
-        Payment: formatCurrency(
-          registro.numerodefactura && facturasData[registro.numerodefactura]
-            ? facturasData[registro.numerodefactura].payment || 0
-            : 0
-        ),
-        Deuda:
-          registro.numerodefactura && facturasData[registro.numerodefactura]
-            ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
-            : "",
-        "Factura Emitida": registro.factura ? "Sí" : "No",
-      })
-    );
+      "N° Factura":
+        registro.numerodefactura || registro.referenciaFactura || "",
+      "A Nombre De": registro.anombrede || "",
+      Personalizado: registro.personalizado || "",
+      Dirección: registro.direccion || "",
+      "Días de Mora": calculateDaysDelay(registro.timestamp, registro.pago),
+      "Fecha de Pago": registro.numerodefactura
+        ? facturasData[registro.numerodefactura]?.fechapago || ""
+        : registro.fechapago || "",
+      "Estado Pago": registro.pago || "",
+      "Valor Total": registro.valor || "",
+      Payment: formatCurrency(
+        registro.numerodefactura && facturasData[registro.numerodefactura]
+          ? facturasData[registro.numerodefactura].payment || 0
+          : 0,
+      ),
+      Deuda:
+        registro.numerodefactura && facturasData[registro.numerodefactura]
+          ? formatCurrency(facturasData[registro.numerodefactura].deuda || 0)
+          : "",
+      "Factura Emitida": registro.factura ? "Sí" : "No",
+    }));
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Facturas Emitidas");
@@ -1756,7 +1805,7 @@ const Facturasemitidas = () => {
           (type === "direccion" && !base?.direccion)
         ) {
           Swal.showValidationMessage(
-            `No hay datos para generar factura con '${labels[type]}'.`
+            `No hay datos para generar factura con '${labels[type]}'.`,
           );
           return false;
         }
@@ -1870,7 +1919,7 @@ const Facturasemitidas = () => {
             invoiceConfig.country || "Country"
           }, ${invoiceConfig.postalCode || "Postal Code"}`,
           textX,
-          mT + 16
+          mT + 16,
         )
         .text(`Tel: ${invoiceConfig.phone || "Phone"}`, textX, mT + 21)
         .text(`Email: ${invoiceConfig.email || "Email"}`, textX, mT + 26);
@@ -1886,7 +1935,7 @@ const Facturasemitidas = () => {
             new Date(facturaData.timestamp).toLocaleDateString()
           }`,
           152,
-          mT + 40
+          mT + 40,
         );
 
       // — Bill To —
@@ -1954,21 +2003,21 @@ const Facturasemitidas = () => {
         pdf.text(
           `PAYMENT: AWG ${formatCurrency(facturaData.payment)}`,
           152,
-          afterY + 6
+          afterY + 6,
         );
 
         const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || 0;
         pdf.text(
           `BALANCE DUE: AWG ${formatCurrency(balance)}`,
           152,
-          afterY + 11
+          afterY + 11,
         );
       } else {
         const balance = pagoStatus === "Pago" ? 0 : facturaData.deuda || 0;
         pdf.text(
           `BALANCE DUE: AWG ${formatCurrency(balance)}`,
           152,
-          afterY + 6
+          afterY + 6,
         );
       }
 
@@ -1980,7 +2029,7 @@ const Facturasemitidas = () => {
         .text(
           pdf.splitTextToSize(invoiceConfig.bankInfo || "Bank Info", 80),
           mL,
-          bankY + 6
+          bankY + 6,
         );
       const footerText = (invoiceConfig.footer || "").replace(/\r?\n/g, " ");
       const w = pdf.internal.pageSize.getWidth();
@@ -2009,12 +2058,28 @@ const Facturasemitidas = () => {
         ctx.fillStyle = "green";
         ctx.fillText("PAID", 0, 0);
 
+        const formadepagoDisplay =
+         base.formadepago || facturaData.formadepago || "";
+        if (base.formadepago === "Transferencia") {
+          ctx.globalAlpha = 0.4;
+          ctx.font = "5px Arial";
+          ctx.fillStyle = "green";
+          ctx.fillText("Transfer", 0, 8);
+        }
+        else if (base.formadepago === "Efectivo") {
+          ctx.globalAlpha = 0.4;
+          ctx.font = "5px Arial";
+          ctx.fillStyle = "green";
+          ctx.fillText("Cash", 0, 8);
+        }
+        ;
+
         const fechaPagoDisplay =
           base.fechapago || facturaData.fechapago || today.toLocaleDateString();
         ctx.globalAlpha = 0.4;
         ctx.font = "5px Arial";
         ctx.fillStyle = "green";
-        ctx.fillText(fechaPagoDisplay, 0, 10);
+        ctx.fillText(fechaPagoDisplay, 0, 14);
 
         const imgData = canvas.toDataURL("image/png");
         pdf.addImage(imgData, "PNG", 0, 0, wPt, hPt);
@@ -2052,7 +2117,7 @@ const Facturasemitidas = () => {
       // Hay números disponibles, usar el menor para mostrar
       const availableData = availableSnapshot.val();
       const sortedAvailable = Object.entries(availableData).sort(
-        ([, a], [, b]) => a.numeroFactura.localeCompare(b.numeroFactura)
+        ([, a], [, b]) => a.numeroFactura.localeCompare(b.numeroFactura),
       );
       const [key, numeroData] = sortedAvailable[0];
       invoiceIdEstimado = numeroData.numeroFactura;
@@ -2132,7 +2197,7 @@ const Facturasemitidas = () => {
                  (i) =>
                    `<option value="${i}" ${
                      i === "Septic Tank" ? "selected" : ""
-                   }>${i}</option>`
+                   }>${i}</option>`,
                )
                .join("")}
            </select>
@@ -2161,7 +2226,7 @@ const Facturasemitidas = () => {
         // Los items se recogen de la variable 'addedItems' que está en el scope de didOpen
         if (!window.addedItems || window.addedItems.length === 0) {
           Swal.showValidationMessage(
-            "Debe agregar al menos un item a la factura."
+            "Debe agregar al menos un item a la factura.",
           );
           return false;
         }
@@ -2177,7 +2242,7 @@ const Facturasemitidas = () => {
         }
         if (billToType === "personalizado" && !customValue) {
           Swal.showValidationMessage(
-            "Ingrese texto personalizado para Bill To"
+            "Ingrese texto personalizado para Bill To",
           );
           return false;
         }
@@ -2209,7 +2274,7 @@ const Facturasemitidas = () => {
         const updateTotal = () => {
           const total = window.addedItems.reduce(
             (sum, item) => sum + item.amount,
-            0
+            0,
           );
           totalEl.textContent = `AWG ${formatCurrency(total)}`;
         };
@@ -2226,12 +2291,12 @@ const Facturasemitidas = () => {
                 "display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee;";
               itemDiv.innerHTML = `
                         <span><strong>${item.item}</strong> (x${
-                item.qty
-              }) - ${formatCurrency(
-                item.amount
-              )}<br><small style="color: #666;">Fecha: ${
-                item.fechaServicioItem || "No especificada"
-              }</small></span>
+                          item.qty
+                        }) - ${formatCurrency(
+                          item.amount,
+                        )}<br><small style="color: #666;">Fecha: ${
+                          item.fechaServicioItem || "No especificada"
+                        }</small></span>
                         <div>
                           <button type="button" class="edit-summary-item" data-index="${index}" style="background-color: #3085d6; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-right: 5px;">Editar</button>
                           <button type="button" class="remove-summary-item" data-index="${index}" style="background-color: #f27474; color: white; border: none; width: 25px; height: 25px; border-radius: 50%; font-weight: bold; cursor: pointer;">X</button>
@@ -2247,7 +2312,7 @@ const Facturasemitidas = () => {
           if (e.target.classList.contains("remove-summary-item")) {
             const indexToRemove = parseInt(
               e.target.getAttribute("data-index"),
-              10
+              10,
             );
             window.addedItems.splice(indexToRemove, 1);
             renderSummary();
@@ -2255,7 +2320,7 @@ const Facturasemitidas = () => {
           if (e.target.classList.contains("edit-summary-item")) {
             const indexToEdit = parseInt(
               e.target.getAttribute("data-index"),
-              10
+              10,
             );
             const itemToEdit = window.addedItems[indexToEdit];
 
@@ -2273,7 +2338,7 @@ const Facturasemitidas = () => {
                 window.addedItems[indexToEdit] = updatedItem;
                 renderSummary();
               },
-              itemToEdit // Pass existing details
+              itemToEdit, // Pass existing details
             );
           }
         });
@@ -2281,7 +2346,7 @@ const Facturasemitidas = () => {
         const showCustomItemModal = (
           itemType,
           callback,
-          existingDetails = null
+          existingDetails = null,
         ) => {
           const modalOverlay = document.createElement("div");
           modalOverlay.id = "custom-modal-overlay";
@@ -2347,7 +2412,7 @@ const Facturasemitidas = () => {
                 parseFloat(document.getElementById("custom-item-rate").value) ||
                 0,
               fechaServicioItem: document.getElementById(
-                "custom-item-fecha-servicio"
+                "custom-item-fecha-servicio",
               ).value,
             };
             if (details.qty > 0) {
@@ -2404,7 +2469,10 @@ const Facturasemitidas = () => {
         // Usar número disponible
         invoiceIdFinal = invoiceIdEstimado;
         numeroFactura = parseInt(invoiceIdFinal.slice(-5));
-        await set(ref(database, `facturasDisponibles/${usedAvailableKey}`), null);
+        await set(
+          ref(database, `facturasDisponibles/${usedAvailableKey}`),
+          null,
+        );
       } else {
         // Generar nuevo número
         const contadorRef = ref(database, "contadorFactura");
@@ -2471,7 +2539,7 @@ const Facturasemitidas = () => {
 
       // 8. Crear registro en registrofechas
       const fechaKey = `${String(today.getDate()).padStart(2, "0")}-${String(
-        today.getMonth() + 1
+        today.getMonth() + 1,
       ).padStart(2, "0")}-${today.getFullYear()}`;
       const groupRef = ref(database, `registrofechas/${fechaKey}`);
       const newRef = push(groupRef);
@@ -2549,7 +2617,7 @@ const Facturasemitidas = () => {
       const serviciosInfo = serviciosRelacionados
         .map(
           (servicio) =>
-            `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`
+            `• ${servicio.direccion} - ${servicio.fecha} (${servicio.pago})`,
         )
         .join("\n");
 
@@ -2658,7 +2726,7 @@ const Facturasemitidas = () => {
         prev.map((g) => ({
           ...g,
           registros: g.registros.map(updater),
-        }))
+        })),
       );
 
       // 7) ✅ MOSTRAR CONFIRMACIÓN
@@ -2689,9 +2757,12 @@ const Facturasemitidas = () => {
   useEffect(() => {
     setCurrentTime(Date.now());
 
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 24 * 60 * 60 * 1000); // Actualiza cada 24 horas);
+    const timer = setInterval(
+      () => {
+        setCurrentTime(Date.now());
+      },
+      24 * 60 * 60 * 1000,
+    ); // Actualiza cada 24 horas);
 
     return () => clearInterval(timer);
   }, []);
@@ -2727,9 +2798,9 @@ const Facturasemitidas = () => {
         ref={filterSlidebarRef}
         className={`filter-slidebar ${showFilterSlidebar ? "show" : ""}`}
       >
-        <h2 style={{color:"white"}}>Filtros</h2>
-        <br/>
-        <hr/>
+        <h2 style={{ color: "white" }}>Filtros</h2>
+        <br />
+        <hr />
         <button
           type="button"
           className="filter-button"
@@ -2877,6 +2948,28 @@ const Facturasemitidas = () => {
           }))}
         />
 
+        <label>Forma de pago</label>
+        <Select
+          isClearable
+          isMulti
+          options={[
+            { value: "Efectivo", label: "Efectivo" },
+            { value: "Transferencia", label: "Transferencia" },
+            { value: "Intercambio", label: "Intercambio" },
+            { value: "Garantia", label: "Garantia" },
+            { value: "Perdido", label: "Perdido" },
+            { value: "-", label: "-" },
+          ]}
+          placeholder="Selecciona forma(s) de pago..."
+          onChange={(opts) =>
+            setFilters((f) => ({
+              ...f,
+              formadepago: opts ? opts.map((o) => o.value) : [],
+            }))
+          }
+          value={filters.formadepago.map((v) => ({ value: v, label: v }))}
+        />
+
         <button
           onClick={() =>
             setFilters({
@@ -2888,6 +2981,7 @@ const Facturasemitidas = () => {
               diasdemora: [],
               factura: "true",
               pago: [],
+              formadepago: [],
               personalizado: "",
             })
           }
@@ -2902,7 +2996,9 @@ const Facturasemitidas = () => {
         <div className="homepage-card">
           <h1 className="title-page">Facturas Emitidas</h1>
           <div className="current-date">
-            <div style={{cursor:"default"}}>{new Date().toLocaleDateString()}</div>
+            <div style={{ cursor: "default" }}>
+              {new Date().toLocaleDateString()}
+            </div>
             <Clock />
           </div>
         </div>
@@ -2932,6 +3028,7 @@ const Facturasemitidas = () => {
                 <th>Días de Mora</th>
                 <th>Fecha de Pago</th>
                 <th>Pago</th>
+                <th>Forma de Pago</th>
                 <th>Total Amount</th>
                 <th>Payment</th>
                 <th>Deuda</th>
@@ -3012,7 +3109,7 @@ const Facturasemitidas = () => {
                               // Si tiene factura, guardar en la factura
                               const facturaRef = ref(
                                 database,
-                                `facturas/${r.numerodefactura}`
+                                `facturas/${r.numerodefactura}`,
                               );
                               auditUpdate(
                                 `facturas/${r.numerodefactura}`,
@@ -3021,7 +3118,7 @@ const Facturasemitidas = () => {
                                   modulo: "Facturas Emitidas",
                                   registroId: r.numerodefactura,
                                   prevData: facturasData[r.numerodefactura],
-                                }
+                                },
                               ).catch(console.error);
                             } else {
                               // Si no tiene factura, guardar en el servicio
@@ -3030,7 +3127,7 @@ const Facturasemitidas = () => {
                                 r.id,
                                 "fechaEmision",
                                 fechaFormateada,
-                                r.origin
+                                r.origin,
                               );
                             }
                           }}
@@ -3077,7 +3174,7 @@ const Facturasemitidas = () => {
                                 r.id,
                                 "anombrede",
                                 e.target.value,
-                                r.origin
+                                r.origin,
                               );
                             }
                           }}
@@ -3105,7 +3202,7 @@ const Facturasemitidas = () => {
                                 r.id,
                                 "personalizado",
                                 e.target.value,
-                                r.origin
+                                r.origin,
                               );
                             }
                           }}
@@ -3138,7 +3235,7 @@ const Facturasemitidas = () => {
                                   r.id,
                                   "direccion",
                                   e.target.value,
-                                  r.origin
+                                  r.origin,
                                 );
                               }
                             }}
@@ -3164,7 +3261,7 @@ const Facturasemitidas = () => {
                                 ? "fechapago_factura"
                                 : "fechapago",
                               e.target.value,
-                              r.origin
+                              r.origin,
                             )
                           }
                           style={{
@@ -3189,7 +3286,7 @@ const Facturasemitidas = () => {
                               fecha,
                               r.id,
                               r.origin,
-                              e.target.checked
+                              e.target.checked,
                             )
                           }
                           style={{
@@ -3199,15 +3296,39 @@ const Facturasemitidas = () => {
                           }}
                         />
                       </td>
+                      <td>
+                        <select
+                          value={r.formadepago || ""}
+                          style={{ width: "15ch" }}
+                          onChange={(e) =>
+                            handleFieldChange(
+                              fecha,
+                              r.id,
+                              "formadepago",
+                              e.target.value,
+                              r.origin,
+                            )
+                          }
+                        >
+                          <option value=""></option>
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Transferencia">Transferencia</option>
+                          <option value="Intercambio">Intercambio</option>
+                          <option value="Garantia">Garantia</option>
+                          <option value="Perdido">Perdido</option>
+                          <option value="-">-</option>
+                        </select>
+                      </td>
                       <td
                         className="factura-amount-cell"
                         style={{ textAlign: "center" }}
                       >
                         {r.numerodefactura && facturasData[r.numerodefactura]
                           ? formatCurrency(
-                              facturasData[r.numerodefactura].totalAmount || 0
+                              facturasData[r.numerodefactura].totalAmount || 0,
                             )
-                          : formatCurrency(r.valor || 0)} AWG
+                          : formatCurrency(r.valor || 0)}{" "}
+                        AWG
                       </td>
                       <td
                         className="factura-payment-cell"
@@ -3215,7 +3336,7 @@ const Facturasemitidas = () => {
                       >
                         {r.numerodefactura && facturasData[r.numerodefactura]
                           ? `${formatCurrency(
-                              facturasData[r.numerodefactura].payment || 0
+                              facturasData[r.numerodefactura].payment || 0,
                             )} AWG`
                           : "N/A"}
                       </td>
@@ -3225,7 +3346,7 @@ const Facturasemitidas = () => {
                       >
                         {r.numerodefactura && facturasData[r.numerodefactura]
                           ? `${formatCurrency(
-                              facturasData[r.numerodefactura].deuda || 0
+                              facturasData[r.numerodefactura].deuda || 0,
                             )} AWG`
                           : "N/A"}
                       </td>
@@ -3265,7 +3386,7 @@ const Facturasemitidas = () => {
                                 fecha,
                                 r.id,
                                 r.numerodefactura,
-                                r.origin
+                                r.origin,
                               )
                             }
                             className="cancelar-factura-btn"

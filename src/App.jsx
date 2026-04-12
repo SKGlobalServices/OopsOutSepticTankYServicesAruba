@@ -33,6 +33,7 @@ import {
   initInactivityDetection,
   clearInactivityTimer,
 } from "./utils/sessionTimeout";
+import { initScreenshotProtection } from "./utils/screenshotProtection";
 
 const App = () => {
   const [email, setEmail] = useState("");
@@ -47,6 +48,11 @@ const App = () => {
   const recaptchaRef = useRef(null);
   const emailRef = useRef(null);
   const globalLoading = useGlobalLoading();
+
+  // Inicializar protección contra screenshots
+  useEffect(() => {
+    initScreenshotProtection();
+  }, []);
 
   // === Helper centralizado para el Swal de plataforma cerrada
   const showClosedSwal = useCallback(() => {

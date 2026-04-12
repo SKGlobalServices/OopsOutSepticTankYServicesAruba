@@ -329,7 +329,7 @@ const Agendamañanausuario = () => {
                         <p
                           className="p-text"
                           style={{
-                            width: canEdit ? "20ch" : "30ch",
+                            width: canEdit ? "25ch" : "30ch",
                             textAlign: "left",
                             margin: "5px",
                             borderRadius: "5px",

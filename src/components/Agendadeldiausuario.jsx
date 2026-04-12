@@ -40,7 +40,13 @@ const Agendadeldiausuario = () => {
   useEffect(() => {
     const unsubData = onValue(ref(database, "data"), (snap) => {
       if (snap.exists()) {
-        const fetched = Object.entries(snap.val());
+        // Filtrar solo registros que:
+        // 1. No tengan realizadopor (blanco), O
+        // 2. Tengan realizadopor igual al usuario logueado
+        const fetched = Object.entries(snap.val()).filter(
+          ([, it]) => !it.realizadopor || it.realizadopor === myUserId
+        );
+
         const con = fetched.filter(([, it]) => !!it.realizadopor);
         const sin = fetched.filter(([, it]) => !it.realizadopor);
 
@@ -221,7 +227,6 @@ const Agendadeldiausuario = () => {
     Swal.fire({
       title: "Notas",
       input: "textarea",
-      inputLabel: "Notas",
       inputValue: currentNotes || "",
       showCancelButton: true,
       confirmButtonText: "Guardar",
@@ -235,7 +240,7 @@ const Agendadeldiausuario = () => {
 
   const showMisServicios = () => {
     if (!myUserId) {
-      return Swal.fire("Error", "No hay usuario logueado", "error");
+      return Swal.fire("Error", "No hay usuario logueado","error");
     }
     const mis = data.filter(([_, item]) => item.realizadopor === myUserId);
     const total = mis.length;
@@ -311,10 +316,10 @@ const Agendadeldiausuario = () => {
                     <tr key={id} className={getRowClass(item.metododepago)}>
                       {/* Dirección: solo lectura siempre aquí (tu UI actual la mostraba como p/readonly o p "editable" visual) */}
                       <td className="direccion-fixed-td">
-                        <p
+                          <p
                           className="p-text"
                           style={{
-                            width: canEdit ? "20ch" : "30ch",
+                            width: canEdit ? "25ch" : "30ch",
                             textAlign: "left",
                             margin: "5px",
                             borderRadius: "5px",
