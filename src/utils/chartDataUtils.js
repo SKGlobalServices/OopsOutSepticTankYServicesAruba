@@ -8,31 +8,40 @@ import { getMonthName } from "./dateUtils";
  * @param {Object} record - Registro de la base de datos
  * @returns {string} Forma de pago normalizada en minúsculas
  */
-const normalizeFormaPago = (record) => {
-  return (record.formadepago || record.metododepago || "").toLowerCase().trim();
+const normalizeTextValue = (value) => {
+  if (value == null) return "";
+
+  if (typeof value === "string") {
+    return value.toLowerCase().trim();
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value).toLowerCase().trim();
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const normalizedItem = normalizeTextValue(item);
+      if (normalizedItem) return normalizedItem;
+    }
+    return "";
+  }
+
+  if (typeof value === "object") {
+    const candidateKeys = ["value", "label", "name", "text", "tipo"];
+    for (const key of candidateKeys) {
+      if (key in value) {
+        const normalizedItem = normalizeTextValue(value[key]);
+        if (normalizedItem) return normalizedItem;
+      }
+    }
+  }
+
+  return String(value).toLowerCase().trim();
 };
 
-/**
- * Extrae el día de una fecha en diferentes formatos
- * @param {string} fecha - Fecha en formato DD-MM-YYYY o estándar
- * @returns {number} Día extraído
- */
-const getDayFromDate = (fecha) => {
-  if (!fecha) return 0;
-
-  // Formato DD-MM-YYYY
-  if (fecha.includes("-") && fecha.split("-").length === 3) {
-    const [day] = fecha.split("-");
-    return parseInt(day);
-  }
-
-  // Formato de fecha estándar
-  try {
-    const date = new Date(fecha);
-    return date.getDate();
-  } catch {
-    return 0;
-  }
+const normalizeFormaPago = (record) => {
+  return normalizeTextValue(record.formadepago || record.metododepago);
 };
 
 /**
@@ -79,7 +88,7 @@ const getDayFromDateSafe = (fecha) => {
 
   // Formato DD-MM-YYYY
   if (fecha.includes("-") && fecha.split("-").length === 3) {
-    const [day, month, year] = fecha.split("-");
+    const [day] = fecha.split("-");
     return parseInt(day);
   }
 
@@ -343,8 +352,8 @@ export const processTransferenciasData = (
   let filteredTransferencias = transferencias;
   if (filters.banco && filters.banco !== "todos") {
     filteredTransferencias = transferencias.filter((record) => {
-      const banco = record.banco || "";
-      return banco.toLowerCase().includes(getBankFilterValue(filters.banco));
+      const banco = normalizeTextValue(record.banco);
+      return banco.includes(getBankFilterValue(filters.banco));
     });
   }
 
@@ -1162,7 +1171,7 @@ export const processFacturasData = (facturas = {}, filters = {}) => {
   }));
 
   const facturasEmitidas = facturasRecords.filter((record) => {
-    const pago = (record.pago || "").toLowerCase().trim();
+    const pago = normalizeTextValue(record.pago);
     const deuda = parseFloat(record.deuda) || 0;
 
     return (!pago || pago === "debe" || pago === "pendiente") && deuda > 0;
