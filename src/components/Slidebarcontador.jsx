@@ -9,6 +9,7 @@ import logoutIcon2 from "../assets/img/logoutIcon2.png";
 import barraIcon from "../assets/img/barra_icon.jpg";
 import logo from "../assets/img/logosolo.png";
 import informeEfectivoIcon2 from "../assets/img/informeEfectivoIcon2.png";
+import { isOperativeRole } from "../utils/roleUtils";
 
 const Slidebarcontador = () => {
   const navigate = useNavigate();
@@ -26,14 +27,14 @@ const Slidebarcontador = () => {
     }
     if (user.role === "admin") {
       navigate("/agendaexpress");
-    } else if (user.role === "user") {
+    } else if (isOperativeRole(user.role)) {
       navigate("/agendadeldiausuario");
     }
   }, [user, navigate]);
 
   const handleLogout = async () => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+    if (userData && userData.id && isOperativeRole(userData.role)) {
       try {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });

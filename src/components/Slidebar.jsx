@@ -23,6 +23,7 @@ import configuracionUsuariosIcon2 from "../assets/img/configuracionUsuariosIcon2
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
 import barraIcon from "../assets/img/barra_icon.jpg";
 import logo from "../assets/img/logosolo.png";
+import { isOperativeRole } from "../utils/roleUtils";
 
 const Slidebar = () => {
   const navigate = useNavigate();
@@ -39,7 +40,8 @@ const Slidebar = () => {
 
     const routes = {
       admin: ["/agendaexpress", "/homepage", "/hojadefechas"],
-      user: ["/agendadeldiausuario"],
+      user: ["/agendadeldiausuario", "/agendamañanausuario"],
+      coordinador: ["/agendadeldiausuario", "/agendamañanausuario"],
       contador: ["/agendadinamicacontador"],
     };
 
@@ -68,7 +70,7 @@ const Slidebar = () => {
       navigate("/");
       return;
     }
-    if (user.role === "user") {
+    if (isOperativeRole(user.role)) {
       navigate("/agendadeldiausuario");
     } else if (user.role === "contador") {
       navigate("/agendadinamicacontador");
@@ -78,7 +80,7 @@ const Slidebar = () => {
 
   const handleLogout = useCallback(async () => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+    if (userData && userData.id && isOperativeRole(userData.role)) {
       try {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });

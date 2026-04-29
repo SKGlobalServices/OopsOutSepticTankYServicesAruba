@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ref, set, push, get, onValue, update } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
 import { decryptData } from "../utils/security";
+import { isCoordinatorRole, isOperativeRole } from "../utils/roleUtils";
 import Swal from "sweetalert2";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
@@ -20,6 +21,8 @@ const Agendamañanausuario = () => {
   // Usuario logueado y helper de permisos por fila (MISMA LÓGICA QUE "Servicios De Hoy")
   const loggedUser = decryptData(localStorage.getItem("user"));
   const myUserId = loggedUser?.id;
+  const isCoordinator = isCoordinatorRole(loggedUser?.role);
+  const isOperativeUser = isOperativeRole(loggedUser?.role);
 
   /**
    * Regla por fila:
@@ -28,6 +31,10 @@ const Agendamañanausuario = () => {
    * - Si hay realizadopor y NO coincide: todo bloqueado
    */
   const getRowPermission = (item) => {
+    if (isCoordinator) {
+      return { canAssign: canEdit, canEditFields: false };
+    }
+
     const assigned = !!item.realizadopor;
     const mine = item.realizadopor === myUserId;
 
@@ -41,10 +48,14 @@ const Agendamañanausuario = () => {
   useEffect(() => {
     const unsubData = onValue(ref(database, "hojamañana"), (snap) => {
       if (snap.exists()) {
-        const fetched = Object.entries(snap.val())
-          .filter(([, it]) => !it.realizadopor || it.realizadopor === myUserId);
-        const con = fetched.filter(([, it]) => !!it.realizadopor);
-        const sin = fetched.filter(([, it]) => !it.realizadopor);
+        const fetched = Object.entries(snap.val());
+        const visible = isCoordinator
+          ? fetched
+          : fetched.filter(
+              ([, it]) => !it.realizadopor || it.realizadopor === myUserId
+            );
+        const con = visible.filter(([, it]) => !!it.realizadopor);
+        const sin = visible.filter(([, it]) => !it.realizadopor);
 
         setData([
           ...con.sort(([, a], [, b]) =>
@@ -95,7 +106,7 @@ const Agendamañanausuario = () => {
       unsubUsers();
       unsubClients();
     };
-  }, []);
+  }, [isCoordinator, myUserId]);
 
   // --- Lógica para editar campos en Firebase y estado local ---
   const handleFieldChange = (id, field, value) => {
@@ -270,6 +281,8 @@ const Agendamañanausuario = () => {
     });
   };
 
+  const visibleData = isCoordinator ? data : data.filter(([, item]) => item.realizadopor);
+
   useEffect(() => {
     if (loadedData && loadedUsers && loadedClients) {
       setLoading(false);
@@ -287,7 +300,7 @@ const Agendamañanausuario = () => {
   return (
     <div
       className={`homepage-container ${
-        loggedUser?.role === "user" ? "user" : ""
+        isOperativeUser ? "user" : ""
       }`}
     >
       <Slidebaruser />
@@ -316,11 +329,9 @@ const Agendamañanausuario = () => {
               </tr>
             </thead>
             <tbody>
-              {data.length > 0 ? (
-                data
-                  .filter(([id, item]) => item.realizadopor)
-                  .map(([id, item]) => {
-                    const { canAssign, canEditFields } = getRowPermission(item);
+              {visibleData.length > 0 ? (
+                visibleData.map(([id, item]) => {
+                  const { canAssign, canEditFields } = getRowPermission(item);
 
                   return (
                     <tr key={id} className={getRowClass(item.metododepago)}>
@@ -422,18 +433,28 @@ const Agendamañanausuario = () => {
                             style={{ width: "24ch" }}
                             value={item.realizadopor || ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                id,
-                                "realizadopor",
-                                e.target.value
-                              )
+                              handleFieldChange(id, "realizadopor", e.target.value)
                             }
                           >
-                            {!item.realizadopor && <option value=""></option>}
-                            {/* Solo mostrar el usuario logueado */}
-                            <option key={myUserId} value={myUserId}>
-                              {users.find((u) => u.id === myUserId)?.name}
-                            </option>
+                            {isCoordinator ? (
+                              <>
+                                <option key="empty" value=""></option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name}
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              <>
+                                {!item.realizadopor && (
+                                  <option key="empty" value=""></option>
+                                )}
+                                <option key={myUserId} value={myUserId}>
+                                  {users.find((u) => u.id === myUserId)?.name}
+                                </option>
+                              </>
+                            )}
                           </select>
                         ) : (
                           <p style={{
