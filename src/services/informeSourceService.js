@@ -33,9 +33,9 @@ const buildDataList = (allData) => {
 const buildInformeEfectivoList = (allData) =>
   Object.entries(allData).map(([id, registro]) => ({
     id,
+    ...registro,
     origin: registro.origin || "informedeefectivo",
     realizadopor: registro.realizadopor || "",
-    ...registro,
   }));
 
 // Resume la colección de usuarios para que el componente pueda resolver ids y nombres.
