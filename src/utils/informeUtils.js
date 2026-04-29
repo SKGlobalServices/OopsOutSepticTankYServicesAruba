@@ -16,11 +16,33 @@ export const formatDateWithHyphen = (date) => {
 // Reconvierte una fecha guardada como texto dd-mm-yyyy a un objeto Date real.
 // Retorna null si el texto no tiene una forma válida.
 export const parseDateStringToDate = (value) => {
-  const [day, month, year] = normalizeTextValue(value).split("-");
-  if (!day || !month || !year) return null;
-
-  const parsedDate = new Date(Number(year), Number(month) - 1, Number(day));
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  const normalizedValue = normalizeTextValue(value);
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(normalizedValue)) return null;
+  const [day, month, year] = normalizedValue.split("-");
+  const dayNumber = Number(day);
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+  if (
+    !Number.isInteger(dayNumber) ||
+    !Number.isInteger(monthNumber) ||
+    !Number.isInteger(yearNumber) ||
+    monthNumber < 1 ||
+    monthNumber > 12 ||
+    dayNumber < 1 ||
+    dayNumber > 31
+  ) {
+    return null;
+  }
+  const parsedDate = new Date(yearNumber, monthNumber - 1, dayNumber);
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.getFullYear() !== yearNumber ||
+    parsedDate.getMonth() !== monthNumber - 1 ||
+    parsedDate.getDate() !== dayNumber
+  ) {
+    return null;
+  }
+  return parsedDate;
 };
 
 // Alias semántico para dejar claro que el parseo se usa dentro del dominio del informe.

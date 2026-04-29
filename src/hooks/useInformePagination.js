@@ -18,7 +18,7 @@ export const useInformePagination = (records = [], initialItemsPerPage = 50) => 
   const endIndex = startIndex + itemsPerPage;
 
   const currentPageData = useMemo(() => {
-    return records.slice(startIndex, endIndex);
+    return Array.isArray(records) ? records.slice(startIndex, endIndex) : [];
   }, [records, startIndex, endIndex]);
 
   const goToPage = useCallback(
