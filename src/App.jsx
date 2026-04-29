@@ -29,6 +29,7 @@ import {
   decryptData,
   checkRateLimit,
 } from "./utils/security";
+import { isOperativeRole, normalizeRole } from "./utils/roleUtils";
 import {
   initInactivityDetection,
   clearInactivityTimer,
@@ -67,7 +68,7 @@ const App = () => {
   // Logout por inactividad
   const handleInactivityLogout = useCallback(async () => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+    if (userData && userData.id && isOperativeRole(userData.role)) {
       try {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });
@@ -109,13 +110,14 @@ const App = () => {
 
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
+      const userRole = normalizeRole(userFound.role);
       localStorage.setItem("user", encryptData(userData));
       localStorage.setItem(
         "isAdmin",
-        userFound.role.toLowerCase() === "admin" ? "true" : "false"
+        userRole === "admin" ? "true" : "false"
       );
 
-      if (userFound.role.toLowerCase() === "user") {
+      if (isOperativeRole(userFound.role)) {
         startSessionForUser(userKey);
         initInactivityDetection(handleInactivityLogout);
       }
@@ -123,11 +125,12 @@ const App = () => {
       setGlobalLoading(true);
       setTimeout(() => {
         sessionStorage.setItem("navigated", "true");
-        switch (userFound.role.toLowerCase()) {
+        switch (userRole) {
           case "admin":
             navigate("/dashboard");
             break;
           case "user":
+          case "coordinador":
             navigate("/agendadeldiausuario");
             break;
           case "contador":
@@ -283,7 +286,7 @@ const App = () => {
   // Limpiar sesión al cerrar pestaña/navegador
   const cleanupSession = useCallback(async () => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+    if (userData && userData.id && isOperativeRole(userData.role)) {
       try {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });
@@ -487,16 +490,17 @@ const App = () => {
 
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
+      const userRole = normalizeRole(userFound.role);
 
       userCache.set(email, userData);
 
       localStorage.setItem("user", encryptData(userData));
       localStorage.setItem(
         "isAdmin",
-        userFound.role.toLowerCase() === "admin" ? "true" : "false"
+        userRole === "admin" ? "true" : "false"
       );
 
-      if (userFound.role.toLowerCase() === "user") {
+      if (isOperativeRole(userFound.role)) {
         startSessionForUser(userKey);
         initInactivityDetection(handleInactivityLogout);
       }
@@ -511,11 +515,12 @@ const App = () => {
       }).then(() => {
         setGlobalLoading(true);
         sessionStorage.setItem("navigated", "true");
-        switch (userFound.role.toLowerCase()) {
+        switch (userRole) {
           case "admin":
             navigate("/dashboard");
             break;
           case "user":
+          case "coordinador":
             navigate("/agendadeldiausuario");
             break;
           case "contador":

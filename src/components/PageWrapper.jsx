@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import { decryptData } from "../utils/security";
 import { database } from "../Database/firebaseConfig";
 import { ref, update } from "firebase/database";
+import { isOperativeRole } from "../utils/roleUtils";
 
 const PageWrapper = ({ children }) => {
   const globalLoading = useGlobalLoading();
@@ -14,7 +15,7 @@ const PageWrapper = ({ children }) => {
   // Función de logout (igual que en Slidebar)
   const handleLogout = async () => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && userData.role?.toLowerCase() === "user") {
+    if (userData && userData.id && isOperativeRole(userData.role)) {
       try {
         const userRef = ref(database, `users/${userData.id}`);
         await update(userRef, { activeSession: null });

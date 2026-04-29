@@ -1,7 +1,7 @@
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { createHashRouter, RouterProvider } from "react-router-dom";
 import PageWrapper from "./components/PageWrapper.jsx";
 import Homepage from "./components/Hojadeservicios.jsx";
 import Agendaexpress from "./components/Agendaexpress.jsx";
@@ -39,43 +39,274 @@ import HistorialCambios from "./components/HistorialCambios.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
+const router = createHashRouter([
+  { path: "/", element: <App /> },
+  {
+    path: "/homepage",
+    element: (
+      <PageWrapper>
+        <Homepage />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/agendaexpress",
+    element: (
+      <PageWrapper>
+        <Agendaexpress />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/hojamañana",
+    element: (
+      <PageWrapper>
+        <Hojamañana />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/hojapasadomañana",
+    element: (
+      <PageWrapper>
+        <Hojapasadomañana />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/hojadefechas",
+    element: (
+      <PageWrapper>
+        <Hojadefechas />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/facturasemitidas",
+    element: (
+      <PageWrapper>
+        <Facturasemitidas />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/cotizacion",
+    element: (
+      <PageWrapper>
+        <Cotizacion />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/clientes",
+    element: (
+      <PageWrapper>
+        <Clientes />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/clientesfijos",
+    element: (
+      <PageWrapper>
+        <Clientesfijos />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/usuarios",
+    element: (
+      <PageWrapper>
+        <Usuarios />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedeefectivousuario",
+    element: (
+      <PageWrapper>
+        <Informedeefectivousuario />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/agendadeldiausuario",
+    element: (
+      <PageWrapper>
+        <Agendadeldiausuario />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/agendamañanausuario",
+    element: (
+      <PageWrapper>
+        <Agendamañanausuario />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedeefectivo",
+    element: (
+      <PageWrapper>
+        <Informedeefectivo />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedetransferencias",
+    element: (
+      <PageWrapper>
+        <Informedetransferencias />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedecobranza",
+    element: (
+      <PageWrapper>
+        <Informedecobranza />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/fastmark",
+    element: (
+      <PageWrapper>
+        <Fastmark />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/clientesnuevos",
+    element: (
+      <PageWrapper>
+        <Clientesnuevos />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/nomina",
+    element: (
+      <PageWrapper>
+        <Nomina />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/gastos",
+    element: (
+      <PageWrapper>
+        <Gastos />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/pagosmensuales",
+    element: (
+      <PageWrapper>
+        <Pagosmensuales />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/pagosanticipados",
+    element: (
+      <PageWrapper>
+        <Pagosanticipados />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/ciclodefacturacion",
+    element: (
+      <PageWrapper>
+        <Ciclodefacturacion />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/dashboard",
+    element: (
+      <PageWrapper>
+        <Dashboard />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/extras",
+    element: (
+      <PageWrapper>
+        <Extras />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/deducciones",
+    element: (
+      <PageWrapper>
+        <Deducciones />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/calendarioadmin",
+    element: (
+      <PageWrapper>
+        <Calendarioadmin />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/calendariouser",
+    element: (
+      <PageWrapper>
+        <Calendariouser />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedeserviciosextras",
+    element: (
+      <PageWrapper>
+        <Informedeserviciosextras />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/informedetransferenciascontador",
+    element: (
+      <PageWrapper>
+        <Informedetransferenciascontador />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/facturasemitidascontador",
+    element: (
+      <PageWrapper>
+        <Facturasemitidascontador />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/reprogramacion",
+    element: (
+      <PageWrapper>
+        <Reprogramacion />
+      </PageWrapper>
+    ),
+  },
+  {
+    path: "/historialcambios",
+    element: (
+      <PageWrapper>
+        <HistorialCambios />
+      </PageWrapper>
+    ),
+  },
+]);
+
 root.render(
-  <HashRouter>
-    <Routes>
-      <Route path="/" element={<App />} />
-      <Route path="/homepage" element={<PageWrapper><Homepage /></PageWrapper>} />
-      <Route path="/agendaexpress" element={<PageWrapper><Agendaexpress /></PageWrapper>} />
-      <Route path="/hojamañana" element={<PageWrapper><Hojamañana /></PageWrapper>} />
-      <Route path="/hojapasadomañana" element={<PageWrapper><Hojapasadomañana /></PageWrapper>} />
-      <Route path="/hojadefechas" element={<PageWrapper><Hojadefechas /></PageWrapper>} />
-      <Route path="/facturasemitidas" element={<PageWrapper><Facturasemitidas /></PageWrapper>} />
-      <Route path="/cotizacion" element={<PageWrapper><Cotizacion /></PageWrapper>} />
-      <Route path="/clientes" element={<PageWrapper><Clientes /></PageWrapper>} />
-      <Route path="/clientesfijos" element={<PageWrapper><Clientesfijos /></PageWrapper>} />
-      <Route path="/usuarios" element={<PageWrapper><Usuarios /></PageWrapper>} />
-      <Route path="/informedeefectivousuario" element={<PageWrapper><Informedeefectivousuario /></PageWrapper>} />
-      <Route path="/agendadeldiausuario" element={<PageWrapper><Agendadeldiausuario /></PageWrapper>} />
-      <Route path="/agendamañanausuario" element={<PageWrapper><Agendamañanausuario /></PageWrapper>} />
-      <Route path="/informedeefectivo" element={<PageWrapper><Informedeefectivo /></PageWrapper>} />
-      <Route path="/informedetransferencias" element={<PageWrapper><Informedetransferencias /></PageWrapper>} />
-      <Route path="/informedecobranza" element={<PageWrapper><Informedecobranza /></PageWrapper>} />
-      <Route path="/fastmark" element={<PageWrapper><Fastmark /></PageWrapper>} />
-      <Route path="/clientesnuevos" element={<PageWrapper><Clientesnuevos /></PageWrapper>} />
-      <Route path="/nomina" element={<PageWrapper><Nomina /></PageWrapper>} />
-      <Route path="/gastos" element={<PageWrapper><Gastos /></PageWrapper>} />
-      <Route path="/pagosmensuales" element={<PageWrapper><Pagosmensuales /></PageWrapper>} />
-      <Route path="/pagosanticipados" element={<PageWrapper><Pagosanticipados /></PageWrapper>} />
-      <Route path="/ciclodefacturacion" element={<PageWrapper><Ciclodefacturacion /></PageWrapper>} />
-      <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
-      <Route path="/extras" element={<PageWrapper><Extras /></PageWrapper>} />
-      <Route path="/deducciones" element={<PageWrapper><Deducciones /></PageWrapper>} />
-      <Route path="/calendarioadmin" element={<PageWrapper><Calendarioadmin /></PageWrapper>} />
-      <Route path="/calendariouser" element={<PageWrapper><Calendariouser /></PageWrapper>} />
-      <Route path="/informedeserviciosextras" element={<PageWrapper><Informedeserviciosextras /></PageWrapper>} />
-      <Route path="/informedetransferenciascontador" element={<PageWrapper><Informedetransferenciascontador /></PageWrapper>} />
-      <Route path="/facturasemitidascontador" element={<PageWrapper><Facturasemitidascontador /></PageWrapper>} />
-      <Route path="/reprogramacion" element={<PageWrapper><Reprogramacion /></PageWrapper>} />
-      <Route path="/historialcambios" element={<PageWrapper><HistorialCambios /></PageWrapper>} />
-    </Routes>
-  </HashRouter>
+  <RouterProvider router={router} />
 );

@@ -232,6 +232,7 @@ const Usuarios = () => {
                         <option value="admin">Administrador</option>
                         <option value="user">Conductor</option>
                         <option value="contador">Contador</option>
+                        <option value="coordinador">Coordinador</option>
                         <option value="usernotactive">No Activo</option>
                       </select>
                     </td>

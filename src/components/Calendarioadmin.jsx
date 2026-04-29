@@ -11,6 +11,7 @@ import Clock from "./Clock";
 import Slidebar from "./Slidebar";
 import Swal from "sweetalert2";
 import { auditBulkUpdate } from "../utils/auditLogger";
+import { isOperativeRole } from "../utils/roleUtils";
 
 /* ========= Helpers ========= */
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -443,7 +444,7 @@ const Calendarioadmin = () => {
         }
         const val = snap.val();
         const lista = Object.entries(val)
-          .filter(([_, u]) => (u.role || u.rol) === "user")
+          .filter(([_, u]) => isOperativeRole(u.role || u.rol))
           .map(([id, u]) => ({
             id,
             name: u.name || u.displayName || u.nombre || u.email || id,

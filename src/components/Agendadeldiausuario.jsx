@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ref, set, push, get, onValue, update } from "firebase/database";
 import { database } from "../Database/firebaseConfig";
 import { decryptData } from "../utils/security";
+import { isCoordinatorRole, isOperativeRole } from "../utils/roleUtils";
 import Swal from "sweetalert2";
 import Clock from "./Clock";
 import Slidebaruser from "./Slidebaruser";
@@ -20,6 +21,8 @@ const Agendadeldiausuario = () => {
   // === NUEVO: referencia al usuario logueado y helpers de permisos por fila
   const loggedUser = decryptData(localStorage.getItem("user"));
   const myUserId = loggedUser?.id;
+  const isCoordinator = isCoordinatorRole(loggedUser?.role);
+  const isOperativeUser = isOperativeRole(loggedUser?.role);
 
   /** Regla por fila:
    * - Si no hay realizadopor: solo se puede abrir el select de asignación (si canEdit global lo permite)
@@ -27,6 +30,10 @@ const Agendadeldiausuario = () => {
    * - Si hay realizadopor y NO coincide: todo bloqueado
    */
   const getRowPermission = (item) => {
+    if (isCoordinator) {
+      return { canAssign: canEdit, canEditFields: false };
+    }
+
     const assigned = !!item.realizadopor;
     const mine = item.realizadopor === myUserId;
 
@@ -40,15 +47,15 @@ const Agendadeldiausuario = () => {
   useEffect(() => {
     const unsubData = onValue(ref(database, "data"), (snap) => {
       if (snap.exists()) {
-        // Filtrar solo registros que:
-        // 1. No tengan realizadopor (blanco), O
-        // 2. Tengan realizadopor igual al usuario logueado
-        const fetched = Object.entries(snap.val()).filter(
-          ([, it]) => !it.realizadopor || it.realizadopor === myUserId
-        );
+        const fetched = Object.entries(snap.val());
+        const visible = isCoordinator
+          ? fetched
+          : fetched.filter(
+              ([, it]) => !it.realizadopor || it.realizadopor === myUserId
+            );
 
-        const con = fetched.filter(([, it]) => !!it.realizadopor);
-        const sin = fetched.filter(([, it]) => !it.realizadopor);
+        const con = visible.filter(([, it]) => !!it.realizadopor);
+        const sin = visible.filter(([, it]) => !it.realizadopor);
 
         setData([
           ...con.sort(([, a], [, b]) =>
@@ -97,7 +104,7 @@ const Agendadeldiausuario = () => {
       unsubUsers();
       unsubClients();
     };
-  }, []);
+  }, [isCoordinator, myUserId]);
 
   // --- Lógica para editar campos en Firebase y estado local ---
   const handleFieldChange = (id, field, value) => {
@@ -279,7 +286,7 @@ const Agendadeldiausuario = () => {
   return (
     <div
       className={`homepage-container ${
-        loggedUser?.role === "user" ? "user" : ""
+        isOperativeUser ? "user" : ""
       }`}
     >
       <Slidebaruser />
@@ -410,18 +417,28 @@ const Agendadeldiausuario = () => {
                             style={{ width: "24ch" }}
                             value={item.realizadopor || ""}
                             onChange={(e) =>
-                              handleFieldChange(
-                                id,
-                                "realizadopor",
-                                e.target.value
-                              )
+                              handleFieldChange(id, "realizadopor", e.target.value)
                             }
                           >
-                            {!item.realizadopor && <option value=""></option>}
-                            {/* Solo mostrar el usuario logueado */}
-                            <option key={myUserId} value={myUserId}>
-                              {users.find((u) => u.id === myUserId)?.name}
-                            </option>
+                            {isCoordinator ? (
+                              <>
+                                <option key="empty" value=""></option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name}
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              <>
+                                {!item.realizadopor && (
+                                  <option key="empty" value=""></option>
+                                )}
+                                <option key={myUserId} value={myUserId}>
+                                  {users.find((u) => u.id === myUserId)?.name}
+                                </option>
+                              </>
+                            )}
                           </select>
                         ) : (
                           // Cuando ya hay asignación (o no hay permiso global), mostramos el nombre fijo

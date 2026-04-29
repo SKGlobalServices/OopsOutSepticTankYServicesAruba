@@ -53,7 +53,8 @@ const CAMPO_LABELS = {
   servicioAdicional: "Servicio Adicional",
   metodoPago: "Metodo de Pago",
   montoafavor: "Monto a Favor",
-  fechaEmision: "Fecha de Emisión"
+  fechaEmision: "Fecha de Emisión",
+  informedeefectivo: "Informe de Efectivo",
 };
 
 const AUDIT_ACTIONS = new Set(["crear", "editar", "eliminar", "mover"]);
