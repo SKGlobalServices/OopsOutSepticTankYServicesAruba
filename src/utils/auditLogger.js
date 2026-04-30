@@ -121,7 +121,6 @@ const resolverValor = async (campo, valor) => {
 const getAdminUser = () => {
   try {
     const userData = decryptData(localStorage.getItem("user"));
-    console.log(userData);
     if (!userData || (userData.role?.toLowerCase() !== "admin" && userData.role?.toLowerCase() !== "asistenteadministrativo")) {
       return null;
     }
