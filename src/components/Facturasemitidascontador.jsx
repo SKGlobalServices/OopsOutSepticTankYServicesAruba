@@ -20,6 +20,7 @@ import Clock from "./Clock";
 import filtericon from "../assets/img/filters_icon.jpg";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import Select from "react-select";
+import { isOperativeRole } from "../utils/roleUtils";
 import logotipo from "../assets/img/logo.png";
 import FacturaViewContador from "./FacturaViewContador";
 
@@ -193,9 +194,7 @@ const Facturasemitidascontador = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedUsers = Object.entries(snapshot.val())
-          .filter(
-            ([_, user]) => user.role !== "admin" && user.role !== "contador"
-          )
+            .filter(([_, user]) => isOperativeRole(user.role))
           .map(([id, user]) => ({ id, name: user.name }));
         fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
         setUsers(fetchedUsers);

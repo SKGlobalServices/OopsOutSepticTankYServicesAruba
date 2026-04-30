@@ -3,6 +3,7 @@ import { database } from "../Database/firebaseConfig";
 import { ref, onValue } from "firebase/database";
 import Swal from "sweetalert2";
 import { auditUpdate, auditSet, auditRemove } from "../utils/auditLogger";
+import { isOperativeRole } from "../utils/roleUtils";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -48,7 +49,7 @@ const FacturaViewEditTra = ({ numeroFactura, onClose }) => {
     return onValue(usersRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedUsers = Object.entries(snapshot.val())
-          .filter(([_, user]) => user.role !== "admin" && user.role !== "contador")
+          .filter(([_, user]) => isOperativeRole(user.role))
           .map(([id, user]) => ({ id, name: user.name }));
         setUsers(fetchedUsers);
       }

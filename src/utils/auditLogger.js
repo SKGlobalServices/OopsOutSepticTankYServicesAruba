@@ -121,9 +121,11 @@ const resolverValor = async (campo, valor) => {
 const getAdminUser = () => {
   try {
     const userData = decryptData(localStorage.getItem("user"));
-    if (!userData || userData.role?.toLowerCase() !== "admin") {
+    console.log(userData);
+    if (!userData || (userData.role?.toLowerCase() !== "admin" && userData.role?.toLowerCase() !== "asistenteadministrativo")) {
       return null;
     }
+  
     return userData;
   } catch (error) {
     console.warn("[auditLogger] No se pudo leer usuario admin desde localStorage:", error);

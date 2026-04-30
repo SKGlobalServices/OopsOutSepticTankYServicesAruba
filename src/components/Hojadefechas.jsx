@@ -25,6 +25,7 @@ import Select from "react-select";
 import logotipo from "../assets/img/logo.png";
 import FacturaViewEdit from "./FacturaViewEdit";
 import { auditUpdate, auditCreate, auditRemove, auditSet } from "../utils/auditLogger";
+import { isOperativeRole } from "../utils/roleUtils";
 
 // Función auxiliar para formatear números con formato 0,000.00
 const formatCurrency = (amount) => {
@@ -298,12 +299,7 @@ const Hojadefechas = () => {
         }));
         // 2) activos = ni admin, ni contador, ni usernotactive
         const active = all
-          .filter(
-            (u) =>
-              u.role !== "admin" &&
-              u.role !== "contador" &&
-              u.role !== "usernotactive"
-          )
+          .filter((u) => isOperativeRole(u.role))
           .map(({ id, name }) => ({ id, name }));
         active.sort((a, b) => a.name.localeCompare(b.name));
 

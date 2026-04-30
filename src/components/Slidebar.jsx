@@ -23,7 +23,12 @@ import configuracionUsuariosIcon2 from "../assets/img/configuracionUsuariosIcon2
 import logoutIcon2 from "../assets/img/logoutIcon2.png";
 import barraIcon from "../assets/img/barra_icon.jpg";
 import logo from "../assets/img/logosolo.png";
-import { isOperativeRole } from "../utils/roleUtils";
+import {
+  getLandingRouteForRole,
+  isAssistantAdministrativeRole,
+  isOperativeRole,
+  normalizeRole,
+} from "../utils/roleUtils";
 
 const Slidebar = () => {
   const navigate = useNavigate();
@@ -40,12 +45,13 @@ const Slidebar = () => {
 
     const routes = {
       admin: ["/agendaexpress", "/homepage", "/hojadefechas"],
+      asistenteadministrativo: ["/agendaexpress", "/homepage", "/hojadefechas"],
       user: ["/agendadeldiausuario", "/agendamañanausuario"],
       coordinador: ["/agendadeldiausuario", "/agendamañanausuario"],
       contador: ["/agendadinamicacontador"],
     };
 
-    const userRoutes = routes[user.role];
+    const userRoutes = routes[normalizeRole(user.role)];
     if (!userRoutes) return;
 
     const existingLinks = new Set(
@@ -77,6 +83,11 @@ const Slidebar = () => {
     }
     // admin se queda aquí
   }, [user, navigate]);
+
+  const showDashboardButton =
+    normalizeRole(user.role) === "admin" &&
+    !isAssistantAdministrativeRole(user.role);
+  const homeRoute = getLandingRouteForRole(user.role);
 
   const handleLogout = useCallback(async () => {
     const userData = decryptData(localStorage.getItem("user"));
@@ -211,7 +222,7 @@ const Slidebar = () => {
       >
         {/* ===== HEADER USUARIO ===== */}
         <div className="sidebar-user">
-          <a href="https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#/dashboard">
+          <a href={`https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/#${homeRoute}`}>
             <img
               className="user-photo"
               src={logo}
@@ -225,14 +236,16 @@ const Slidebar = () => {
 
         {/* ===== MENÚ PRINCIPAL ===== */}
         {/* MÓDULO: AGENDA EXPRESS */}
-        <button className="btn-infEfec2" onClick={() => navigate("/dashboard")}>
-          <img
-            className="icon-infEfec2"
-            src={informeEfectivoIcon2}
-            alt="Informe de Efectivo"
-          />
-          <span>ㅤㅤDashboard</span>
-        </button>
+        {showDashboardButton && (
+          <button className="btn-infEfec2" onClick={() => navigate("/dashboard")}>
+            <img
+              className="icon-infEfec2"
+              src={informeEfectivoIcon2}
+              alt="Informe de Efectivo"
+            />
+            <span>ㅤㅤDashboard</span>
+          </button>
+        )}
         <button
           className="btn-agendar2"
           onClick={() => navigate("/agendaexpress")}

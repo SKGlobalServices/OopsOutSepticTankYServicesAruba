@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { decryptData } from "../utils/security";
 import { validateSessionForAction } from "../utils/sessionValidator";
 import DatePicker from "react-datepicker";
+import { isAdminLikeRole } from "../utils/roleUtils";
 import "react-datepicker/dist/react-datepicker.css";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
@@ -144,7 +145,7 @@ const Clientesnuevos = () => {
   // Verificación de autorización
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (!userData || userData.role !== "admin") {
+    if (!userData || !isAdminLikeRole(userData.role)) {
       navigate("/");
       return;
     }

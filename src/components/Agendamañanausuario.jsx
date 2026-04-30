@@ -75,7 +75,7 @@ const Agendamañanausuario = () => {
     const unsubUsers = onValue(ref(database, "users"), (snap) => {
       if (snap.exists()) {
         const fetched = Object.entries(snap.val())
-          .filter(([_, u]) => u.role !== "admin" && u.role !== "contador")
+          .filter(([_, u]) => isOperativeRole(u.role))
           .map(([id, u]) => ({ id, name: u.name }))
           .sort((a, b) => a.name.localeCompare(b.name));
         setUsers(fetched);

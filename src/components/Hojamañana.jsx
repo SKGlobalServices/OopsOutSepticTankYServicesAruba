@@ -3,6 +3,7 @@ import { database } from "../Database/firebaseConfig";
 import { ref, update, onValue } from "firebase/database";
 import { useNavigate } from "react-router-dom";
 import { decryptData } from "../utils/security";
+import { isAdminLikeRole, isOperativeRole } from "../utils/roleUtils";
 import Swal from "sweetalert2";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
@@ -20,7 +21,7 @@ const Hojamañana = () => {
   // Verificacion de autorizacion
   useEffect(() => {
     const userData = decryptData(localStorage.getItem("user"));
-    if (!userData || userData.role !== "admin") {
+    if (!userData || !isAdminLikeRole(userData.role)) {
       navigate("/");
       return;
     }
@@ -86,9 +87,7 @@ const Hojamañana = () => {
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const fetchedUsers = Object.entries(snapshot.val())
-          .filter(([_, user]) => user.role !== "admin")
-          .filter(([_, user]) => user.role !== "contador")
-          .filter(([_, user]) => user.role !== "usernotactive")
+          .filter(([_, user]) => isOperativeRole(user.role))
           .map(([id, user]) => ({ id, name: user.name }));
         fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
         setUsers(fetchedUsers);

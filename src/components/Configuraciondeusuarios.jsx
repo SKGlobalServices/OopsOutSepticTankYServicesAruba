@@ -10,7 +10,7 @@ import lock_on from "../assets/img/lock_on.png";
 
 const Usuarios = () => {
   const [data, setData] = useState([]);
-  const [showSlidebar, setShowSlidebar] = useState(false);
+  const [, setShowSlidebar] = useState(false);
   const [showPasswords, setShowPasswords] = useState({});
   const slidebarRef = useRef(null);
 
@@ -90,8 +90,6 @@ const Usuarios = () => {
     }));
   };
 
-  const toggleSlidebar = () => setShowSlidebar(!showSlidebar);
-
   const handleClickOutside = (e) => {
     if (
       slidebarRef.current &&
@@ -153,7 +151,6 @@ const Usuarios = () => {
                     <td>
                       <input
                         type="email"
-                        style={{ width: "28ch", textAlign: "center" }}
                         value={localValues[`${id}_email`] ?? item.email ?? ""}
                         onChange={(e) =>
                           setLocalValues(prev => ({
@@ -230,6 +227,7 @@ const Usuarios = () => {
                         }
                       >
                         <option value="admin">Administrador</option>
+                        <option value="asistenteadministrativo">Asistente Administrativo</option>
                         <option value="user">Conductor</option>
                         <option value="contador">Contador</option>
                         <option value="coordinador">Coordinador</option>
