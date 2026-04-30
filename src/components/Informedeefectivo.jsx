@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { sanitizeForLog } from "../utils/security";
+import { isOperativeRole } from "../utils/roleUtils";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Slidebar from "./Slidebar";
@@ -39,8 +40,7 @@ const Informedeefectivo = () => {
   } = useInformeSourceData();
   const users = useMemo(() => {
     const fetchedUsers = allUsers
-      .filter((user) => user?.role !== "admin")
-      .filter((user) => user?.role !== "contador")
+      .filter((user) => isOperativeRole(user?.role))
       .map(({ id, name, role }) => ({ id, name, role }));
     fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
     return fetchedUsers;

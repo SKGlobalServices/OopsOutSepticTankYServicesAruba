@@ -1,11 +1,23 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Slidebar from "./Slidebar";
 import { GraficoSlider } from "./Dashboard/GraficoSlider";
 import "./Dashboard/Dashboard.css";
 import "./Dashboard/charts/Styles/MobileOptimizations.css";
+import { useNavigate } from "react-router-dom";
+import { decryptData } from "../utils/security";
+import { getLandingRouteForRole } from "../utils/roleUtils";
 
 const Dashboard = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const navigate = useNavigate();
+  const user = decryptData(localStorage.getItem("user")) || {};
+
+  useEffect(() => {
+    const landingRoute = getLandingRouteForRole(user.role);
+    if (landingRoute !== "/dashboard") {
+      navigate(landingRoute, { replace: true });
+    }
+  }, [navigate, user.role]);
 
   const sliderTitles = [
     {

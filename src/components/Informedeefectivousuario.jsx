@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { decryptData } from "../utils/security";
+import { isOperativeRole } from "../utils/roleUtils";
 import Slidebaruser from "./Slidebaruser";
 import excel_icon from "../assets/img/excel_icon.jpg";
 import pdf_icon from "../assets/img/pdf_icon.jpg";
@@ -34,9 +35,7 @@ const Informedeefectivousuario = () => {
 
   const users = useMemo(() => {
     const fetchedUsers = allUsers
-      .filter((user) => user?.role !== "admin")
-      .filter((user) => user?.role !== "contador")
-      .filter((user) => user?.role !== "usernotactive")
+      .filter((user) => isOperativeRole(user?.role))
       .filter((user) => user?.name !== "IT")
       .map(({ id, name }) => ({ id, name }));
     fetchedUsers.sort((a, b) => a.name.localeCompare(b.name));
