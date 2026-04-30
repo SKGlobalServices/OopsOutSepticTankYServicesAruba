@@ -2,7 +2,6 @@ import React, {
   useState,
   useRef,
   useEffect,
-  useMemo,
   useCallback,
 } from "react";
 import "./App.css";
@@ -20,7 +19,6 @@ import iconEyeClosed from "./assets/img/iconeyeclosed.jpg";
 import ReCAPTCHA from "react-google-recaptcha";
 import Swal from "sweetalert2";
 import { userCache } from "./utils/userCache";
-import { debounce } from "./utils/debounce";
 import LoadingScreen from "./components/LoadingScreen";
 import { useGlobalLoading, setGlobalLoading } from "./utils/useGlobalLoading";
 import {
@@ -29,12 +27,71 @@ import {
   decryptData,
   checkRateLimit,
 } from "./utils/security";
-import { isOperativeRole, normalizeRole } from "./utils/roleUtils";
+import {
+  getLandingRouteForRole,
+  isAdminLikeRole,
+  isOperativeRole,
+} from "./utils/roleUtils";
 import {
   initInactivityDetection,
   clearInactivityTimer,
 } from "./utils/sessionTimeout";
 import { initScreenshotProtection } from "./utils/screenshotProtection";
+
+const listenForSessionInvalidation = (userKey, sessionId, navigate) => {
+  const sessionRef = ref(database, `users/${userKey}/activeSession`);
+  onValue(sessionRef, (snap) => {
+    if (snap.exists() && snap.val() !== sessionId) {
+      setTimeout(() => {
+        const currentSessionId = localStorage.getItem("sessionId");
+        if (snap.val() !== currentSessionId) {
+          auth.signOut();
+          localStorage.clear();
+          alert(
+            "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
+          );
+          navigate(
+            "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
+          );
+        }
+      }, 2000);
+    }
+  });
+};
+
+const cleanupSession = async () => {
+  const userData = decryptData(localStorage.getItem("user"));
+  if (userData && userData.id && isOperativeRole(userData.role)) {
+    try {
+      const userRef = ref(database, `users/${userData.id}`);
+      await update(userRef, { activeSession: null });
+    } catch (error) {
+      // Error silencioso al limpiar sesión
+    }
+  }
+};
+
+const startSessionForUser = async ({
+  userKey,
+  setMessage,
+  navigate,
+}) => {
+  const sessionId = `${userKey}_${Date.now()}`;
+  const userRef = ref(database, `users/${userKey}`);
+  try {
+    localStorage.setItem("sessionId", sessionId);
+    await update(userRef, { activeSession: sessionId });
+
+    window.addEventListener("beforeunload", cleanupSession);
+    window.addEventListener("unload", cleanupSession);
+
+    setTimeout(() => {
+      listenForSessionInvalidation(userKey, sessionId, navigate);
+    }, 1000);
+  } catch (updErr) {
+    setMessage("Error de servidor al iniciar sesión.");
+  }
+};
 
 const App = () => {
   const [email, setEmail] = useState("");
@@ -110,35 +167,30 @@ const App = () => {
 
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
-      const userRole = normalizeRole(userFound.role);
       localStorage.setItem("user", encryptData(userData));
       localStorage.setItem(
         "isAdmin",
-        userRole === "admin" ? "true" : "false"
+        isAdminLikeRole(userFound.role) ? "true" : "false"
       );
 
       if (isOperativeRole(userFound.role)) {
-        startSessionForUser(userKey);
+        startSessionForUser({
+          userKey,
+          setMessage,
+          navigate,
+        });
         initInactivityDetection(handleInactivityLogout);
       }
 
       setGlobalLoading(true);
       setTimeout(() => {
         sessionStorage.setItem("navigated", "true");
-        switch (userRole) {
-          case "admin":
-            navigate("/dashboard");
-            break;
-          case "user":
-          case "coordinador":
-            navigate("/agendadeldiausuario");
-            break;
-          case "contador":
-            navigate("/informedetransferenciascontador");
-            break;
-          default:
-            setMessage("Rol no identificado");
-            setGlobalLoading(false);
+        const landingRoute = getLandingRouteForRole(userFound.role);
+        if (landingRoute === "/") {
+          setMessage("Rol no identificado");
+          setGlobalLoading(false);
+        } else {
+          navigate(landingRoute);
         }
       }, 500);
     },
@@ -217,19 +269,6 @@ const App = () => {
     }
   }, []);
 
-  // Debounced validation
-  const debouncedEmailValidation = useMemo(
-    () =>
-      debounce((email) => {
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setMessage("Formato de email inválido");
-        } else {
-          setMessage("");
-        }
-      }, 500),
-    []
-  );
-
   // Cerrar plataforma exactamente de 23:30 a 02:00
   // Cerrada de 23:30 a 02:00 (excluyendo 02:00)
   const isPlatformClosed = () => {
@@ -260,60 +299,6 @@ const App = () => {
 
     return () => clearInterval(interval);
   }, []);
-
-  // Función para escuchar invalidación de sesión
-  const listenForSessionInvalidation = (userKey, sessionId) => {
-    const sessionRef = ref(database, `users/${userKey}/activeSession`);
-    onValue(sessionRef, (snap) => {
-      if (snap.exists() && snap.val() !== sessionId) {
-        setTimeout(() => {
-          const currentSessionId = localStorage.getItem("sessionId");
-          if (snap.val() !== currentSessionId) {
-            auth.signOut();
-            localStorage.clear();
-            alert(
-              "Su sesión ha sido cerrada porque se inició sesión en otro dispositivo."
-            );
-            navigate(
-              "https://skglobalservices.github.io/OopsOutSepticTankYServicesAruba/"
-            );
-          }
-        }, 2000);
-      }
-    });
-  };
-
-  // Limpiar sesión al cerrar pestaña/navegador
-  const cleanupSession = useCallback(async () => {
-    const userData = decryptData(localStorage.getItem("user"));
-    if (userData && userData.id && isOperativeRole(userData.role)) {
-      try {
-        const userRef = ref(database, `users/${userData.id}`);
-        await update(userRef, { activeSession: null });
-      } catch (error) {
-        // Error silencioso al limpiar sesión
-      }
-    }
-  }, []);
-
-  // Inicio de sesión único
-  const startSessionForUser = async (userKey) => {
-    const sessionId = `${userKey}_${Date.now()}`;
-    const userRef = ref(database, `users/${userKey}`);
-    try {
-      localStorage.setItem("sessionId", sessionId);
-      await update(userRef, { activeSession: sessionId });
-
-      window.addEventListener("beforeunload", cleanupSession);
-      window.addEventListener("unload", cleanupSession);
-
-      setTimeout(() => {
-        listenForSessionInvalidation(userKey, sessionId);
-      }, 1000);
-    } catch (updErr) {
-      setMessage("Error de servidor al iniciar sesión.");
-    }
-  };
 
   // Bloqueo por intentar demasiadas veces
   useEffect(() => {
@@ -376,7 +361,7 @@ const App = () => {
       window.removeEventListener("beforeunload", cleanupSession);
       window.removeEventListener("unload", cleanupSession);
     };
-  }, [cleanupSession]);
+  }, []);
 
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
@@ -490,18 +475,21 @@ const App = () => {
 
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
-      const userRole = normalizeRole(userFound.role);
 
       userCache.set(email, userData);
 
       localStorage.setItem("user", encryptData(userData));
       localStorage.setItem(
         "isAdmin",
-        userRole === "admin" ? "true" : "false"
+        isAdminLikeRole(userFound.role) ? "true" : "false"
       );
 
       if (isOperativeRole(userFound.role)) {
-        startSessionForUser(userKey);
+        startSessionForUser({
+          userKey,
+          setMessage,
+          navigate,
+        });
         initInactivityDetection(handleInactivityLogout);
       }
 
@@ -515,20 +503,12 @@ const App = () => {
       }).then(() => {
         setGlobalLoading(true);
         sessionStorage.setItem("navigated", "true");
-        switch (userRole) {
-          case "admin":
-            navigate("/dashboard");
-            break;
-          case "user":
-          case "coordinador":
-            navigate("/agendadeldiausuario");
-            break;
-          case "contador":
-            navigate("/informedetransferenciascontador");
-            break;
-          default:
-            setMessage("Rol no identificado");
-            setGlobalLoading(false);
+        const landingRoute = getLandingRouteForRole(userFound.role);
+        if (landingRoute === "/") {
+          setMessage("Rol no identificado");
+          setGlobalLoading(false);
+        } else {
+          navigate(landingRoute);
         }
       });
     } catch (error) {
