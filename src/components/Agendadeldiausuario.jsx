@@ -28,10 +28,11 @@ const Agendadeldiausuario = () => {
    * - Si no hay realizadopor: solo se puede abrir el select de asignación (si canEdit global lo permite)
    * - Si hay realizadopor y coincide con mi usuario: puedo editar el resto Y desasignarme
    * - Si hay realizadopor y NO coincide: todo bloqueado
+   * - coordiandor: puede editar forma de pago en cualquier registro
    */
   const getRowPermission = (item) => {
     if (isCoordinator) {
-      return { canAssign: canEdit, canEditFields: false };
+      return { canAssign: canEdit, canEditFields: true };
     }
 
     const assigned = !!item.realizadopor;
