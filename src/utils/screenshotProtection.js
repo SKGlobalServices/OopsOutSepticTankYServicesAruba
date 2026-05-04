@@ -1,7 +1,6 @@
 /**
  * 🔒 PROTECCIÓN AVANZADA CONTRA SCREENSHOTS (WEB)
- * NOTA: No existe bloqueo 100% real en navegador,
- * pero esto lo hace MUY difícil y molesto.
+ * Mejorado: Menos falsas alarmas en desktop y móvil
  */
 
 import { push, ref, set } from "firebase/database";
@@ -10,6 +9,12 @@ import { decryptData } from "./security";
 
 let screenshotAttempts = 0;
 let isActive = false;
+let lastLockScreen = 0;
+let mobilePasteHandler = null;
+let mobileVisibilityHandler = null;
+
+// Detectar si es móvil
+const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 /**
  * 🚀 INICIAR PROTECCIÓN
@@ -18,20 +23,27 @@ export const initScreenshotProtection = () => {
   if (isActive) return;
   isActive = true;
 
-  document.addEventListener("keydown", handleKeys, true);
-  document.addEventListener("keyup", handleKeys, true);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("blur", handleWindowBlur);
+  // En desktop: bloquear teclas
+  if (!isMobile()) {
+    document.addEventListener("keydown", handleDesktopKeys, true);
+    handleScreenCaptureAPI();
+  } else {
+    // En móvil: detectar captura nativa
+    handleMobileScreenshot();
+  }
 
   injectGlobalStyles();
 
   console.log("🔒 Protección anti-screenshot ACTIVADA");
 };
 
+// (No clipboard polling on desktop to avoid permission prompts)
+
 /**
- * ⛔ DETECCIÓN DE TECLAS
+ * ⛔ DETECCIÓN DE TECLAS (DESKTOP)
+ * Bloquea: PrintScreen, F12, Ctrl+S, Ctrl+Shift+I/C/J, Win+Shift+S, y botones especiales
  */
-const handleKeys = (e) => {
+const handleDesktopKeys = (e) => {
   const blocked =
     e.key === "PrintScreen" ||
     e.keyCode === 44 ||
@@ -43,27 +55,56 @@ const handleKeys = (e) => {
   if (blocked) {
     e.preventDefault();
     e.stopPropagation();
-
-    triggerProtection("Intento de captura por teclado");
+    triggerProtection("Intento de captura por teclado (Desktop)");
     return false;
   }
 };
 
 /**
- * 👁️ DETECTAR CAMBIO DE VISIBILIDAD
+ * 📱 DETECCIÓN DE SCREENSHOT EN MÓVIL
+ * Detecta acceso a clipboard y transiciones de app
  */
-const handleVisibilityChange = () => {
-  if (document.visibilityState === "hidden") {
-    triggerProtection("Pantalla oculta - posible screenshot externo");
+const handleMobileScreenshot = () => {
+  // Detectar acceso a clipboard (si intenta pegar captura)
+  mobilePasteHandler = (e) => {
+    if (e.clipboardData && e.clipboardData.types.some((t) => t.startsWith("image/"))) {
+      triggerProtection("Intento de captura por clipboard");
+    }
+  };
+  document.addEventListener("paste", mobilePasteHandler);
+
+  // Detectar transición sospechosa (app en background)
+  mobileVisibilityHandler = () => {
+    if (document.visibilityState === "hidden") {
+      lastLockScreen = Date.now();
+    } else if (document.visibilityState === "visible") {
+      // Si salió y regresó en menos de 3 segundos, posible captura
+      if (Date.now() - lastLockScreen < 3000) {
+        triggerProtection("Transición de app sospechosa (posible captura)");
+      }
+    }
+  };
+  document.addEventListener("visibilitychange", mobileVisibilityHandler);
+};
+
+/**
+ * 🎬 BLOQUEAR SCREEN CAPTURE API
+ * Impide acceso a getDisplayMedia (captura de pantalla moderna)
+ */
+const handleScreenCaptureAPI = () => {
+  if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+    navigator.mediaDevices.getDisplayMedia = function(...args) {
+      triggerProtection("Intento de captura por Screen Capture API");
+      return Promise.reject(new Error("Capturas de pantalla deshabilitadas"));
+    };
   }
 };
 
 /**
- * 🧠 DETECTAR PÉRDIDA DE FOCO
+ * Comprobar portapapeles por imágenes (útil cuando PrintScreen guarda imagen en clipboard)
+ * Se ejecuta al recibir foco y evita lecturas excesivas por rate limit.
  */
-const handleWindowBlur = () => {
-  triggerProtection("Ventana perdió foco - posible herramienta externa");
-};
+// No checkClipboardForImage on desktop to avoid permission prompts
 
 /**
  * 🚨 ACCIÓN PRINCIPAL
@@ -72,26 +113,23 @@ const triggerProtection = (reason) => {
   screenshotAttempts++;
 
   logScreenshotAttempt(reason);
-
   showAlert();
   blockScreen();
 };
 
 /**
- * ⚠️ ALERTA VISUAL (MULTIPLE)
+ * ⚠️ ALERTA VISUAL
  */
 const showAlert = () => {
   const alert = document.createElement("div");
-
   alert.className = "screenshot-alert";
-  alert.innerText =
-    "⚠️ No se permiten capturas de pantalla en esta aplicación";
+  alert.innerText = "⚠️ Las capturas de pantalla están deshabilitadas";
 
   document.body.appendChild(alert);
 
   setTimeout(() => {
     alert.remove();
-  }, 2500);
+  }, 3000);
 };
 
 /**
@@ -103,7 +141,6 @@ const blockScreen = () => {
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "screenshot-overlay";
-
     document.body.appendChild(overlay);
   }
 
@@ -111,7 +148,7 @@ const blockScreen = () => {
 
   setTimeout(() => {
     overlay.style.display = "none";
-  }, 2000);
+  }, 2500);
 };
 
 /**
@@ -150,6 +187,7 @@ const injectGlobalStyles = () => {
       z-index: 1000000;
       text-align: center;
       animation: fadeIn 0.2s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
     @keyframes fadeIn {
@@ -181,6 +219,7 @@ const logScreenshotAttempt = async (reason) => {
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       userId: userData?.id || "anonymous",
+      platform: isMobile() ? "mobile" : "desktop",
     });
   } catch (err) {
     console.error("Error Firebase:", err);
@@ -193,10 +232,18 @@ const logScreenshotAttempt = async (reason) => {
 export const disableScreenshotProtection = () => {
   isActive = false;
 
-  document.removeEventListener("keydown", handleKeys, true);
-  document.removeEventListener("keyup", handleKeys, true);
-  document.removeEventListener("visibilitychange", handleVisibilityChange);
-  window.removeEventListener("blur", handleWindowBlur);
+  document.removeEventListener("keydown", handleDesktopKeys, true);
+  // Eliminar handlers móviles si fueron registrados
+  if (mobilePasteHandler) {
+    document.removeEventListener("paste", mobilePasteHandler);
+    mobilePasteHandler = null;
+  }
+  if (mobileVisibilityHandler) {
+    document.removeEventListener("visibilitychange", mobileVisibilityHandler);
+    mobileVisibilityHandler = null;
+  }
+
+  // Eliminar chequeo/polling de portapapeles (no usado en desktop ahora)
 
   console.log("❌ Protección desactivada");
 };
