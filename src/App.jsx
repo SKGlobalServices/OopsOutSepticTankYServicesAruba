@@ -107,10 +107,7 @@ const App = () => {
   const emailRef = useRef(null);
   const globalLoading = useGlobalLoading();
 
-  // Inicializar protección contra screenshots
-  useEffect(() => {
-    initScreenshotProtection();
-  }, []);
+
 
   // === Helper centralizado para el Swal de plataforma cerrada
   const showClosedSwal = useCallback(() => {
@@ -168,6 +165,8 @@ const App = () => {
       const [userKey, userFound] = entry;
       const userData = { ...userFound, id: userKey };
       localStorage.setItem("user", encryptData(userData));
+      // Activar protección inmediatamente para evitar race conditions
+      initScreenshotProtection(userData);
       localStorage.setItem(
         "isAdmin",
         isAdminLikeRole(userFound.role) ? "true" : "false"
@@ -479,6 +478,8 @@ const App = () => {
       userCache.set(email, userData);
 
       localStorage.setItem("user", encryptData(userData));
+      // Activar protección inmediatamente para evitar race conditions
+      initScreenshotProtection(userData);
       localStorage.setItem(
         "isAdmin",
         isAdminLikeRole(userFound.role) ? "true" : "false"
@@ -565,6 +566,13 @@ const App = () => {
       setMessage("La verificación del captcha falló.");
     }
   };
+
+    // Inicializar protección contra screenshots
+  useEffect(() => {
+    const encrypted = localStorage.getItem("user");
+    const currentUser = encrypted ? decryptData(encrypted) : null;
+    initScreenshotProtection(currentUser);
+  }, []);
 
   return (
     <div className="App">

@@ -14,13 +14,30 @@ let mobilePasteHandler = null;
 let mobileVisibilityHandler = null;
 
 // Detectar si es móvil
-const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isMobile = () =>
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  );
 
 /**
  * 🚀 INICIAR PROTECCIÓN
  */
-export const initScreenshotProtection = () => {
+export const initScreenshotProtection = (userParam = null) => {
   if (isActive) return;
+  const currentUser =
+    userParam ||
+    (() => {
+      try {
+        return decryptData(localStorage.getItem("user"));
+      } catch {
+        return null;
+      }
+    })();
+  if (!currentUser || currentUser.role !== "user") {
+    console.log("🔒 Protección anti-screenshot: rol no aplicable, saltando");
+    return;
+  }
+
   isActive = true;
 
   // En desktop: bloquear teclas
@@ -49,7 +66,9 @@ const handleDesktopKeys = (e) => {
     e.keyCode === 44 ||
     e.key === "F12" ||
     e.keyCode === 123 ||
-    (e.ctrlKey && e.shiftKey && ["I", "C", "J"].includes(e.key.toUpperCase())) ||
+    (e.ctrlKey &&
+      e.shiftKey &&
+      ["I", "C", "J"].includes(e.key.toUpperCase())) ||
     (e.ctrlKey && e.key.toUpperCase() === "S");
 
   if (blocked) {
@@ -67,7 +86,10 @@ const handleDesktopKeys = (e) => {
 const handleMobileScreenshot = () => {
   // Detectar acceso a clipboard (si intenta pegar captura)
   mobilePasteHandler = (e) => {
-    if (e.clipboardData && e.clipboardData.types.some((t) => t.startsWith("image/"))) {
+    if (
+      e.clipboardData &&
+      e.clipboardData.types.some((t) => t.startsWith("image/"))
+    ) {
       triggerProtection("Intento de captura por clipboard");
     }
   };
@@ -93,7 +115,7 @@ const handleMobileScreenshot = () => {
  */
 const handleScreenCaptureAPI = () => {
   if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-    navigator.mediaDevices.getDisplayMedia = function(...args) {
+    navigator.mediaDevices.getDisplayMedia = function (...args) {
       triggerProtection("Intento de captura por Screen Capture API");
       return Promise.reject(new Error("Capturas de pantalla deshabilitadas"));
     };
