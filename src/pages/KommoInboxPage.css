@@ -5,18 +5,24 @@
 .kommo-inbox-page {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   width: 100%;
-  padding: 20px;
+  overflow: hidden;
   font-family: "CentraNo2", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, sans-serif;
+}
+
+.kommo-inbox-page > :first-child {
+  flex-shrink: 0;
 }
 
 /* ---- Header ---- */
 .kommo-inbox-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .kommo-inbox-title {
@@ -66,11 +72,14 @@
   border-radius: 8px;
   margin-bottom: 1rem;
   font-size: 0.88rem;
+  flex-shrink: 0;
 }
 
 .kommo-inbox-loading {
-  text-align: center;
-  padding: 3rem 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #64748b;
   font-size: 0.95rem;
 }
@@ -82,7 +91,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
-  min-height: calc(100vh - 200px);
+  min-height: 0;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
@@ -133,6 +142,54 @@
   font-size: 0.78rem;
   color: #64748b;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kommo-inbox-item-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.kommo-inbox-direction {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.kommo-inbox-direction.incoming {
+  color: #22c55e;
+}
+
+.kommo-inbox-direction.outgoing {
+  color: #3b82f6;
+}
+
+.kommo-inbox-msg-id {
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.kommo-inbox-total {
+  margin-left: auto;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.kommo-inbox-last-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
 }
 
 .kommo-inbox-item-meta {
@@ -235,19 +292,100 @@
   border-top: 1px solid #f1f5f9;
 }
 
+/* ---- Wrapper ---- */
+.kommo-inbox-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ---- Empty state ---- */
+.kommo-inbox-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #94a3b8;
+}
+
+.kommo-inbox-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* ---- Load More button ---- */
+.kommo-inbox-load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.kommo-inbox-load-more {
+  padding: 0.5rem 1.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #334155;
+  transition: all 0.15s;
+}
+
+.kommo-inbox-load-more:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.kommo-inbox-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Selection state ---- */
+.kommo-inbox-container.has-selection .kommo-inbox-list {
+  border-right: 1px solid #e2e8f0;
+}
+
 /* ---- Responsive ---- */
 @media screen and (max-width: 768px) {
+  .kommo-inbox-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .kommo-inbox-wrapper {
+    height: auto;
+    min-height: calc(100vh - 60px);
+    overflow: visible;
+  }
+
   .kommo-inbox-container {
     flex-direction: column;
     min-height: auto;
+    flex: none;
   }
 
   .kommo-inbox-list {
     width: 100%;
     min-width: auto;
-    max-height: 40vh;
+    max-height: 50vh;
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
+  }
+
+  .kommo-inbox-detail {
+    min-height: 40vh;
   }
 
   .kommo-inbox-detail-cards {

@@ -1,6 +1,5 @@
 /**
- * Manual sync and test endpoints for Kommo V1.
- * - testFetch: validates connectivity and returns raw API data
+ * Manual sync endpoint for Kommo V1.
  * - syncData: fetches leads + contacts and saves raw to RTDB
  */
 
@@ -28,31 +27,6 @@ function validateConfig(): string | null {
   if (!getClientSecret()) return "KOMMO_CLIENT_SECRET not set";
   if (!getDomain()) return "KOMMO_DOMAIN not set";
   return null;
-}
-
-export async function testFetch(): Promise<{
-  success: boolean;
-  leads?: unknown;
-  contacts?: unknown;
-  error?: string;
-}> {
-  const configErr = validateConfig();
-  if (configErr) return { success: false, error: configErr };
-
-  try {
-    const accessToken = await getValidAccessToken(getClientId(), getClientSecret());
-    const client = createKommoClient(accessToken, getDomain());
-
-    const leads = await fetchLeads(client);
-    const contacts = await fetchContacts(client);
-
-    console.log("Test fetch completed successfully");
-    return { success: true, leads, contacts };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("Test fetch error:", msg);
-    return { success: false, error: msg };
-  }
 }
 
 interface KommoEmbeddedResponse {

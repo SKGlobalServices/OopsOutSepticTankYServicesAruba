@@ -1,11 +1,9 @@
 "use strict";
 /**
- * Manual sync and test endpoints for Kommo V1.
- * - testFetch: validates connectivity and returns raw API data
+ * Manual sync endpoint for Kommo V1.
  * - syncData: fetches leads + contacts and saves raw to RTDB
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testFetch = testFetch;
 exports.syncData = syncData;
 const database_1 = require("firebase-admin/database");
 const client_1 = require("./client");
@@ -32,24 +30,6 @@ function validateConfig() {
     if (!getDomain())
         return "KOMMO_DOMAIN not set";
     return null;
-}
-async function testFetch() {
-    const configErr = validateConfig();
-    if (configErr)
-        return { success: false, error: configErr };
-    try {
-        const accessToken = await (0, tokenManager_1.getValidAccessToken)(getClientId(), getClientSecret());
-        const client = (0, client_1.createKommoClient)(accessToken, getDomain());
-        const leads = await (0, services_1.fetchLeads)(client);
-        const contacts = await (0, services_1.fetchContacts)(client);
-        console.log("Test fetch completed successfully");
-        return { success: true, leads, contacts };
-    }
-    catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error("Test fetch error:", msg);
-        return { success: false, error: msg };
-    }
 }
 async function syncData() {
     var _a, _b;

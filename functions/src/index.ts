@@ -4,9 +4,10 @@
  * Endpoints:
  * - kommoAuthRedirect:  GET  → redirects to Kommo OAuth
  * - kommoAuthCallback:  GET  → handles OAuth callback, stores tokens in RTDB
- * - kommoTestFetch:     GET  → validates connection, returns raw leads/contacts
  * - kommoSync:          POST → fetches leads/contacts and saves raw to RTDB
- * - kommoGetChats:      GET  → returns chats/conversations from Kommo
+ * - kommoGetChats:      GET  → returns chats/conversations from Kommo (contacts-based)
+ * - kommoGetInbox:      GET  → returns inbox from Events API (chat messages)
+ * - kommoGetMessages:   GET  → returns notes/messages for a specific lead (?entityId=)
  */
 
 import cors from "cors";
@@ -14,7 +15,9 @@ import { initializeApp } from "firebase-admin/app";
 import { onRequest } from "firebase-functions/v2/https";
 import { handleAuthRedirect, handleAuthCallback } from "./kommo/auth";
 import { getChats } from "./kommo/chats";
-import { testFetch, syncData } from "./kommo/sync";
+import { getMessages } from "./kommo/messages";
+import { syncData } from "./kommo/sync";
+import { getInbox } from "./kommo/inbox";
 
 initializeApp();
 
@@ -35,20 +38,6 @@ export const kommoAuthCallback = onRequest(
   (req, res) => {
     corsHandler(req, res, async () => {
       await handleAuthCallback(req, res);
-    });
-  }
-);
-
-export const kommoTestFetch = onRequest(
-  { region: "us-central1", invoker: "public" },
-  (req, res) => {
-    corsHandler(req, res, async () => {
-      if (req.method !== "GET") {
-        res.status(405).json({ error: "Method not allowed" });
-        return;
-      }
-      const result = await testFetch();
-      res.status(result.success ? 200 : 500).json(result);
     });
   }
 );
@@ -77,6 +66,42 @@ export const kommoGetChats = onRequest(
       }
       const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
       const result = await getChats(page);
+      res.status(result.success ? 200 : 500).json(result);
+    });
+  }
+);
+
+export const kommoGetMessages = onRequest(
+  { region: "us-central1", invoker: "public" },
+  (req, res) => {
+    corsHandler(req, res, async () => {
+      if (req.method !== "GET") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+      const entityId = parseInt(String(req.query.entityId), 10);
+      if (!entityId || isNaN(entityId)) {
+        res.status(400).json({ error: "entityId query param is required" });
+        return;
+      }
+      const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
+      const result = await getMessages(entityId, page);
+      res.status(result.success ? 200 : 500).json(result);
+    });
+  }
+);
+
+export const kommoGetInbox = onRequest(
+  { region: "us-central1", invoker: "public" },
+  (req, res) => {
+    corsHandler(req, res, async () => {
+      if (req.method !== "GET") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+      const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
+      console.log(`[kommoGetInbox] Request for page ${page}`);
+      const result = await getInbox(page);
       res.status(result.success ? 200 : 500).json(result);
     });
   }
