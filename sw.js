@@ -1,28 +1,22 @@
-// Service Worker para cache offline
-const CACHE_NAME = 'oops-out-v1';
-const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json'
-];
-
-self.addEventListener('install', event => {
+// Limpia caches heredados y evita que versiones viejas oculten datos actuales.
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        clients.forEach((client) => client.navigate(client.url));
+      })
+      .then(() => self.registration.unregister())
   );
 });
+
+self.addEventListener("fetch", () => {});
