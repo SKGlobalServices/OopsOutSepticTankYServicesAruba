@@ -1,0 +1,39 @@
+{
+  "files": {
+    "main.css": "./static/css/main.c3f9fea5.css",
+    "main.js": "./static/js/main.4c6b0ad8.js",
+    "static/js/52.ddfc9e88.chunk.js": "./static/js/52.ddfc9e88.chunk.js",
+    "static/js/82.d1685895.chunk.js": "./static/js/82.d1685895.chunk.js",
+    "static/js/239.136b4bae.chunk.js": "./static/js/239.136b4bae.chunk.js",
+    "static/media/background.png": "./static/media/background.eb73f45ee6cecd0aa928.png",
+    "static/media/logosolo.png": "./static/media/logosolo.28f62e0ec3fc97885507.png",
+    "static/media/logo.png": "./static/media/logo.1e56a67ef92f97782d15.png",
+    "static/media/iconeye.jpg": "./static/media/iconeye.ad44a731dd56d3309e79.jpg",
+    "static/media/CentraNo2-Bold.ttf": "./static/media/CentraNo2-Bold.2faff7f7d3fc92a2fcd9.ttf",
+    "static/media/CentraNo2-Medium.ttf": "./static/media/CentraNo2-Medium.f94be5b326d78bb32b95.ttf",
+    "static/media/excel_icon.jpg": "./static/media/excel_icon.c957a6681a4fe4d97e9f.jpg",
+    "static/media/CentraNo2-Book.ttf": "./static/media/CentraNo2-Book.2b143fa4b734a3584043.ttf",
+    "static/media/pdf_icon.jpg": "./static/media/pdf_icon.561433d01fc95dd77c93.jpg",
+    "static/media/guardarfactura_icon.jpg": "./static/media/guardarfactura_icon.44575958d62580119a8f.jpg",
+    "static/media/informeEfectivoIcon2.png": "./static/media/informeEfectivoIcon2.08461b0fca0dc57bb3b9.png",
+    "static/media/barra_icon.jpg": "./static/media/barra_icon.b4796c2cb9f5e0086dd6.jpg",
+    "static/media/agendarIcon2.png": "./static/media/agendarIcon2.5eeb0023bfc65b0748b7.png",
+    "static/media/filters_icon.jpg": "./static/media/filters_icon.5e8b4eddfcc47788601e.jpg",
+    "static/media/reprogramacionIcon2.png": "./static/media/reprogramacionIcon2.38cee6993543a866becc.png",
+    "static/media/servicioPasadoMananaIcon2.png": "./static/media/servicioPasadoMananaIcon2.bf41a2b5600f249942d8.png",
+    "static/media/clientesIcon2.png": "./static/media/clientesIcon2.82e5c3ed7d6b3509780a.png",
+    "static/media/configuracionUsuariosIcon2.png": "./static/media/configuracionUsuariosIcon2.312e9148d5d53ad1bf69.png",
+    "static/media/servicioHoyIcon2.png": "./static/media/servicioHoyIcon2.5d2205c0565c2c3d2140.png",
+    "static/media/servicioMananaIcon2.png": "./static/media/servicioMananaIcon2.8a1123d3b8411ca4b7a1.png",
+    "static/media/factura_icon2.png": "./static/media/factura_icon2.be0a49edd759f7bd5fcd.png",
+    "static/media/lock_off.png": "./static/media/lock_off.68b8d36267f33b629d4d.png",
+    "static/media/logoutIcon2.png": "./static/media/logoutIcon2.db0be23948997b4942da.png",
+    "static/media/agendaDinamicaIcon2.png": "./static/media/agendaDinamicaIcon2.eeb9485ebf484bbf5210.png",
+    "static/media/lock_on.png": "./static/media/lock_on.7dfc5090dae103303504.png",
+    "index.html": "./index.html"
+  },
+  "entrypoints": [
+    "static/css/main.c3f9fea5.css",
+    "static/js/main.4c6b0ad8.js"
+  ]
+}
