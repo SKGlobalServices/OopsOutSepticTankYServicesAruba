@@ -1,15 +1,21 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Redirection</title>
+    <meta name="robots" content="noindex" />
+    <title>Oops Out</title>
     <script>
-      const isGitHubPages = window.location.hostname.endsWith("github.io");
-      window.location.href = isGitHubPages ? "/OopsOutSepticTankYServicesAruba/" : "/";
+      (function () {
+        var official = "https://oops-out-septic-tank-services.vercel.app";
+        window.location.replace(official + (window.location.hash || ""));
+      })();
     </script>
+    <noscript>
+      <meta http-equiv="refresh" content="0; url=https://oops-out-septic-tank-services.vercel.app" />
+    </noscript>
   </head>
   <body>
-    <p>Redirigiendo a la página principal...</p>
+    <a href="https://oops-out-septic-tank-services.vercel.app">Open Oops Out</a>
   </body>
 </html>
